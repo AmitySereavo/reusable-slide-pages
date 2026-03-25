@@ -1,0 +1,135 @@
+export type PrimitiveValue = string | number | boolean;
+
+export type Option = {
+  label: string;
+  value: PrimitiveValue;
+  disabled?: boolean;
+};
+
+export type ShowIfRule = {
+  field: string;
+  in: PrimitiveValue[];
+};
+
+export type FieldType = "text" | "email" | "tel" | "checkbox" | "textarea";
+
+export type FormField = {
+  name: string;
+  type: FieldType;
+  label: string;
+  required?: boolean;
+  placeholder?: string;
+};
+
+export type SlideFeature =
+  | {
+      type: "numberscale";
+      options: Option[];
+    };
+
+export type SlideSection =
+  | {
+      type: "heading";
+      text: string;
+    }
+  | {
+      type: "subheading";
+      text: string;
+    }
+  | {
+      type: "paragraph";
+      text: string;
+    }
+  | {
+      type: "break";
+    }
+  | {
+      type: "feature";
+      feature: SlideFeature;
+    };
+
+export type SlideType =
+  | "score"
+  | "content"
+  | "contact"
+  | "choice"
+  | "result"
+  | "story"
+  | "form";
+
+export type Slide = {
+  id: string;
+  type: SlideType;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  helperText?: string;
+  helperTextBelowOptions?: boolean;
+  options?: Option[];
+  nextLabel?: string;
+  backLabel?: string;
+  storeAs?: string;
+  showIf?: ShowIfRule;
+  goto?: string;
+  feature?: SlideFeature;
+  sections?: SlideSection[];
+  fields?: FormField[];
+};
+
+export type ThemeConfig = {
+  colors: {
+    background: string;
+    card: string;
+    text: string;
+    primary: string;
+    primaryHover: string;
+    soft: string;
+    border: string;
+    disabled: string;
+    accent?: string;
+    subtitle?: string;
+  };
+  radius?: {
+    card?: string;
+    button?: string;
+    option?: string;
+  };
+  shadow?: {
+    card?: string;
+  };
+};
+
+export type QuestionnaireConfig = {
+  slug: string;
+  name: string;
+  themeKey: string;
+  slides: Slide[];
+};
+
+export type QuestionnaireAnswers = Record<string, PrimitiveValue>;
+
+export type LeadFormData = {
+  fullName: string;
+  email: string;
+  phone: string;
+  whatsappOptIn: boolean;
+};
+
+export type ParsedSlideDraft = {
+  id?: string;
+  type?: SlideType;
+  title?: string;
+  subtitle?: string;
+  paragraphs: string[];
+  sections: SlideSection[];
+  feature?: SlideFeature;
+  storeAs?: string;
+  backLabel?: string;
+  nextLabel?: string;
+  goto?: string;
+  fields?: FormField[];
+};
+
+export type ParsedQuestionnaireDocument = {
+  slides: Slide[];
+};
