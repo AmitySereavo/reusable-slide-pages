@@ -24,6 +24,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const visibleSlides = useMemo(
     () =>
@@ -94,7 +96,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return answers[currentSlide.storeAs] !== undefined;
     }
 
-    if ((currentSlide.type === "form" || currentSlide.type === "contact") && currentSlide.fields?.length) {
+    if (
+      (currentSlide.type === "form" || currentSlide.type === "contact") &&
+      currentSlide.fields?.length
+    ) {
       return currentSlide.fields.every((field) => {
         if (!field.required) return true;
 
@@ -106,6 +111,61 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     return true;
+  }
+
+  function getLeadPayload() {
+    return {
+      questionnaireSlug: config.slug,
+      fullName: String(answers.fullName ?? "").trim(),
+      email: String(answers.email ?? "").trim(),
+      phone: String(answers.phone ?? "").trim(),
+      whatsappOptIn: answers.whatsappOptIn === true,
+      selfScore: answers.selfScore ?? null,
+      futureScore: answers.futureScore ?? null,
+    };
+  }
+
+  async function runSlideAction(runName: string) {
+    if (runName !== "submitLead") return true;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const response = await fetch("/api/questionnaires/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(getLeadPayload()),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to submit lead.");
+      }
+
+      return true;
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to submit lead."
+      );
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleNext() {
+    if (!currentSlide || !canGoNext() || isSubmitting) return;
+
+    if (currentSlide.run) {
+      const ok = await runSlideAction(currentSlide.run);
+      if (!ok) return;
+    }
+
+    next();
   }
 
   if (!currentSlide) {
@@ -167,7 +227,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                   )}
 
                   {(currentSlide.type === "form" || currentSlide.type === "contact") &&
-                    currentSlide.fields?.length ? (
+                  currentSlide.fields?.length ? (
                     <div className={styles.formGrid} style={{ marginTop: "20px" }}>
                       {currentSlide.fields.map((field) => (
                         <FormFieldRenderer
@@ -180,6 +240,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                       ))}
                     </div>
                   ) : null}
+
+                  {submitError ? (
+                    <p className={styles.formError}>{submitError}</p>
+                  ) : null}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -190,7 +254,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               <button
                 type="button"
                 onClick={back}
-                disabled={currentIndex === 0 && history.length === 0}
+                disabled={currentIndex === 0 && history.length === 0 || isSubmitting}
                 className={styles.secondaryButton}
                 style={{
                   borderColor: theme.colors.border,
@@ -201,15 +265,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
               <button
                 type="button"
-                onClick={next}
-                disabled={!canGoNext()}
+                onClick={handleNext}
+                disabled={!canGoNext() || isSubmitting}
                 className={styles.primaryButton}
                 style={{
                   background: theme.colors.primary,
                   borderRadius: theme.radius?.button ?? "14px",
                 }}
               >
-                {currentSlide.nextLabel ?? "Next"}
+                {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
               </button>
             </div>
           </div>

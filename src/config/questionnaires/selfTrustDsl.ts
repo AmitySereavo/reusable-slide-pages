@@ -96,6 +96,7 @@ Share your details and we’ll send guidance and updates.
 - email|email|Email address|required|Email address
 - phone|tel|Phone number|optional|Phone number
 - whatsappOptIn|checkbox|I'm okay with being contacted on WhatsApp|optional
+@run: submitLead
 @back: Back
 @next: Continue
 `;

@@ -89,6 +89,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@run:")) {
+        draft.run = readValue(line, "@run:");
+        continue;
+      }
+
       if (line.startsWith("@feature:")) {
         const feature = parseFeature(readValue(line, "@feature:"));
         draft.feature = feature;
@@ -154,12 +159,15 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       (firstHeading && "text" in firstHeading ? firstHeading.text : "Untitled Slide"),
     subtitle:
       draft.subtitle ??
-      (firstSubheading && "text" in firstSubheading ? firstSubheading.text : undefined),
+      (firstSubheading && "text" in firstSubheading
+        ? firstSubheading.text
+        : undefined),
     body: draft.paragraphs.join(" "),
     backLabel: draft.backLabel,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,
+    run: draft.run,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
@@ -202,6 +210,7 @@ function parseFeature(value: string): SlideFeature | undefined {
 
 function parseFieldLine(line: string): FormField | null {
   const value = line.replace(/^-+\s*/, "").trim();
+
   const [name, type, label, requiredFlag, placeholder] = value
     .split("|")
     .map((part) => part.trim());

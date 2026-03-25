@@ -26,13 +26,17 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# vscode
+# editors
 .vscode/
+.idea/
 
 # typescript
 *.tsbuildinfo
 
-# prisma generated / local db files
+# next generated type file
+next-env.d.ts
+
+# prisma local sqlite files (safe to keep ignored even though you're on Postgres)
 prisma/dev.db
 prisma/dev.db-journal
 

@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model QuestionnaireSubmission {
+  id                String   @id @default(cuid())
+  questionnaireSlug String
+  fullName          String
+  email             String
+  phone             String?
+  whatsappOptIn     Boolean  @default(false)
+  selfScore         Int?
+  futureScore       Int?
+  createdAt         DateTime @default(now())
+
+  @@index([questionnaireSlug])
+  @@index([email])
+  @@index([createdAt])
+}

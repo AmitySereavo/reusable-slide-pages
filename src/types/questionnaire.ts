@@ -28,25 +28,11 @@ export type SlideFeature =
     };
 
 export type SlideSection =
-  | {
-      type: "heading";
-      text: string;
-    }
-  | {
-      type: "subheading";
-      text: string;
-    }
-  | {
-      type: "paragraph";
-      text: string;
-    }
-  | {
-      type: "break";
-    }
-  | {
-      type: "feature";
-      feature: SlideFeature;
-    };
+  | { type: "heading"; text: string }
+  | { type: "subheading"; text: string }
+  | { type: "paragraph"; text: string }
+  | { type: "break" }
+  | { type: "feature"; feature: SlideFeature };
 
 export type SlideType =
   | "score"
@@ -71,6 +57,7 @@ export type Slide = {
   storeAs?: string;
   showIf?: ShowIfRule;
   goto?: string;
+  run?: string;
   feature?: SlideFeature;
   sections?: SlideSection[];
   fields?: FormField[];
@@ -127,6 +114,7 @@ export type ParsedSlideDraft = {
   backLabel?: string;
   nextLabel?: string;
   goto?: string;
+  run?: string;
   fields?: FormField[];
 };
 

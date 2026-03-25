@@ -1,8 +1,8 @@
 # Reusable Slide Pages
 
-A reusable, config-driven questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, and Prisma.
+A reusable, DSL-driven questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, and Prisma.
 
-This project is being built to power interactive multi-slide experiences for different brands and use cases. The current implementation is focused on a self-trust questionnaire, but the architecture is being shaped so the same engine can be reused for future questionnaires, funnels, and guided lead capture flows.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, and guided lead capture flows. The current implementation is a self-trust / trust-in-the-future questionnaire, but the engine is designed to support additional questionnaires over time.
 
 ## Current stack
 
@@ -10,6 +10,7 @@ This project is being built to power interactive multi-slide experiences for dif
 - React
 - TypeScript
 - Prisma
+- PostgreSQL
 - Framer Motion
 - Zod
 - React Hook Form
@@ -22,16 +23,26 @@ This makes it possible to:
 
 - add or remove slides quickly
 - update wording without rewriting component logic
-- control slide flow using `@goto:`
-- define score scales inline with `@feature:`
-- define form fields inline with `@fields:`
+- control slide flow using DSL directives
+- define score scales inline
+- define form fields inline
+- trigger named actions from slides
 - reuse the same engine for multiple brands and campaigns
 
-## Current project direction
+## Current questionnaire
 
-The current questionnaire is a self-trust / trust-in-the-future flow.
+The active questionnaire is a self-trust / trust-in-the-future flow.
 
-The DSL currently supports:
+It currently supports:
+
+- score slides
+- content/story slides
+- form/contact slides
+- inline dynamic text replacement
+- DSL-driven navigation
+- DSL-driven form submission hooks
+
+## DSL features currently supported
 
 - `===` for new slide
 - `BR` and `---` for spacing / breaks
@@ -44,14 +55,28 @@ The DSL currently supports:
 - `@next:`
 - `@goto:`
 - `@fields:`
+- `@run:`
 
-The questionnaire shell now renders content in order, so text can appear above or below features depending on where it is placed in the DSL.
+## Current behavior
+
+- content is rendered in-order from the DSL
+- headings and subheadings only affect the line they are written on
+- text can appear above or below features depending on placement in the DSL
+- back navigation follows actual visited-slide history
+- form fields are fully DSL-driven
+- named actions can be triggered from slides using `@run:`
+- the current form flow can submit questionnaire leads to the backend
+- questionnaire submissions are now saved to PostgreSQL through Prisma
 
 ## Current folder structure
 
 ```txt
 src/
   app/
+    api/
+      questionnaires/
+        submit/
+          route.ts
     questionnaire/
       [slug]/
         page.tsx
@@ -66,13 +91,16 @@ src/
     themes/
       selfTrustTheme.ts
   lib/
+    prisma.ts
     questionnaire/
       engine.ts
       parser.ts
   types/
     questionnaire.ts
 prisma/
+  migrations/
   schema.prisma
+prisma.config.ts
 ```
 
 ## Important files
@@ -95,7 +123,7 @@ Handles visible slides and slide lookup helpers.
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main slide renderer and navigation controller.
+Main slide renderer, answer state manager, navigation controller, and form submission trigger point for DSL actions.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
@@ -104,6 +132,22 @@ Styles for the questionnaire shell.
 ### `src/config/themes/selfTrustTheme.ts`
 
 Theme values for colors and UI styling.
+
+### `src/app/api/questionnaires/submit/route.ts`
+
+Receives questionnaire form submissions and saves them to the database.
+
+### `src/lib/prisma.ts`
+
+Initializes the Prisma client for the app.
+
+### `prisma/schema.prisma`
+
+Defines the Prisma data model for stored questionnaire submissions.
+
+### `prisma.config.ts`
+
+Prisma 7 configuration file for schema location and datasource URL.
 
 ## Current capabilities
 
@@ -114,45 +158,47 @@ Theme values for colors and UI styling.
 - disabled score option support like `[7]`
 - `@goto:` navigation working
 - back-button history tracking
+- `@run:` action support
+- DSL-driven form fields via `@fields:`
+- form submissions sent to backend
+- questionnaire submissions persisted to PostgreSQL with Prisma
 - placeholder dynamic text replacement:
   - `[statsCount]`
   - `[statsCount2]`
   - `[selfScore]`
   - `[futureScore]`
 
-- DSL-driven form fields via `@fields:`
+## Placeholder data still hardcoded
 
-## Placeholder data currently hardcoded
-
-In `QuestionnaireShell.tsx`, these values are still placeholders:
+In `src/components/questionnaire/QuestionnaireShell.tsx`, these values are still placeholders:
 
 - `statsCount`
 - `statsCount2`
 
-These are currently hardcoded for design/testing and should later be replaced with database-driven values.
+These are currently hardcoded for testing/design and should later be replaced with database-driven values.
 
 ## What is not finished yet
 
-- form submission to database
 - Google Sheets sync
-- WhatsApp integration
-- action hooks like `@run: submitLead`
-- database-backed statistics for `[statsCount]`
-- full branching logic beyond direct `@goto:`
+- live database-backed stats for `[statsCount]`
+- richer branching logic beyond direct `@goto:`
 - admin/editor tools
+- loading questionnaire content from real text files instead of TS string exports
+- cleanup of any remaining deprecated files if needed
 - final copy/story refinement
 
-## Next recommended steps
+## Current database model
 
-1. Add `@run:` support in the DSL
-2. Create a submit handler for form slides
-3. Save responses to Postgres with Prisma
-4. Mirror responses to Google Sheets
-5. Replace placeholder stats with live counts
-6. Add conditional branching rules if needed
-7. Clean up or remove any remaining deprecated files
-8. Refine questionnaire copy and story logic
-9. Add support for loading questionnaire content from real text files instead of TS string exports if desired
+The project currently stores questionnaire submissions with fields such as:
+
+- questionnaire slug
+- full name
+- email
+- phone
+- WhatsApp opt-in
+- self-trust score
+- future-trust score
+- created timestamp
 
 ## Local development
 
@@ -160,6 +206,24 @@ Install dependencies:
 
 ```bash
 npm install
+```
+
+Set up your environment variables in `.env`:
+
+```env
+DATABASE_URL="your_postgres_connection_string"
+```
+
+Generate Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+Run migrations:
+
+```bash
+npx prisma migrate dev
 ```
 
 Run the dev server:
@@ -173,3 +237,12 @@ Open:
 ```txt
 http://localhost:3000/questionnaire/self-trust
 ```
+
+## Suggested next steps
+
+1. Mirror submissions to Google Sheets
+2. Replace placeholder stats with live database counts
+3. Add richer branching rules if needed
+4. Continue cleaning any deprecated or unused files
+5. Refine questionnaire copy and story flow
+6. Move DSL content into real text files later if desired
