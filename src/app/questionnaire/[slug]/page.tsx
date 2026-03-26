@@ -1,7 +1,6 @@
 import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
-import { selfTrustTheme } from "@/config/themes/selfTrustTheme";
-import { selfTrustFromDslConfig } from "@/config/questionnaires/selfTrustFromDsl";
 import { notFound } from "next/navigation";
+import { getQuestionnaireBySlug } from "@/config/questionnaires/registry";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -10,14 +9,16 @@ type Props = {
 export default async function QuestionnairePage({ params }: Props) {
   const { slug } = await params;
 
-  if (slug !== "self-trust") {
+  const questionnaire = getQuestionnaireBySlug(slug);
+
+  if (!questionnaire) {
     notFound();
   }
 
   return (
     <QuestionnaireShell
-      config={selfTrustFromDslConfig}
-      theme={selfTrustTheme}
+      config={questionnaire.config}
+      theme={questionnaire.theme}
     />
   );
 }

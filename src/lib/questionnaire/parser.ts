@@ -8,7 +8,9 @@ import {
   SlideType,
 } from "@/types/questionnaire";
 
-export function parseQuestionnaireDsl(input: string): ParsedQuestionnaireDocument {
+export function parseQuestionnaireDsl(
+  input: string
+): ParsedQuestionnaireDocument {
   const rawSlides = input
     .split(/^===\s*$/m)
     .map((block) => block.trim())
@@ -113,25 +115,41 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
     if (line.startsWith("##")) {
       inFieldsBlock = false;
-      const text = line.replace(/^##\s*/, "").trim();
-      draft.sections.push({ type: "subheading", text });
-      if (!draft.subtitle) draft.subtitle = text;
+      const rawText = line.replace(/^##\s*/, "").trim();
+      const { colorKey, text } = extractColorToken(rawText);
+
+      draft.sections.push({ type: "subheading", text, colorKey });
+
+      if (!draft.subtitle) {
+        draft.subtitle = text;
+      }
+
       continue;
     }
 
     if (line.startsWith("#")) {
       inFieldsBlock = false;
-      const text = line.replace(/^#\s*/, "").trim();
-      draft.sections.push({ type: "heading", text });
-      if (!draft.title) draft.title = text;
+      const rawText = line.replace(/^#\s*/, "").trim();
+      const { colorKey, text } = extractColorToken(rawText);
+
+      draft.sections.push({ type: "heading", text, colorKey });
+
+      if (!draft.title) {
+        draft.title = text;
+      }
+
       continue;
     }
 
     inFieldsBlock = false;
-    draft.paragraphs.push(line);
+
+    const { colorKey, text } = extractColorToken(line);
+
+    draft.paragraphs.push(text);
     draft.sections.push({
       type: "paragraph",
-      text: line,
+      text,
+      colorKey,
     });
   }
 
@@ -223,6 +241,22 @@ function parseFieldLine(line: string): FormField | null {
     label,
     required: requiredFlag?.toLowerCase() === "required",
     placeholder: placeholder || undefined,
+  };
+}
+
+function extractColorToken(text: string) {
+  const match = text.match(/^\[(\w+)\]\s*(.*)$/);
+
+  if (!match) {
+    return {
+      colorKey: undefined,
+      text,
+    };
+  }
+
+  return {
+    colorKey: match[1],
+    text: match[2],
   };
 }
 

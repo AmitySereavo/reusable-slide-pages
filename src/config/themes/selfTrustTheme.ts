@@ -12,6 +12,13 @@ export const selfTrustTheme: ThemeConfig = {
     disabled: "#D9D9D9",
     accent: "#6E25A0",
     subtitle: "#8775C4",
+    lineColors: {
+  c1: "#b7c8fd",
+  c2: "#8775C4",
+  c3: "#6e25a0",
+  c4: "#edf3fd",
+  c5: "#232323",
+},
   },
   radius: {
     card: "24px",

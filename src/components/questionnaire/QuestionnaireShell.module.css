@@ -6,8 +6,10 @@
 
 .pageInner {
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   margin: 0 auto;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .card {
@@ -26,6 +28,9 @@
 .storyStack {
   display: grid;
   gap: 0;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
 }
 
 .topSection {
@@ -101,10 +106,12 @@
 
 .scoreGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  justify-items: center;
-  margin-top: 24px;
+  grid-template-columns: repeat(5, minmax(56px, 68px));
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 388px;
+  margin: 24px auto 0;
 }
 
 .scoreButton {
@@ -159,8 +166,9 @@
 
 .navRow {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .secondaryButton,
@@ -171,6 +179,8 @@
   font-size: 16px;
   font-weight: 600;
   transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  width: 100%;
+  max-width: 220px;
 }
 
 .secondaryButton {
@@ -208,10 +218,19 @@
     padding: 20px 14px;
   }
 
+  .pageInner {
+    max-width: 100%;
+    padding: 0;
+  }
+
   .card {
     max-width: 100%;
     min-height: calc(100vh - 40px);
     padding: 24px 18px;
+  }
+
+  .storyStack {
+    max-width: 100%;
   }
 
   .slideBody {
@@ -232,7 +251,8 @@
   }
 
   .scoreGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(56px, 68px));
+    max-width: 252px;
     gap: 12px;
   }
 
@@ -243,16 +263,19 @@
 
   .navRow {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .secondaryButton,
   .primaryButton {
     width: 100%;
+    max-width: none;
   }
 }
 
 @media (max-width: 420px) {
   .scoreGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(56px, 68px));
+    max-width: 148px;
   }
 }

@@ -1,8 +1,8 @@
 # Reusable Slide Pages
 
-A reusable, DSL-driven questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, and Prisma.
+A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, and guided lead capture flows. The current implementation is a self-trust / trust-in-the-future questionnaire, but the engine is designed to support additional questionnaires over time.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, and guided questionnaire flows. The current implementation supports multiple questionnaires through a shared parser, shared renderer, and slug-based registry system.
 
 ## Current stack
 
@@ -28,19 +28,49 @@ This makes it possible to:
 - define form fields inline
 - trigger named actions from slides
 - reuse the same engine for multiple brands and campaigns
+- attach questionnaire-specific variables without bloating the parser
+- use different themes and color systems per questionnaire
 
-## Current questionnaire
+## Current architecture
 
-The active questionnaire is a self-trust / trust-in-the-future flow.
+The app now uses a registry-based system.
 
-It currently supports:
+Each questionnaire is defined by:
 
-- score slides
-- content/story slides
-- form/contact slides
-- inline dynamic text replacement
-- DSL-driven navigation
-- DSL-driven form submission hooks
+- a DSL file
+- a theme file
+- a variables object
+- a slug used in the route
+
+The route:
+
+```txt
+/questionnaire/[slug]
+```
+
+loads the matching questionnaire from the registry.
+
+## Active questionnaires
+
+### `self-trust`
+
+A self-trust / trust-in-the-future questionnaire.
+
+Route:
+
+```txt
+/questionnaire/self-trust
+```
+
+### `garden-herbs`
+
+A garden / herbs / companion-planting questionnaire.
+
+Route:
+
+```txt
+/questionnaire/garden-herbs
+```
 
 ## DSL features currently supported
 
@@ -57,6 +87,57 @@ It currently supports:
 - `@fields:`
 - `@run:`
 
+## Line-level color support
+
+The DSL now supports line color tokens.
+
+Examples:
+
+```txt
+# [c1] Main heading
+## [c2] Subheading
+[c3] Paragraph text
+```
+
+The parser reads the color token and stores it on the section.
+The actual color values come from the questionnaire theme file, not from the parser.
+
+This keeps:
+
+- the parser generic
+- the DSL readable
+- the brand colors theme-specific
+
+## Variable replacement system
+
+Square-bracket placeholders are now resolved from two sources:
+
+### 1. Questionnaire variables
+
+These come from the registry entry for a questionnaire.
+
+Examples:
+
+- `[plant1]`
+- `[plant2]`
+- `[plant3]`
+- `[statsCount]`
+- `[statsCount2]`
+
+### 2. Live questionnaire answers
+
+These come from the current questionnaire session.
+
+Examples:
+
+- `[selfScore]`
+- `[futureScore]`
+- `[fullName]`
+- `[email]`
+- `[phone]`
+
+If a placeholder is not found in either source, it remains unchanged.
+
 ## Current behavior
 
 - content is rendered in-order from the DSL
@@ -65,8 +146,10 @@ It currently supports:
 - back navigation follows actual visited-slide history
 - form fields are fully DSL-driven
 - named actions can be triggered from slides using `@run:`
-- the current form flow can submit questionnaire leads to the backend
-- questionnaire submissions are now saved to PostgreSQL through Prisma
+- submissions are sent through a shared submit route
+- submissions are now saved to PostgreSQL through Prisma
+- storage is questionnaire-agnostic using a shared submissions table with `answers` JSON
+- per-line colors can now be controlled from the DSL through theme color keys
 
 ## Current folder structure
 
@@ -86,9 +169,11 @@ src/
       QuestionnaireShell.module.css
   config/
     questionnaires/
+      gardenHerbsDsl.ts
+      registry.ts
       selfTrustDsl.ts
-      selfTrustFromDsl.ts
     themes/
+      gardenHerbsTheme.ts
       selfTrustTheme.ts
   lib/
     prisma.ts
@@ -105,17 +190,39 @@ prisma.config.ts
 
 ## Important files
 
+### `src/config/questionnaires/registry.ts`
+
+Central registry that maps questionnaire slug to:
+
+- DSL
+- theme
+- variables
+
 ### `src/config/questionnaires/selfTrustDsl.ts`
 
-Contains the questionnaire content in DSL form.
+DSL content for the self-trust questionnaire.
 
-### `src/config/questionnaires/selfTrustFromDsl.ts`
+### `src/config/questionnaires/gardenHerbsDsl.ts`
 
-Parses the DSL into slide objects for the app.
+DSL content for the garden-herbs questionnaire.
+
+### `src/config/themes/selfTrustTheme.ts`
+
+Theme config for the self-trust questionnaire.
+
+### `src/config/themes/gardenHerbsTheme.ts`
+
+Theme config for the garden-herbs questionnaire.
 
 ### `src/lib/questionnaire/parser.ts`
 
-Parses the custom DSL into structured slide data.
+Parses the custom DSL into structured slide data, including:
+
+- sections
+- fields
+- features
+- navigation directives
+- line color tokens
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -123,15 +230,15 @@ Handles visible slides and slide lookup helpers.
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main slide renderer, answer state manager, navigation controller, and form submission trigger point for DSL actions.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, and action runner.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
-Styles for the questionnaire shell.
+Styles for the questionnaire shell, including tighter layout behavior for half-screen / medium-width views.
 
-### `src/config/themes/selfTrustTheme.ts`
+### `src/app/questionnaire/[slug]/page.tsx`
 
-Theme values for colors and UI styling.
+Loads a questionnaire by slug from the registry and renders it.
 
 ### `src/app/api/questionnaires/submit/route.ts`
 
@@ -139,11 +246,11 @@ Receives questionnaire form submissions and saves them to the database.
 
 ### `src/lib/prisma.ts`
 
-Initializes the Prisma client for the app.
+Initializes the Prisma client using the PostgreSQL adapter.
 
 ### `prisma/schema.prisma`
 
-Defines the Prisma data model for stored questionnaire submissions.
+Defines the database model for questionnaire submissions.
 
 ### `prisma.config.ts`
 
@@ -151,6 +258,7 @@ Prisma 7 configuration file for schema location and datasource URL.
 
 ## Current capabilities
 
+- multi-questionnaire support through slug-based registry loading
 - multi-slide questionnaire rendering
 - line-by-line styled content from DSL
 - inline feature rendering
@@ -160,45 +268,60 @@ Prisma 7 configuration file for schema location and datasource URL.
 - back-button history tracking
 - `@run:` action support
 - DSL-driven form fields via `@fields:`
+- questionnaire-specific variables
+- live answer-based placeholder replacement
+- line-level color tokens in the DSL
 - form submissions sent to backend
 - questionnaire submissions persisted to PostgreSQL with Prisma
-- placeholder dynamic text replacement:
-  - `[statsCount]`
-  - `[statsCount2]`
-  - `[selfScore]`
-  - `[futureScore]`
+- generic answer storage using `answers` JSON
 
-## Placeholder data still hardcoded
+## Database model
 
-In `src/components/questionnaire/QuestionnaireShell.tsx`, these values are still placeholders:
+The project currently stores questionnaire submissions in a shared table.
 
-- `statsCount`
-- `statsCount2`
+Each submission includes:
 
-These are currently hardcoded for testing/design and should later be replaced with database-driven values.
+- questionnaire slug
+- optional contact fields
+- WhatsApp opt-in
+- all answers as JSON
+- created timestamp
+
+This allows different questionnaires to reuse the same storage system without creating a new table for every questionnaire.
+
+## Current submission model
+
+Submissions are saved into the `QuestionnaireSubmission` table with a shape similar to:
+
+- `questionnaireSlug`
+- `fullName`
+- `email`
+- `phone`
+- `whatsappOptIn`
+- `answers`
+- `createdAt`
+
+## What is finished
+
+- registry-based questionnaire loading
+- multiple DSL files
+- multiple themes
+- questionnaire-specific variables
+- line-level DSL color support
+- questionnaire-agnostic submission storage
+- Prisma / PostgreSQL integration
+- working submit route
+- responsive layout improvements for narrower desktop widths
 
 ## What is not finished yet
 
 - Google Sheets sync
-- live database-backed stats for `[statsCount]`
+- live database-backed statistics for values like `[statsCount]`
 - richer branching logic beyond direct `@goto:`
 - admin/editor tools
 - loading questionnaire content from real text files instead of TS string exports
-- cleanup of any remaining deprecated files if needed
+- questionnaire definition storage in the database, if desired later
 - final copy/story refinement
-
-## Current database model
-
-The project currently stores questionnaire submissions with fields such as:
-
-- questionnaire slug
-- full name
-- email
-- phone
-- WhatsApp opt-in
-- self-trust score
-- future-trust score
-- created timestamp
 
 ## Local development
 
@@ -238,11 +361,8 @@ Open:
 http://localhost:3000/questionnaire/self-trust
 ```
 
-## Suggested next steps
+or
 
-1. Mirror submissions to Google Sheets
-2. Replace placeholder stats with live database counts
-3. Add richer branching rules if needed
-4. Continue cleaning any deprecated or unused files
-5. Refine questionnaire copy and story flow
-6. Move DSL content into real text files later if desired
+```txt
+http://localhost:3000/questionnaire/garden-herbs
+```

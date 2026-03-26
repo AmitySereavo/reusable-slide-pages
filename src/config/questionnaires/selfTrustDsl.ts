@@ -2,9 +2,9 @@ export const selfTrustDsl = `
 ===
 @id: slide1
 @type: score
-# Do you trust yourself?
+#[c3] Do you trust yourself?
 BR
-## There is no perfect answer.
+##[c2]There is no perfect answer.
 Choose the number that feels 
 most honest right now.
 BR
@@ -39,15 +39,14 @@ that feels true right now.
 @id: slide3
 @type: content
 BR
-# [statsCount] people
-##who took the time 
-##to respond here,
+# [c1] [statsCount] people
+## [c2] who took the time
+## [c2] to respond here,
 BR
-##also 
-#chose 
-#[selfScore] 
-#for self-trust
-
+## [c3] also
+# chose
+# [c1] [selfScore]
+# for self-trust
 @back: Back
 @next: Continue
 @goto: slide4
@@ -56,16 +55,15 @@ BR
 @id: slide4
 @type: content
 BR
-#[statsCount2] 
-#of those people 
+# [c3] [statsCount2]
+# of those people
 BR
-##also
-#chose 
-#[futureScore] 
+## also
+# chose
+# [c3] [futureScore]
 BR
-#for trust 
-#In the future
-
+# for trust
+# in the future
 @back: Back
 @next: Continue
 @goto: slide5

@@ -1,5 +1,7 @@
 export type PrimitiveValue = string | number | boolean;
 
+export type QuestionnaireVariables = Record<string, string | number>;
+
 export type Option = {
   label: string;
   value: PrimitiveValue;
@@ -28,9 +30,9 @@ export type SlideFeature =
     };
 
 export type SlideSection =
-  | { type: "heading"; text: string }
-  | { type: "subheading"; text: string }
-  | { type: "paragraph"; text: string }
+  | { type: "heading"; text: string; colorKey?: string }
+  | { type: "subheading"; text: string; colorKey?: string }
+  | { type: "paragraph"; text: string; colorKey?: string }
   | { type: "break" }
   | { type: "feature"; feature: SlideFeature };
 
@@ -75,6 +77,7 @@ export type ThemeConfig = {
     disabled: string;
     accent?: string;
     subtitle?: string;
+    lineColors?: Record<string, string>;
   };
   radius?: {
     card?: string;
@@ -91,6 +94,7 @@ export type QuestionnaireConfig = {
   name: string;
   themeKey: string;
   slides: Slide[];
+  variables?: QuestionnaireVariables;
 };
 
 export type QuestionnaireAnswers = Record<string, PrimitiveValue>;

@@ -32,23 +32,38 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       getVisibleSlides(
         config.slides.map((slide) => ({
           ...slide,
-          title: replaceDynamicText(slide.title, answers) ?? slide.title,
-          subtitle: replaceDynamicText(slide.subtitle, answers),
-          body: replaceDynamicText(slide.body, answers),
-          helperText: replaceDynamicText(slide.helperText, answers),
+          title:
+            replaceDynamicText(slide.title, answers, config.variables) ??
+            slide.title,
+          subtitle: replaceDynamicText(
+            slide.subtitle,
+            answers,
+            config.variables
+          ),
+          body: replaceDynamicText(slide.body, answers, config.variables),
+          helperText: replaceDynamicText(
+            slide.helperText,
+            answers,
+            config.variables
+          ),
           sections: slide.sections?.map((section) => {
             if (section.type === "break") return section;
             if (section.type === "feature") return section;
 
             return {
               ...section,
-              text: replaceDynamicText(section.text, answers) ?? section.text,
+              text:
+                replaceDynamicText(
+                  section.text,
+                  answers,
+                  config.variables
+                ) ?? section.text,
             };
           }),
         })),
         answers
       ),
-    [config.slides, answers]
+    [config.slides, answers, config.variables]
   );
 
   const currentSlide = visibleSlides[currentIndex];
@@ -114,16 +129,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function getLeadPayload() {
-    return {
-      questionnaireSlug: config.slug,
-      fullName: String(answers.fullName ?? "").trim(),
-      email: String(answers.email ?? "").trim(),
-      phone: String(answers.phone ?? "").trim(),
-      whatsappOptIn: answers.whatsappOptIn === true,
-      selfScore: answers.selfScore ?? null,
-      futureScore: answers.futureScore ?? null,
-    };
-  }
+  return {
+    questionnaireSlug: config.slug,
+    fullName: String(answers.fullName ?? "").trim(),
+    email: String(answers.email ?? "").trim(),
+    phone: String(answers.phone ?? "").trim(),
+    whatsappOptIn:
+      answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
+    answers,
+  };
+}
 
   async function runSlideAction(runName: string) {
     if (runName !== "submitLead") return true;
@@ -226,7 +241,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                     setAnswer
                   )}
 
-                  {(currentSlide.type === "form" || currentSlide.type === "contact") &&
+                  {(currentSlide.type === "form" ||
+                    currentSlide.type === "contact") &&
                   currentSlide.fields?.length ? (
                     <div className={styles.formGrid} style={{ marginTop: "20px" }}>
                       {currentSlide.fields.map((field) => (
@@ -254,7 +270,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               <button
                 type="button"
                 onClick={back}
-                disabled={currentIndex === 0 && history.length === 0 || isSubmitting}
+                disabled={
+                  (currentIndex === 0 && history.length === 0) || isSubmitting
+                }
                 className={styles.secondaryButton}
                 style={{
                   borderColor: theme.colors.border,
@@ -314,7 +332,11 @@ function FormFieldRenderer({
         placeholder={field.placeholder ?? field.label}
         value={String(answers[field.name] ?? "")}
         onChange={(e) => setAnswer(field.name, e.target.value)}
-        style={{ borderColor: theme.colors.border, minHeight: "120px", resize: "vertical" }}
+        style={{
+          borderColor: theme.colors.border,
+          minHeight: "120px",
+          resize: "vertical",
+        }}
       />
     );
   }
@@ -353,7 +375,11 @@ function renderSections(
               key={`heading-${index}`}
               className={styles.title}
               style={{
-                color: theme.colors.accent ?? theme.colors.primary,
+                color:
+                  (section.colorKey &&
+                    theme.colors.lineColors?.[section.colorKey]) ??
+                  theme.colors.accent ??
+                  theme.colors.primary,
               }}
             >
               {section.text}
@@ -367,7 +393,11 @@ function renderSections(
               key={`subheading-${index}`}
               className={styles.subtitle}
               style={{
-                color: theme.colors.subtitle ?? theme.colors.primary,
+                color:
+                  (section.colorKey &&
+                    theme.colors.lineColors?.[section.colorKey]) ??
+                  theme.colors.subtitle ??
+                  theme.colors.primary,
               }}
             >
               {section.text}
@@ -417,7 +447,16 @@ function renderSections(
         }
 
         return (
-          <p key={`paragraph-${index}`} className={styles.body}>
+          <p
+            key={`paragraph-${index}`}
+            className={styles.body}
+            style={{
+              color:
+                (section.colorKey &&
+                  theme.colors.lineColors?.[section.colorKey]) ??
+                theme.colors.text,
+            }}
+          >
             {section.text}
           </p>
         );
@@ -428,18 +467,22 @@ function renderSections(
 
 function replaceDynamicText(
   value: string | undefined,
-  answers: QuestionnaireAnswers
+  answers: QuestionnaireAnswers,
+  variables?: Record<string, string | number>
 ): string | undefined {
   if (value === undefined) return undefined;
 
-  const statsCount = 124;
-  const statsCount2 = 57;
-  const selfScore = answers.selfScore ?? 5;
-  const futureScore = answers.futureScore ?? 5;
+  return value.replace(/\[([^\]]+)\]/g, (_, key) => {
+    const answerValue = answers[key];
+    if (answerValue !== undefined && answerValue !== null) {
+      return String(answerValue);
+    }
 
-  return value
-    .replaceAll("[statsCount]", String(statsCount))
-    .replaceAll("[statsCount2]", String(statsCount2))
-    .replaceAll("[selfScore]", String(selfScore))
-    .replaceAll("[futureScore]", String(futureScore));
+    const variableValue = variables?.[key];
+    if (variableValue !== undefined && variableValue !== null) {
+      return String(variableValue);
+    }
+
+    return `[${key}]`;
+  });
 }
