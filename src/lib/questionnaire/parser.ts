@@ -1,10 +1,12 @@
 import {
+  ChoiceItem,
   FormField,
   Option,
   ParsedQuestionnaireDocument,
   ParsedSlideDraft,
   Slide,
   SlideFeature,
+  SlideRouteRule,
   SlideType,
 } from "@/types/questionnaire";
 
@@ -34,21 +36,65 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     paragraphs: [],
     sections: [],
     fields: [],
+    choices: [],
+    routeRules: [],
+    backRouteRules: [],
   };
 
   let inFieldsBlock = false;
+  let inChoicesBlock = false;
+  let inWhenBlock = false;
+  let inBackWhenBlock = false;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
 
+    if (isCommentLine(line)) {
+      inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      continue;
+    }
+
     if (line === "---" || line === "BR") {
       inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
       draft.sections.push({ type: "break" });
       continue;
     }
 
     if (line.startsWith("@fields:")) {
       inFieldsBlock = true;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@choices:")) {
+      inChoicesBlock = true;
+      inFieldsBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@when:")) {
+      inWhenBlock = true;
+      inFieldsBlock = false;
+      inChoicesBlock = false;
+      inBackWhenBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@backwhen:")) {
+      inBackWhenBlock = true;
+      inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
       continue;
     }
 
@@ -58,8 +104,29 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       continue;
     }
 
+    if (inChoicesBlock && line.startsWith("-")) {
+      const choice = parseChoiceLine(line);
+      if (choice) draft.choices?.push(choice);
+      continue;
+    }
+
+    if (inWhenBlock && line.startsWith("-")) {
+      const rule = parseRouteRuleLine(line);
+      if (rule) draft.routeRules?.push(rule);
+      continue;
+    }
+
+    if (inBackWhenBlock && line.startsWith("-")) {
+      const rule = parseRouteRuleLine(line);
+      if (rule) draft.backRouteRules?.push(rule);
+      continue;
+    }
+
     if (line.startsWith("@")) {
       inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
 
       if (line.startsWith("@id:")) {
         draft.id = readValue(line, "@id:");
@@ -120,6 +187,10 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
     if (line.startsWith("##")) {
       inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+
       const rawText = line.replace(/^##\s*/, "").trim();
       const { colorKey, text } = extractColorToken(rawText);
 
@@ -134,6 +205,10 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
     if (line.startsWith("#")) {
       inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+
       const rawText = line.replace(/^#\s*/, "").trim();
       const { colorKey, text } = extractColorToken(rawText);
 
@@ -147,6 +222,9 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     }
 
     inFieldsBlock = false;
+    inChoicesBlock = false;
+    inWhenBlock = false;
+    inBackWhenBlock = false;
 
     const { colorKey, text } = extractColorToken(line);
 
@@ -195,6 +273,11 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
+    choices: draft.choices?.length ? draft.choices : undefined,
+    routeRules: draft.routeRules?.length ? draft.routeRules : undefined,
+    backRouteRules: draft.backRouteRules?.length
+      ? draft.backRouteRules
+      : undefined,
   };
 
   if (draft.feature?.type === "numberscale") {
@@ -250,6 +333,42 @@ function parseFieldLine(line: string): FormField | null {
   };
 }
 
+function parseChoiceLine(line: string): ChoiceItem | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [rawValue, label, goto] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (!rawValue || !label) return null;
+
+  const numericValue = Number(rawValue);
+  const parsedValue = Number.isNaN(numericValue) ? rawValue : numericValue;
+
+  return {
+    value: parsedValue,
+    label,
+    goto: goto || undefined,
+  };
+}
+
+function parseRouteRuleLine(line: string): SlideRouteRule | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [field, operator, ruleValue, goto] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (!field || !operator || !ruleValue || !goto) return null;
+
+  return {
+    field,
+    operator: operator as SlideRouteRule["operator"],
+    value: ruleValue,
+    goto,
+  };
+}
+
 function extractColorToken(text: string) {
   const match = text.match(/^\[(\w+)\]\s*(.*)$/);
 
@@ -264,6 +383,10 @@ function extractColorToken(text: string) {
     colorKey: match[1],
     text: match[2],
   };
+}
+
+function isCommentLine(line: string) {
+  return line.startsWith("//") || line.startsWith("::");
 }
 
 function readValue(line: string, prefix: string) {

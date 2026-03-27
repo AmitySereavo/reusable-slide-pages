@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { mirrorSubmissionToGoogleSheets } from "@/lib/googleSheets";
 
 type SubmitPayload = {
   questionnaireSlug?: string;
@@ -51,10 +52,30 @@ export async function POST(req: Request) {
       },
     });
 
+    let sheetsMirrored = false;
+
+    try {
+      const mirrorResult = await mirrorSubmissionToGoogleSheets({
+        submissionId: submission.id,
+        createdAt: submission.createdAt.toISOString(),
+        questionnaireSlug: submission.questionnaireSlug,
+        fullName: submission.fullName,
+        email: submission.email,
+        phone: submission.phone,
+        whatsappOptIn: submission.whatsappOptIn,
+        answers,
+      });
+
+      sheetsMirrored = mirrorResult.ok;
+    } catch (mirrorError) {
+      console.error("Google Sheets mirror error:", mirrorError);
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Submission received.",
       submissionId: submission.id,
+      sheetsMirrored,
     });
   } catch (error) {
     console.error("Submit route error:", error);

@@ -1,7 +1,8 @@
 export const selfTrustDsl = `
+// INTRO QUESTION
 ===
-@id: slide1
-@type: content
+@id: intro-question
+@type: choice
 ---
 BR
 ## [c2] Do you 
@@ -17,15 +18,36 @@ BR
 [c2] In your decisions.
 ## [c3] In your direction.
 [c2] In the way you move through life?
-
+BR
+@store: trustLevel
+@choices:
+- completely|Yes, I trust myself completely|share-your-wisdom
+- somewhat|I trust myself somewhat|self-trust-score
+- no|No, I don't trust myself at all|self-trust-score
 @back: Back
 @next: Continue Reading
-@goto: slide2
 
+// SHARE YOUR WISDOM
 ===
-@id: slide2
-@type: score
+@id: share-your-wisdom
+@type: content
+---
+BR
+# Awesome.
+BR
+## Would you mind sharing
+## what you know?
+BR
+## To help others reach
+## your level of self-trust?
+@back: Back
+@next: Continue
+@goto: self-trust-score
 
+// SELF TRUST SCORE
+===
+@id: self-trust-score
+@type: score
 
 # How much 
 # [c2] would you say
@@ -40,10 +62,11 @@ BR
 @store: selfScore
 @back: Back
 @next: Continue
-@goto: slide3
+@goto: future-trust-score
 
+// FUTURE TRUST SCORE
 ===
-@id: slide3
+@id: future-trust-score
 @type: score
 [c2] and
 # [c2] How much 
@@ -54,10 +77,11 @@ BR
 @store: futureScore
 @back: Back
 @next: Continue
-@goto: slide4
+@goto: results-self-trust
 
+// RESULTS SELF TRUST
 ===
-@id: slide4
+@id: results-self-trust
 @type: content
 ---
 BR
@@ -73,10 +97,11 @@ BR
 # [c2] Self-Trust
 @back: Back
 @next: Continue
-@goto: slide5
+@goto: results-future-trust
 
+// RESULTS FUTURE TRUST
 ===
-@id: slide5
+@id: results-future-trust
 @type: content
 BR
 # [c3] [statsCount2]
@@ -90,10 +115,17 @@ BR
 
 @back: Back
 @next: Continue
-@goto: slide6
+@goto: same-place-message
 
+@when:
+- selfScore|in|1,2,3|same-place-message
+- selfScore|in|4,5,6|same-place-message
+- selfScore|in|7,8,9|self-trust-changes-everything
+- selfScore|eq|10|self-trust-changes-everything
+
+// SAME PLACE MESSAGE
 ===
-@id: slide6
+@id: same-place-message
 @type: content
 ---
 BR
@@ -108,10 +140,11 @@ BR
 [c3] but why though?
 @back: Back
 @next: Continue
-@goto: slide7
+@goto: self-trust-changes-everything
 
+// SELF TRUST CHANGES EVERYTHING
 ===
-@id: slide7
+@id: self-trust-changes-everything
 @type: content
 ---
 BR
@@ -128,10 +161,11 @@ BR
 ## [c3] and in everyday life.
 @back: False
 @next: True
-@goto: slide8
+@goto: self-trust-force-question
 
+// SELF TRUST FORCE QUESTION
 ===
-@id: slide8
+@id: self-trust-force-question
 @type: content
 ---
 BR
@@ -144,11 +178,13 @@ BR
 # Force?
 
 @back: No, I don't
-@backgoto: slide6
+@backgoto: same-place-message
 @next: Yes, I Agree
-@goto: slide9
+@goto: aligned-people-message
+
+// ALIGNED PEOPLE MESSAGE
 ===
-@id: slide9
+@id: aligned-people-message
 @type: content
 ## And yet,
 BR
@@ -163,10 +199,11 @@ BR
 ## [c3] did not begin there...
 @back: Back
 @next: Continue Reading...
-@goto: slide10
+@goto: once-stuck-message
 
+// ONCE STUCK MESSAGE
 ===
-@id: slide10
+@id: once-stuck-message
 @type: content
 ---
 BR
@@ -180,10 +217,11 @@ BR
 # STUCK...
 @back: Back
 @next: Continue
-@goto: slide11
+@goto: pulled-back-question
 
+// PULLED BACK QUESTION
 ===
-@id: slide11
+@id: pulled-back-question
 @type: content
 ---
 BR
@@ -197,11 +235,13 @@ BR
 # life you want 
 # [c2] to create?
 @back: No, I Have Never Felt That Way
-@backgoto: youarefree
+@backgoto: you-are-free
 @next: Yes, I can relate
-@goto: slide11B
+@goto: freedom-score
 ===
-@id: youarefree
+
+// YOU ARE FREE
+@id: you-are-free
 @type: content
 ---
 BR
@@ -212,12 +252,13 @@ BR
 ## the freedom
 you feel?
 @back: No, I don't
-@backgoto: slide11B
+@backgoto: freedom-score
 @next: Yes, I would love to
-@goto: slide11B
+@goto: freedom-score
 
+// FREEDOM SCORE
 ===
-@id: slide11B
+@id: freedom-score
 @type: score
 ---
 BR
@@ -236,8 +277,9 @@ BR
 @next: Continue
 @goto:
 
+// STUCK SCORE
 ===
-@id: slide12
+@id: stuck-score
 @type: score
 
 ---
@@ -256,9 +298,11 @@ BR
 @store: stuckScore
 @back: Back
 @next: Continue
-@goto: slide13
+@goto: inner-shift-message
+
+// INNER SHIFT MESSAGE
 ===
-@id: slide13
+@id: inner-shift-message
 @type: content
 ---
 BR
@@ -275,9 +319,11 @@ To become the
 [c2] we know them to be
 @back: Back
 @next: Continue Reading...
-@goto: slide14
+@goto: shift-process-question
+
+// SHIFT PROCESS QUESTION
 ===
-@id: slide14
+@id: shift-process-question
 @type: content
 ---
 BR
@@ -294,10 +340,11 @@ BR
 ## of people?
 @back: Back
 @next: Learn More
-@goto: slide15
-===
+@goto: transformation-truth
 
-@id: slide15
+// TRANSFORMATION TRUTH
+===
+@id: transformation-truth
 @type: content
 ---
 BR
@@ -312,10 +359,11 @@ were the
 ## [c3] wanted to become.
 @back: Back
 @next: The shift is possible!
-@goto: slide16
-===
+@goto: shift-is-possible
 
-@id: slide16
+// SHIFT IS POSSIBLE
+===
+@id: shift-is-possible
 @type: content
 ---
 BR
@@ -332,9 +380,11 @@ BR
 @back: Watch the video
 @backgoto: https://www.instagram.com/reel/DVwZ7xGDcEZ/?igsh=d2J6c3F0aTRtOXUw
 @next: Or continue reading...
-@goto: slide17
+@goto: coach-message
 ===
-@id: slide17
+
+// COACH MESSAGE
+@id: coach-message
 @type: video
 What my clients often gain is something deeper:
 a new relationship with themselves.
@@ -367,7 +417,9 @@ BR
 @next: See how it works
 @goto:
 ===
-@id: slide
+
+// CONTACT FORM
+@id: contact-form
 @type: form
 # Stay connected
 ## Where should we send your next step?

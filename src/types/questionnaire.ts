@@ -8,6 +8,29 @@ export type Option = {
   disabled?: boolean;
 };
 
+export type ChoiceItem = {
+  value: PrimitiveValue;
+  label: string;
+  goto?: string;
+};
+
+export type RouteOperator =
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between"
+  | "in";
+
+export type SlideRouteRule = {
+  field: string;
+  operator: RouteOperator;
+  value: string;
+  goto: string;
+};
+
 export type ShowIfRule = {
   field: string;
   in: PrimitiveValue[];
@@ -43,7 +66,8 @@ export type SlideType =
   | "choice"
   | "result"
   | "story"
-  | "form";
+  | "form"
+  | "video";
 
 export type Slide = {
   id: string;
@@ -54,6 +78,7 @@ export type Slide = {
   helperText?: string;
   helperTextBelowOptions?: boolean;
   options?: Option[];
+  choices?: ChoiceItem[];
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -64,6 +89,8 @@ export type Slide = {
   feature?: SlideFeature;
   sections?: SlideSection[];
   fields?: FormField[];
+  routeRules?: SlideRouteRule[];
+  backRouteRules?: SlideRouteRule[];
 };
 
 export type ThemeConfig = {
@@ -122,6 +149,9 @@ export type ParsedSlideDraft = {
   goto?: string;
   run?: string;
   fields?: FormField[];
+  choices?: ChoiceItem[];
+  routeRules?: SlideRouteRule[];
+  backRouteRules?: SlideRouteRule[];
 };
 
 export type ParsedQuestionnaireDocument = {

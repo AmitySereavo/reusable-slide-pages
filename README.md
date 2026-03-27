@@ -79,6 +79,7 @@ Route:
 - `#` for heading line styling
 - `##` for subheading line styling
 - normal text lines as paragraph lines
+- `// ...` and `:: ...` comment/header lines are ignored by the parser
 - `@feature: numberscale(...)`
 - `@store:`
 - `@back:`
@@ -86,6 +87,9 @@ Route:
 - `@next:`
 - `@goto:`
 - `@fields:`
+- `@choices:`
+- `@when:`
+- `@backwhen:`
 - `@run:`
 
 ## Line-level color support
@@ -108,6 +112,32 @@ This keeps:
 - the parser generic
 - the DSL readable
 - the brand colors theme-specific
+
+## DSL comments and readable slide IDs
+
+The DSL now supports lightweight comment/header lines that are ignored by the parser.
+
+Examples:
+
+```txt
+// INTRO QUESTION
+:: RESULTS SECTION
+```
+
+This makes large questionnaire files easier to scan and edit.
+
+Recommended practice:
+
+- use descriptive slide ids instead of numbered ids
+- prefer ids like `self-trust-score`, `future-trust-score`, `contact-form`
+- avoid renumbering-based ids like `slide8`, `slide9`, `slide10`
+
+This makes it easier to:
+
+- insert new slides in the middle
+- move slides around
+- keep `@goto:` targets readable
+- maintain long questionnaire files over time
 
 ## Variable replacement system
 
@@ -149,8 +179,16 @@ If a placeholder is not found in either source, it remains unchanged.
 - `@goto:` and `@backgoto:` can target either:
   - an internal slide id
   - or an external `http/https` URL
+
 - external URL targets open in a new tab
 - form fields are fully DSL-driven
+- choice-button groups can be rendered inside a slide via `@choices:`
+- choice buttons can store a selected value using `@store:`
+- choice buttons can optionally route directly using per-choice `goto`
+- conditional next-button routing can be defined with `@when:`
+- conditional back-button routing can be defined with `@backwhen:`
+- route rules evaluate against the shared questionnaire answers object
+- previously stored values such as scores can be reused by later slides
 - named actions can be triggered from slides using `@run:`
 - submissions are sent through a shared submit route
 - submissions are now saved to PostgreSQL through Prisma
@@ -182,6 +220,7 @@ src/
       gardenHerbsTheme.ts
       selfTrustTheme.ts
   lib/
+    googleSheets.ts
     prisma.ts
     questionnaire/
       engine.ts
@@ -226,9 +265,12 @@ Parses the custom DSL into structured slide data, including:
 
 - sections
 - fields
+- choices
 - features
 - navigation directives
 - line color tokens
+- conditional route rules
+- ignored DSL comment/header lines
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -249,6 +291,10 @@ Loads a questionnaire by slug from the registry and renders it.
 ### `src/app/api/questionnaires/submit/route.ts`
 
 Receives questionnaire form submissions and saves them to the database.
+
+### `src/lib/googleSheets.ts`
+
+Mirrors saved submissions to a Google Sheets webhook when configured.
 
 ### `src/lib/prisma.ts`
 
@@ -279,9 +325,17 @@ Prisma 7 configuration file for schema location and datasource URL.
 - questionnaire-specific variables
 - live answer-based placeholder replacement
 - line-level color tokens in the DSL
+- descriptive slide ids for easier long-form maintenance
+- parser support for ignored DSL comment/header lines
+- in-slide choice buttons via `@choices:`
+- conditional routing via `@when:`
+- conditional back routing via `@backwhen:`
+- routing decisions based on any previously stored answer value
 - form submissions sent to backend
 - questionnaire submissions persisted to PostgreSQL with Prisma
 - generic answer storage using `answers` JSON
+- optional Google Sheets mirroring for saved submissions
+- per-questionnaire Google Sheets tabs plus a shared master submissions tab
 
 ## Database model
 
@@ -309,21 +363,48 @@ Submissions are saved into the `QuestionnaireSubmission` table with a shape simi
 - `answers`
 - `createdAt`
 
-## What is finished
+## Conditional routing examples
 
-- registry-based questionnaire loading
-- multiple DSL files
-- multiple themes
-- questionnaire-specific variables
-- line-level DSL color support
-- questionnaire-agnostic submission storage
-- Prisma / PostgreSQL integration
-- working submit route
-- responsive layout improvements for narrower desktop widths
+Route rules can send the user to different slides based on any previously stored answer.
 
-- Google Sheets sync
+Example:
+
+```txt
+@when:
+- selfScore|in|2,3|low-self-trust-path
+- selfScore|in|4,5,6|mid-self-trust-path
+- selfScore|in|7,8,9|high-self-trust-path
+- selfScore|eq|10|full-self-trust-path
+```
+
+Supported operators:
+
+- `eq`
+- `neq`
+- `gt`
+- `gte`
+- `lt`
+- `lte`
+- `between`
+- `in`
+
+These rules are evaluated against the shared answers state, so any later slide can route based on values gathered earlier in the questionnaire.
+
+## Optional Google Sheets mirror
+
+You can mirror saved questionnaire submissions to Google Sheets by setting:
+
+```env
+GOOGLE_SHEETS_WEBHOOK_URL="YOUR_APPS_SCRIPT_WEB_APP_URL"
+GOOGLE_SHEETS_WEBHOOK_SECRET="YOUR_SHARED_SECRET"
+```
+
+If `GOOGLE_SHEETS_WEBHOOK_URL` is not set, the app will skip the mirror and continue saving to PostgreSQL only.
+
+## What is not finished yet
+
 - live database-backed statistics for values like `[statsCount]`
-- richer branching logic beyond direct `@goto:`
+- richer feature types beyond the current number scale
 - admin/editor tools
 - loading questionnaire content from real text files instead of TS string exports
 - questionnaire definition storage in the database, if desired later
@@ -342,6 +423,8 @@ Set up your environment variables in `.env`:
 
 ```env
 DATABASE_URL="your_postgres_connection_string"
+GOOGLE_SHEETS_WEBHOOK_URL="YOUR_APPS_SCRIPT_WEB_APP_URL"
+GOOGLE_SHEETS_WEBHOOK_SECRET="YOUR_SHARED_SECRET"
 ```
 
 Generate Prisma Client:
@@ -372,4 +455,8 @@ or
 
 ```txt
 http://localhost:3000/questionnaire/garden-herbs
+```
+
+```
+
 ```

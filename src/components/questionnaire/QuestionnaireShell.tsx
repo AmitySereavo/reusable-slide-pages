@@ -5,8 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import styles from "./QuestionnaireShell.module.css";
 import {
   FormField,
+  PrimitiveValue,
   QuestionnaireAnswers,
   QuestionnaireConfig,
+  SlideRouteRule,
   SlideSection,
   ThemeConfig,
 } from "@/types/questionnaire";
@@ -80,22 +82,115 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     window.open(value, "_blank", "noopener,noreferrer");
   }
 
+  function goToTarget(target: string) {
+    if (isExternalTarget(target)) {
+      openExternalTarget(target);
+      return;
+    }
+
+    const targetIndex = getSlideIndexById(visibleSlides, target);
+
+    if (targetIndex !== -1 && targetIndex !== currentIndex) {
+      setHistory((prev) => [...prev, currentIndex]);
+      setCurrentIndex(targetIndex);
+    }
+  }
+
+  function handleChoiceClick(value: PrimitiveValue, goto?: string) {
+    if (currentSlide?.storeAs) {
+      setAnswer(currentSlide.storeAs, value);
+    }
+
+    if (goto) {
+      goToTarget(goto);
+    }
+  }
+
+  function parseRulePrimitive(raw: string): PrimitiveValue {
+    const trimmed = raw.trim();
+
+    if (trimmed.toLowerCase() === "true") return true;
+    if (trimmed.toLowerCase() === "false") return false;
+
+    const num = Number(trimmed);
+    return Number.isNaN(num) ? trimmed : num;
+  }
+
+  function evaluateRouteRule(rule: SlideRouteRule) {
+    const actual = answers[rule.field];
+
+    if (actual === undefined || actual === null) {
+      return false;
+    }
+
+    switch (rule.operator) {
+      case "eq":
+        return actual === parseRulePrimitive(rule.value);
+
+      case "neq":
+        return actual !== parseRulePrimitive(rule.value);
+
+      case "gt":
+        return Number(actual) > Number(rule.value);
+
+      case "gte":
+        return Number(actual) >= Number(rule.value);
+
+      case "lt":
+        return Number(actual) < Number(rule.value);
+
+      case "lte":
+        return Number(actual) <= Number(rule.value);
+
+      case "between": {
+        const [minRaw, maxRaw] = rule.value.split("..").map((part) => part.trim());
+        const actualNum = Number(actual);
+        const min = Number(minRaw);
+        const max = Number(maxRaw);
+
+        if (
+          Number.isNaN(actualNum) ||
+          Number.isNaN(min) ||
+          Number.isNaN(max)
+        ) {
+          return false;
+        }
+
+        return actualNum >= min && actualNum <= max;
+      }
+
+      case "in": {
+        const allowedValues = rule.value
+          .split(",")
+          .map((part) => parseRulePrimitive(part));
+
+        return allowedValues.some((item) => item === actual);
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  function resolveRouteRuleTarget(rules: SlideRouteRule[] | undefined) {
+    if (!rules?.length) return null;
+
+    const match = rules.find((rule) => evaluateRouteRule(rule));
+    return match?.goto ?? null;
+  }
+
   function next() {
     if (!currentSlide) return;
 
+    const conditionalTarget = resolveRouteRuleTarget(currentSlide.routeRules);
+    if (conditionalTarget) {
+      goToTarget(conditionalTarget);
+      return;
+    }
+
     if (currentSlide.goto) {
-      if (isExternalTarget(currentSlide.goto)) {
-        openExternalTarget(currentSlide.goto);
-        return;
-      }
-
-      const targetIndex = getSlideIndexById(visibleSlides, currentSlide.goto);
-
-      if (targetIndex !== -1 && targetIndex !== currentIndex) {
-        setHistory((prev) => [...prev, currentIndex]);
-        setCurrentIndex(targetIndex);
-        return;
-      }
+      goToTarget(currentSlide.goto);
+      return;
     }
 
     if (currentIndex < visibleSlides.length - 1) {
@@ -108,18 +203,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     if (!currentSlide) return;
 
     if (currentSlide.backGoto) {
-      if (isExternalTarget(currentSlide.backGoto)) {
-        openExternalTarget(currentSlide.backGoto);
-        return;
-      }
+      goToTarget(currentSlide.backGoto);
+      return;
+    }
 
-      const targetIndex = getSlideIndexById(visibleSlides, currentSlide.backGoto);
-
-      if (targetIndex !== -1 && targetIndex !== currentIndex) {
-        setHistory((prev) => [...prev, currentIndex]);
-        setCurrentIndex(targetIndex);
-        return;
-      }
+    const conditionalBackTarget = resolveRouteRuleTarget(
+      currentSlide.backRouteRules
+    );
+    if (conditionalBackTarget) {
+      goToTarget(conditionalBackTarget);
+      return;
     }
 
     if (history.length > 0) {
@@ -138,6 +231,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     if (!currentSlide) return false;
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
+      return answers[currentSlide.storeAs] !== undefined;
+    }
+
+    if (currentSlide.type === "choice" && currentSlide.storeAs) {
       return answers[currentSlide.storeAs] !== undefined;
     }
 
@@ -271,6 +368,47 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                     setAnswer
                   )}
 
+                  {currentSlide.choices?.length ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "12px",
+                        margin: "20px auto 0",
+                        width: "100%",
+                        maxWidth: "520px",
+                        justifyItems: "center",
+                      }}
+                    >
+                      {currentSlide.choices.map((choice) => {
+                        const selected =
+                          currentSlide.storeAs &&
+                          answers[currentSlide.storeAs] === choice.value;
+
+                        return (
+                          <button
+                            key={`${currentSlide.id}-${String(choice.value)}`}
+                            type="button"
+                            onClick={() =>
+                              handleChoiceClick(choice.value, choice.goto)
+                            }
+                            className={styles.secondaryButton}
+                            style={{
+                              width: "100%",
+                              maxWidth: "420px",
+                              borderColor: theme.colors.border,
+                              background: selected
+                                ? theme.colors.primary
+                                : theme.colors.card,
+                              color: selected ? "#FFFFFF" : theme.colors.text,
+                            }}
+                          >
+                            {choice.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   {(currentSlide.type === "form" ||
                     currentSlide.type === "contact") &&
                   currentSlide.fields?.length ? (
@@ -301,7 +439,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 type="button"
                 onClick={back}
                 disabled={
-                  ((currentIndex === 0 && history.length === 0 && !currentSlide.backGoto) ||
+                  ((currentIndex === 0 &&
+                    history.length === 0 &&
+                    !currentSlide.backGoto &&
+                    !currentSlide.backRouteRules?.length) ||
                     isSubmitting)
                 }
                 className={styles.secondaryButton}
