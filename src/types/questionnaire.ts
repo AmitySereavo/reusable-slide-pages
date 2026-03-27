@@ -56,6 +56,7 @@ export type Slide = {
   options?: Option[];
   nextLabel?: string;
   backLabel?: string;
+  backGoto?: string;
   storeAs?: string;
   showIf?: ShowIfRule;
   goto?: string;
@@ -116,6 +117,7 @@ export type ParsedSlideDraft = {
   feature?: SlideFeature;
   storeAs?: string;
   backLabel?: string;
+  backGoto?: string;
   nextLabel?: string;
   goto?: string;
   run?: string;

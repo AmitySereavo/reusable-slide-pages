@@ -72,10 +72,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
+  function isExternalTarget(value: string) {
+    return /^https?:\/\//i.test(value);
+  }
+
+  function openExternalTarget(value: string) {
+    window.open(value, "_blank", "noopener,noreferrer");
+  }
+
   function next() {
     if (!currentSlide) return;
 
     if (currentSlide.goto) {
+      if (isExternalTarget(currentSlide.goto)) {
+        openExternalTarget(currentSlide.goto);
+        return;
+      }
+
       const targetIndex = getSlideIndexById(visibleSlides, currentSlide.goto);
 
       if (targetIndex !== -1 && targetIndex !== currentIndex) {
@@ -92,6 +105,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function back() {
+    if (!currentSlide) return;
+
+    if (currentSlide.backGoto) {
+      if (isExternalTarget(currentSlide.backGoto)) {
+        openExternalTarget(currentSlide.backGoto);
+        return;
+      }
+
+      const targetIndex = getSlideIndexById(visibleSlides, currentSlide.backGoto);
+
+      if (targetIndex !== -1 && targetIndex !== currentIndex) {
+        setHistory((prev) => [...prev, currentIndex]);
+        setCurrentIndex(targetIndex);
+        return;
+      }
+    }
+
     if (history.length > 0) {
       const previousIndex = history[history.length - 1];
       setHistory((prev) => prev.slice(0, -1));
@@ -129,16 +159,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function getLeadPayload() {
-  return {
-    questionnaireSlug: config.slug,
-    fullName: String(answers.fullName ?? "").trim(),
-    email: String(answers.email ?? "").trim(),
-    phone: String(answers.phone ?? "").trim(),
-    whatsappOptIn:
-      answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
-    answers,
-  };
-}
+    return {
+      questionnaireSlug: config.slug,
+      fullName: String(answers.fullName ?? "").trim(),
+      email: String(answers.email ?? "").trim(),
+      phone: String(answers.phone ?? "").trim(),
+      whatsappOptIn:
+        answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
+      answers,
+    };
+  }
 
   async function runSlideAction(runName: string) {
     if (runName !== "submitLead") return true;
@@ -271,7 +301,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 type="button"
                 onClick={back}
                 disabled={
-                  (currentIndex === 0 && history.length === 0) || isSubmitting
+                  ((currentIndex === 0 && history.length === 0 && !currentSlide.backGoto) ||
+                    isSubmitting)
                 }
                 className={styles.secondaryButton}
                 style={{
@@ -426,13 +457,13 @@ function renderSections(
                         background: option.disabled
                           ? theme.colors.disabled
                           : selected
-                          ? theme.colors.primary
-                          : theme.colors.card,
+                            ? theme.colors.primary
+                            : theme.colors.card,
                         color: option.disabled
                           ? "#666666"
                           : selected
-                          ? "#FFFFFF"
-                          : theme.colors.text,
+                            ? "#FFFFFF"
+                            : theme.colors.text,
                       }}
                     >
                       {option.label}

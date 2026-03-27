@@ -82,6 +82,7 @@ Route:
 - `@feature: numberscale(...)`
 - `@store:`
 - `@back:`
+- `@backgoto:`
 - `@next:`
 - `@goto:`
 - `@fields:`
@@ -143,7 +144,12 @@ If a placeholder is not found in either source, it remains unchanged.
 - content is rendered in-order from the DSL
 - headings and subheadings only affect the line they are written on
 - text can appear above or below features depending on placement in the DSL
-- back navigation follows actual visited-slide history
+- back navigation follows actual visited-slide history by default
+- `@backgoto:` can override default back-button navigation
+- `@goto:` and `@backgoto:` can target either:
+  - an internal slide id
+  - or an external `http/https` URL
+- external URL targets open in a new tab
 - form fields are fully DSL-driven
 - named actions can be triggered from slides using `@run:`
 - submissions are sent through a shared submit route
@@ -266,6 +272,8 @@ Prisma 7 configuration file for schema location and datasource URL.
 - disabled score option support like `[7]`
 - `@goto:` navigation working
 - back-button history tracking
+- custom back-button routing via `@backgoto:`
+- external link support for `@goto:` and `@backgoto:`
 - `@run:` action support
 - DSL-driven form fields via `@fields:`
 - questionnaire-specific variables
@@ -313,14 +321,13 @@ Submissions are saved into the `QuestionnaireSubmission` table with a shape simi
 - working submit route
 - responsive layout improvements for narrower desktop widths
 
-## What is not finished yet
-
 - Google Sheets sync
 - live database-backed statistics for values like `[statsCount]`
 - richer branching logic beyond direct `@goto:`
 - admin/editor tools
 - loading questionnaire content from real text files instead of TS string exports
 - questionnaire definition storage in the database, if desired later
+- dedicated video slide rendering support (`@type: video` content still needs renderer/type implementation)
 - final copy/story refinement
 
 ## Local development

@@ -81,6 +81,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@backgoto:")) {
+        draft.backGoto = readValue(line, "@backgoto:");
+        continue;
+      }
+
       if (line.startsWith("@next:")) {
         draft.nextLabel = readValue(line, "@next:");
         continue;
@@ -182,6 +187,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
         : undefined),
     body: draft.paragraphs.join(" "),
     backLabel: draft.backLabel,
+    backGoto: draft.backGoto,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,
