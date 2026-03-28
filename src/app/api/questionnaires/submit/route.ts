@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { mirrorSubmissionToGoogleSheets } from "@/lib/googleSheets";
 
@@ -13,6 +14,10 @@ type SubmitPayload = {
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
 export async function POST(req: Request) {
@@ -41,6 +46,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const prismaAnswers = toInputJsonValue(answers);
+
     const submission = await prisma.questionnaireSubmission.create({
       data: {
         questionnaireSlug,
@@ -48,7 +55,7 @@ export async function POST(req: Request) {
         email: email || null,
         phone: phone || null,
         whatsappOptIn,
-        answers,
+        answers: prismaAnswers,
       },
     });
 
