@@ -5,10 +5,10 @@ export const selfTrustDsl = `
 @type: content
 ---
 BR
-[c2] Do you 
+[c2] Do you
 # [c2] Trust yourself?
 BR
-[c3] Not only when 
+[c3] Not only when
 [c3] life is going smoothly.
 [c2] Not just when someone reassures you.
 BR
@@ -28,7 +28,7 @@ BR
 @id: self-trust-score
 @type: score
 
-# How much 
+# How much
 # [c2] would you say
 # you trust yourself?
 [c2] On a scale of 1 to 10
@@ -48,7 +48,7 @@ BR
 @id: future-trust-score
 @type: score
 [c2] and
-# [c2] How much 
+# [c2] How much
 ## [c3] would you say you
 # Trust the future?
 BR
@@ -64,7 +64,7 @@ BR
 @type: content
 ---
 BR
-# [c2] [statsCount] 
+# [c2] [statsCount]
 # [c2] people
 [c2] who took the time
 [c2] to answer these questions
@@ -89,7 +89,7 @@ BR
 # [c3] [futureScore]
 BR
 [c2] in
-## [c2] trusting the 
+## [c2] trusting the
 # [c2] Future
 
 @back: Back
@@ -109,7 +109,7 @@ BR
 ---
 BR
 ## A lot of
-# Honest, 
+# Honest,
 # [c2] Thoughtful
 # persons
 BR
@@ -128,7 +128,7 @@ BR
 ---
 BR
 [c2] is it true that
-# [c2] Self-trust 
+# [c2] Self-trust
 # [c3] changes everything?
 ---
 BR
@@ -139,7 +139,7 @@ BR
 [c2] how you show up in business,
 ## [c2] in love,
 ## [c3] and in everyday life?
-@back: False
+@showback: false
 @next: True
 @goto: self-trust-force-question
 
@@ -149,12 +149,12 @@ BR
 @type: content
 ---
 BR
-# [c2] Would 
-# [c2] you agree 
-# [c2] that 
-# [c3] Self-Trust 
-## is a 
-# Powerful 
+# [c2] Would
+# [c2] you agree
+# [c2] that
+# [c3] Self-Trust
+## is a
+# Powerful
 # Force?
 
 @back: No, I don't
@@ -168,10 +168,10 @@ BR
 @type: content
 ## Yes, and
 BR
-# Many People 
+# Many People
 ## who are now
 BR
-# Confident 
+# Confident
 # [c2] Grounded,
 ## and fully
 # [c3] Aligned
@@ -187,7 +187,7 @@ BR
 @type: content
 ---
 BR
-# Many of them 
+# Many of them
 # [c2] were once
 BR
 ## [c3] anxious,
@@ -205,23 +205,22 @@ BR
 @type: content
 ---
 ## Have you ever
-# [c2] sensed 
-## [c2] that 
-# [c2] something 
-# Keeps Pulling 
+# [c2] sensed
+## [c2] that
+# [c2] something
+# Keeps Pulling
 ## [c3] you back
-## [c2] from the 
-# life you want 
+## [c2] from the
+# life you want
 # [c2] to create?
 BR
-@store: feltHeldBack?
+@store: feltHeldBack
 @choices:
 - Can relate | Yes, I can relate | stuck-score
 - No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom
 
 @back: Back
 @shownext: false
-
 
 // FREEDOM SCORE
 ===
@@ -230,11 +229,11 @@ BR
 ---
 BR
 # How Free
-## do 
+## do
 # you feel?
 ## Right now?
 BR
-@feature: numberscale(1,2,3,4,5,6,[7],8,9,10) 
+@feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
 BR
 [c2] 1 means NOT free at all.
 [c2] 10 means you are ABSOLUTELY free.
@@ -253,12 +252,12 @@ BR
 
 ---
 BR
-## What level of 
+## What level of
 # Stuck
 ## would you say
 ## [c3] you are at?
 BR
-@feature: numberscale(1,2,3,4,5,6,[7],8,9,10) 
+@feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
 BR
 [c2] 1 Being NOT stuck at all
 [c2] 10 Being EXTREMELY stuck
@@ -270,8 +269,6 @@ BR
 @back: Back
 @next: Continue
 @goto:
-
-
 
 // MANY HAVE BEEN THERE
 ===
@@ -292,21 +289,20 @@ BR
 @next: Then what?
 @goto: something-changed
 
-===
-
 // SOMETHING CHANGED
+===
 @id: something-changed
 @type: content
 ---
 BR
-[c2] then 
-# [c3] something 
-# [c3]changed.
+[c2] then
+# [c3] something
+# [c3] changed.
 BR
 ## [c2] They made an inner shift.
 BR
-[c2] To become the 
-## [c3] structured people 
+[c2] To become the
+## [c3] structured people
 [c2] we know them to be
 @back: Back
 @next: Continue Reading...
@@ -318,16 +314,16 @@ BR
 @type: content
 ---
 BR
-[c2] But, what was the 
+[c2] But, what was the
 # [c2] process
 ## that allowed
-# [c3] That Shift 
+# [c3] That Shift
 ## [c2] to happen?
 ---
 [c3] And is this Kind of
 # [c3] Transformation
-[c2] only for a 
-## [c2] certain kind 
+[c2] only for a
+## [c2] certain kind
 ## of people?
 @back: Back
 @next: Learn More
@@ -359,7 +355,7 @@ were the
 ---
 BR
 ## [c2] Yes,
-# [c2] The Shift 
+# [c2] The Shift
 # Is possible!
 ---
 ## The process can be learned.
@@ -372,13 +368,12 @@ BR
 @choices:
 - Watch the video | Watch the video | https://www.instagram.com/reel/DVwZ7xGDcEZ/
 - continue reading | Or Continue reading... | coach-message
-@back: Go
 @showback: false
 @shownext: false
-@goto: 
-===
+@goto:
 
 // COACH MESSAGE
+===
 @id: coach-message
 @type: video
 ## [c3] What my clients often gain is something deeper:
@@ -400,7 +395,7 @@ BR
 BR
 clients become more emotionally regulated.
 More able to set boundaries without guilt.
-More able to take action 
+More able to take action
 without constantly second-guessing themselves.
 BR
 ---
@@ -413,24 +408,24 @@ BR
 @back: Back
 @next: See how it works
 @goto:
-===
 
 // PRE CONTACT FORM
+===
 @id: pre-contact-form
 @type: form
 ---
 BR
 [c2] a client has permitted us
-## [c3] to send you their 
-# Recording 
+## [c3] to send you their
+# Recording
 ## [c2] of an
 # [c3] Actual Session.
 BR
 [c2] so that
-[c2] you can observe what it's like 
+[c2] you can observe what it's like
 BR
 
-[c3] to work with 
+[c3] to work with
 ## [c3] Stacy Henry-Carr
 
 @next: Send me the recording
@@ -479,20 +474,18 @@ BR
 [c2] for
 BR
 ## [c3] Stacy-Henry-Carr's
-# [c3] Client Session 
+# [c3] Client Session
 ## [c3] Recording
 BR
 [c2] and the link to her
-# [c2] 2X Self Trust 
+# [c2] 2X Self Trust
 ## [c2] PDF
 
 @showback: false
 @shownext: false
 
-===
-
-===
 // UNINTERESTED EXIT
+===
 @id: uninterested-exit
 @type: content
 ---
@@ -503,17 +496,13 @@ BR
 @showback: false
 @shownext: false
 
-===
-
 // SHARE YOUR WISDOM
+===
 @showif:
--selfscore|in|9,10
-
+- selfScore|in|9,10
 @id: share-your-wisdom
 @type: content
-
 ---
-
 BR
 # Awesome.
 BR
@@ -524,53 +513,48 @@ BR
 ## your level of self-trust?
 @choices:
 - Sure | Sure | self-trust-score
-- No, I don't | No, I don't | exit 
+- No, I don't | No, I don't | uninterested-exit
 @back: Back
 @next: Continue
 @goto: self-trust-score
 
-===
 // DON'T VALUE SELF TRUST
-
-@showif:
--
+===
 @id: dont-value-self-trust
 @type: content
 ---
 BR
 If you don't value self-trust,
-then these pages 
+then these pages
 are not for you.
 @back: Back
 @next: Exit
 @goto: uninterested-exit
 
-===
-@showif:
--
 // HELP OTHERS WITH FREEDOM
+===
 @id: help-others-with-freedom
 @type: content
 ---
 BR
-# would you 
-## like to 
+# would you
+## like to
 # help others
-# experience 
+# experience
 ## the freedom
 you feel?
 BR
 Maybe you have a friend who could use some support?
-Maybe this is something 
-that will keep you in alignment 
+Maybe this is something
+that will keep you in alignment
 with your current position?
 BR
 do you wish to continue?
 
 @choices:
--No|No,I don't|uninterested-exit
+- No | No, I don't | uninterested-exit
 
-@back: back
+@back: Back
 @next: Yes, I would love to
 @goto: freedom-score
 `;
