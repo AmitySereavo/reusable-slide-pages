@@ -2,7 +2,7 @@ export const selfTrustDsl = `
 // INTRO QUESTION
 ===
 @id: intro-question
-@type: choice
+@type: content
 ---
 BR
 ## [c2] Do you 
@@ -19,50 +19,28 @@ BR
 ## [c3] In your direction.
 [c2] In the way you move through life?
 BR
-@store: trustLevel
-@choices:
-- completely|Yes, I trust myself completely|share-your-wisdom
-- somewhat|I trust myself somewhat|self-trust-score
-- no|No, I don't trust myself at all|self-trust-score
-@back: Back
-@next: Continue Reading
+@next: Give your answer
+@goto:
 
-// SHARE YOUR WISDOM
 ===
-@id: share-your-wisdom
-@type: content
----
-BR
-# Awesome.
-BR
-## Would you mind sharing
-## what you know?
-BR
-## To help others reach
-## your level of self-trust?
-@back: Back
-@next: Continue
-@goto: self-trust-score
-
 // SELF TRUST SCORE
-===
 @id: self-trust-score
 @type: score
 
 # How much 
 # [c2] would you say
 # you trust yourself?
+[c2] on a scale of 1 to 10?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
 BR
-[c2] on a scale of 1 to 10?
+
 ## [c3] 1 being NO Trust at all.
-&
 ## [c3] 10 being COMPLETE TRUST.
 @store: selfScore
 @back: Back
 @next: Continue
-@goto: future-trust-score
+@goto:
 
 // FUTURE TRUST SCORE
 ===
@@ -77,7 +55,7 @@ BR
 @store: futureScore
 @back: Back
 @next: Continue
-@goto: results-self-trust
+@goto:
 
 // RESULTS SELF TRUST
 ===
@@ -97,7 +75,7 @@ BR
 # [c2] Self-Trust
 @back: Back
 @next: Continue
-@goto: results-future-trust
+@goto:
 
 // RESULTS FUTURE TRUST
 ===
@@ -140,7 +118,7 @@ BR
 [c3] but why though?
 @back: Back
 @next: Continue
-@goto: self-trust-changes-everything
+@goto:
 
 // SELF TRUST CHANGES EVERYTHING
 ===
@@ -178,9 +156,9 @@ BR
 # Force?
 
 @back: No, I don't
-@backgoto: same-place-message
+@backgoto: dont-value-self-trust
 @next: Yes, I Agree
-@goto: aligned-people-message
+@goto:
 
 // ALIGNED PEOPLE MESSAGE
 ===
@@ -217,7 +195,7 @@ BR
 # STUCK...
 @back: Back
 @next: Continue
-@goto: pulled-back-question
+@goto:
 
 // PULLED BACK QUESTION
 ===
@@ -234,27 +212,15 @@ BR
 ## [c2] from the 
 # life you want 
 # [c2] to create?
-@back: No, I Have Never Felt That Way
-@backgoto: you-are-free
-@next: Yes, I can relate
-@goto: freedom-score
-===
 
-// YOU ARE FREE
-@id: you-are-free
-@type: content
----
-BR
-# would you 
-## like to 
-# help others
-# experience 
-## the freedom
-you feel?
-@back: No, I don't
-@backgoto: freedom-score
-@next: Yes, I would love to
-@goto: freedom-score
+@store: feltHeldBack?
+@choices:
+- Can relate | Yes, I can relate | stuck-score
+- No, can't relate | No, I Have Never Felt That Way | freedom-score
+
+@back: Back
+@goto: 
+
 
 // FREEDOM SCORE
 ===
@@ -262,17 +228,19 @@ you feel?
 @type: score
 ---
 BR
-## How 
-# Free
-BR
-## do you feel?
+# How Free
+## do 
+# you feel?
+## Right now?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10) 
 BR
 ## 1 means NOT free at all.
-&
 ## 10 means you are ABSOLUTELY free.
 @store: freedomScore
+@when:
+- freedomScore|in|1,2,3,4,5,6,7|stuck-score
+- freedomScore|in|8,9,10|many-have-been-there
 @back: Back
 @next: Continue
 @goto:
@@ -296,19 +264,36 @@ BR
 ## 10 Being EXTREMELY stuck
 
 @store: stuckScore
+@when:
+- stuckScore|in|1,2,|3|freedom-score
+- stuckScore|in|4,5,6,7,8,9,10|many-have-been-there
 @back: Back
 @next: Continue
-@goto: inner-shift-message
+@goto:
 
-// INNER SHIFT MESSAGE
+
+
+// MANY HAVE BEEN THERE
 ===
-@id: inner-shift-message
+@id: many-have-been-there
 @type: content
 ---
 BR
 # [c2] Many 
 # [c3] who we admire
 # [c2] have been there.
+BR
+## They have felt stuck,
+## overwhelmed,
+## and held back.
+@back: Back
+@next: Then what?
+@goto: something-changed
+
+// SOMETHING CHANGED
+@id: something-changed
+@type: content
+---
 BR
 [c2] then 
 ## [c3] something changed.
@@ -367,6 +352,7 @@ were the
 @type: content
 ---
 BR
+## [c2] Yes
 # [c2] The Shift 
 # Is possible!
 ---
@@ -376,9 +362,10 @@ BR
 ## [c3] with the right support,
 BR
 # [c2] It can be embodied.
+@choices:
+- Watch the video | Watch the video | https://www.instagram.com/reel/DVwZ7xGDcEZ/?igsh=d2J6c3F0aTRtOXUw
 
-@back: Watch the video
-@backgoto: https://www.instagram.com/reel/DVwZ7xGDcEZ/?igsh=d2J6c3F0aTRtOXUw
+@back: Go back,
 @next: Or continue reading...
 @goto: coach-message
 ===
@@ -387,7 +374,7 @@ BR
 @id: coach-message
 @type: video
 What my clients often gain is something deeper:
-a new relationship with themselves.
+a new relationship with themselves,
 BR
 although they begin these sessions, only for relief
 from anxiety, overwhelm, or inner conflict...
@@ -421,9 +408,16 @@ BR
 // CONTACT FORM
 @id: contact-form
 @type: form
-# Stay connected
-## Where should we send your next step?
-Share your details and we’ll send guidance and updates.
+## we want to send you 
+##a recording of 
+an actual session.
+BR
+so you can observe 
+what it's like 
+to work with 
+Stacy Henry-Carr
+## Where should we send it?
+
 @fields:
 - fullName|text|Full name|required|Full name
 - email|email|Email address|required|Email address
@@ -432,4 +426,63 @@ Share your details and we’ll send guidance and updates.
 @run: submitLead
 @back: Back
 @next: Continue
+
+
+
+// EXTRA SLIDES
+// SHARE YOUR WISDOM
+@id: share-your-wisdom
+@type: content
+
+---
+
+BR
+# Awesome.
+BR
+## Would you mind sharing
+## what you know?
+BR
+## To help others reach
+## your level of self-trust?
+@choices:
+- Sure | Sure | self-trust-score
+- No, I don't | No, I don't | exit 
+@back: Back
+@next: Continue
+@goto: self-trust-score
+
+// Dont Value Self Trust
+===
+@id: dont-value-self-trust
+@type: content
+---
+BR
+If you don't value self-trust,
+then these pages are not for you.
+@back: Back
+@next: exit
+@goto:
+
+===
+// HELP OTHERS WITH FREEDOM
+@id: help-others-with-freedom
+@type: content
+---
+BR
+# would you 
+## like to 
+# help others
+# experience 
+## the freedom
+you feel?
+BR
+Maybe you have a friend who could use some support?
+Maybe this is something 
+that will keep you in alignment 
+with your current position?
+BR
+do you wish to continue?
+@back: No, I don't
+@next: Yes, I would love to
+@goto: freedom-score
 `;

@@ -26,6 +26,7 @@ This makes it possible to:
 - control slide flow using DSL directives
 - define score scales inline
 - define form fields inline
+- define in-slide choice buttons inline
 - trigger named actions from slides
 - reuse the same engine for multiple brands and campaigns
 - attach questionnaire-specific variables without bloating the parser
@@ -94,7 +95,7 @@ Route:
 
 ## Line-level color support
 
-The DSL now supports line color tokens.
+The DSL supports line color tokens.
 
 Examples:
 
@@ -104,8 +105,7 @@ Examples:
 [c3] Paragraph text
 ```
 
-The parser reads the color token and stores it on the section.
-The actual color values come from the questionnaire theme file, not from the parser.
+The parser reads the color token and stores it on the section. The actual color values come from the questionnaire theme file, not from the parser.
 
 This keeps:
 
@@ -115,7 +115,7 @@ This keeps:
 
 ## DSL comments and readable slide IDs
 
-The DSL now supports lightweight comment/header lines that are ignored by the parser.
+The DSL supports lightweight comment/header lines that are ignored by the parser.
 
 Examples:
 
@@ -139,9 +139,147 @@ This makes it easier to:
 - keep `@goto:` targets readable
 - maintain long questionnaire files over time
 
+## DSL examples
+
+### 1. Basic content slide
+
+```txt
+// INTRO QUESTION
+===
+@id: intro-question
+@type: content
+---
+BR
+## [c2] Do you
+# [c3] Trust yourself?
+BR
+[c2] Not only when life is going smoothly.
+[c3] Not just when someone reassures you.
+@back: Back
+@next: Continue
+@goto: self-trust-score
+```
+
+### 2. Score slide with `@feature: numberscale(...)`
+
+```txt
+// SELF TRUST SCORE
+===
+@id: self-trust-score
+@type: score
+# How much
+# [c2] would you say
+# you trust yourself?
+BR
+@feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
+BR
+[c2] on a scale of 1 to 10?
+## [c3] 1 being NO trust at all.
+## [c3] 10 being COMPLETE trust.
+@store: selfScore
+@back: Back
+@next: Continue
+@goto: future-trust-score
+```
+
+### 3. Choice slide with `@choices:`
+
+```txt
+// INTRO QUESTION
+===
+@id: intro-question
+@type: choice
+# Do you trust yourself?
+BR
+@store: trustLevel
+@choices:
+- completely|Yes, I trust myself completely|share-your-wisdom
+- somewhat|I trust myself somewhat|self-trust-score
+- no|No, I don't trust myself at all|self-trust-score
+@back: Back
+@next: Continue Reading
+```
+
+Choice line format:
+
+```txt
+- value|Button label|optional-goto
+```
+
+The third part is optional. If included, clicking that choice button routes immediately to that target.
+
+### 4. Form slide with `@fields:`
+
+```txt
+// CONTACT FORM
+===
+@id: contact-form
+@type: form
+# Stay connected
+## Where should we send your next step?
+@fields:
+- fullName|text|Full name|required|Full name
+- email|email|Email address|required|Email address
+- phone|tel|Phone number|optional|Phone number
+- whatsappOptIn|checkbox|I'm okay with being contacted on WhatsApp|optional
+@run: submitLead
+@back: Back
+@next: Continue
+```
+
+Field line format:
+
+```txt
+- name|type|label|required-or-optional|placeholder
+```
+
+### 5. Placeholder usage
+
+Square-bracket placeholders can pull from questionnaire variables or live answers.
+
+```txt
+# [statsCount] people
+## also chose
+# [selfScore]
+```
+
+### 6. Direct routing with `@goto:` and `@backgoto:`
+
+```txt
+@back: Watch the video
+@backgoto: https://www.instagram.com/reel/EXAMPLE/
+@next: Continue
+@goto: next-slide
+```
+
+Targets can be:
+
+- an internal slide id
+- an external `http/https` URL
+
+External URLs open in a new tab.
+
+### 7. Conditional next routing with `@when:`
+
+```txt
+@when:
+- selfScore|in|2,3|low-self-trust-path
+- selfScore|in|4,5,6|mid-self-trust-path
+- selfScore|in|7,8,9|high-self-trust-path
+- selfScore|eq|10|full-self-trust-path
+```
+
+### 8. Conditional back routing with `@backwhen:`
+
+```txt
+@backwhen:
+- futureScore|lte|3|low-future-trust-review
+- futureScore|gte|8|high-future-trust-review
+```
+
 ## Variable replacement system
 
-Square-bracket placeholders are now resolved from two sources:
+Square-bracket placeholders are resolved from two sources.
 
 ### 1. Questionnaire variables
 
@@ -191,9 +329,9 @@ If a placeholder is not found in either source, it remains unchanged.
 - previously stored values such as scores can be reused by later slides
 - named actions can be triggered from slides using `@run:`
 - submissions are sent through a shared submit route
-- submissions are now saved to PostgreSQL through Prisma
+- submissions are saved to PostgreSQL through Prisma
 - storage is questionnaire-agnostic using a shared submissions table with `answers` JSON
-- per-line colors can now be controlled from the DSL through theme color keys
+- per-line colors can be controlled from the DSL through theme color keys
 
 ## Current folder structure
 
@@ -339,7 +477,7 @@ Prisma 7 configuration file for schema location and datasource URL.
 
 ## Database model
 
-The project currently stores questionnaire submissions in a shared table.
+The project stores questionnaire submissions in a shared table.
 
 Each submission includes:
 
