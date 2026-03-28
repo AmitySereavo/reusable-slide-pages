@@ -139,7 +139,7 @@ BR
 [c2] how you show up in business,
 ## [c2] in love,
 ## [c3] and in everyday life?
-@showback: false
+@back: False
 @next: True
 @goto: self-trust-force-question
 
@@ -286,7 +286,7 @@ BR
 BR
 [c2] But...
 @back: Back
-@next: Then what?
+@next: But what?
 @goto: something-changed
 
 // SOMETHING CHANGED
