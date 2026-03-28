@@ -315,6 +315,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   const progress = ((currentIndex + 1) / visibleSlides.length) * 100;
+  const showBackButton = currentSlide.showBack !== false;
+  const showNextButton = currentSlide.showNext !== false;
+  const hasVisibleNav = showBackButton || showNextButton;
 
   return (
     <main
@@ -433,40 +436,50 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             </div>
           </div>
 
-          <div className={styles.bottomSection}>
-            <div className={styles.navRow}>
-              <button
-                type="button"
-                onClick={back}
-                disabled={
-                  ((currentIndex === 0 &&
-                    history.length === 0 &&
-                    !currentSlide.backGoto &&
-                    !currentSlide.backRouteRules?.length) ||
-                    isSubmitting)
-                }
-                className={styles.secondaryButton}
-                style={{
-                  borderColor: theme.colors.border,
-                }}
-              >
-                {currentSlide.backLabel ?? "Back"}
-              </button>
+          {hasVisibleNav ? (
+            <div className={styles.bottomSection}>
+              <div className={styles.navRow}>
+                {showBackButton ? (
+                  <button
+                    type="button"
+                    onClick={back}
+                    disabled={
+                      ((currentIndex === 0 &&
+                        history.length === 0 &&
+                        !currentSlide.backGoto &&
+                        !currentSlide.backRouteRules?.length) ||
+                        isSubmitting)
+                    }
+                    className={styles.secondaryButton}
+                    style={{
+                      borderColor: theme.colors.border,
+                    }}
+                  >
+                    {currentSlide.backLabel ?? "Back"}
+                  </button>
+                ) : (
+                  <div />
+                )}
 
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!canGoNext() || isSubmitting}
-                className={styles.primaryButton}
-                style={{
-                  background: theme.colors.primary,
-                  borderRadius: theme.radius?.button ?? "14px",
-                }}
-              >
-                {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
-              </button>
+                {showNextButton ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!canGoNext() || isSubmitting}
+                    className={styles.primaryButton}
+                    style={{
+                      background: theme.colors.primary,
+                      borderRadius: theme.radius?.button ?? "14px",
+                    }}
+                  >
+                    {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
+                  </button>
+                ) : (
+                  <div />
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </main>

@@ -27,6 +27,7 @@ This makes it possible to:
 - define score scales inline
 - define form fields inline
 - define in-slide choice buttons inline
+- hide navigation buttons per slide when needed
 - trigger named actions from slides
 - reuse the same engine for multiple brands and campaigns
 - attach questionnaire-specific variables without bloating the parser
@@ -85,12 +86,15 @@ Route:
 - `@store:`
 - `@back:`
 - `@backgoto:`
+- `@showback:`
+- `@shownext:`
 - `@next:`
 - `@goto:`
 - `@fields:`
 - `@choices:`
 - `@when:`
 - `@backwhen:`
+- `@showif:`
 - `@run:`
 
 ## Line-level color support
@@ -196,8 +200,8 @@ BR
 - completely|Yes, I trust myself completely|share-your-wisdom
 - somewhat|I trust myself somewhat|self-trust-score
 - no|No, I don't trust myself at all|self-trust-score
-@back: Back
-@next: Continue Reading
+@showback: false
+@shownext: false
 ```
 
 Choice line format:
@@ -277,6 +281,49 @@ External URLs open in a new tab.
 - futureScore|gte|8|high-future-trust-review
 ```
 
+### 9. Hide Back and/or Next buttons
+
+```txt
+@showback: false
+@shownext: false
+```
+
+Use cases:
+
+- starting slide that only uses `@choices:`
+- ending slide with no navigation buttons
+- slides where only one nav button should appear
+
+Examples:
+
+```txt
+@showback: false
+```
+
+```txt
+@shownext: false
+```
+
+### 10. Hide branch-only slides from users who should not see them
+
+```txt
+@showif:
+- trustLevel|eq|completely
+```
+
+or
+
+```txt
+@showif:
+- selfScore|in|7,8,9,10
+```
+
+This is useful for:
+
+- optional branch slides
+- route-specific explanation slides
+- making the visible slide count more accurate for each user
+
 ## Variable replacement system
 
 Square-bracket placeholders are resolved from two sources.
@@ -327,6 +374,9 @@ If a placeholder is not found in either source, it remains unchanged.
 - conditional back-button routing can be defined with `@backwhen:`
 - route rules evaluate against the shared questionnaire answers object
 - previously stored values such as scores can be reused by later slides
+- `@showback:` and `@shownext:` can hide nav buttons per slide
+- `@showif:` can hide optional branch slides unless their conditions are met
+- progress count is based on currently visible slides, so branch-only slides should use `@showif:` to avoid inflating the count
 - named actions can be triggered from slides using `@run:`
 - submissions are sent through a shared submit route
 - submissions are saved to PostgreSQL through Prisma
@@ -408,7 +458,9 @@ Parses the custom DSL into structured slide data, including:
 - navigation directives
 - line color tokens
 - conditional route rules
+- visibility rules
 - ignored DSL comment/header lines
+- per-slide nav visibility flags
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -468,6 +520,8 @@ Prisma 7 configuration file for schema location and datasource URL.
 - in-slide choice buttons via `@choices:`
 - conditional routing via `@when:`
 - conditional back routing via `@backwhen:`
+- visibility rules via `@showif:`
+- per-slide nav visibility via `@showback:` and `@shownext:`
 - routing decisions based on any previously stored answer value
 - form submissions sent to backend
 - questionnaire submissions persisted to PostgreSQL with Prisma
@@ -527,6 +581,21 @@ Supported operators:
 - `in`
 
 These rules are evaluated against the shared answers state, so any later slide can route based on values gathered earlier in the questionnaire.
+
+## Visibility and progress count
+
+Progress count is based on the currently visible slides.
+
+If a slide only applies to some users, add `@showif:` to that slide so it is removed from the visible slide count for everyone else.
+
+Example:
+
+```txt
+@showif:
+- trustLevel|eq|completely
+```
+
+This keeps the questionnaire from appearing longer than it really is for users who will never see those branch-only slides.
 
 ## Optional Google Sheets mirror
 
@@ -593,8 +662,4 @@ or
 
 ```txt
 http://localhost:3000/questionnaire/garden-herbs
-```
-
-```
-
 ```

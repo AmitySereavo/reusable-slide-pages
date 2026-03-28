@@ -1,5 +1,6 @@
 import {
   ChoiceItem,
+  ConditionRule,
   FormField,
   Option,
   ParsedQuestionnaireDocument,
@@ -39,12 +40,14 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     choices: [],
     routeRules: [],
     backRouteRules: [],
+    showIfRules: [],
   };
 
   let inFieldsBlock = false;
   let inChoicesBlock = false;
   let inWhenBlock = false;
   let inBackWhenBlock = false;
+  let inShowIfBlock = false;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -54,6 +57,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
       continue;
     }
 
@@ -62,6 +66,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
       draft.sections.push({ type: "break" });
       continue;
     }
@@ -71,6 +76,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
       continue;
     }
 
@@ -79,6 +85,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
       continue;
     }
 
@@ -87,6 +94,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
       continue;
     }
 
@@ -95,6 +103,16 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inWhenBlock = false;
+      inShowIfBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@showif:")) {
+      inShowIfBlock = true;
+      inFieldsBlock = false;
+      inChoicesBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
       continue;
     }
 
@@ -122,11 +140,18 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       continue;
     }
 
+    if (inShowIfBlock && line.startsWith("-")) {
+      const rule = parseConditionRuleLine(line);
+      if (rule) draft.showIfRules?.push(rule);
+      continue;
+    }
+
     if (line.startsWith("@")) {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
 
       if (line.startsWith("@id:")) {
         draft.id = readValue(line, "@id:");
@@ -150,6 +175,16 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
       if (line.startsWith("@backgoto:")) {
         draft.backGoto = readValue(line, "@backgoto:");
+        continue;
+      }
+
+      if (line.startsWith("@showback:")) {
+        draft.showBack = parseBooleanValue(readValue(line, "@showback:"), true);
+        continue;
+      }
+
+      if (line.startsWith("@shownext:")) {
+        draft.showNext = parseBooleanValue(readValue(line, "@shownext:"), true);
         continue;
       }
 
@@ -190,6 +225,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
 
       const rawText = line.replace(/^##\s*/, "").trim();
       const { colorKey, text } = extractColorToken(rawText);
@@ -208,6 +244,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
+      inShowIfBlock = false;
 
       const rawText = line.replace(/^#\s*/, "").trim();
       const { colorKey, text } = extractColorToken(rawText);
@@ -225,6 +262,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     inChoicesBlock = false;
     inWhenBlock = false;
     inBackWhenBlock = false;
+    inShowIfBlock = false;
 
     const { colorKey, text } = extractColorToken(line);
 
@@ -266,6 +304,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     body: draft.paragraphs.join(" "),
     backLabel: draft.backLabel,
     backGoto: draft.backGoto,
+    showBack: draft.showBack,
+    showNext: draft.showNext,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,
@@ -278,6 +318,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     backRouteRules: draft.backRouteRules?.length
       ? draft.backRouteRules
       : undefined,
+    showIfRules: draft.showIfRules?.length ? draft.showIfRules : undefined,
   };
 
   if (draft.feature?.type === "numberscale") {
@@ -369,6 +410,22 @@ function parseRouteRuleLine(line: string): SlideRouteRule | null {
   };
 }
 
+function parseConditionRuleLine(line: string): ConditionRule | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [field, operator, ruleValue] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (!field || !operator || !ruleValue) return null;
+
+  return {
+    field,
+    operator: operator as ConditionRule["operator"],
+    value: ruleValue,
+  };
+}
+
 function extractColorToken(text: string) {
   const match = text.match(/^\[(\w+)\]\s*(.*)$/);
 
@@ -387,6 +444,15 @@ function extractColorToken(text: string) {
 
 function isCommentLine(line: string) {
   return line.startsWith("//") || line.startsWith("::");
+}
+
+function parseBooleanValue(value: string, fallback: boolean) {
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+
+  return fallback;
 }
 
 function readValue(line: string, prefix: string) {

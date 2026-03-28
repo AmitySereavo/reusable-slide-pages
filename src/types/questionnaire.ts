@@ -24,10 +24,13 @@ export type RouteOperator =
   | "between"
   | "in";
 
-export type SlideRouteRule = {
+export type ConditionRule = {
   field: string;
   operator: RouteOperator;
   value: string;
+};
+
+export type SlideRouteRule = ConditionRule & {
   goto: string;
 };
 
@@ -82,8 +85,11 @@ export type Slide = {
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
+  showBack?: boolean;
+  showNext?: boolean;
   storeAs?: string;
   showIf?: ShowIfRule;
+  showIfRules?: ConditionRule[];
   goto?: string;
   run?: string;
   feature?: SlideFeature;
@@ -145,6 +151,8 @@ export type ParsedSlideDraft = {
   storeAs?: string;
   backLabel?: string;
   backGoto?: string;
+  showBack?: boolean;
+  showNext?: boolean;
   nextLabel?: string;
   goto?: string;
   run?: string;
@@ -152,6 +160,7 @@ export type ParsedSlideDraft = {
   choices?: ChoiceItem[];
   routeRules?: SlideRouteRule[];
   backRouteRules?: SlideRouteRule[];
+  showIfRules?: ConditionRule[];
 };
 
 export type ParsedQuestionnaireDocument = {
