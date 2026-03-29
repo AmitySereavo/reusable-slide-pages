@@ -36,8 +36,9 @@ BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
 BR
 
-[c2] 1 being NO TRUST at all.
-[c2] 10 being COMPLETE TRUST.
+[c2] 1 being NO TRUST of self at all.
+[c2] 10 being COMPLETE TRUST of self.
+
 @store: selfScore
 @back: Back
 @next: Continue
@@ -53,6 +54,11 @@ BR
 # Trust the future?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
+BR
+
+[c3] 1 being NO TRUST of future possibilities.
+[c3] 10 being FULL TRUST of future possibilities.
+
 @store: futureScore
 @back: Back
 @next: Continue

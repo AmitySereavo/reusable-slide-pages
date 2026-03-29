@@ -281,11 +281,11 @@
   }
 
   .topSection {
-    padding: 24px 18px 0;
+    padding: 24px 0 0;
   }
 
   .actionBar {
-    padding: 14px 18px 18px;
+    padding: 14px 0 18px;
   }
 
   .storyStack {
@@ -330,13 +330,6 @@
     width: 100%;
     max-width: none;
   }
-}
-
-@media (max-width: 420px) {
-  .scoreGrid {
-    grid-template-columns: repeat(2, minmax(56px, 68px));
-    max-width: 148px;
-  }
 
   .contentFrame {
     max-width: 100%;
@@ -345,4 +338,13 @@
   .actionFrame {
     max-width: 100%;
   }
+}
+
+@media (max-width: 420px) {
+  .scoreGrid {
+    grid-template-columns: repeat(2, minmax(56px, 68px));
+    max-width: 148px;
+  }
+
+  
 }
