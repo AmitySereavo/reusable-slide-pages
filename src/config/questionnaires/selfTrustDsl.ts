@@ -222,8 +222,8 @@ BR
 BR
 @store: feltHeldBack
 @choices:
+- No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom | c1
 - Can relate | Yes, I can relate | stuck-score | primary
-- No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom | secondary
 
 @back: Back
 @shownext: false

@@ -528,12 +528,19 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                             width: "100%",
                             maxWidth: "420px",
                             borderColor: choiceStyle.borderColor,
-                            background: selected
-                              ? choiceStyle.background
-                              : "#FFFFFF",
-                            color: selected
-                              ? choiceStyle.color
-                              : theme.colors.text,
+                            background:
+                              choice.styleKey || currentSlide.buttonStyleKey
+                                ? choiceStyle.background
+                                : selected
+                                  ? choiceStyle.background
+                                  : "#FFFFFF",
+                            color:
+                              choice.styleKey || currentSlide.buttonStyleKey
+                                ? choiceStyle.color
+                                : selected
+                                  ? choiceStyle.color
+                                  : theme.colors.text,
+                            opacity: selected ? 1 : 0.96,
                           }}
                         >
                           {choice.label}
