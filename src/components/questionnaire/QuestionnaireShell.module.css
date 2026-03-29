@@ -16,29 +16,39 @@
   width: 100%;
   max-width: 560px;
   min-height: 720px;
+  height: min(820px, calc(100vh - 64px));
   margin: 0 auto;
-  padding: 28px 24px;
   border: 1px solid;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  overflow: hidden;
   box-sizing: border-box;
-}
-
-.storyStack {
-  display: grid;
-  gap: 0;
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
 }
 
 .topSection {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  padding: 28px 0px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.contentFrame {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .progressWrap {
+  width: 100%;
   margin-bottom: 28px;
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .stepText {
@@ -47,6 +57,7 @@
   opacity: 0.7;
   text-align: center;
 }
+
 
 .progressBar {
   width: 100%;
@@ -64,12 +75,26 @@
 
 .slideBody {
   width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  max-width: none;
+  margin: 0;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-gutter: stable;
+}
+
+.storyStack {
+  display: grid;
+  gap: 0;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.scrollBottomSpacer {
+  height: 12px;
 }
 
 .title {
@@ -159,9 +184,35 @@
   line-height: 1.5;
 }
 
-.bottomSection {
+.actionBar {
   width: 100%;
-  margin-top: 32px;
+  flex-shrink: 0;
+  padding: 16px 0px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: inherit;
+}
+
+.actionFrame {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.contentFrame,
+.actionFrame {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.choiceStack {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
 }
 
 .navRow {
@@ -226,7 +277,15 @@
   .card {
     max-width: 100%;
     min-height: calc(100vh - 40px);
-    padding: 24px 18px;
+    height: calc(100vh - 40px);
+  }
+
+  .topSection {
+    padding: 24px 18px 0;
+  }
+
+  .actionBar {
+    padding: 14px 18px 18px;
   }
 
   .storyStack {
@@ -277,5 +336,13 @@
   .scoreGrid {
     grid-template-columns: repeat(2, minmax(56px, 68px));
     max-width: 148px;
+  }
+
+  .contentFrame {
+    max-width: 100%;
+  }
+
+  .actionFrame {
+    max-width: 100%;
   }
 }

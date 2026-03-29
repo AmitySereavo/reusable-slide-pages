@@ -22,6 +22,95 @@ type Props = {
   theme: ThemeConfig;
 };
 
+type ResolvedButtonStyle = {
+  background: string;
+  color: string;
+  borderColor: string;
+};
+
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "").trim();
+
+  if (clean.length !== 6) return null;
+
+  const num = Number.parseInt(clean, 16);
+  if (Number.isNaN(num)) return null;
+
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  };
+}
+
+function getContrastTextColor(background: string) {
+  const rgb = hexToRgb(background);
+
+  if (!rgb) return "#FFFFFF";
+
+  const luminance =
+    (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+
+  return luminance > 0.62 ? "#111111" : "#FFFFFF";
+}
+
+function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
+  if (!styleKey) return null;
+
+  if (styleKey === "primary") return theme.colors.primary;
+  if (styleKey === "accent") return theme.colors.accent ?? theme.colors.primary;
+  if (styleKey === "card") return theme.colors.card;
+  if (styleKey === "text") return theme.colors.text;
+
+  return theme.colors.lineColors?.[styleKey] ?? null;
+}
+
+function resolveButtonStyle(
+  theme: ThemeConfig,
+  styleKey: string | undefined,
+  fallback: "primary" | "secondary"
+): ResolvedButtonStyle {
+  if (styleKey === "secondary") {
+    return {
+      background: "#FFFFFF",
+      color: theme.colors.text,
+      borderColor: theme.colors.border,
+    };
+  }
+
+  if (styleKey === "ghost") {
+    return {
+      background: "transparent",
+      color: theme.colors.text,
+      borderColor: theme.colors.border,
+    };
+  }
+
+  const resolvedColor = resolveStyleColor(theme, styleKey);
+
+  if (resolvedColor) {
+    return {
+      background: resolvedColor,
+      color: getContrastTextColor(resolvedColor),
+      borderColor: resolvedColor,
+    };
+  }
+
+  if (fallback === "primary") {
+    return {
+      background: theme.colors.primary,
+      color: getContrastTextColor(theme.colors.primary),
+      borderColor: theme.colors.primary,
+    };
+  }
+
+  return {
+    background: "#FFFFFF",
+    color: theme.colors.text,
+    borderColor: theme.colors.border,
+  };
+}
+
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -318,6 +407,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
+  const hasPinnedChoices = Boolean(currentSlide.choices?.length);
+  const backButtonStyle = resolveButtonStyle(
+    theme,
+    currentSlide.backStyleKey,
+    "secondary"
+  );
+
+  const nextButtonStyle = resolveButtonStyle(
+    theme,
+    currentSlide.nextStyleKey,
+    "primary"
+  );
 
   return (
     <main
@@ -337,146 +438,157 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             boxShadow: theme.shadow?.card,
           }}
         >
-          <div className={styles.topSection}>
-            <div className={styles.progressWrap}>
-              <div className={styles.stepText}>
-                Slide {currentIndex + 1} of {visibleSlides.length}
+                    <div className={styles.topSection}>
+            <div className={styles.contentFrame}>
+              <div className={styles.progressWrap}>
+                <div className={styles.stepText}>
+                  Slide {currentIndex + 1} of {visibleSlides.length}
+                </div>
+
+                <div className={styles.progressBar}>
+                  <div
+                    className={styles.progressFill}
+                    style={{
+                      width: `${progress}%`,
+                      background: theme.colors.primary,
+                    }}
+                  />
+                </div>
               </div>
 
-              <div className={styles.progressBar}>
-                <div
-                  className={styles.progressFill}
-                  style={{
-                    width: `${progress}%`,
-                    background: theme.colors.primary,
-                  }}
-                />
+              <div className={styles.slideBody}>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentSlide.id}
+                    initial={{ x: 40, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -40, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {renderSections(
+                      currentSlide.sections,
+                      theme,
+                      answers,
+                      currentSlide.storeAs,
+                      setAnswer
+                    )}
+
+                    {(currentSlide.type === "form" ||
+                      currentSlide.type === "contact") &&
+                    currentSlide.fields?.length ? (
+                      <div className={styles.formGrid} style={{ marginTop: "20px" }}>
+                        {currentSlide.fields.map((field) => (
+                          <FormFieldRenderer
+                            key={field.name}
+                            field={field}
+                            theme={theme}
+                            answers={answers}
+                            setAnswer={setAnswer}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {submitError ? (
+                      <p className={styles.formError}>{submitError}</p>
+                    ) : null}
+
+                    <div className={styles.scrollBottomSpacer} />
+                  </motion.div>
+                </AnimatePresence>
               </div>
-            </div>
-
-            <div className={styles.slideBody}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentSlide.id}
-                  initial={{ x: 40, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -40, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {renderSections(
-                    currentSlide.sections,
-                    theme,
-                    answers,
-                    currentSlide.storeAs,
-                    setAnswer
-                  )}
-
-                  {currentSlide.choices?.length ? (
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: "12px",
-                        margin: "20px auto 0",
-                        width: "100%",
-                        maxWidth: "520px",
-                        justifyItems: "center",
-                      }}
-                    >
-                      {currentSlide.choices.map((choice) => {
-                        const selected =
-                          currentSlide.storeAs &&
-                          answers[currentSlide.storeAs] === choice.value;
-
-                        return (
-                          <button
-                            key={`${currentSlide.id}-${String(choice.value)}`}
-                            type="button"
-                            onClick={() =>
-                              handleChoiceClick(choice.value, choice.goto)
-                            }
-                            className={styles.secondaryButton}
-                            style={{
-                              width: "100%",
-                              maxWidth: "420px",
-                              borderColor: theme.colors.border,
-                              background: selected
-                                ? theme.colors.primary
-                                : theme.colors.card,
-                              color: selected ? "#FFFFFF" : theme.colors.text,
-                            }}
-                          >
-                            {choice.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-
-                  {(currentSlide.type === "form" ||
-                    currentSlide.type === "contact") &&
-                  currentSlide.fields?.length ? (
-                    <div className={styles.formGrid} style={{ marginTop: "20px" }}>
-                      {currentSlide.fields.map((field) => (
-                        <FormFieldRenderer
-                          key={field.name}
-                          field={field}
-                          theme={theme}
-                          answers={answers}
-                          setAnswer={setAnswer}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {submitError ? (
-                    <p className={styles.formError}>{submitError}</p>
-                  ) : null}
-                </motion.div>
-              </AnimatePresence>
             </div>
           </div>
 
-          {hasVisibleNav ? (
-            <div className={styles.bottomSection}>
-              <div className={styles.navRow}>
-                {showBackButton ? (
-                  <button
-                    type="button"
-                    onClick={back}
-                    disabled={
-                      ((currentIndex === 0 &&
-                        history.length === 0 &&
-                        !currentSlide.backGoto &&
-                        !currentSlide.backRouteRules?.length) ||
-                        isSubmitting)
-                    }
-                    className={styles.secondaryButton}
-                    style={{
-                      borderColor: theme.colors.border,
-                    }}
-                  >
-                    {currentSlide.backLabel ?? "Back"}
-                  </button>
-                ) : (
-                  <div />
-                )}
+                    {(hasPinnedChoices || hasVisibleNav) ? (
+            <div className={styles.actionBar}>
+              <div className={styles.actionFrame}>
+                {hasPinnedChoices ? (
+                  <div className={styles.choiceStack}>
+                    {currentSlide.choices?.map((choice) => {
+                      const selected =
+                        currentSlide.storeAs &&
+                        answers[currentSlide.storeAs] === choice.value;
 
-                {showNextButton ? (
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={!canGoNext() || isSubmitting}
-                    className={styles.primaryButton}
-                    style={{
-                      background: theme.colors.primary,
-                      borderRadius: theme.radius?.button ?? "14px",
-                    }}
-                  >
-                    {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
-                  </button>
-                ) : (
-                  <div />
-                )}
+                      const choiceStyle = resolveButtonStyle(
+                        theme,
+                        choice.styleKey ?? currentSlide.buttonStyleKey,
+                        "secondary"
+                      );
+
+                      return (
+                        <button
+                          key={`${currentSlide.id}-${String(choice.value)}`}
+                          type="button"
+                          onClick={() =>
+                            handleChoiceClick(choice.value, choice.goto)
+                          }
+                          className={styles.secondaryButton}
+                          style={{
+                            width: "100%",
+                            maxWidth: "420px",
+                            borderColor: choiceStyle.borderColor,
+                            background: selected
+                              ? choiceStyle.background
+                              : "#FFFFFF",
+                            color: selected
+                              ? choiceStyle.color
+                              : theme.colors.text,
+                          }}
+                        >
+                          {choice.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {hasVisibleNav ? (
+                  <div className={styles.navRow}>
+                    {showBackButton ? (
+                      <button
+                        type="button"
+                        onClick={back}
+                        disabled={
+                          ((currentIndex === 0 &&
+                            history.length === 0 &&
+                            !currentSlide.backGoto &&
+                            !currentSlide.backRouteRules?.length) ||
+                            isSubmitting)
+                        }
+                        className={styles.secondaryButton}
+                        style={{
+                          borderColor: backButtonStyle.borderColor,
+                          background: backButtonStyle.background,
+                          color: backButtonStyle.color,
+                        }}
+                      >
+                        {currentSlide.backLabel ?? "Back"}
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    {showNextButton ? (
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        disabled={!canGoNext() || isSubmitting}
+                        className={styles.primaryButton}
+                        style={{
+                          background: nextButtonStyle.background,
+                          color: nextButtonStyle.color,
+                          borderColor: nextButtonStyle.borderColor,
+                          borderRadius: theme.radius?.button ?? "14px",
+                        }}
+                      >
+                        {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}

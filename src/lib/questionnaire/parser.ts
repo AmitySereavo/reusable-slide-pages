@@ -198,6 +198,21 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+            if (line.startsWith("@buttonstyle:")) {
+        draft.buttonStyleKey = readValue(line, "@buttonstyle:");
+        continue;
+      }
+
+      if (line.startsWith("@backstyle:")) {
+        draft.backStyleKey = readValue(line, "@backstyle:");
+        continue;
+      }
+
+      if (line.startsWith("@nextstyle:")) {
+        draft.nextStyleKey = readValue(line, "@nextstyle:");
+        continue;
+      }
+
       if (line.startsWith("@run:")) {
         draft.run = readValue(line, "@run:");
         continue;
@@ -319,6 +334,9 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       ? draft.backRouteRules
       : undefined,
     showIfRules: draft.showIfRules?.length ? draft.showIfRules : undefined,
+    buttonStyleKey: draft.buttonStyleKey,
+    backStyleKey: draft.backStyleKey,
+    nextStyleKey: draft.nextStyleKey,
   };
 
   if (draft.feature?.type === "numberscale") {
@@ -377,7 +395,7 @@ function parseFieldLine(line: string): FormField | null {
 function parseChoiceLine(line: string): ChoiceItem | null {
   const value = line.replace(/^-+\s*/, "").trim();
 
-  const [rawValue, label, goto] = value
+  const [rawValue, label, goto, styleKey] = value
     .split("|")
     .map((part) => part.trim());
 
@@ -390,6 +408,7 @@ function parseChoiceLine(line: string): ChoiceItem | null {
     value: parsedValue,
     label,
     goto: goto || undefined,
+    styleKey: styleKey || undefined,
   };
 }
 

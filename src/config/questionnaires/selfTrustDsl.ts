@@ -216,8 +216,8 @@ BR
 BR
 @store: feltHeldBack
 @choices:
-- Can relate | Yes, I can relate | stuck-score
-- No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom
+- Can relate | Yes, I can relate | stuck-score | primary
+- No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom | secondary
 
 @back: Back
 @shownext: false
@@ -366,7 +366,7 @@ BR
 # [c2] It can be embodied.
 ---
 @choices:
-- Watch the video | Watch the video | https://www.instagram.com/reel/DVwZ7xGDcEZ/
+- Watch the video | Watch the video | https://www.instagram.com/reel/DVwZ7xGDcEZ/ |c2
 - continue reading | Or Continue reading... | coach-message
 @showback: false
 @shownext: false

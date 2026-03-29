@@ -12,6 +12,7 @@ export type ChoiceItem = {
   value: PrimitiveValue;
   label: string;
   goto?: string;
+  styleKey?: string;
 };
 
 export type RouteOperator =
@@ -97,6 +98,9 @@ export type Slide = {
   fields?: FormField[];
   routeRules?: SlideRouteRule[];
   backRouteRules?: SlideRouteRule[];
+  buttonStyleKey?: string;
+  backStyleKey?: string;
+  nextStyleKey?: string;
 };
 
 export type ThemeConfig = {
@@ -161,6 +165,9 @@ export type ParsedSlideDraft = {
   routeRules?: SlideRouteRule[];
   backRouteRules?: SlideRouteRule[];
   showIfRules?: ConditionRule[];
+  buttonStyleKey?: string;
+  backStyleKey?: string;
+  nextStyleKey?: string;
 };
 
 export type ParsedQuestionnaireDocument = {
