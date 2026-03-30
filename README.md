@@ -242,7 +242,7 @@ Field line format:
 Square-bracket placeholders can pull from questionnaire variables or live answers.
 
 ```txt
-# [statsCount] people
+# [selfScoreMatchCount] people
 ## also chose
 # [selfScore]
 ```
@@ -337,8 +337,8 @@ Examples:
 - `[plant1]`
 - `[plant2]`
 - `[plant3]`
-- `[statsCount]`
-- `[statsCount2]`
+- `[selfScoreMatchCount]`
+- `[selfScoreAndFutureScoreMatchCount]`
 
 ### 2. Live questionnaire answers
 
@@ -610,7 +610,7 @@ If `GOOGLE_SHEETS_WEBHOOK_URL` is not set, the app will skip the mirror and cont
 
 ## What is not finished yet
 
-- live database-backed statistics for values like `[statsCount]`
+- live database-backed statistics for values like `[selfScoreMatchCount]`
 - richer feature types beyond the current number scale
 - admin/editor tools
 - loading questionnaire content from real text files instead of TS string exports

@@ -70,8 +70,8 @@ BR
 @type: content
 ---
 BR
-# [c2] [statsCount]
-# [c2] people
+# [c2] [selfScoreMatchCount]
+# [c2] [choose:selfScoreMatchCount|1=person|default=people]
 [c2] who took the time
 [c2] to answer these questions
 ---
@@ -80,6 +80,10 @@ BR
 # [c3] [selfScore]
 [c2] for
 # [c3] Self-Trust
+
+@when:
+- selfScoreAndFutureScoreMatchCount|in|0,1|same-place-message
+
 @back: Back
 @next: Continue
 @goto:
@@ -89,7 +93,7 @@ BR
 @id: results-future-trust
 @type: content
 BR
-# [c2] [statsCount2]
+# [c2] [selfScoreAndFutureScoreMatchCount]
 ## [c2] of those people
 # [c3] also chose
 # [c3] [futureScore]
@@ -114,7 +118,7 @@ BR
 @type: content
 ---
 BR
-## A lot of
+## [choose:selfScoreMatchCount|0=|1=a few|2=a few|3=a few|4=some|default=A lot of]
 # Honest,
 # [c2] Thoughtful
 # persons

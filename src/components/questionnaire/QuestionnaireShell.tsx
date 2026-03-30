@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -118,24 +118,44 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [dynamicVariables, setDynamicVariables] = useState<
+    Record<string, string | number>
+  >({});
+
+    const mergedVariables = useMemo(
+    () => ({
+      ...(config.variables ?? {}),
+      ...dynamicVariables,
+    }),
+    [config.variables, dynamicVariables]
+  );
+
+  const evaluationContext = useMemo(
+    () => ({
+      ...mergedVariables,
+      ...answers,
+    }),
+    [mergedVariables, answers]
+  );
+
   const visibleSlides = useMemo(
     () =>
       getVisibleSlides(
         config.slides.map((slide) => ({
           ...slide,
           title:
-            replaceDynamicText(slide.title, answers, config.variables) ??
+            replaceDynamicText(slide.title, evaluationContext, mergedVariables) ??
             slide.title,
           subtitle: replaceDynamicText(
             slide.subtitle,
-            answers,
-            config.variables
+            evaluationContext,
+            mergedVariables
           ),
-          body: replaceDynamicText(slide.body, answers, config.variables),
+          body: replaceDynamicText(slide.body, evaluationContext, mergedVariables),
           helperText: replaceDynamicText(
             slide.helperText,
-            answers,
-            config.variables
+            evaluationContext,
+            mergedVariables
           ),
           sections: slide.sections?.map((section) => {
             if (section.type === "break") return section;
@@ -146,18 +166,73 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               text:
                 replaceDynamicText(
                   section.text,
-                  answers,
-                  config.variables
+                  evaluationContext,
+                  mergedVariables
                 ) ?? section.text,
             };
           }),
         })),
         answers
       ),
-    [config.slides, answers, config.variables]
+      [config.slides, answers, mergedVariables, evaluationContext]
   );
 
   const currentSlide = visibleSlides[currentIndex];
+
+  useEffect(() => {
+    const endpoint = config.dynamicVariablesEndpoint;
+    const selfScore = answers.selfScore;
+    const futureScore = answers.futureScore;
+
+    if (!endpoint || selfScore === undefined || futureScore === undefined) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadDynamicVariables() {
+      try {
+        const params = new URLSearchParams({
+          selfScore: String(selfScore),
+          futureScore: String(futureScore),
+        });
+
+        const response = await fetch(`${endpoint}?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !data?.variables) {
+          return;
+        }
+
+        setDynamicVariables((prev) => ({
+          ...prev,
+          ...data.variables,
+        }));
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error("Dynamic questionnaire variables error:", error);
+      }
+    }
+
+    loadDynamicVariables();
+
+    return () => controller.abort();
+  }, [
+    config.dynamicVariablesEndpoint,
+    answers.selfScore,
+    answers.futureScore,
+  ]);
 
   function setAnswer(key: string, value: string | number | boolean) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -206,7 +281,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function evaluateRouteRule(rule: SlideRouteRule) {
-    const actual = answers[rule.field];
+    const actual = evaluationContext[rule.field];
 
     if (actual === undefined || actual === null) {
       return false;
@@ -776,17 +851,56 @@ function replaceDynamicText(
 ): string | undefined {
   if (value === undefined) return undefined;
 
-  return value.replace(/\[([^\]]+)\]/g, (_, key) => {
-    const answerValue = answers[key];
+  return value.replace(/\[([^\]]+)\]/g, (_, rawKey) => {
+    if (rawKey.startsWith("choose:")) {
+      const expression = rawKey.slice("choose:".length);
+      const [sourceKey, ...rawOptions] = expression
+        .split("|")
+        .map((part: string) => part.trim());
+
+      const answerValue = answers[sourceKey];
+      const variableValue = variables?.[sourceKey];
+      const sourceValue =
+        answerValue !== undefined && answerValue !== null
+          ? answerValue
+          : variableValue;
+
+      const normalizedSource = String(sourceValue ?? "").trim();
+
+      const options = new Map<string, string>();
+      for (const option of rawOptions) {
+        const eqIndex = option.indexOf("=");
+        if (eqIndex === -1) continue;
+
+        const key = option.slice(0, eqIndex).trim();
+        const result = option.slice(eqIndex + 1).trim();
+
+        if (key) {
+          options.set(key, result);
+        }
+      }
+
+      if (options.has(normalizedSource)) {
+        return options.get(normalizedSource) ?? "";
+      }
+
+      if (options.has("default")) {
+        return options.get("default") ?? "";
+      }
+
+      return `[${rawKey}]`;
+    }
+
+    const answerValue = answers[rawKey];
     if (answerValue !== undefined && answerValue !== null) {
       return String(answerValue);
     }
 
-    const variableValue = variables?.[key];
+    const variableValue = variables?.[rawKey];
     if (variableValue !== undefined && variableValue !== null) {
       return String(variableValue);
     }
 
-    return `[${key}]`;
+    return `[${rawKey}]`;
   });
 }

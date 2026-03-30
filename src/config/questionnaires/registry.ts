@@ -12,9 +12,11 @@ export const questionnaireRegistry = {
     theme: selfTrustTheme,
     dsl: selfTrustDsl,
     variables: {
-      statsCount: 124,
-      statsCount2: 57,
+      selfScoreMatchCount: "...",
+      selfScoreAndFutureScoreMatchCount: "...",
+      futureScoreMatchCount: "...",
     },
+    dynamicVariablesEndpoint: "/api/questionnaires/self-trust/stats",
   },
   "garden-herbs": {
     slug: "garden-herbs",
@@ -29,6 +31,7 @@ export const questionnaireRegistry = {
       plant4: "Mint",
       plant5: "Basil",
     },
+    dynamicVariablesEndpoint: undefined,
   },
 } as const;
 
@@ -45,6 +48,7 @@ export function getQuestionnaireBySlug(slug: string) {
       themeKey: entry.themeKey,
       slides: parseQuestionnaireDsl(entry.dsl).slides,
       variables: entry.variables,
+      dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
     },
     theme: entry.theme,
   };

@@ -133,6 +133,7 @@ export type QuestionnaireConfig = {
   themeKey: string;
   slides: Slide[];
   variables?: QuestionnaireVariables;
+  dynamicVariablesEndpoint?: string;
 };
 
 export type QuestionnaireAnswers = Record<string, PrimitiveValue>;
