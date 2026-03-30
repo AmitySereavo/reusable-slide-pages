@@ -179,6 +179,26 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
 
+    const countableVisibleSlides = useMemo(
+    () => visibleSlides.filter((slide) => slide.countStep !== false),
+    [visibleSlides]
+  );
+
+  const countedSlidesBeforeCurrent = useMemo(
+    () =>
+      visibleSlides
+        .slice(0, currentIndex)
+        .filter((slide) => slide.countStep !== false).length,
+    [visibleSlides, currentIndex]
+  );
+
+  const currentStepNumber =
+    currentSlide?.countStep === false
+      ? countedSlidesBeforeCurrent
+      : countedSlidesBeforeCurrent + 1;
+
+  const totalStepCount = countableVisibleSlides.length;
+
   useEffect(() => {
     const endpoint = config.dynamicVariablesEndpoint;
     const selfScore = answers.selfScore;
@@ -478,10 +498,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return <main>No slides available.</main>;
   }
 
-  const progress = ((currentIndex + 1) / visibleSlides.length) * 100;
+    const progress =
+    totalStepCount > 0
+      ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
+      : 0;
   const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
+    const showStepText =
+    config.showStepText !== false && currentSlide.showStepText !== false;
   const hasPinnedChoices = Boolean(currentSlide.choices?.length);
   const backButtonStyle = resolveButtonStyle(
     theme,
@@ -516,9 +541,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                     <div className={styles.topSection}>
             <div className={styles.contentFrame}>
               <div className={styles.progressWrap}>
-                <div className={styles.stepText}>
-                  Slide {currentIndex + 1} of {visibleSlides.length}
-                </div>
+                                {showStepText ? (
+                  <div className={styles.stepText}>
+                    Slide {currentStepNumber} of {totalStepCount}
+                  </div>
+                ) : null}
 
                 <div className={styles.progressBar}>
                   <div
@@ -851,23 +878,32 @@ function replaceDynamicText(
 ): string | undefined {
   if (value === undefined) return undefined;
 
-  return value.replace(/\[([^\]]+)\]/g, (_, rawKey) => {
+  const resolveValueByKey = (key: string): string | undefined => {
+    const answerValue = answers[key];
+    if (answerValue !== undefined && answerValue !== null) {
+      return String(answerValue);
+    }
+
+    const variableValue = variables?.[key];
+    if (variableValue !== undefined && variableValue !== null) {
+      return String(variableValue);
+    }
+
+    return undefined;
+  };
+
+  const resolveToken = (rawKey: string): string => {
     if (rawKey.startsWith("choose:")) {
       const expression = rawKey.slice("choose:".length);
       const [sourceKey, ...rawOptions] = expression
         .split("|")
         .map((part: string) => part.trim());
 
-      const answerValue = answers[sourceKey];
-      const variableValue = variables?.[sourceKey];
-      const sourceValue =
-        answerValue !== undefined && answerValue !== null
-          ? answerValue
-          : variableValue;
-
-      const normalizedSource = String(sourceValue ?? "").trim();
+      const sourceResolved = resolveValueByKey(sourceKey);
+      const normalizedSource = String(sourceResolved ?? "").trim();
 
       const options = new Map<string, string>();
+
       for (const option of rawOptions) {
         const eqIndex = option.indexOf("=");
         if (eqIndex === -1) continue;
@@ -880,27 +916,32 @@ function replaceDynamicText(
         }
       }
 
-      if (options.has(normalizedSource)) {
-        return options.get(normalizedSource) ?? "";
+      const chosen =
+        options.get(normalizedSource) ??
+        options.get("default");
+
+      if (chosen === undefined) {
+        return `[${rawKey}]`;
       }
 
-      if (options.has("default")) {
-        return options.get("default") ?? "";
+      if (chosen.startsWith("$")) {
+        const referenced = resolveValueByKey(chosen.slice(1));
+        return referenced ?? chosen;
       }
 
-      return `[${rawKey}]`;
+      return resolveText(chosen);
     }
 
-    const answerValue = answers[rawKey];
-    if (answerValue !== undefined && answerValue !== null) {
-      return String(answerValue);
-    }
-
-    const variableValue = variables?.[rawKey];
-    if (variableValue !== undefined && variableValue !== null) {
-      return String(variableValue);
+    const resolved = resolveValueByKey(rawKey);
+    if (resolved !== undefined) {
+      return resolved;
     }
 
     return `[${rawKey}]`;
-  });
+  };
+
+  const resolveText = (input: string): string =>
+    input.replace(/\[([^\]]+)\]/g, (_, rawKey: string) => resolveToken(rawKey));
+
+  return resolveText(value);
 }

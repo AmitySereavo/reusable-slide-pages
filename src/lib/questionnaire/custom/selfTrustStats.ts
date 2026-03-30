@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { selfTrustSyntheticData } from "./selfTrustSyntheticData";
 
 type Primitive = string | number | boolean | null | undefined;
 
@@ -89,6 +90,37 @@ function dedupeByMatchingScore(
   return Array.from(map.values());
 }
 
+async function loadRealSelfTrustSubmissions(): Promise<NormalizedSubmission[]> {
+  const rows = await prisma.questionnaireSubmission.findMany({
+    where: {
+      questionnaireSlug: "self-trust",
+    },
+    select: {
+      email: true,
+      phone: true,
+      answers: true,
+    },
+  });
+
+  return rows.map(normalizeSubmission);
+}
+
+function loadSyntheticSelfTrustSubmissions(): NormalizedSubmission[] {
+  return selfTrustSyntheticData.map(normalizeSubmission);
+}
+
+async function loadSelfTrustSubmissions(): Promise<NormalizedSubmission[]> {
+  const mode = String(process.env.SELF_TRUST_STATS_MODE ?? "real")
+    .trim()
+    .toLowerCase();
+
+  if (mode === "synthetic") {
+    return loadSyntheticSelfTrustSubmissions();
+  }
+
+  return loadRealSelfTrustSubmissions();
+}
+
 export async function getSelfTrustStats(
   input: SelfTrustStatsInput
 ): Promise<SelfTrustStatsResult> {
@@ -103,21 +135,10 @@ export async function getSelfTrustStats(
     };
   }
 
-  const rows = await prisma.questionnaireSubmission.findMany({
-    where: {
-      questionnaireSlug: "self-trust",
-    },
-    select: {
-      email: true,
-      phone: true,
-      answers: true,
-    },
-  });
-
-  const normalized = rows.map(normalizeSubmission);
+  const submissions = await loadSelfTrustSubmissions();
 
   const selfScoreMatches = dedupeByMatchingScore(
-    normalized,
+    submissions,
     "selfScore",
     selfScore
   );
@@ -129,7 +150,7 @@ export async function getSelfTrustStats(
   ).length;
 
   const futureScoreMatches = dedupeByMatchingScore(
-    normalized,
+    submissions,
     "futureScore",
     futureScore
   );

@@ -11,6 +11,7 @@ export const questionnaireRegistry = {
     themeKey: "selfTrust",
     theme: selfTrustTheme,
     dsl: selfTrustDsl,
+    showStepText: false,
     variables: {
       selfScoreMatchCount: "...",
       selfScoreAndFutureScoreMatchCount: "...",
@@ -24,6 +25,7 @@ export const questionnaireRegistry = {
     themeKey: "gardenHerbs",
     theme: gardenHerbsTheme,
     dsl: gardenHerbsDsl,
+    showStepText: true,
     variables: {
       plant1: "Thyme",
       plant2: "Rosemary",
@@ -49,6 +51,7 @@ export function getQuestionnaireBySlug(slug: string) {
       slides: parseQuestionnaireDsl(entry.dsl).slides,
       variables: entry.variables,
       dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
+      showStepText: entry.showStepText,
     },
     theme: entry.theme,
   };

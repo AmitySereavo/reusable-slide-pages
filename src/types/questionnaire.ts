@@ -88,6 +88,8 @@ export type Slide = {
   backGoto?: string;
   showBack?: boolean;
   showNext?: boolean;
+  countStep?: boolean;
+  showStepText?: boolean;
   storeAs?: string;
   showIf?: ShowIfRule;
   showIfRules?: ConditionRule[];
@@ -101,6 +103,7 @@ export type Slide = {
   buttonStyleKey?: string;
   backStyleKey?: string;
   nextStyleKey?: string;
+  
 };
 
 export type ThemeConfig = {
@@ -134,6 +137,7 @@ export type QuestionnaireConfig = {
   slides: Slide[];
   variables?: QuestionnaireVariables;
   dynamicVariablesEndpoint?: string;
+  showStepText?: boolean;
 };
 
 export type QuestionnaireAnswers = Record<string, PrimitiveValue>;
@@ -159,6 +163,8 @@ export type ParsedSlideDraft = {
   showBack?: boolean;
   showNext?: boolean;
   nextLabel?: string;
+  countStep?: boolean;
+  showStepText?: boolean;
   goto?: string;
   run?: string;
   fields?: FormField[];

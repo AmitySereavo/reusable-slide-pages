@@ -44,6 +44,7 @@ Each questionnaire is defined by:
 - a theme file
 - a variables object
 - an optional dynamic variables endpoint
+- an optional questionnaire-level `showStepText` setting
 - a slug used in the route
 
 The route:
@@ -55,6 +56,8 @@ The route:
 loads the matching questionnaire from the registry.
 
 The shared shell remains generic. Questionnaire-specific logic should live outside the parser and shell unless it represents a true platform capability.
+
+Questionnaire-level shell settings, such as whether the step label should appear at all, belong in the registry config rather than in questionnaire-specific logic files.
 
 ## Active questionnaires
 
@@ -92,6 +95,8 @@ Route:
 - `@backgoto:`
 - `@showback:`
 - `@shownext:`
+- `@countstep:`
+- `@showsteptext:`
 - `@next:`
 - `@goto:`
 - `@fields:`
@@ -297,6 +302,14 @@ Examples:
 
 The first matching key is used. If no explicit key matches and `default` exists, `default` is used.
 
+You can also reference a value key from inside a `choose:` result using `$`.
+
+Example:
+
+```txt
+[choose:selfScoreMatchCount|0=A few|1=Some|2=Some|default=$selfScoreMatchCount]
+```
+
 ### 7. Direct routing with `@goto:` and `@backgoto:`
 
 ```txt
@@ -356,7 +369,95 @@ Examples:
 @shownext: false
 ```
 
-### 11. Hide branch-only slides from users who should not see them
+### 11. Slides that should appear but not count toward progress
+
+Use:
+
+```txt
+@countstep: false
+```
+
+This keeps the slide visible in the questionnaire flow, but removes it from the `Slide X of Y` count and progress calculation.
+
+Use this for:
+
+- emotional bridge slides
+- extra explanation slides
+- detour slides reached through routing
+- bonus slides that should appear without making the questionnaire feel longer
+
+Example:
+
+```txt
+===
+@id: same-place-message
+@type: content
+@countstep: false
+---
+BR
+## A lot of
+# Honest,
+# [c2] Thoughtful
+# persons
+```
+
+This slide still appears, but it does not increase the progress count.
+
+### 12. Hide step text for a specific slide
+
+Use:
+
+```txt
+@showsteptext: false
+```
+
+This hides the `Slide X of Y` text for that slide only.
+
+Example:
+
+```txt
+===
+@id: same-place-message
+@type: content
+@countstep: false
+@showsteptext: false
+---
+BR
+## A lot of
+# Honest,
+# [c2] Thoughtful
+# persons
+```
+
+This slide still appears, but:
+
+- it does not count toward progress
+- it does not show the `Slide X of Y` label
+
+### 13. When to use `@showif:` vs `@countstep: false`
+
+These are different tools.
+
+Use `@showif:` when a slide should only exist for some users.
+
+Example:
+
+```txt
+@showif:
+- selfScoreAndFutureScoreMatchCount|in|0,1
+```
+
+If the condition is not met, the slide is removed from the visible flow entirely.
+
+Use `@countstep: false` when a slide should still appear, but should not count toward the progress display.
+
+In short:
+
+- `@showif:` = conditional existence
+- `@countstep: false` = visible, but not counted
+- `@showsteptext: false` = visible, but hides the step label only
+
+### 14. Hide branch-only slides from users who should not see them
 
 ```txt
 @showif:
@@ -383,7 +484,7 @@ This is useful for:
 - route-specific explanation slides
 - making the visible slide count more accurate for each user
 
-### 12. Button styling directives
+### 15. Button styling directives
 
 You can set default button styles per slide:
 
@@ -452,15 +553,17 @@ If a placeholder is not found in any source, it remains unchanged.
 - choice buttons can be styled per slide or per choice
 - conditional next-button routing can be defined with `@when:`
 - conditional back-button routing can be defined with `@backwhen:`
-- route rules evaluate against the merged questionnaire context:
+- `@when:` and `@backwhen:` are evaluated in the questionnaire shell against the merged runtime context:
   - live answers
   - static questionnaire variables
   - dynamic questionnaire variables
 
 - previously stored values such as scores can be reused by later slides
 - `@showback:` and `@shownext:` can hide nav buttons per slide
-- `@showif:` can hide optional branch slides unless their conditions are met
-- progress count is based on currently visible slides, so branch-only slides should use `@showif:` to avoid inflating the count
+- `@showif:` controls slide visibility through the visibility engine
+- `@countstep: false` can keep a slide visible while excluding it from step count and progress calculation
+- `@showsteptext: false` can hide the `Slide X of Y` label for a specific slide
+- progress count is based on visible slides that are still marked as countable
 - named actions can be triggered from slides using `@run:`
 - submissions are sent through a shared submit route
 - submissions are saved to PostgreSQL through Prisma
@@ -501,6 +604,7 @@ src/
     questionnaire/
       custom/
         selfTrustStats.ts
+        selfTrustSyntheticData.ts
       engine.ts
       parser.ts
   types/
@@ -521,6 +625,7 @@ Central registry that maps questionnaire slug to:
 - theme
 - variables
 - optional dynamic variables endpoint
+- optional questionnaire-level `showStepText` setting
 
 ### `src/config/questionnaires/selfTrustDsl.ts`
 
@@ -553,6 +658,8 @@ Parses the custom DSL into structured slide data, including:
 - ignored DSL comment/header lines
 - per-slide nav visibility flags
 - per-slide button style directives
+- per-slide progress-count flags
+- per-slide step-text visibility flags
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -560,7 +667,7 @@ Handles visible slides and slide lookup helpers.
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, and action runner.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, and action runner.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
@@ -581,6 +688,10 @@ Returns dynamic self-trust statistics used by the self-trust questionnaire.
 ### `src/lib/questionnaire/custom/selfTrustStats.ts`
 
 Contains self-trust-specific counting and deduplication rules for dynamic self-trust statistics.
+
+### `src/lib/questionnaire/custom/selfTrustSyntheticData.ts`
+
+Contains synthetic self-trust response data for testing realistic count scenarios.
 
 ### `src/lib/googleSheets.ts`
 
@@ -616,6 +727,7 @@ Prisma 7 configuration file for schema location and datasource URL.
 - dynamic questionnaire variables from questionnaire-specific endpoints
 - live answer-based placeholder replacement
 - conditional text replacement with `choose:`
+- nested variable references in `choose:` results using `$variableName`
 - line-level color tokens in the DSL
 - descriptive slide ids for easier long-form maintenance
 - parser support for ignored DSL comment/header lines
@@ -625,11 +737,14 @@ Prisma 7 configuration file for schema location and datasource URL.
 - conditional back routing via `@backwhen:`
 - visibility rules via `@showif:`
 - per-slide nav visibility via `@showback:` and `@shownext:`
+- progress-count exclusions via `@countstep: false`
+- per-slide step-label visibility via `@showsteptext: false`
 - routing decisions based on merged runtime context
 - form submissions sent to backend
 - questionnaire submissions persisted to PostgreSQL with Prisma
 - generic answer storage using `answers` JSON
 - live self-trust statistics backed by the database
+- optional synthetic self-trust statistics mode for testing
 - optional Google Sheets mirroring for saved submissions
 - per-questionnaire Google Sheets tabs plus a shared master submissions tab
 
@@ -695,25 +810,23 @@ These rules are evaluated against the merged runtime context, so any later slide
 
 ## Visibility and progress count
 
-Progress count is based on the currently visible slides.
+Progress count is based on the currently visible slides that are still marked as countable.
 
-If a slide only applies to some users, add `@showif:` to that slide so it is removed from the visible slide count for everyone else.
+If a slide only applies to some users, add `@showif:` so it is removed from the visible flow entirely.
 
-Example:
-
-```txt
-@showif:
-- trustLevel|eq|completely
-```
-
-Dynamic-variable example:
+If a slide should still appear but should not make the questionnaire feel longer, use:
 
 ```txt
-@showif:
-- selfScoreAndFutureScoreMatchCount|in|0,1
+@countstep: false
 ```
 
-This keeps the questionnaire from appearing longer than it really is for users who will never see those branch-only slides.
+If a slide should still appear but should hide the `Slide X of Y` label, use:
+
+```txt
+@showsteptext: false
+```
+
+This keeps progress behavior flexible without removing the slide itself from the experience.
 
 ## Optional Google Sheets mirror
 
@@ -725,6 +838,24 @@ GOOGLE_SHEETS_WEBHOOK_SECRET="YOUR_SHARED_SECRET"
 ```
 
 If `GOOGLE_SHEETS_WEBHOOK_URL` is not set, the app will skip the mirror and continue saving to PostgreSQL only.
+
+## Synthetic self-trust stats mode
+
+For the self-trust questionnaire, you can switch the stats source between real database submissions and synthetic testing data.
+
+Use:
+
+```env
+SELF_TRUST_STATS_MODE="real"
+```
+
+or:
+
+```env
+SELF_TRUST_STATS_MODE="synthetic"
+```
+
+This is useful when the real database is empty or too small to test realistic scenarios.
 
 ## What is not finished yet
 
@@ -749,6 +880,7 @@ Set up your environment variables in `.env`:
 DATABASE_URL="your_postgres_connection_string"
 GOOGLE_SHEETS_WEBHOOK_URL="YOUR_APPS_SCRIPT_WEB_APP_URL"
 GOOGLE_SHEETS_WEBHOOK_SECRET="YOUR_SHARED_SECRET"
+SELF_TRUST_STATS_MODE="real"
 ```
 
 Generate Prisma Client:
@@ -794,4 +926,5 @@ For Vercel deployments:
 - ensure `DATABASE_URL` points to a hosted PostgreSQL database, not `localhost`
 - if using Supabase with Vercel, prefer the session pooler connection string when direct connection fails
 - set `GOOGLE_SHEETS_WEBHOOK_URL` and `GOOGLE_SHEETS_WEBHOOK_SECRET` in Vercel only if you want mirror writes there
+- set `SELF_TRUST_STATS_MODE` to `real` or `synthetic` depending on the behavior you want
 - the project uses `postinstall` to generate Prisma Client during install

@@ -70,8 +70,8 @@ BR
 @type: content
 ---
 BR
-# [c2] [selfScoreMatchCount]
-# [c2] [choose:selfScoreMatchCount|1=person|default=people]
+# [c2] [choose:selfScoreMatchCount|0=A few|1=A few|2=Some|3=Some|default=$selfScoreMatchCount]
+# [c2] [choose:selfScoreMatchCount|0=|1=|2=|3=|default=people]
 [c2] who took the time
 [c2] to answer these questions
 ---
@@ -116,6 +116,7 @@ BR
 ===
 @id: same-place-message
 @type: content
+@countstep:false
 ---
 BR
 ## [choose:selfScoreMatchCount|0=|1=a few|2=a few|3=a few|4=some|default=A lot of]
@@ -259,7 +260,7 @@ BR
 ===
 @id: stuck-score
 @type: score
-
+@countstep:false
 ---
 BR
 ## What level of
@@ -386,6 +387,8 @@ BR
 ===
 @id: coach-message
 @type: video
+@countstep:false
+
 ## [c3] What my clients often gain is something deeper:
 a new relationship with themselves,
 BR
@@ -478,6 +481,7 @@ BR
 // CONFIRMATION PAGE
 @id: confirmation-page
 @type: content
+@countstep:false
 ---
 BR
 ## [c3] Check your email
@@ -512,6 +516,7 @@ BR
 - selfScore|in|9,10
 @id: share-your-wisdom
 @type: content
+@countstep:false
 ---
 BR
 # Awesome.
@@ -532,6 +537,7 @@ BR
 ===
 @id: dont-value-self-trust
 @type: content
+@countstep:false
 ---
 BR
 If you don't value self-trust,
@@ -545,6 +551,7 @@ are not for you.
 ===
 @id: help-others-with-freedom
 @type: content
+@countstep:false
 ---
 BR
 # would you

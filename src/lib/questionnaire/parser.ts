@@ -188,6 +188,19 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+            if (line.startsWith("@countstep:")) {
+        draft.countStep = parseBooleanValue(readValue(line, "@countstep:"), true);
+        continue;
+      }
+
+      if (line.startsWith("@showsteptext:")) {
+        draft.showStepText = parseBooleanValue(
+          readValue(line, "@showsteptext:"),
+          true
+        );
+        continue;
+      }
+
       if (line.startsWith("@next:")) {
         draft.nextLabel = readValue(line, "@next:");
         continue;
@@ -321,6 +334,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     backGoto: draft.backGoto,
     showBack: draft.showBack,
     showNext: draft.showNext,
+    countStep: draft.countStep,
+    showStepText: draft.showStepText,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,
