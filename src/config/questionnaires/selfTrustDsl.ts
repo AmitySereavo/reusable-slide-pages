@@ -18,7 +18,7 @@ BR
 [c2] In your decisions.
 ## [c2] In your direction.
 [c3] In the way you move through life?
-BR
+
 @next: Give your answer
 @goto:
 @showback: false
@@ -54,7 +54,7 @@ BR
 # Trust the future?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
-BR
+
 
 [c3] 1 being NO TRUST of future possibilities.
 [c3] 10 being FULL TRUST of future possibilities.
@@ -224,7 +224,7 @@ BR
 ## [c2] from the
 # life you want
 # [c2] to create?
-BR
+
 @store: feltHeldBack
 @choices:
 - No, can't relate | No, I Have Never Felt That Way | help-others-with-freedom | c1
@@ -245,7 +245,7 @@ BR
 ## Right now?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
-BR
+
 [c2] 1 means NOT free at all.
 [c2] 10 means you are ABSOLUTELY free.
 @store: freedomScore
@@ -269,7 +269,7 @@ BR
 ## [c3] you are at?
 BR
 @feature: numberscale(1,2,3,4,5,6,[7],8,9,10)
-BR
+
 [c2] 1 Being NOT stuck at all
 [c2] 10 Being EXTREMELY stuck
 
@@ -460,7 +460,7 @@ BR
 ## [c2] 2X and maintain
 ## [c2] your self-trust.
 BR
-
+so,
 [c3] Be Bold
 # [c3] Introduce Yourself
 [c2] &

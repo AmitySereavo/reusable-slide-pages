@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -117,12 +117,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [history, setHistory] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-
+  const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const [dynamicVariables, setDynamicVariables] = useState<
     Record<string, string | number>
   >({});
 
-    const mergedVariables = useMemo(
+  const mergedVariables = useMemo(
     () => ({
       ...(config.variables ?? {}),
       ...dynamicVariables,
@@ -174,12 +174,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         })),
         answers
       ),
-      [config.slides, answers, mergedVariables, evaluationContext]
+    [config.slides, answers, mergedVariables, evaluationContext]
   );
 
   const currentSlide = visibleSlides[currentIndex];
 
-    const countableVisibleSlides = useMemo(
+  const countableVisibleSlides = useMemo(
     () => visibleSlides.filter((slide) => slide.countStep !== false),
     [visibleSlides]
   );
@@ -253,6 +253,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     answers.selfScore,
     answers.futureScore,
   ]);
+
+  useEffect(() => {
+    slideBodyRef.current?.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentSlide?.id]);
 
   function setAnswer(key: string, value: string | number | boolean) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -498,14 +506,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return <main>No slides available.</main>;
   }
 
-    const progress =
+  const progress =
     totalStepCount > 0
       ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
       : 0;
   const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
-    const showStepText =
+  const showStepText =
     config.showStepText !== false && currentSlide.showStepText !== false;
   const hasPinnedChoices = Boolean(currentSlide.choices?.length);
   const backButtonStyle = resolveButtonStyle(
@@ -538,10 +546,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             boxShadow: theme.shadow?.card,
           }}
         >
-                    <div className={styles.topSection}>
+          <div className={styles.topSection}>
             <div className={styles.contentFrame}>
               <div className={styles.progressWrap}>
-                                {showStepText ? (
+                {showStepText ? (
                   <div className={styles.stepText}>
                     Slide {currentStepNumber} of {totalStepCount}
                   </div>
@@ -558,7 +566,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 </div>
               </div>
 
-              <div className={styles.slideBody}>
+              <div ref={slideBodyRef} className={styles.slideBody}>
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={currentSlide.id}
@@ -602,7 +610,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             </div>
           </div>
 
-                    {(hasPinnedChoices || hasVisibleNav) ? (
+          {hasPinnedChoices || hasVisibleNav ? (
             <div className={styles.actionBar}>
               <div className={styles.actionFrame}>
                 {hasPinnedChoices ? (
