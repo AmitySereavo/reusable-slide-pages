@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, and guided questionnaire flows. The current implementation supports multiple questionnaires through a shared parser, shared renderer, and slug-based registry system.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, and guided questionnaire flows. The current implementation supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, and isolated custom business-logic modules.
 
 ## Current stack
 
@@ -32,16 +32,18 @@ This makes it possible to:
 - reuse the same engine for multiple brands and campaigns
 - attach questionnaire-specific variables without bloating the parser
 - use different themes and color systems per questionnaire
+- add questionnaire-specific business logic through isolated server scripts and routes
 
 ## Current architecture
 
-The app now uses a registry-based system.
+The app uses a registry-based system.
 
 Each questionnaire is defined by:
 
 - a DSL file
 - a theme file
 - a variables object
+- an optional dynamic variables endpoint
 - a slug used in the route
 
 The route:
@@ -51,6 +53,8 @@ The route:
 ```
 
 loads the matching questionnaire from the registry.
+
+The shared shell remains generic. Questionnaire-specific logic should live outside the parser and shell unless it represents a true platform capability.
 
 ## Active questionnaires
 
@@ -96,6 +100,9 @@ Route:
 - `@backwhen:`
 - `@showif:`
 - `@run:`
+- `@buttonstyle:`
+- `@backstyle:`
+- `@nextstyle:`
 
 ## Line-level color support
 
@@ -207,10 +214,26 @@ BR
 Choice line format:
 
 ```txt
-- value|Button label|optional-goto
+- value|Button label|optional-goto|optional-style-key
 ```
 
 The third part is optional. If included, clicking that choice button routes immediately to that target.
+
+The fourth part is optional. If included, it styles that choice button using a style key such as:
+
+- `primary`
+- `secondary`
+- `ghost`
+- `accent`
+- theme line color keys like `c1`, `c2`, `c3`
+
+Examples:
+
+```txt
+@choices:
+- yes|Yes, continue|next-slide|primary
+- no|No, exit|exit-slide|secondary
+```
 
 ### 4. Form slide with `@fields:`
 
@@ -239,15 +262,42 @@ Field line format:
 
 ### 5. Placeholder usage
 
-Square-bracket placeholders can pull from questionnaire variables or live answers.
+Square-bracket placeholders can pull from questionnaire variables, dynamic questionnaire variables, or live answers.
 
 ```txt
-# [selfScoreMatchCount] people
+# [selfScoreMatchCount]
+# [choose:selfScoreMatchCount|1=person|default=people]
 ## also chose
 # [selfScore]
 ```
 
-### 6. Direct routing with `@goto:` and `@backgoto:`
+### 6. Dynamic text selection with `choose:`
+
+The `choose:` token allows conditional text replacement based on an answer or variable value.
+
+Format:
+
+```txt
+[choose:sourceKey|match=value|default=fallback]
+```
+
+Examples:
+
+```txt
+[choose:selfScoreMatchCount|1=person|default=people]
+```
+
+```txt
+[choose:selfScoreMatchCount|0=|1=a few|2=a few|3=a few|4=some|default=A lot of]
+```
+
+```txt
+[choose:score|1=dog|2=birds|3=shoes|default=items]
+```
+
+The first matching key is used. If no explicit key matches and `default` exists, `default` is used.
+
+### 7. Direct routing with `@goto:` and `@backgoto:`
 
 ```txt
 @back: Watch the video
@@ -263,7 +313,7 @@ Targets can be:
 
 External URLs open in a new tab.
 
-### 7. Conditional next routing with `@when:`
+### 8. Conditional next routing with `@when:`
 
 ```txt
 @when:
@@ -273,7 +323,9 @@ External URLs open in a new tab.
 - selfScore|eq|10|full-self-trust-path
 ```
 
-### 8. Conditional back routing with `@backwhen:`
+These rules can now evaluate against the merged questionnaire context, not just raw answers.
+
+### 9. Conditional back routing with `@backwhen:`
 
 ```txt
 @backwhen:
@@ -281,7 +333,7 @@ External URLs open in a new tab.
 - futureScore|gte|8|high-future-trust-review
 ```
 
-### 9. Hide Back and/or Next buttons
+### 10. Hide Back and/or Next buttons
 
 ```txt
 @showback: false
@@ -304,7 +356,7 @@ Examples:
 @shownext: false
 ```
 
-### 10. Hide branch-only slides from users who should not see them
+### 11. Hide branch-only slides from users who should not see them
 
 ```txt
 @showif:
@@ -318,15 +370,34 @@ or
 - selfScore|in|7,8,9,10
 ```
 
+or using a dynamic variable:
+
+```txt
+@showif:
+- selfScoreAndFutureScoreMatchCount|in|0,1
+```
+
 This is useful for:
 
 - optional branch slides
 - route-specific explanation slides
 - making the visible slide count more accurate for each user
 
+### 12. Button styling directives
+
+You can set default button styles per slide:
+
+```txt
+@buttonstyle: c2
+@backstyle: secondary
+@nextstyle: c3
+```
+
+These style keys are applied in the renderer and can be overridden per choice line.
+
 ## Variable replacement system
 
-Square-bracket placeholders are resolved from two sources.
+Square-bracket placeholders are resolved from three sources.
 
 ### 1. Questionnaire variables
 
@@ -337,10 +408,18 @@ Examples:
 - `[plant1]`
 - `[plant2]`
 - `[plant3]`
+
+### 2. Dynamic questionnaire variables
+
+These come from an optional questionnaire-specific endpoint and are merged into the runtime context.
+
+Examples:
+
 - `[selfScoreMatchCount]`
 - `[selfScoreAndFutureScoreMatchCount]`
+- `[futureScoreMatchCount]`
 
-### 2. Live questionnaire answers
+### 3. Live questionnaire answers
 
 These come from the current questionnaire session.
 
@@ -352,7 +431,7 @@ Examples:
 - `[email]`
 - `[phone]`
 
-If a placeholder is not found in either source, it remains unchanged.
+If a placeholder is not found in any source, it remains unchanged.
 
 ## Current behavior
 
@@ -370,9 +449,14 @@ If a placeholder is not found in either source, it remains unchanged.
 - choice-button groups can be rendered inside a slide via `@choices:`
 - choice buttons can store a selected value using `@store:`
 - choice buttons can optionally route directly using per-choice `goto`
+- choice buttons can be styled per slide or per choice
 - conditional next-button routing can be defined with `@when:`
 - conditional back-button routing can be defined with `@backwhen:`
-- route rules evaluate against the shared questionnaire answers object
+- route rules evaluate against the merged questionnaire context:
+  - live answers
+  - static questionnaire variables
+  - dynamic questionnaire variables
+
 - previously stored values such as scores can be reused by later slides
 - `@showback:` and `@shownext:` can hide nav buttons per slide
 - `@showif:` can hide optional branch slides unless their conditions are met
@@ -382,6 +466,7 @@ If a placeholder is not found in either source, it remains unchanged.
 - submissions are saved to PostgreSQL through Prisma
 - storage is questionnaire-agnostic using a shared submissions table with `answers` JSON
 - per-line colors can be controlled from the DSL through theme color keys
+- dynamic questionnaire variables can be loaded from questionnaire-specific endpoints without polluting the shared parser
 
 ## Current folder structure
 
@@ -390,6 +475,9 @@ src/
   app/
     api/
       questionnaires/
+        self-trust/
+          stats/
+            route.ts
         submit/
           route.ts
     questionnaire/
@@ -411,6 +499,8 @@ src/
     googleSheets.ts
     prisma.ts
     questionnaire/
+      custom/
+        selfTrustStats.ts
       engine.ts
       parser.ts
   types/
@@ -430,6 +520,7 @@ Central registry that maps questionnaire slug to:
 - DSL
 - theme
 - variables
+- optional dynamic variables endpoint
 
 ### `src/config/questionnaires/selfTrustDsl.ts`
 
@@ -461,6 +552,7 @@ Parses the custom DSL into structured slide data, including:
 - visibility rules
 - ignored DSL comment/header lines
 - per-slide nav visibility flags
+- per-slide button style directives
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -468,11 +560,11 @@ Handles visible slides and slide lookup helpers.
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, and action runner.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, and action runner.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
-Styles for the questionnaire shell, including tighter layout behavior for half-screen / medium-width views.
+Styles for the questionnaire shell, including pinned bottom action areas and scrollable slide content regions.
 
 ### `src/app/questionnaire/[slug]/page.tsx`
 
@@ -481,6 +573,14 @@ Loads a questionnaire by slug from the registry and renders it.
 ### `src/app/api/questionnaires/submit/route.ts`
 
 Receives questionnaire form submissions and saves them to the database.
+
+### `src/app/api/questionnaires/self-trust/stats/route.ts`
+
+Returns dynamic self-trust statistics used by the self-trust questionnaire.
+
+### `src/lib/questionnaire/custom/selfTrustStats.ts`
+
+Contains self-trust-specific counting and deduplication rules for dynamic self-trust statistics.
 
 ### `src/lib/googleSheets.ts`
 
@@ -513,19 +613,23 @@ Prisma 7 configuration file for schema location and datasource URL.
 - `@run:` action support
 - DSL-driven form fields via `@fields:`
 - questionnaire-specific variables
+- dynamic questionnaire variables from questionnaire-specific endpoints
 - live answer-based placeholder replacement
+- conditional text replacement with `choose:`
 - line-level color tokens in the DSL
 - descriptive slide ids for easier long-form maintenance
 - parser support for ignored DSL comment/header lines
 - in-slide choice buttons via `@choices:`
+- per-slide and per-choice button style support
 - conditional routing via `@when:`
 - conditional back routing via `@backwhen:`
 - visibility rules via `@showif:`
 - per-slide nav visibility via `@showback:` and `@shownext:`
-- routing decisions based on any previously stored answer value
+- routing decisions based on merged runtime context
 - form submissions sent to backend
 - questionnaire submissions persisted to PostgreSQL with Prisma
 - generic answer storage using `answers` JSON
+- live self-trust statistics backed by the database
 - optional Google Sheets mirroring for saved submissions
 - per-questionnaire Google Sheets tabs plus a shared master submissions tab
 
@@ -557,7 +661,7 @@ Submissions are saved into the `QuestionnaireSubmission` table with a shape simi
 
 ## Conditional routing examples
 
-Route rules can send the user to different slides based on any previously stored answer.
+Route rules can send the user to different slides based on any previously stored answer or variable available in the merged runtime context.
 
 Example:
 
@@ -567,6 +671,13 @@ Example:
 - selfScore|in|4,5,6|mid-self-trust-path
 - selfScore|in|7,8,9|high-self-trust-path
 - selfScore|eq|10|full-self-trust-path
+```
+
+Dynamic-variable example:
+
+```txt
+@when:
+- selfScoreAndFutureScoreMatchCount|in|0,1|same-place-message
 ```
 
 Supported operators:
@@ -580,7 +691,7 @@ Supported operators:
 - `between`
 - `in`
 
-These rules are evaluated against the shared answers state, so any later slide can route based on values gathered earlier in the questionnaire.
+These rules are evaluated against the merged runtime context, so any later slide can route based on values gathered earlier in the questionnaire or loaded dynamically.
 
 ## Visibility and progress count
 
@@ -593,6 +704,13 @@ Example:
 ```txt
 @showif:
 - trustLevel|eq|completely
+```
+
+Dynamic-variable example:
+
+```txt
+@showif:
+- selfScoreAndFutureScoreMatchCount|in|0,1
 ```
 
 This keeps the questionnaire from appearing longer than it really is for users who will never see those branch-only slides.
@@ -610,7 +728,6 @@ If `GOOGLE_SHEETS_WEBHOOK_URL` is not set, the app will skip the mirror and cont
 
 ## What is not finished yet
 
-- live database-backed statistics for values like `[selfScoreMatchCount]`
 - richer feature types beyond the current number scale
 - admin/editor tools
 - loading questionnaire content from real text files instead of TS string exports
@@ -646,6 +763,12 @@ Run migrations:
 npx prisma migrate dev
 ```
 
+Or push the schema:
+
+```bash
+npx prisma db push
+```
+
 Run the dev server:
 
 ```bash
@@ -663,3 +786,12 @@ or
 ```txt
 http://localhost:3000/questionnaire/garden-herbs
 ```
+
+## Deployment notes
+
+For Vercel deployments:
+
+- ensure `DATABASE_URL` points to a hosted PostgreSQL database, not `localhost`
+- if using Supabase with Vercel, prefer the session pooler connection string when direct connection fails
+- set `GOOGLE_SHEETS_WEBHOOK_URL` and `GOOGLE_SHEETS_WEBHOOK_SECRET` in Vercel only if you want mirror writes there
+- the project uses `postinstall` to generate Prisma Client during install
