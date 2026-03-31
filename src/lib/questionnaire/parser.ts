@@ -2,6 +2,8 @@ import {
   ChoiceItem,
   ConditionRule,
   FormField,
+  MediaAspect,
+  MediaType,
   Option,
   ParsedQuestionnaireDocument,
   ParsedSlideDraft,
@@ -188,7 +190,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-            if (line.startsWith("@countstep:")) {
+      if (line.startsWith("@countstep:")) {
         draft.countStep = parseBooleanValue(readValue(line, "@countstep:"), true);
         continue;
       }
@@ -211,7 +213,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-            if (line.startsWith("@buttonstyle:")) {
+      if (line.startsWith("@buttonstyle:")) {
         draft.buttonStyleKey = readValue(line, "@buttonstyle:");
         continue;
       }
@@ -242,6 +244,56 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
           });
         }
 
+        continue;
+      }
+
+      if (line.startsWith("@media:")) {
+        draft.mediaUrl = readValue(line, "@media:");
+        continue;
+      }
+
+      if (line.startsWith("@embed:")) {
+        draft.embedUrl = readValue(line, "@embed:");
+        continue;
+      }
+
+      if (line.startsWith("@mediatype:")) {
+        draft.mediaType = readValue(line, "@mediatype:") as MediaType;
+        continue;
+      }
+
+      if (line.startsWith("@mediaaspect:")) {
+        draft.mediaAspect = readValue(line, "@mediaaspect:") as MediaAspect;
+        continue;
+      }
+
+      if (line.startsWith("@autoplay:")) {
+        draft.autoplay = parseBooleanValue(readValue(line, "@autoplay:"), false);
+        continue;
+      }
+
+      if (line.startsWith("@pagebgcolor:")) {
+        draft.pageBackgroundColor = readValue(line, "@pagebgcolor:");
+        continue;
+      }
+
+      if (line.startsWith("@pagebgimage:")) {
+        draft.pageBackgroundImage = readValue(line, "@pagebgimage:");
+        continue;
+      }
+
+      if (line.startsWith("@pagebgsize:")) {
+        draft.pageBackgroundSize = readValue(line, "@pagebgsize:");
+        continue;
+      }
+
+      if (line.startsWith("@pagebgposition:")) {
+        draft.pageBackgroundPosition = readValue(line, "@pagebgposition:");
+        continue;
+      }
+
+      if (line.startsWith("@cardopacity:")) {
+        draft.cardOpacity = parseNumberValue(readValue(line, "@cardopacity:"));
         continue;
       }
 
@@ -352,6 +404,16 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     buttonStyleKey: draft.buttonStyleKey,
     backStyleKey: draft.backStyleKey,
     nextStyleKey: draft.nextStyleKey,
+    mediaUrl: draft.mediaUrl,
+    embedUrl: draft.embedUrl,
+    mediaType: draft.mediaType,
+    mediaAspect: draft.mediaAspect,
+    autoplay: draft.autoplay,
+    pageBackgroundColor: draft.pageBackgroundColor,
+    pageBackgroundImage: draft.pageBackgroundImage,
+    pageBackgroundSize: draft.pageBackgroundSize,
+    pageBackgroundPosition: draft.pageBackgroundPosition,
+    cardOpacity: draft.cardOpacity,
   };
 
   if (draft.feature?.type === "numberscale") {
@@ -487,6 +549,12 @@ function parseBooleanValue(value: string, fallback: boolean) {
   if (normalized === "false") return false;
 
   return fallback;
+}
+
+function parseNumberValue(value: string) {
+  const parsed = Number(value.trim());
+
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function readValue(line: string, prefix: string) {

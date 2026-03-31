@@ -1,8 +1,16 @@
 export const selfTrustDsl = `
+
+
 // INTRO QUESTION
 ===
 @id: intro-question
 @type: content
+
+@pagebgcolor: #111111
+@pagebgimage: /media/background/cover-photo.jpg
+@pagebgsize: cover
+@pagebgposition: top center
+@cardopacity: 1.0
 ---
 BR
 [c2] Do you
@@ -377,16 +385,33 @@ BR
 # [c2] It can be embodied.
 ---
 @choices:
-- Watch the video | Watch the video | https://www.instagram.com/reel/DVwZ7xGDcEZ/ |c2
-- continue reading | Or Continue reading... | coach-message
+- Watch the video | Watch the video | coach-message-video |c2
+- continue reading | Or Continue reading... | coach-message-text
 @showback: false
 @shownext: false
 @goto:
 
-// COACH MESSAGE
+
+// COACH MESSAGE VIDEO
 ===
-@id: coach-message
-@type: video
+@id: coach-message-video
+@type: media
+@media: /media/stacy-henry-carr-example-video.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@countstep:false
+
+
+@back: Back
+@next: See how it works
+@goto: pre-contact-form
+
+
+// COACH MESSAGE TEXT
+===
+@id: coach-message-text
+@type: content
 @countstep:false
 
 ## [c3] What my clients often gain is something deeper:
@@ -420,15 +445,16 @@ BR
 - Stacy Henry-Carr, Hypnotherapist & Life Coach.
 @back: Back
 @next: See how it works
-@goto:
+@goto: pre-contact-form
 
 // PRE CONTACT FORM
 ===
 @id: pre-contact-form
-@type: form
+@type: content
 ---
 BR
-[c2] a client has permitted us
+[c2] a client
+[c2] has permitted us
 ## [c3] to send you their
 # Recording
 ## [c2] of an
@@ -574,4 +600,35 @@ do you wish to continue?
 @back: Back
 @next: Yes, I would love to
 @goto: freedom-score
+
+// COVER PHOTO
+===
+@id: cover-photo
+@type: media
+@media: /media/cover-photo.jpg
+@mediatype: image
+@mediaaspect: horizontal
+@countstep:false
+
+Cover Photo Slide.
+@back: Back
+@next: See how it works
+@goto:
+
+// EMBED
+===
+@id: video-h
+@type: media
+@embed: https://www.youtube.com/embed/OEHQoSH8NbI?playsinline=1
+@mediatype: video
+@mediaaspect: horizontal
+@autoplay: true
+@countstep:false
+
+Horizontal embed video slide.
+@back: Back
+@next: See how it works
+@goto:
+
+
 `;

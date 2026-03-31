@@ -25,6 +25,11 @@
   box-sizing: border-box;
 }
 
+.cardMedia {
+  position: relative;
+  background: #000 !important;
+}
+
 .topSection {
   width: 100%;
   flex: 1;
@@ -32,6 +37,11 @@
   padding: 28px 0px 0;
   display: flex;
   flex-direction: column;
+}
+
+.topSectionMedia {
+  padding: 0;
+  position: relative;
 }
 
 .contentFrame {
@@ -44,11 +54,36 @@
   flex-direction: column;
 }
 
+.contentFrameMedia {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+
 .progressWrap {
   width: 100%;
   margin-bottom: 28px;
   flex-shrink: 0;
   box-sizing: border-box;
+}
+
+.progressWrapMedia {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  margin: 0;
+  padding: 16px 16px 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.48),
+    rgba(0, 0, 0, 0.22),
+    rgba(0, 0, 0, 0)
+  );
 }
 
 .stepText {
@@ -58,6 +93,11 @@
   text-align: center;
 }
 
+.stepTextOverlay {
+  color: #ffffff;
+  opacity: 0.9;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
 
 .progressBar {
   width: 100%;
@@ -65,6 +105,10 @@
   border-radius: 9999px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.06);
+}
+
+.progressBarOverlay {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 .progressFill {
@@ -83,6 +127,131 @@
   overflow-x: hidden;
   box-sizing: border-box;
   scrollbar-gutter: stable;
+}
+
+.slideBodyMedia {
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+}
+
+.mediaStage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mediaLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.mediaWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.mediaWrapHorizontal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mediaFrame {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+
+.mediaVideo,
+.mediaImage {
+  display: block;
+  border: 0;
+}
+
+.mediaVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+  cursor: pointer;
+}
+
+.mediaImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mediaWrapHorizontal .mediaVideo,
+.mediaWrapHorizontal .mediaImage,
+.mediaWrapHorizontal .mediaFrame {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.mediaMuteButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mediaPlayOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.mediaPlayTriangle {
+  width: 0;
+  height: 0;
+  border-top: 22px solid transparent;
+  border-bottom: 22px solid transparent;
+  border-left: 34px solid #ffffff;
+  margin-left: 6px;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
+}
+
+.mediaTextOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 108px;
+  z-index: 4;
+  padding: 20px 20px 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.62),
+    rgba(0, 0, 0, 0.3),
+    rgba(0, 0, 0, 0)
+  );
+  pointer-events: none;
 }
 
 .storyStack {
@@ -119,6 +288,13 @@
   line-height: 1.65;
   text-align: center;
   margin: 0;
+}
+
+.mediaTextOverlay .title,
+.mediaTextOverlay .subtitle,
+.mediaTextOverlay .body {
+  color: #ffffff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
 .helperText {
@@ -192,6 +368,24 @@
   background: inherit;
 }
 
+.actionBarMedia {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  padding: 16px 0 24px;
+  border-top: none;
+  background: transparent;
+  transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+.actionBarShifted {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+
 .actionFrame {
   width: 100%;
   max-width: 420px;
@@ -241,7 +435,7 @@
 }
 
 .primaryButton {
-  border: none;
+  border: 1px solid transparent;
   color: #ffffff;
   cursor: pointer;
 }
@@ -284,7 +478,15 @@
     padding: 24px 0 0;
   }
 
+  .topSectionMedia {
+    padding: 0;
+  }
+
   .actionBar {
+    padding: 14px 0 18px;
+  }
+
+  .actionBarMedia {
     padding: 14px 0 18px;
   }
 
@@ -335,8 +537,32 @@
     max-width: 100%;
   }
 
+  .contentFrameMedia {
+    max-width: 100%;
+  }
+
   .actionFrame {
     max-width: 100%;
+  }
+
+  .progressWrapMedia {
+    padding: 14px 14px 0;
+  }
+
+  .mediaTextOverlay {
+    bottom: 96px;
+    padding: 18px 16px 0;
+  }
+
+  .mediaMuteButton {
+    top: 12px;
+    right: 12px;
+  }
+
+  .mediaPlayTriangle {
+    border-top-width: 18px;
+    border-bottom-width: 18px;
+    border-left-width: 28px;
   }
 }
 
@@ -345,6 +571,4 @@
     grid-template-columns: repeat(2, minmax(56px, 68px));
     max-width: 148px;
   }
-
-  
 }

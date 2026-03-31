@@ -54,6 +54,20 @@ function getContrastTextColor(background: string) {
   return luminance > 0.62 ? "#111111" : "#FFFFFF";
 }
 
+
+function withOpacity(color: string, opacity?: number) {
+  if (opacity === undefined) return color;
+
+  const normalized = Math.max(0, Math.min(1, opacity));
+  const rgb = hexToRgb(color);
+
+  if (!rgb) return color;
+
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalized})`;
+}
+
+
+
 function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
   if (!styleKey) return null;
 
@@ -117,7 +131,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [history, setHistory] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isCurrentVerticalVideoPlaying, setIsCurrentVerticalVideoPlaying] =
+    useState(false);
+
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
+
   const [dynamicVariables, setDynamicVariables] = useState<
     Record<string, string | number>
   >({});
@@ -179,6 +197,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
 
+  const isMediaSlide =
+    (currentSlide?.type === "media" || currentSlide?.type === "video") &&
+    Boolean(currentSlide?.mediaUrl || currentSlide?.embedUrl);
+
+  const isVerticalMediaSlide =
+    isMediaSlide && currentSlide?.mediaAspect === "vertical";
+
   const countableVisibleSlides = useMemo(
     () => visibleSlides.filter((slide) => slide.countStep !== false),
     [visibleSlides]
@@ -234,10 +259,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
           ...data.variables,
         }));
       } catch (error) {
-        if (
-          error instanceof Error &&
-          error.name === "AbortError"
-        ) {
+        if (error instanceof Error && error.name === "AbortError") {
           return;
         }
 
@@ -255,12 +277,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   ]);
 
   useEffect(() => {
+    setIsCurrentVerticalVideoPlaying(false);
+
+    if (isMediaSlide) {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "auto",
+      });
+      return;
+    }
+
     slideBodyRef.current?.scrollTo({
       top: 0,
       left: 0,
       behavior: "auto",
     });
-  }, [currentSlide?.id]);
+  }, [currentSlide?.id, isMediaSlide]);
 
   function setAnswer(key: string, value: string | number | boolean) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -510,12 +543,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     totalStepCount > 0
       ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
       : 0;
+
   const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
   const showStepText =
     config.showStepText !== false && currentSlide.showStepText !== false;
   const hasPinnedChoices = Boolean(currentSlide.choices?.length);
+
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -529,33 +564,64 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   return (
-    <main
+   <main
       className={styles.page}
       style={{
-        background: theme.colors.background,
+        backgroundColor:
+          currentSlide.pageBackgroundColor ?? theme.colors.background,
+        backgroundImage: currentSlide.pageBackgroundImage
+          ? `url(${currentSlide.pageBackgroundImage})`
+          : undefined,
+        backgroundSize: currentSlide.pageBackgroundSize ?? "cover",
+        backgroundPosition: currentSlide.pageBackgroundPosition ?? "center",
+        backgroundRepeat: currentSlide.pageBackgroundImage
+          ? "no-repeat"
+          : undefined,
         color: theme.colors.text,
       }}
     >
       <div className={styles.pageInner}>
-        <div
-          className={styles.card}
+                <div
+          className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
           style={{
-            background: theme.colors.card,
+            background: isMediaSlide
+              ? theme.colors.card
+              : withOpacity(theme.colors.card, currentSlide.cardOpacity),
             borderColor: theme.colors.border,
             borderRadius: theme.radius?.card ?? "24px",
             boxShadow: theme.shadow?.card,
           }}
         >
-          <div className={styles.topSection}>
-            <div className={styles.contentFrame}>
-              <div className={styles.progressWrap}>
+          <div
+            className={`${styles.topSection} ${
+              isMediaSlide ? styles.topSectionMedia : ""
+            }`}
+          >
+            <div
+              className={`${styles.contentFrame} ${
+                isMediaSlide ? styles.contentFrameMedia : ""
+              }`}
+            >
+              <div
+                className={`${styles.progressWrap} ${
+                  isMediaSlide ? styles.progressWrapMedia : ""
+                }`}
+              >
                 {showStepText ? (
-                  <div className={styles.stepText}>
+                  <div
+                    className={`${styles.stepText} ${
+                      isMediaSlide ? styles.stepTextOverlay : ""
+                    }`}
+                  >
                     Slide {currentStepNumber} of {totalStepCount}
                   </div>
                 ) : null}
 
-                <div className={styles.progressBar}>
+                <div
+                  className={`${styles.progressBar} ${
+                    isMediaSlide ? styles.progressBarOverlay : ""
+                  }`}
+                >
                   <div
                     className={styles.progressFill}
                     style={{
@@ -566,44 +632,78 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 </div>
               </div>
 
-              <div ref={slideBodyRef} className={styles.slideBody}>
+              <div
+                ref={slideBodyRef}
+                className={`${styles.slideBody} ${
+                  isMediaSlide ? styles.slideBodyMedia : ""
+                }`}
+              >
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={currentSlide.id}
+                    className={isMediaSlide ? styles.mediaStage : undefined}
                     initial={{ x: 40, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: -40, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    {renderSections(
-                      currentSlide.sections,
-                      theme,
-                      answers,
-                      currentSlide.storeAs,
-                      setAnswer
+                    {isMediaSlide ? (
+                      <>
+                        <MediaRenderer
+                          slide={currentSlide}
+                          onVerticalVideoPlayingChange={
+                            setIsCurrentVerticalVideoPlaying
+                          }
+                        />
+
+                        {hasRenderableSections(currentSlide.sections) ? (
+                          <div className={styles.mediaTextOverlay}>
+                            {renderSections(
+                              currentSlide.sections,
+                              theme,
+                              answers,
+                              currentSlide.storeAs,
+                              setAnswer
+                            )}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {renderSections(
+                          currentSlide.sections,
+                          theme,
+                          answers,
+                          currentSlide.storeAs,
+                          setAnswer
+                        )}
+
+                        {(currentSlide.type === "form" ||
+                          currentSlide.type === "contact") &&
+                        currentSlide.fields?.length ? (
+                          <div
+                            className={styles.formGrid}
+                            style={{ marginTop: "20px" }}
+                          >
+                            {currentSlide.fields.map((field) => (
+                              <FormFieldRenderer
+                                key={field.name}
+                                field={field}
+                                theme={theme}
+                                answers={answers}
+                                setAnswer={setAnswer}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {submitError ? (
+                          <p className={styles.formError}>{submitError}</p>
+                        ) : null}
+
+                        <div className={styles.scrollBottomSpacer} />
+                      </>
                     )}
-
-                    {(currentSlide.type === "form" ||
-                      currentSlide.type === "contact") &&
-                    currentSlide.fields?.length ? (
-                      <div className={styles.formGrid} style={{ marginTop: "20px" }}>
-                        {currentSlide.fields.map((field) => (
-                          <FormFieldRenderer
-                            key={field.name}
-                            field={field}
-                            theme={theme}
-                            answers={answers}
-                            setAnswer={setAnswer}
-                          />
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {submitError ? (
-                      <p className={styles.formError}>{submitError}</p>
-                    ) : null}
-
-                    <div className={styles.scrollBottomSpacer} />
                   </motion.div>
                 </AnimatePresence>
               </div>
@@ -611,7 +711,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
           </div>
 
           {hasPinnedChoices || hasVisibleNav ? (
-            <div className={styles.actionBar}>
+            <div
+              className={`${styles.actionBar} ${
+                isMediaSlide ? styles.actionBarMedia : ""
+              } ${
+                isCurrentVerticalVideoPlaying && isVerticalMediaSlide
+                  ? styles.actionBarShifted
+                  : ""
+              }`}
+            >
               <div className={styles.actionFrame}>
                 {hasPinnedChoices ? (
                   <div className={styles.choiceStack}>
@@ -676,7 +784,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                         className={styles.secondaryButton}
                         style={{
                           borderColor: backButtonStyle.borderColor,
-                          background: backButtonStyle.background,
+                          background: isMediaSlide
+                            ? "#ffffff"
+                            : backButtonStyle.background,
                           color: backButtonStyle.color,
                         }}
                       >
@@ -693,13 +803,19 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                         disabled={!canGoNext() || isSubmitting}
                         className={styles.primaryButton}
                         style={{
-                          background: nextButtonStyle.background,
+                          background: isMediaSlide
+                            ? "#111111"
+                            : nextButtonStyle.background,
                           color: nextButtonStyle.color,
-                          borderColor: nextButtonStyle.borderColor,
+                          borderColor: isMediaSlide
+                            ? "#111111"
+                            : nextButtonStyle.borderColor,
                           borderRadius: theme.radius?.button ?? "14px",
                         }}
                       >
-                        {isSubmitting ? "Submitting..." : currentSlide.nextLabel ?? "Next"}
+                        {isSubmitting
+                          ? "Submitting..."
+                          : currentSlide.nextLabel ?? "Next"}
                       </button>
                     ) : (
                       <div />
@@ -765,6 +881,195 @@ function FormFieldRenderer({
       style={{ borderColor: theme.colors.border }}
     />
   );
+}
+
+function MediaRenderer({
+  slide,
+  onVerticalVideoPlayingChange,
+}: {
+  slide: {
+    title: string;
+    mediaUrl?: string;
+    embedUrl?: string;
+    mediaType?: "image" | "video";
+    mediaAspect?: "horizontal" | "vertical" | "square";
+    autoplay?: boolean;
+  };
+  onVerticalVideoPlayingChange?: (isPlaying: boolean) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isMuted, setIsMuted] = useState(slide.autoplay === true);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    setIsMuted(slide.autoplay === true);
+    setIsPlaying(false);
+  }, [slide.mediaUrl, slide.embedUrl, slide.autoplay]);
+
+  const isVerticalVideo =
+    slide.mediaAspect === "vertical" &&
+    slide.mediaType === "video" &&
+    !slide.embedUrl;
+
+  function togglePlayPause() {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused || video.ended) {
+      void video.play().catch(() => null);
+    } else {
+      video.pause();
+    }
+  }
+
+  function toggleMute() {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    setIsMuted(nextMuted);
+  }
+
+  if (slide.embedUrl) {
+    const embedSrc = appendYouTubeInlineParams(slide.embedUrl, {
+      autoplay: slide.autoplay === true,
+    });
+
+    return (
+      <div className={styles.mediaLayer}>
+        <div
+          className={`${styles.mediaWrap} ${
+            slide.mediaAspect === "horizontal"
+              ? styles.mediaWrapHorizontal
+              : ""
+          }`}
+        >
+          <iframe
+            className={styles.mediaFrame}
+            src={embedSrc}
+            title={slide.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (slide.mediaType === "image" && slide.mediaUrl) {
+    return (
+      <div className={styles.mediaLayer}>
+        <div
+          className={`${styles.mediaWrap} ${
+            slide.mediaAspect === "horizontal"
+              ? styles.mediaWrapHorizontal
+              : ""
+          }`}
+        >
+          <img
+            className={styles.mediaImage}
+            src={slide.mediaUrl}
+            alt={slide.title}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (slide.mediaUrl) {
+    return (
+      <div className={styles.mediaLayer}>
+        <div
+          className={`${styles.mediaWrap} ${
+            slide.mediaAspect === "horizontal"
+              ? styles.mediaWrapHorizontal
+              : ""
+          }`}
+        >
+          <video
+            ref={videoRef}
+            className={styles.mediaVideo}
+            src={slide.mediaUrl}
+            controls={false}
+            playsInline
+            preload="metadata"
+            autoPlay={slide.autoplay === true}
+            muted={slide.autoplay === true}
+            onClick={togglePlayPause}
+            onPlay={() => {
+              setIsPlaying(true);
+              if (isVerticalVideo) {
+                onVerticalVideoPlayingChange?.(true);
+              }
+            }}
+            onPause={() => {
+              setIsPlaying(false);
+              if (isVerticalVideo) {
+                onVerticalVideoPlayingChange?.(false);
+              }
+            }}
+            onEnded={() => {
+              setIsPlaying(false);
+              if (isVerticalVideo) {
+                onVerticalVideoPlayingChange?.(false);
+              }
+            }}
+            onVolumeChange={(e) => {
+              const video = e.currentTarget;
+              setIsMuted(video.muted || video.volume === 0);
+            }}
+          />
+
+          <button
+            type="button"
+            className={styles.mediaMuteButton}
+            onClick={toggleMute}
+          >
+            {isMuted ? "Sound on" : "Mute"}
+          </button>
+
+          {!isPlaying ? (
+            <button
+              type="button"
+              className={styles.mediaPlayOverlay}
+              onClick={togglePlayPause}
+              aria-label="Play video"
+            >
+              <span className={styles.mediaPlayTriangle} />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function appendYouTubeInlineParams(
+  url: string,
+  options?: { autoplay?: boolean }
+) {
+  if (!/youtube\.com|youtu\.be/i.test(url)) {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    parsed.searchParams.set("playsinline", "1");
+    parsed.searchParams.set("rel", "0");
+
+    if (options?.autoplay) {
+      parsed.searchParams.set("autoplay", "1");
+      parsed.searchParams.set("mute", "1");
+    }
+
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 function renderSections(
@@ -952,4 +1257,10 @@ function replaceDynamicText(
     input.replace(/\[([^\]]+)\]/g, (_, rawKey: string) => resolveToken(rawKey));
 
   return resolveText(value);
+}
+
+function hasRenderableSections(sections: SlideSection[] | undefined) {
+  if (!sections?.length) return false;
+
+  return sections.some((section) => section.type !== "break");
 }

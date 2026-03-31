@@ -63,6 +63,9 @@ export type SlideSection =
   | { type: "break" }
   | { type: "feature"; feature: SlideFeature };
 
+export type MediaType = "image" | "video";
+export type MediaAspect = "horizontal" | "vertical" | "square";
+
 export type SlideType =
   | "score"
   | "content"
@@ -71,7 +74,8 @@ export type SlideType =
   | "result"
   | "story"
   | "form"
-  | "video";
+  | "video"
+  | "media";
 
 export type Slide = {
   id: string;
@@ -103,7 +107,16 @@ export type Slide = {
   buttonStyleKey?: string;
   backStyleKey?: string;
   nextStyleKey?: string;
-  
+  mediaUrl?: string;
+  embedUrl?: string;
+  mediaType?: MediaType;
+  mediaAspect?: MediaAspect;
+  autoplay?: boolean;
+  pageBackgroundColor?: string;
+  pageBackgroundImage?: string;
+  pageBackgroundSize?: string;
+  pageBackgroundPosition?: string;
+  cardOpacity?: number;
 };
 
 export type ThemeConfig = {
@@ -175,6 +188,16 @@ export type ParsedSlideDraft = {
   buttonStyleKey?: string;
   backStyleKey?: string;
   nextStyleKey?: string;
+  mediaUrl?: string;
+  embedUrl?: string;
+  mediaType?: MediaType;
+  mediaAspect?: MediaAspect;
+  autoplay?: boolean;
+  pageBackgroundColor?: string;
+  pageBackgroundImage?: string;
+  pageBackgroundSize?: string;
+  pageBackgroundPosition?: string;
+  cardOpacity?: number;
 };
 
 export type ParsedQuestionnaireDocument = {

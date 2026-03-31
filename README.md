@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, and guided questionnaire flows. The current implementation supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, and isolated custom business-logic modules.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, and media-rich slide flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, and isolated custom business-logic modules.
 
 ## Current stack
 
@@ -33,6 +33,8 @@ This makes it possible to:
 - attach questionnaire-specific variables without bloating the parser
 - use different themes and color systems per questionnaire
 - add questionnaire-specific business logic through isolated server scripts and routes
+- support image, video, and embedded media slides
+- support slide-level page backgrounds and card opacity overrides
 
 ## Current architecture
 
@@ -108,6 +110,16 @@ Route:
 - `@buttonstyle:`
 - `@backstyle:`
 - `@nextstyle:`
+- `@media:`
+- `@embed:`
+- `@mediatype:`
+- `@mediaaspect:`
+- `@autoplay:`
+- `@pagebgcolor:`
+- `@pagebgimage:`
+- `@pagebgsize:`
+- `@pagebgposition:`
+- `@cardopacity:`
 
 ## Line-level color support
 
@@ -232,14 +244,6 @@ The fourth part is optional. If included, it styles that choice button using a s
 - `accent`
 - theme line color keys like `c1`, `c2`, `c3`
 
-Examples:
-
-```txt
-@choices:
-- yes|Yes, continue|next-slide|primary
-- no|No, exit|exit-slide|secondary
-```
-
 ### 4. Form slide with `@fields:`
 
 ```txt
@@ -336,7 +340,7 @@ External URLs open in a new tab.
 - selfScore|eq|10|full-self-trust-path
 ```
 
-These rules can now evaluate against the merged questionnaire context, not just raw answers.
+These rules can evaluate against the merged questionnaire context, not just raw answers.
 
 ### 9. Conditional back routing with `@backwhen:`
 
@@ -353,22 +357,6 @@ These rules can now evaluate against the merged questionnaire context, not just 
 @shownext: false
 ```
 
-Use cases:
-
-- starting slide that only uses `@choices:`
-- ending slide with no navigation buttons
-- slides where only one nav button should appear
-
-Examples:
-
-```txt
-@showback: false
-```
-
-```txt
-@shownext: false
-```
-
 ### 11. Slides that should appear but not count toward progress
 
 Use:
@@ -378,30 +366,6 @@ Use:
 ```
 
 This keeps the slide visible in the questionnaire flow, but removes it from the `Slide X of Y` count and progress calculation.
-
-Use this for:
-
-- emotional bridge slides
-- extra explanation slides
-- detour slides reached through routing
-- bonus slides that should appear without making the questionnaire feel longer
-
-Example:
-
-```txt
-===
-@id: same-place-message
-@type: content
-@countstep: false
----
-BR
-## A lot of
-# Honest,
-# [c2] Thoughtful
-# persons
-```
-
-This slide still appears, but it does not increase the progress count.
 
 ### 12. Hide step text for a specific slide
 
@@ -413,78 +377,54 @@ Use:
 
 This hides the `Slide X of Y` text for that slide only.
 
-Example:
+### 13. Media slide using a local file
 
 ```txt
 ===
-@id: same-place-message
-@type: content
-@countstep: false
-@showsteptext: false
+@id: coach-message-video
+@type: media
+@mediatype: video
+@media: /media/coach-message.mp4
+@mediaaspect: vertical
+@autoplay: true
 ---
-BR
-## A lot of
-# Honest,
-# [c2] Thoughtful
-# persons
+## [c3] Watch this first
+[c3] Then continue below.
 ```
 
-This slide still appears, but:
-
-- it does not count toward progress
-- it does not show the `Slide X of Y` label
-
-### 13. When to use `@showif:` vs `@countstep: false`
-
-These are different tools.
-
-Use `@showif:` when a slide should only exist for some users.
-
-Example:
+### 14. Media slide using an embed
 
 ```txt
-@showif:
-- selfScoreAndFutureScoreMatchCount|in|0,1
+===
+@id: coach-embed
+@type: media
+@mediatype: video
+@embed: https://www.youtube.com/embed/VIDEO_ID
+@mediaaspect: horizontal
+---
+## [c3] Watch this message
 ```
 
-If the condition is not met, the slide is removed from the visible flow entirely.
-
-Use `@countstep: false` when a slide should still appear, but should not count toward the progress display.
-
-In short:
-
-- `@showif:` = conditional existence
-- `@countstep: false` = visible, but not counted
-- `@showsteptext: false` = visible, but hides the step label only
-
-### 14. Hide branch-only slides from users who should not see them
+### 15. Slide-level page background
 
 ```txt
-@showif:
-- trustLevel|eq|completely
+@pagebgcolor: #0f172a
+@pagebgimage: /media/backgrounds/hero.jpg
+@pagebgsize: cover
+@pagebgposition: center
 ```
 
-or
+These values apply to the outer page wrapper for that slide.
+
+### 16. Slide-level card opacity
 
 ```txt
-@showif:
-- selfScore|in|7,8,9,10
+@cardopacity: 0.72
 ```
 
-or using a dynamic variable:
+This adjusts the card background opacity for that slide. Use a value from `0` to `1`.
 
-```txt
-@showif:
-- selfScoreAndFutureScoreMatchCount|in|0,1
-```
-
-This is useful for:
-
-- optional branch slides
-- route-specific explanation slides
-- making the visible slide count more accurate for each user
-
-### 15. Button styling directives
+### 17. Button styling directives
 
 You can set default button styles per slide:
 
@@ -494,8 +434,6 @@ You can set default button styles per slide:
 @nextstyle: c3
 ```
 
-These style keys are applied in the renderer and can be overridden per choice line.
-
 ## Variable replacement system
 
 Square-bracket placeholders are resolved from three sources.
@@ -504,35 +442,40 @@ Square-bracket placeholders are resolved from three sources.
 
 These come from the registry entry for a questionnaire.
 
-Examples:
-
-- `[plant1]`
-- `[plant2]`
-- `[plant3]`
-
 ### 2. Dynamic questionnaire variables
 
 These come from an optional questionnaire-specific endpoint and are merged into the runtime context.
-
-Examples:
-
-- `[selfScoreMatchCount]`
-- `[selfScoreAndFutureScoreMatchCount]`
-- `[futureScoreMatchCount]`
 
 ### 3. Live questionnaire answers
 
 These come from the current questionnaire session.
 
-Examples:
-
-- `[selfScore]`
-- `[futureScore]`
-- `[fullName]`
-- `[email]`
-- `[phone]`
-
 If a placeholder is not found in any source, it remains unchanged.
+
+## Media behavior
+
+The shared renderer supports:
+
+- local images from `public/...`
+- local videos from `public/...`
+- embedded media via `@embed:`
+- horizontal, vertical, and square media presentation
+- full-card media mode for media slides
+- autoplay support for local and embedded video
+- inline YouTube embed parameter handling for mobile-friendly playback
+- tap-to-play / tap-to-pause local video behavior
+- local video sound toggle button
+- centered play overlay when local video is paused or stopped
+- action bar slide-away behavior for vertical videos while playing
+
+For committed static assets, store files in `public/` and reference them like:
+
+```txt
+/media/coach-message.mp4
+/media/backgrounds/hero.jpg
+```
+
+Do not prefix them with `public/` in the DSL.
 
 ## Current behavior
 
@@ -541,10 +484,7 @@ If a placeholder is not found in any source, it remains unchanged.
 - text can appear above or below features depending on placement in the DSL
 - back navigation follows actual visited-slide history by default
 - `@backgoto:` can override default back-button navigation
-- `@goto:` and `@backgoto:` can target either:
-  - an internal slide id
-  - or an external `http/https` URL
-
+- `@goto:` and `@backgoto:` can target either an internal slide id or an external `http/https` URL
 - external URL targets open in a new tab
 - form fields are fully DSL-driven
 - choice-button groups can be rendered inside a slide via `@choices:`
@@ -553,12 +493,7 @@ If a placeholder is not found in any source, it remains unchanged.
 - choice buttons can be styled per slide or per choice
 - conditional next-button routing can be defined with `@when:`
 - conditional back-button routing can be defined with `@backwhen:`
-- `@when:` and `@backwhen:` are evaluated in the questionnaire shell against the merged runtime context:
-  - live answers
-  - static questionnaire variables
-  - dynamic questionnaire variables
-
-- previously stored values such as scores can be reused by later slides
+- `@when:` and `@backwhen:` are evaluated in the questionnaire shell against the merged runtime context
 - `@showback:` and `@shownext:` can hide nav buttons per slide
 - `@showif:` controls slide visibility through the visibility engine
 - `@countstep: false` can keep a slide visible while excluding it from step count and progress calculation
@@ -570,10 +505,14 @@ If a placeholder is not found in any source, it remains unchanged.
 - storage is questionnaire-agnostic using a shared submissions table with `answers` JSON
 - per-line colors can be controlled from the DSL through theme color keys
 - dynamic questionnaire variables can be loaded from questionnaire-specific endpoints without polluting the shared parser
+- slide-level page backgrounds can override the outer page wrapper
+- slide-level card opacity can override card background transparency
 
 ## Current folder structure
 
 ```txt
+public/
+  media/
 src/
   app/
     api/
@@ -627,22 +566,6 @@ Central registry that maps questionnaire slug to:
 - optional dynamic variables endpoint
 - optional questionnaire-level `showStepText` setting
 
-### `src/config/questionnaires/selfTrustDsl.ts`
-
-DSL content for the self-trust questionnaire.
-
-### `src/config/questionnaires/gardenHerbsDsl.ts`
-
-DSL content for the garden-herbs questionnaire.
-
-### `src/config/themes/selfTrustTheme.ts`
-
-Theme config for the self-trust questionnaire.
-
-### `src/config/themes/gardenHerbsTheme.ts`
-
-Theme config for the garden-herbs questionnaire.
-
 ### `src/lib/questionnaire/parser.ts`
 
 Parses the custom DSL into structured slide data, including:
@@ -652,6 +575,9 @@ Parses the custom DSL into structured slide data, including:
 - choices
 - features
 - navigation directives
+- media directives
+- page background directives
+- card opacity directives
 - line color tokens
 - conditional route rules
 - visibility rules
@@ -661,172 +587,13 @@ Parses the custom DSL into structured slide data, including:
 - per-slide progress-count flags
 - per-slide step-text visibility flags
 
-### `src/lib/questionnaire/engine.ts`
-
-Handles visible slides and slide lookup helpers.
-
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, and action runner.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, action runner, media renderer, and slide-level visual override handler.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
-Styles for the questionnaire shell, including pinned bottom action areas and scrollable slide content regions.
-
-### `src/app/questionnaire/[slug]/page.tsx`
-
-Loads a questionnaire by slug from the registry and renders it.
-
-### `src/app/api/questionnaires/submit/route.ts`
-
-Receives questionnaire form submissions and saves them to the database.
-
-### `src/app/api/questionnaires/self-trust/stats/route.ts`
-
-Returns dynamic self-trust statistics used by the self-trust questionnaire.
-
-### `src/lib/questionnaire/custom/selfTrustStats.ts`
-
-Contains self-trust-specific counting and deduplication rules for dynamic self-trust statistics.
-
-### `src/lib/questionnaire/custom/selfTrustSyntheticData.ts`
-
-Contains synthetic self-trust response data for testing realistic count scenarios.
-
-### `src/lib/googleSheets.ts`
-
-Mirrors saved submissions to a Google Sheets webhook when configured.
-
-### `src/lib/prisma.ts`
-
-Initializes the Prisma client using the PostgreSQL adapter.
-
-### `prisma/schema.prisma`
-
-Defines the database model for questionnaire submissions.
-
-### `prisma.config.ts`
-
-Prisma 7 configuration file for schema location and datasource URL.
-
-## Current capabilities
-
-- multi-questionnaire support through slug-based registry loading
-- multi-slide questionnaire rendering
-- line-by-line styled content from DSL
-- inline feature rendering
-- inline number scale rendering
-- disabled score option support like `[7]`
-- `@goto:` navigation working
-- back-button history tracking
-- custom back-button routing via `@backgoto:`
-- external link support for `@goto:` and `@backgoto:`
-- `@run:` action support
-- DSL-driven form fields via `@fields:`
-- questionnaire-specific variables
-- dynamic questionnaire variables from questionnaire-specific endpoints
-- live answer-based placeholder replacement
-- conditional text replacement with `choose:`
-- nested variable references in `choose:` results using `$variableName`
-- line-level color tokens in the DSL
-- descriptive slide ids for easier long-form maintenance
-- parser support for ignored DSL comment/header lines
-- in-slide choice buttons via `@choices:`
-- per-slide and per-choice button style support
-- conditional routing via `@when:`
-- conditional back routing via `@backwhen:`
-- visibility rules via `@showif:`
-- per-slide nav visibility via `@showback:` and `@shownext:`
-- progress-count exclusions via `@countstep: false`
-- per-slide step-label visibility via `@showsteptext: false`
-- routing decisions based on merged runtime context
-- form submissions sent to backend
-- questionnaire submissions persisted to PostgreSQL with Prisma
-- generic answer storage using `answers` JSON
-- live self-trust statistics backed by the database
-- optional synthetic self-trust statistics mode for testing
-- optional Google Sheets mirroring for saved submissions
-- per-questionnaire Google Sheets tabs plus a shared master submissions tab
-
-## Database model
-
-The project stores questionnaire submissions in a shared table.
-
-Each submission includes:
-
-- questionnaire slug
-- optional contact fields
-- WhatsApp opt-in
-- all answers as JSON
-- created timestamp
-
-This allows different questionnaires to reuse the same storage system without creating a new table for every questionnaire.
-
-## Current submission model
-
-Submissions are saved into the `QuestionnaireSubmission` table with a shape similar to:
-
-- `questionnaireSlug`
-- `fullName`
-- `email`
-- `phone`
-- `whatsappOptIn`
-- `answers`
-- `createdAt`
-
-## Conditional routing examples
-
-Route rules can send the user to different slides based on any previously stored answer or variable available in the merged runtime context.
-
-Example:
-
-```txt
-@when:
-- selfScore|in|2,3|low-self-trust-path
-- selfScore|in|4,5,6|mid-self-trust-path
-- selfScore|in|7,8,9|high-self-trust-path
-- selfScore|eq|10|full-self-trust-path
-```
-
-Dynamic-variable example:
-
-```txt
-@when:
-- selfScoreAndFutureScoreMatchCount|in|0,1|same-place-message
-```
-
-Supported operators:
-
-- `eq`
-- `neq`
-- `gt`
-- `gte`
-- `lt`
-- `lte`
-- `between`
-- `in`
-
-These rules are evaluated against the merged runtime context, so any later slide can route based on values gathered earlier in the questionnaire or loaded dynamically.
-
-## Visibility and progress count
-
-Progress count is based on the currently visible slides that are still marked as countable.
-
-If a slide only applies to some users, add `@showif:` so it is removed from the visible flow entirely.
-
-If a slide should still appear but should not make the questionnaire feel longer, use:
-
-```txt
-@countstep: false
-```
-
-If a slide should still appear but should hide the `Slide X of Y` label, use:
-
-```txt
-@showsteptext: false
-```
-
-This keeps progress behavior flexible without removing the slide itself from the experience.
+Styles for the questionnaire shell, including pinned bottom action areas, media overlays, and scrollable slide content regions.
 
 ## Optional Google Sheets mirror
 
@@ -854,17 +621,6 @@ or:
 ```env
 SELF_TRUST_STATS_MODE="synthetic"
 ```
-
-This is useful when the real database is empty or too small to test realistic scenarios.
-
-## What is not finished yet
-
-- richer feature types beyond the current number scale
-- admin/editor tools
-- loading questionnaire content from real text files instead of TS string exports
-- questionnaire definition storage in the database, if desired later
-- dedicated video slide rendering support (`@type: video` content still needs renderer/type implementation)
-- final copy/story refinement
 
 ## Local development
 
@@ -927,4 +683,5 @@ For Vercel deployments:
 - if using Supabase with Vercel, prefer the session pooler connection string when direct connection fails
 - set `GOOGLE_SHEETS_WEBHOOK_URL` and `GOOGLE_SHEETS_WEBHOOK_SECRET` in Vercel only if you want mirror writes there
 - set `SELF_TRUST_STATS_MODE` to `real` or `synthetic` depending on the behavior you want
+- commit static assets in `public/` when they are part of the experience
 - the project uses `postinstall` to generate Prisma Client during install
