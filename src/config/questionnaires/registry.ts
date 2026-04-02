@@ -1,8 +1,10 @@
 import { parseQuestionnaireDsl } from "@/lib/questionnaire/parser";
 import { selfTrustTheme } from "@/config/themes/selfTrustTheme";
 import { gardenHerbsTheme } from "@/config/themes/gardenHerbsTheme";
+import { seedTheme } from "@/config/themes/seedTheme";
 import { selfTrustDsl } from "./selfTrustDsl";
 import { gardenHerbsDsl } from "./gardenHerbsDsl";
+import { seedDsl } from "./seedDsl";
 
 export const questionnaireRegistry = {
   "self-trust": {
@@ -33,6 +35,16 @@ export const questionnaireRegistry = {
       plant4: "Mint",
       plant5: "Basil",
     },
+    dynamicVariablesEndpoint: undefined,
+  },
+  seed: {
+    slug: "seed",
+    name: "Seed",
+    themeKey: "seed",
+    theme: seedTheme,
+    dsl: seedDsl,
+    showStepText: true,
+    variables: {},
     dynamicVariablesEndpoint: undefined,
   },
 } as const;
