@@ -22,7 +22,7 @@ BR
 ## [c1] watered yet.
 ---
 @choices:
-- reveal-seed|What type did I get?|seed-reveal|c1
+- reveal-seed|From what plant?|seed-reveal|c1
 @showback: false
 @shownext: false
 
