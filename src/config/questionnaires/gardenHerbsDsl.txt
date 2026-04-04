@@ -1,4 +1,3 @@
-export const gardenHerbsDsl = `
 ===
 @id: slide1
 @type: score
@@ -161,4 +160,3 @@ BR
 @run: submitLead
 @back: Back
 @next: Continue
-`;

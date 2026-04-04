@@ -189,6 +189,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 ) ?? section.text,
             };
           }),
+          choices: slide.choices?.map((choice) => ({
+            ...choice,
+            label:
+              replaceDynamicText(choice.label, evaluationContext, mergedVariables) ??
+              choice.label,
+          })),
         })),
         answers
       ),
@@ -691,6 +697,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                                 field={field}
                                 theme={theme}
                                 answers={answers}
+                                variables={mergedVariables}
                                 setAnswer={setAnswer}
                               />
                             ))}
@@ -835,13 +842,24 @@ function FormFieldRenderer({
   field,
   theme,
   answers,
+  variables,
   setAnswer,
 }: {
   field: FormField;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
+  variables?: Record<string, string | number>;
   setAnswer: (key: string, value: string | number | boolean) => void;
 }) {
+  const resolvedLabel =
+    replaceDynamicText(field.label, answers, variables) ?? field.label;
+
+  const resolvedPlaceholder = replaceDynamicText(
+    field.placeholder ?? field.label,
+    answers,
+    variables
+  );
+
   if (field.type === "checkbox") {
     return (
       <label className={styles.checkboxRow}>
@@ -850,7 +868,7 @@ function FormFieldRenderer({
           checked={Boolean(answers[field.name] ?? false)}
           onChange={(e) => setAnswer(field.name, e.target.checked)}
         />
-        {field.label}
+        {resolvedLabel}
       </label>
     );
   }
@@ -859,7 +877,7 @@ function FormFieldRenderer({
     return (
       <textarea
         className={styles.input}
-        placeholder={field.placeholder ?? field.label}
+        placeholder={resolvedPlaceholder}
         value={String(answers[field.name] ?? "")}
         onChange={(e) => setAnswer(field.name, e.target.value)}
         style={{
@@ -875,7 +893,7 @@ function FormFieldRenderer({
     <input
       className={styles.input}
       type={field.type}
-      placeholder={field.placeholder ?? field.label}
+      placeholder={resolvedPlaceholder}
       value={String(answers[field.name] ?? "")}
       onChange={(e) => setAnswer(field.name, e.target.value)}
       style={{ borderColor: theme.colors.border }}

@@ -1,6 +1,3 @@
-export const selfTrustDsl = `
-
-
 // INTRO QUESTION
 ===
 @id: intro-question
@@ -629,6 +626,3 @@ Horizontal embed video slide.
 @back: Back
 @next: See how it works
 @goto:
-
-
-`;

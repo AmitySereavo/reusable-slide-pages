@@ -15,8 +15,267 @@ model QuestionnaireSubmission {
   whatsappOptIn     Boolean  @default(false)
   answers           Json
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+}
 
-  @@index([questionnaireSlug])
-  @@index([email])
-  @@index([createdAt])
+model Plant {
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  name           String
+  displayName    String?
+  scientificName String?
+  description    String?
+  active         Boolean @default(true)
+
+  // plant identity
+  plantKind      PlantKind
+  plantCategory  PlantCategory?
+  lifecycleStage PlantLifecycleStage?
+
+  // media
+  imageUrl     String?
+  thumbnailUrl String?
+
+  // basic commercial status
+  quantityAvailable Int @default(0)
+  quantityReserved  Int @default(0)
+
+  basePriceJmd      Decimal? @db.Decimal(10, 2)
+  compareAtPriceJmd Decimal? @db.Decimal(10, 2)
+
+  // storefront visibility
+  visibleInPlantShop Boolean @default(false)
+  purchasable        Boolean @default(false)
+
+  // claim-flow visibility
+  claimEligible       Boolean @default(false)
+  claimSwitchEligible Boolean @default(false)
+  claimFeatured       Boolean @default(false)
+
+  // delivery / pickup
+  supportsPickup   Boolean @default(true)
+  supportsDelivery Boolean @default(false)
+
+  // customer experience modes
+  supportsSeedJourney         Boolean @default(false)
+  supportsMatureNow           Boolean @default(false)
+  supportsCircumposingJourney Boolean @default(false)
+  supportsReservation         Boolean @default(false)
+  supportsGrowthUpdates       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory       PlantInventory?
+  marketing       PlantMarketingContent?
+  questionnaire   PlantQuestionnaireContent?
+  offerModes      PlantOfferMode[]
+  channelSettings PlantChannelSetting[]
+}
+
+model PlantInventory {
+  id      String @id @default(cuid())
+  plantId String @unique
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  stockOnHand    Int @default(0)
+  stockCommitted Int @default(0)
+  stockAvailable Int @default(0)
+
+  propagationMethod PlantPropagationMethod?
+  propagationStatus PlantPropagationStatus?
+
+  batchCode          String?
+  readyNow           Boolean   @default(false)
+  estimatedReadyDate DateTime?
+  readinessNote      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlantMarketingContent {
+  id      String @id @default(cuid())
+  plantId String @unique
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  // structured benefit fields
+  primaryBenefit     String?
+  healthBenefit      String?
+  nutritionBenefit   String?
+  healingBenefit     String?
+  environmentBenefit String?
+  incomeBenefit      String?
+  savingsBenefit     String?
+
+  // yield / financial angle
+  yieldType               PlantYieldType?
+  yieldFrequency          String?
+  yieldQuantityEstimate   String?
+  monetaryValueNote       String?
+  savingsAmountJmdMonthly Decimal?        @db.Decimal(10, 2)
+
+  // reusable marketing copy
+  adHook            String?
+  adCopyShort       String?
+  adCopyMedium      String?
+  plantShopSummary  String?
+  whatsappPromoCopy String?
+  claimPageSnippet  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlantQuestionnaireContent {
+  id      String @id @default(cuid())
+  plantId String @unique
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  // questionnaire-specific styled content / blocks
+  seedRevealBlock   String?
+  plantInfoBlock    String?
+  growthIntroLine1  String?
+  growthIntroLine2  String?
+  updatesIntroBlock String?
+  careTipsBlock     String?
+  confirmationBlock String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlantOfferMode {
+  id      String @id @default(cuid())
+  plantId String
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  offerMode PlantOfferModeType
+  enabled   Boolean            @default(true)
+
+  label       String?
+  description String?
+
+  priceJmd          Decimal? @db.Decimal(10, 2)
+  compareAtPriceJmd Decimal? @db.Decimal(10, 2)
+
+  leadTimeDays        Int?
+  requiresUpdates     Boolean @default(false)
+  requiresReservation Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([plantId, offerMode])
+}
+
+model PlantChannelSetting {
+  id      String @id @default(cuid())
+  plantId String
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  channel  PlantSalesChannel
+  visible  Boolean           @default(false)
+  featured Boolean           @default(false)
+  priority Int               @default(0)
+
+  // claim specific overrides
+  claimEligible       Boolean?
+  claimSwitchEligible Boolean?
+  claimFeatured       Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([plantId, channel])
+}
+
+enum PlantKind {
+  SEED
+  SEEDLING
+  MATURE_PLANT
+  CIRCUMPOSED_PLANT
+  CUTTING
+  TREE
+  HERB
+  VEGETABLE
+  FRUIT_PLANT
+  ORNAMENTAL
+  AIR_PURIFIER
+  OTHER
+}
+
+enum PlantCategory {
+  HERB
+  VEGETABLE
+  FRUIT
+  ORNAMENTAL
+  SHADE
+  AIR_PURIFYING
+  MEDICINAL
+  FLOWERING
+  OTHER
+}
+
+enum PlantLifecycleStage {
+  SEED
+  GERMINATING
+  SEEDLING
+  YOUNG_PLANT
+  MATURE
+  PROPAGATING
+  READY_FOR_PICKUP
+  READY_FOR_DELIVERY
+}
+
+enum PlantPropagationMethod {
+  SEED
+  CUTTING
+  CIRCUMPOSING
+  SUCKER
+  GRAFT
+  DIVISION
+  OTHER
+}
+
+enum PlantPropagationStatus {
+  PLANNED
+  IN_PROGRESS
+  ROOTING
+  GROWING
+  HARDENING
+  READY
+  DELIVERED
+}
+
+enum PlantSalesChannel {
+  CLAIM_FLOW
+  PLANT_SHOP
+  POPUP_SHOP
+  WHOLESALE
+  PARTNER_PORTAL
+  ADMIN_ONLY
+}
+
+enum PlantOfferModeType {
+  CLAIM_FREE
+  SWITCH_FREE
+  WATCH_FROM_SEED
+  GROWTH_UPDATES
+  BUY_MATURE_NOW
+  RESERVE_MATURE
+  WATCH_CIRCUMPOSING
+  PREORDER
+}
+
+enum PlantYieldType {
+  FRUIT
+  LEAVES
+  FLOWERS
+  SEEDS
+  SUCKERS
+  CUTTINGS
+  AIR_QUALITY
+  SHADE
+  OTHER
 }

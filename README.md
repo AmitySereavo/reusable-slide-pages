@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, and media-rich slide flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, and isolated custom business-logic modules.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, and media-rich slide flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, isolated custom business-logic modules, database-backed questionnaire content, and pre-parse DSL template resolution for richer content injection.
 
 ## Current stack
 
@@ -35,6 +35,9 @@ This makes it possible to:
 - add questionnaire-specific business logic through isolated server scripts and routes
 - support image, video, and embedded media slides
 - support slide-level page backgrounds and card opacity overrides
+- support questionnaire-specific DSL variants without duplicating routes
+- support pre-parse DSL block injection for styled, database-backed content
+- support plain `.txt` DSL files instead of TS string exports
 
 ## Current architecture
 
@@ -42,7 +45,7 @@ The app uses a registry-based system.
 
 Each questionnaire is defined by:
 
-- a DSL file
+- a DSL file path
 - a theme file
 - a variables object
 - an optional dynamic variables endpoint
@@ -54,6 +57,8 @@ The route:
 ```txt
 /questionnaire/[slug]
 ```
+
+````
 
 loads the matching questionnaire from the registry.
 
@@ -82,6 +87,84 @@ Route:
 ```txt
 /questionnaire/garden-herbs
 ```
+
+### `seed`
+
+A seed-claim / plant-growth / follow-up funnel that now pulls its featured and switch plants from the database.
+
+Route:
+
+```txt
+/questionnaire/seed
+```
+
+## Seed questionnaire architecture
+
+The seed flow is now database-backed.
+
+Instead of using config files as the source of truth for plants, the flow now reads from the plant tables and builds questionnaire variables from the database.
+
+Recommended responsibilities:
+
+- database stores plant identity, availability, questionnaire blocks, and marketing content
+- a seed campaign helper queries featured and switch-eligible plants
+- the registry loads the `.txt` DSL file
+- the registry resolves template variables before parsing
+- the shared parser and shell render the result
+
+### Current seed data flow
+
+```txt
+database
+→ src/lib/plants/getSeedCampaignData.ts
+→ src/config/questionnaires/registry.ts
+→ .txt DSL
+→ parser
+→ QuestionnaireShell
+→ /questionnaire/seed
+```
+
+### Featured plant logic
+
+The featured plant is selected from plants that are:
+
+- active
+- claim eligible
+- available in quantity
+- optionally marked as featured
+
+### Switch plant logic
+
+Switch plants are selected from plants that are:
+
+- active
+- claim eligible
+- switch eligible
+- available in quantity
+- not the currently featured plant
+
+## DSL file format
+
+The system now uses plain text DSL files instead of TypeScript string exports.
+
+Examples:
+
+```txt
+src/config/questionnaires/selfTrustDsl.txt
+src/config/questionnaires/gardenHerbsDsl.txt
+src/config/questionnaires/seedDsl.txt
+src/config/questionnaires/seedDsl2.txt
+```
+
+These files contain raw DSL only.
+
+Do not wrap them in:
+
+```ts
+export const ...
+```
+
+and do not surround them with backticks.
 
 ## DSL features currently supported
 
@@ -160,13 +243,6 @@ Recommended practice:
 - prefer ids like `self-trust-score`, `future-trust-score`, `contact-form`
 - avoid renumbering-based ids like `slide8`, `slide9`, `slide10`
 
-This makes it easier to:
-
-- insert new slides in the middle
-- move slides around
-- keep `@goto:` targets readable
-- maintain long questionnaire files over time
-
 ## DSL examples
 
 ### 1. Basic content slide
@@ -234,16 +310,6 @@ Choice line format:
 - value|Button label|optional-goto|optional-style-key
 ```
 
-The third part is optional. If included, clicking that choice button routes immediately to that target.
-
-The fourth part is optional. If included, it styles that choice button using a style key such as:
-
-- `primary`
-- `secondary`
-- `ghost`
-- `accent`
-- theme line color keys like `c1`, `c2`, `c3`
-
 ### 4. Form slide with `@fields:`
 
 ```txt
@@ -282,36 +348,10 @@ Square-bracket placeholders can pull from questionnaire variables, dynamic quest
 
 ### 6. Dynamic text selection with `choose:`
 
-The `choose:` token allows conditional text replacement based on an answer or variable value.
-
 Format:
 
 ```txt
 [choose:sourceKey|match=value|default=fallback]
-```
-
-Examples:
-
-```txt
-[choose:selfScoreMatchCount|1=person|default=people]
-```
-
-```txt
-[choose:selfScoreMatchCount|0=|1=a few|2=a few|3=a few|4=some|default=A lot of]
-```
-
-```txt
-[choose:score|1=dog|2=birds|3=shoes|default=items]
-```
-
-The first matching key is used. If no explicit key matches and `default` exists, `default` is used.
-
-You can also reference a value key from inside a `choose:` result using `$`.
-
-Example:
-
-```txt
-[choose:selfScoreMatchCount|0=A few|1=Some|2=Some|default=$selfScoreMatchCount]
 ```
 
 ### 7. Direct routing with `@goto:` and `@backgoto:`
@@ -323,13 +363,6 @@ Example:
 @goto: next-slide
 ```
 
-Targets can be:
-
-- an internal slide id
-- an external `http/https` URL
-
-External URLs open in a new tab.
-
 ### 8. Conditional next routing with `@when:`
 
 ```txt
@@ -339,8 +372,6 @@ External URLs open in a new tab.
 - selfScore|in|7,8,9|high-self-trust-path
 - selfScore|eq|10|full-self-trust-path
 ```
-
-These rules can evaluate against the merged questionnaire context, not just raw answers.
 
 ### 9. Conditional back routing with `@backwhen:`
 
@@ -359,23 +390,15 @@ These rules can evaluate against the merged questionnaire context, not just raw 
 
 ### 11. Slides that should appear but not count toward progress
 
-Use:
-
 ```txt
 @countstep: false
 ```
 
-This keeps the slide visible in the questionnaire flow, but removes it from the `Slide X of Y` count and progress calculation.
-
 ### 12. Hide step text for a specific slide
-
-Use:
 
 ```txt
 @showsteptext: false
 ```
-
-This hides the `Slide X of Y` text for that slide only.
 
 ### 13. Media slide using a local file
 
@@ -414,19 +437,13 @@ This hides the `Slide X of Y` text for that slide only.
 @pagebgposition: center
 ```
 
-These values apply to the outer page wrapper for that slide.
-
 ### 16. Slide-level card opacity
 
 ```txt
 @cardopacity: 0.72
 ```
 
-This adjusts the card background opacity for that slide. Use a value from `0` to `1`.
-
 ### 17. Button styling directives
-
-You can set default button styles per slide:
 
 ```txt
 @buttonstyle: c2
@@ -434,23 +451,59 @@ You can set default button styles per slide:
 @nextstyle: c3
 ```
 
+### 18. Pre-parse styled content blocks
+
+For questionnaires that need styled, content-rich dynamic sections, the raw DSL can include block placeholders that are resolved before parsing.
+
+Example:
+
+```txt
+===
+@id: seed-reveal
+@type: content
+---
+[seedRevealBlock]
+---
+@choices:
+- tell-me-more|Tell me more|plant-info|c1
+- skip-the-info|I know enough|will-it-grow|c3
+```
+
 ## Variable replacement system
 
-Square-bracket placeholders are resolved from three sources.
+There are two useful stages of replacement.
 
-### 1. Questionnaire variables
+### 1. Pre-parse DSL template replacement
 
-These come from the registry entry for a questionnaire.
+This is used when a variable must inject real DSL structure before parsing.
 
-### 2. Dynamic questionnaire variables
+Example use cases:
 
-These come from an optional questionnaire-specific endpoint and are merged into the runtime context.
+- plant-specific reveal blocks
+- plant-specific info blocks
+- rich questionnaire-specific DSL snippets
 
-### 3. Live questionnaire answers
+### 2. Runtime text replacement in the shell
 
-These come from the current questionnaire session.
+Square-bracket placeholders are also resolved at render time from three sources:
+
+- questionnaire variables
+- dynamic questionnaire variables
+- live questionnaire answers
 
 If a placeholder is not found in any source, it remains unchanged.
+
+## Choice and field label replacement
+
+Dynamic text replacement is not limited to normal section text.
+
+The shell can also support placeholders in:
+
+- choice labels
+- form field labels
+- form field placeholders
+
+This is especially useful for DB-backed questionnaires such as `seed`, where the active plant or alternate plant names may vary by campaign.
 
 ## Media behavior
 
@@ -468,7 +521,13 @@ The shared renderer supports:
 - centered play overlay when local video is paused or stopped
 - action bar slide-away behavior for vertical videos while playing
 
-For committed static assets, store files in `public/` and reference them like:
+For committed static assets, store files in:
+
+```txt
+public/
+```
+
+and reference them like:
 
 ```txt
 /media/coach-message.mp4
@@ -507,12 +566,189 @@ Do not prefix them with `public/` in the DSL.
 - dynamic questionnaire variables can be loaded from questionnaire-specific endpoints without polluting the shared parser
 - slide-level page backgrounds can override the outer page wrapper
 - slide-level card opacity can override card background transparency
+- the `seed` flow can promote one featured plant while exposing alternate campaign plants
+- the `seed` flow now reads featured and switch plants from the database
+- the system now loads questionnaire DSL from `.txt` files
+
+## Adding a new questionnaire project
+
+With the current architecture, adding a new questionnaire usually does **not** require creating a new route file.
+
+The shared route:
+
+```txt
+/questionnaire/[slug]
+```
+
+already loads questionnaires from the registry.
+
+### Minimum files to add
+
+For a new questionnaire project, add:
+
+```txt
+src/config/questionnaires/<projectDsl>.txt
+src/config/themes/<projectTheme>.ts
+```
+
+Then add a new entry in:
+
+```txt
+src/config/questionnaires/registry.ts
+```
+
+### What goes in each file
+
+#### `src/config/questionnaires/<projectDsl>.txt`
+
+This is the questionnaire DSL file in plain text format.
+
+Use this file for:
+
+- slide content
+- `@goto:` navigation
+- `@choices:`
+- `@fields:`
+- `@when:`
+- `@backwhen:`
+- `@showif:`
+- media directives
+- styling directives such as page background and card opacity
+
+#### `src/config/themes/<projectTheme>.ts`
+
+This is the theme file for the questionnaire.
+
+Use this file for:
+
+- brand colors
+- line color mappings for `[c1]`, `[c2]`, `[c3]`, etc.
+- card/button radius
+- shadow values
+
+#### `src/config/questionnaires/registry.ts`
+
+This is where the questionnaire is registered.
+
+A registry entry defines:
+
+- slug
+- name
+- theme
+- `dslPath`
+- variables
+- optional `dynamicVariablesEndpoint`
+- `showStepText`
+
+### Simple questionnaire flow
+
+If the questionnaire is static or only needs simple variables, the normal process is:
+
+1. create the `.txt` DSL file
+2. create the theme file
+3. add the registry entry
+
+### DB-backed questionnaire flow
+
+If the questionnaire needs database-driven content, add a server-side helper such as:
+
+```txt
+src/lib/<feature>/get<MyQuestionnaire>Data.ts
+```
+
+Then use that helper from the registry to build the variables before parsing the DSL.
+
+Recommended flow:
+
+1. query the database
+2. build questionnaire variables
+3. load the raw `.txt` DSL
+4. resolve DSL template placeholders
+5. parse the resolved DSL
+6. render the questionnaire through the shared shell
+
+### Pre-parse styled content blocks
+
+If a questionnaire needs rich styled content blocks from the database, use placeholders such as:
+
+```txt
+[myStyledBlock]
+```
+
+inside the `.txt` DSL and resolve them before parsing with:
+
+```txt
+src/lib/questionnaire/resolveDslTemplate.ts
+```
+
+This is useful when the injected content needs to behave like real DSL, including:
+
+- headings
+- subheadings
+- paragraph lines
+- `BR`
+- `---`
+- line color tokens
+
+### Multiple DSL versions for one questionnaire
+
+If a questionnaire needs multiple versions, create a local version map such as:
+
+```txt
+src/config/questionnaires/<projectDslVersions>.ts
+```
+
+This lets one slug keep the same route while switching between DSL versions such as:
+
+- `v1`
+- `v2`
+- `v3`
+
+### Existing shared files you usually do not need to duplicate
+
+These shared files already support all questionnaire projects:
+
+```txt
+src/app/questionnaire/[slug]/page.tsx
+src/components/questionnaire/QuestionnaireShell.tsx
+src/components/questionnaire/QuestionnaireShell.module.css
+src/lib/questionnaire/parser.ts
+src/lib/questionnaire/engine.ts
+src/lib/questionnaire/resolveDslTemplate.ts
+src/lib/questionnaire/loadDslText.ts
+```
+
+## Plant catalog database direction
+
+The plant side of the system is now intended to be the source of truth for plant-related flows.
+
+Current DB-backed plant responsibilities include:
+
+- plant identity
+- visibility in claim flow
+- visibility in plant shop
+- featured claim plant
+- switch-eligible claim plants
+- inventory quantity
+- marketing copy
+- questionnaire content blocks
+- offer modes such as:
+  - claim free
+  - switch free
+  - watch from seed
+  - growth updates
+  - buy mature now
+  - reserve mature
+  - watch circumposing
 
 ## Current folder structure
 
 ```txt
 public/
   media/
+prisma/
+  schema.prisma
+  seed.ts
 src/
   app/
     api/
@@ -531,26 +767,32 @@ src/
       QuestionnaireShell.module.css
   config/
     questionnaires/
-      gardenHerbsDsl.ts
+      gardenHerbsDsl.txt
       registry.ts
-      selfTrustDsl.ts
+      seedDsl.txt
+      seedDsl2.txt
+      seedDslVersions.ts
+      selfTrustDsl.txt
     themes/
       gardenHerbsTheme.ts
+      seedTheme.ts
       selfTrustTheme.ts
   lib/
     googleSheets.ts
+    plants/
+      getSeedCampaignData.ts
     prisma.ts
     questionnaire/
       custom/
         selfTrustStats.ts
         selfTrustSyntheticData.ts
       engine.ts
+      loadDslText.ts
       parser.ts
+      resolveDslTemplate.ts
   types/
     questionnaire.ts
-prisma/
-  migrations/
-  schema.prisma
+package.json
 prisma.config.ts
 ```
 
@@ -560,11 +802,41 @@ prisma.config.ts
 
 Central registry that maps questionnaire slug to:
 
-- DSL
+- DSL path
 - theme
 - variables
 - optional dynamic variables endpoint
 - optional questionnaire-level `showStepText` setting
+
+For `seed`, this is also the place that loads DB-backed campaign variables and picks the active DSL version.
+
+### `src/config/questionnaires/seedDslVersions.ts`
+
+Local map of the available `seed` DSL versions.
+
+Use this when you want `/questionnaire/seed` to keep the same route while switching which DSL version powers the flow.
+
+### `src/lib/plants/getSeedCampaignData.ts`
+
+Builds the variables for the active seed campaign from the database.
+
+Recommended responsibilities:
+
+- choose the featured plant
+- choose the alternate switch plants
+- expose the values needed by the DSL template and runtime renderer
+
+### `src/lib/questionnaire/loadDslText.ts`
+
+Loads raw `.txt` DSL files from disk.
+
+This is the bridge that lets questionnaires use plain text DSL files instead of TS string exports.
+
+### `src/lib/questionnaire/resolveDslTemplate.ts`
+
+Resolves placeholders in the raw DSL string before parsing.
+
+Use this when questionnaire variables must inject actual DSL structure rather than plain text.
 
 ### `src/lib/questionnaire/parser.ts`
 
@@ -594,6 +866,14 @@ Main questionnaire renderer, answer state manager, navigation controller, variab
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
 Styles for the questionnaire shell, including pinned bottom action areas, media overlays, and scrollable slide content regions.
+
+### `prisma/schema.prisma`
+
+Contains the database schema, including questionnaire submissions and plant-related tables.
+
+### `prisma/seed.ts`
+
+Seeds the plant tables with starter data.
 
 ## Optional Google Sheets mirror
 
@@ -630,7 +910,13 @@ Install dependencies:
 npm install
 ```
 
-Set up your environment variables in `.env`:
+Set up your environment variables in:
+
+```txt
+.env
+```
+
+Example:
 
 ```env
 DATABASE_URL="your_postgres_connection_string"
@@ -657,6 +943,12 @@ Or push the schema:
 npx prisma db push
 ```
 
+Seed the plant tables:
+
+```bash
+npm run prisma:seed
+```
+
 Run the dev server:
 
 ```bash
@@ -667,21 +959,20 @@ Open:
 
 ```txt
 http://localhost:3000/questionnaire/self-trust
-```
-
-or
-
-```txt
 http://localhost:3000/questionnaire/garden-herbs
+http://localhost:3000/questionnaire/seed
 ```
 
 ## Deployment notes
 
 For Vercel deployments:
 
-- ensure `DATABASE_URL` points to a hosted PostgreSQL database, not `localhost`
-- if using Supabase with Vercel, prefer the session pooler connection string when direct connection fails
+- ensure the database environment variable is set in Vercel
+- ensure Prisma Client is generated during build
+- keep `prisma.config.ts` aligned with the deployed database connection
+- if using Supabase with Vercel, prefer the connection setup that matches your runtime and migration needs
 - set `GOOGLE_SHEETS_WEBHOOK_URL` and `GOOGLE_SHEETS_WEBHOOK_SECRET` in Vercel only if you want mirror writes there
 - set `SELF_TRUST_STATS_MODE` to `real` or `synthetic` depending on the behavior you want
 - commit static assets in `public/` when they are part of the experience
 - the project uses `postinstall` to generate Prisma Client during install
+````

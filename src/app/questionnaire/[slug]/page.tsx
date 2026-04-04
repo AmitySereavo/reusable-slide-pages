@@ -1,15 +1,14 @@
-import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
 import { notFound } from "next/navigation";
+import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
 import { getQuestionnaireBySlug } from "@/config/questionnaires/registry";
 
-type Props = {
+export default async function QuestionnairePage({
+  params,
+}: {
   params: Promise<{ slug: string }>;
-};
-
-export default async function QuestionnairePage({ params }: Props) {
+}) {
   const { slug } = await params;
-
-  const questionnaire = getQuestionnaireBySlug(slug);
+  const questionnaire = await getQuestionnaireBySlug(slug);
 
   if (!questionnaire) {
     notFound();
