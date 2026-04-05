@@ -458,6 +458,320 @@
   line-height: 1.4;
 }
 
+.shopStack {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.productPanel {
+  border: 1px solid;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.productPanelHeader {
+  display: grid;
+  gap: 12px;
+  padding: 14px 14px 12px;
+}
+
+.productHeaderMain {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.productImageWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.productImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.productImageFallback {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.productHeaderText {
+  min-width: 0;
+  flex: 1;
+}
+
+.productTitle {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+  font-weight: 700;
+  text-align: left;
+}
+
+.seeCostButton {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.sizeRows {
+  display: grid;
+}
+
+.sizeRowBlock {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 12px 14px;
+}
+
+.sizeRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.sizeLabel {
+  font-size: 15px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.sizePrice {
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.quantityControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantityButton {
+  width: 32px;
+  height: 32px;
+  border: 1px solid;
+  border-radius: 9999px;
+  background: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quantityValue {
+  min-width: 18px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.purchaseModes {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-left: 28px;
+}
+
+.purchaseModeOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.purchaseModePrice {
+  font-weight: 700;
+}
+
+.removeLineButton {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reviewMetaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-left: 28px;
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.86;
+}
+
+.reviewTotals,
+.orderWeightSummary {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 600;
+  text-align: center;
+}
+
+.deliveryStack {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.deliveryMethodStack {
+  display: grid;
+  gap: 14px;
+}
+
+.deliveryMethodRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.deliveryNestedList {
+  display: grid;
+  gap: 10px;
+  padding-left: 26px;
+}
+
+.deliveryChoiceCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.deliveryChoiceBody {
+  display: grid;
+  gap: 4px;
+}
+
+.deliveryChoiceTitle {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.deliveryChoiceMeta {
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+.deliveryChoiceNote {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.72;
+}
+
+.deliveryFormGrid {
+  display: grid;
+  gap: 12px;
+  padding-left: 26px;
+}
+
+.reviewSummaryStack {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.reviewSummaryCard {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 8px;
+}
+
+.reviewSummaryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reviewSummaryTitle {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.reviewSummaryBody {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.linkButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.contactNote {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+@media (max-width: 768px) {
+  .sizeRow {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+  }
+
+  .sizePrice {
+    grid-column: 2;
+  }
+
+  .quantityControl {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .purchaseModes,
+  .reviewMetaRow {
+    padding-left: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 20px 14px;

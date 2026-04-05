@@ -100,6 +100,24 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       continue;
     }
 
+            if (line.startsWith("@completioncheck:")) {
+        draft.completionCheck = readValue(
+          line,
+          "@completioncheck:"
+        ) as ParsedSlideDraft["completionCheck"];
+        continue;
+      }
+
+      if (line.startsWith("@gotoifcomplete:")) {
+        draft.gotoIfComplete = readValue(line, "@gotoifcomplete:");
+        continue;
+      }
+
+      if (line.startsWith("@gotoifincomplete:")) {
+        draft.gotoIfIncomplete = readValue(line, "@gotoifincomplete:");
+        continue;
+      }
+
     if (line.startsWith("@backwhen:")) {
       inBackWhenBlock = true;
       inFieldsBlock = false;
@@ -167,6 +185,31 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
       if (line.startsWith("@store:")) {
         draft.storeAs = readValue(line, "@store:");
+        continue;
+      }
+
+      if (line.startsWith("@catalog:")) {
+        draft.catalogKey = readValue(line, "@catalog:");
+        continue;
+      }
+
+      if (line.startsWith("@shopmode:")) {
+        draft.shopMode = readValue(line, "@shopmode:") as ParsedSlideDraft["shopMode"];
+        continue;
+      }
+
+      if (line.startsWith("@deliverygoto:")) {
+        draft.deliveryGoto = readValue(line, "@deliverygoto:");
+        continue;
+      }
+
+      if (line.startsWith("@reviewgoto:")) {
+        draft.reviewGoto = readValue(line, "@reviewgoto:");
+        continue;
+      }
+
+      if (line.startsWith("@deliveryconfig:")) {
+        draft.deliveryConfigKey = readValue(line, "@deliveryconfig:");
         continue;
       }
 
@@ -414,6 +457,14 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     pageBackgroundSize: draft.pageBackgroundSize,
     pageBackgroundPosition: draft.pageBackgroundPosition,
     cardOpacity: draft.cardOpacity,
+    catalogKey: draft.catalogKey,
+    shopMode: draft.shopMode,
+    deliveryGoto: draft.deliveryGoto,
+    reviewGoto: draft.reviewGoto,
+    deliveryConfigKey: draft.deliveryConfigKey,
+    completionCheck: draft.completionCheck,
+    gotoIfComplete: draft.gotoIfComplete,
+    gotoIfIncomplete: draft.gotoIfIncomplete,
   };
 
   if (draft.feature?.type === "numberscale") {

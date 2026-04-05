@@ -71,6 +71,7 @@ model Plant {
   questionnaire   PlantQuestionnaireContent?
   offerModes      PlantOfferMode[]
   channelSettings PlantChannelSetting[]
+  shopSizeOptions PlantShopSizeOption[]
 }
 
 model PlantInventory {
@@ -135,8 +136,6 @@ model PlantQuestionnaireContent {
   // questionnaire-specific styled content / blocks
   seedRevealBlock   String?
   plantInfoBlock    String?
-  growthIntroLine1  String?
-  growthIntroLine2  String?
   updatesIntroBlock String?
   careTipsBlock     String?
   confirmationBlock String?
@@ -188,6 +187,63 @@ model PlantChannelSetting {
   updatedAt DateTime @updatedAt
 
   @@unique([plantId, channel])
+}
+
+model PlantShopSizeOption {
+  id      String @id @default(cuid())
+  plantId String
+  plant   Plant  @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  slug        String?
+  label       String
+  description String?
+
+  active    Boolean @default(true)
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  priceJmd          Decimal  @db.Decimal(10, 2)
+  compareAtPriceJmd Decimal? @db.Decimal(10, 2)
+
+  weight     Decimal? @db.Decimal(10, 3)
+  weightUnit WeightUnit?
+
+  stockOnHand    Int @default(0)
+  stockReserved  Int @default(0)
+  stockAvailable Int @default(0)
+
+  supportsPickup   Boolean?
+  supportsDelivery Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseModes PlantShopSizeOptionPurchaseMode[]
+
+  @@index([plantId, active, sortOrder])
+  @@unique([plantId, label])
+}
+
+model PlantShopSizeOptionPurchaseMode {
+  id               String              @id @default(cuid())
+  sizeOptionId     String
+  sizeOption       PlantShopSizeOption @relation(fields: [sizeOptionId], references: [id], onDelete: Cascade)
+
+  modeType PlantShopPurchaseModeType
+  label    String
+  description String?
+
+  active    Boolean @default(true)
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  priceAdjustmentJmd Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sizeOptionId, active, sortOrder])
+  @@unique([sizeOptionId, modeType])
 }
 
 enum PlantKind {
@@ -277,5 +333,21 @@ enum PlantYieldType {
   CUTTINGS
   AIR_QUALITY
   SHADE
+  OTHER
+}
+
+enum WeightUnit {
+  OZ
+  LB
+  G
+  KG
+}
+
+enum PlantShopPurchaseModeType {
+  WATCH_FROM_START
+  BUY_MATURE_NOW
+  RESERVE_FOR_LATER
+  SUBSCRIBE_TO_UPDATES
+  STANDARD
   OTHER
 }

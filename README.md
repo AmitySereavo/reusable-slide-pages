@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, and media-rich slide flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, isolated custom business-logic modules, database-backed questionnaire content, and pre-parse DSL template resolution for richer content injection.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, media-rich slide flows, lightweight storefront flows, and delivery / pickup selection flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, isolated custom business-logic modules, database-backed questionnaire content, database-backed shop catalog loading, config-backed delivery data, and pre-parse DSL template resolution for richer content injection.
 
 ## Current stack
 
@@ -38,6 +38,8 @@ This makes it possible to:
 - support questionnaire-specific DSL variants without duplicating routes
 - support pre-parse DSL block injection for styled, database-backed content
 - support plain `.txt` DSL files instead of TS string exports
+- support reusable shop slides backed by structured catalog data
+- support reusable delivery slides backed by config or DB-provided delivery data
 
 ## Current architecture
 
@@ -57,8 +59,6 @@ The route:
 ```txt
 /questionnaire/[slug]
 ```
-
-````
 
 loads the matching questionnaire from the registry.
 
@@ -90,7 +90,12 @@ Route:
 
 ### `seed`
 
-A seed-claim / plant-growth / follow-up funnel that now pulls its featured and switch plants from the database.
+A seed-claim / plant-growth / follow-up funnel that now also supports:
+
+- DB-backed shop catalog rendering
+- reusable shop selection slides
+- reusable delivery / pickup slides
+- review flow for cart, delivery, and contact info
 
 Route:
 
@@ -100,14 +105,15 @@ Route:
 
 ## Seed questionnaire architecture
 
-The seed flow is now database-backed.
+The seed flow is now database-backed for plant and shop content.
 
-Instead of using config files as the source of truth for plants, the flow now reads from the plant tables and builds questionnaire variables from the database.
+Instead of using config files as the source of truth for plants, the flow now reads from plant tables and builds questionnaire variables from the database.
 
 Recommended responsibilities:
 
-- database stores plant identity, availability, questionnaire blocks, and marketing content
+- database stores plant identity, availability, questionnaire blocks, shop size options, and marketing content
 - a seed campaign helper queries featured and switch-eligible plants
+- a plant shop helper queries purchasable shop plants and maps them to `shopCatalog`
 - the registry loads the `.txt` DSL file
 - the registry resolves template variables before parsing
 - the shared parser and shell render the result
@@ -117,6 +123,7 @@ Recommended responsibilities:
 ```txt
 database
 → src/lib/plants/getSeedCampaignData.ts
+→ src/lib/plants/getPlantShopCatalog.ts
 → src/config/questionnaires/registry.ts
 → .txt DSL
 → parser
@@ -145,7 +152,7 @@ Switch plants are selected from plants that are:
 
 ## DSL file format
 
-The system now uses plain text DSL files instead of TypeScript string exports.
+The system uses plain text DSL files instead of TypeScript string exports.
 
 Examples:
 
@@ -203,6 +210,170 @@ and do not surround them with backticks.
 - `@pagebgsize:`
 - `@pagebgposition:`
 - `@cardopacity:`
+- `@catalog:`
+- `@shopmode:`
+- `@deliverygoto:`
+- `@reviewgoto:`
+- `@deliveryconfig:`
+- `@completioncheck:`
+- `@gotoifcomplete:`
+- `@gotoifincomplete:`
+
+## Supported slide types
+
+Current shared slide types include:
+
+- `content`
+- `score`
+- `choice`
+- `form`
+- `contact`
+- `media`
+- `video`
+- `shop`
+- `delivery`
+
+## Shop slide architecture
+
+The reusable `shop` slide type is designed around:
+
+- product panel
+- size rows as actual orderable units
+- optional purchase modes per size row
+- live cart total on the bottom action button
+- review mode that shows selected rows only
+
+### Shop data shape
+
+The shared renderer expects a structured `shopCatalog` object in questionnaire variables.
+
+High-level shape:
+
+- `currencyCode`
+- `weightUnit`
+- `products[]`
+- `products[].sizeOptions[]`
+- optional `products[].sizeOptions[].purchaseModes[]`
+
+### Shop flow behavior
+
+Browse mode:
+
+- product panel shows image + title
+- tapping `See cost` expands the panel
+- expanded rows show:
+  - checkbox
+  - size label
+  - dynamic price
+  - quantity adjustment
+
+- optional purchase mode radio choices appear per size row
+- total updates live
+
+Review mode:
+
+- only selected rows render
+- remove button replaces checkbox
+- weight is shown on review only
+- total order weight is shown on review only
+
+### Current shop catalog source
+
+The `seed` questionnaire now injects `shopCatalog` through:
+
+```txt
+src/lib/plants/getPlantShopCatalog.ts
+```
+
+That helper reads from:
+
+- `Plant`
+- `PlantShopSizeOption`
+- `PlantShopSizeOptionPurchaseMode`
+
+## Delivery slide architecture
+
+The reusable `delivery` slide type supports:
+
+- stable pickup locations
+- pop-up shop pickup
+- delivery to address
+- country select
+- region select
+- address form fields
+- computed delivery fee
+- conditional routing to contact info or review
+
+### Current delivery data source
+
+The current delivery step is config-backed for development and app-building speed.
+
+Source:
+
+```txt
+src/config/delivery/deliveryConfig.ts
+```
+
+This config currently provides:
+
+- countries
+- region options per country
+- stable pickup locations with next pickup windows
+- pop-up shop locations with dates
+- delivery fees by region
+
+This is intended to be swapped to DB-backed data later without changing the delivery slide behavior.
+
+### Delivery flow behavior
+
+Delivery method options:
+
+- pickup at a stable location
+- pickup at next pop-up shop
+- deliver to my address
+
+For delivery:
+
+- country is selected from:
+  - Jamaica
+  - USA
+  - Canada
+  - UAE
+
+- region list changes by selected country
+- address fields are collected
+- delivery fee is calculated from selected country + region
+
+### Contact skip / completion behavior
+
+The delivery slide can conditionally route based on contact completeness using:
+
+- `@completioncheck: contact`
+- `@gotoifcomplete: ...`
+- `@gotoifincomplete: ...`
+
+Current contact rules:
+
+- delivery orders require:
+  - `fullName`
+  - `phone`
+
+- pickup orders require:
+  - `fullName`
+  - and at least one of:
+    - `phone`
+    - `email`
+
+### Review page behavior
+
+The review stage now supports:
+
+- order summary
+- delivery / pickup summary
+- contact summary
+- adjust links that route back to:
+  - `delivery-options`
+  - `contact-details`
 
 ## Line-level color support
 
@@ -335,7 +506,57 @@ Field line format:
 - name|type|label|required-or-optional|placeholder
 ```
 
-### 5. Placeholder usage
+### 5. Shop slide
+
+```txt
+===
+@id: plant-shop
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@next: Checkout
+
+# [c1] Choose your plants
+[c3] Tap a product to see sizes and cost.
+```
+
+### 6. Delivery slide with contact skip behavior
+
+```txt
+===
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: contact-details
+@back: Back
+@next: Continue
+
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
+```
+
+### 7. Review shop slide
+
+```txt
+===
+@id: review-order
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@back: Back
+@next: Pay now
+
+# [c1] Review your order
+[c3] Check your selected items before payment.
+```
+
+### 8. Placeholder usage
 
 Square-bracket placeholders can pull from questionnaire variables, dynamic questionnaire variables, or live answers.
 
@@ -346,7 +567,7 @@ Square-bracket placeholders can pull from questionnaire variables, dynamic quest
 # [selfScore]
 ```
 
-### 6. Dynamic text selection with `choose:`
+### 9. Dynamic text selection with `choose:`
 
 Format:
 
@@ -354,7 +575,7 @@ Format:
 [choose:sourceKey|match=value|default=fallback]
 ```
 
-### 7. Direct routing with `@goto:` and `@backgoto:`
+### 10. Direct routing with `@goto:` and `@backgoto:`
 
 ```txt
 @back: Watch the video
@@ -363,7 +584,7 @@ Format:
 @goto: next-slide
 ```
 
-### 8. Conditional next routing with `@when:`
+### 11. Conditional next routing with `@when:`
 
 ```txt
 @when:
@@ -373,7 +594,7 @@ Format:
 - selfScore|eq|10|full-self-trust-path
 ```
 
-### 9. Conditional back routing with `@backwhen:`
+### 12. Conditional back routing with `@backwhen:`
 
 ```txt
 @backwhen:
@@ -381,26 +602,26 @@ Format:
 - futureScore|gte|8|high-future-trust-review
 ```
 
-### 10. Hide Back and/or Next buttons
+### 13. Hide Back and/or Next buttons
 
 ```txt
 @showback: false
 @shownext: false
 ```
 
-### 11. Slides that should appear but not count toward progress
+### 14. Slides that should appear but not count toward progress
 
 ```txt
 @countstep: false
 ```
 
-### 12. Hide step text for a specific slide
+### 15. Hide step text for a specific slide
 
 ```txt
 @showsteptext: false
 ```
 
-### 13. Media slide using a local file
+### 16. Media slide using a local file
 
 ```txt
 ===
@@ -415,7 +636,7 @@ Format:
 [c3] Then continue below.
 ```
 
-### 14. Media slide using an embed
+### 17. Media slide using an embed
 
 ```txt
 ===
@@ -428,7 +649,7 @@ Format:
 ## [c3] Watch this message
 ```
 
-### 15. Slide-level page background
+### 18. Slide-level page background
 
 ```txt
 @pagebgcolor: #0f172a
@@ -437,13 +658,13 @@ Format:
 @pagebgposition: center
 ```
 
-### 16. Slide-level card opacity
+### 19. Slide-level card opacity
 
 ```txt
 @cardopacity: 0.72
 ```
 
-### 17. Button styling directives
+### 20. Button styling directives
 
 ```txt
 @buttonstyle: c2
@@ -451,7 +672,7 @@ Format:
 @nextstyle: c3
 ```
 
-### 18. Pre-parse styled content blocks
+### 21. Pre-parse styled content blocks
 
 For questionnaires that need styled, content-rich dynamic sections, the raw DSL can include block placeholders that are resolved before parsing.
 
@@ -497,7 +718,7 @@ If a placeholder is not found in any source, it remains unchanged.
 
 Dynamic text replacement is not limited to normal section text.
 
-The shell can also support placeholders in:
+The shell also supports placeholders in:
 
 - choice labels
 - form field labels
@@ -567,8 +788,11 @@ Do not prefix them with `public/` in the DSL.
 - slide-level page backgrounds can override the outer page wrapper
 - slide-level card opacity can override card background transparency
 - the `seed` flow can promote one featured plant while exposing alternate campaign plants
-- the `seed` flow now reads featured and switch plants from the database
-- the system now loads questionnaire DSL from `.txt` files
+- the `seed` flow reads featured and switch plants from the database
+- the system loads questionnaire DSL from `.txt` files
+- the system supports DB-backed shop catalog rendering
+- the system supports reusable delivery / pickup selection slides
+- the review flow can surface delivery and contact summaries with adjust links
 
 ## Adding a new questionnaire project
 
@@ -614,6 +838,7 @@ Use this file for:
 - `@showif:`
 - media directives
 - styling directives such as page background and card opacity
+- shop / delivery slide wiring
 
 #### `src/config/themes/<projectTheme>.ts`
 
@@ -650,7 +875,7 @@ If the questionnaire is static or only needs simple variables, the normal proces
 
 ### DB-backed questionnaire flow
 
-If the questionnaire needs database-driven content, add a server-side helper such as:
+If the questionnaire needs database-driven content, add server-side helpers such as:
 
 ```txt
 src/lib/<feature>/get<MyQuestionnaire>Data.ts
@@ -716,6 +941,8 @@ src/lib/questionnaire/parser.ts
 src/lib/questionnaire/engine.ts
 src/lib/questionnaire/resolveDslTemplate.ts
 src/lib/questionnaire/loadDslText.ts
+src/lib/questionnaire/shop.ts
+src/lib/questionnaire/delivery.ts
 ```
 
 ## Plant catalog database direction
@@ -732,6 +959,8 @@ Current DB-backed plant responsibilities include:
 - inventory quantity
 - marketing copy
 - questionnaire content blocks
+- shop size options
+- optional purchase modes per size option
 - offer modes such as:
   - claim free
   - switch free
@@ -740,6 +969,34 @@ Current DB-backed plant responsibilities include:
   - buy mature now
   - reserve mature
   - watch circumposing
+
+## Prisma models currently relevant to plant shop
+
+Current plant shop schema direction includes:
+
+- `Plant`
+- `PlantInventory`
+- `PlantMarketingContent`
+- `PlantQuestionnaireContent`
+- `PlantOfferMode`
+- `PlantChannelSetting`
+- `PlantShopSizeOption`
+- `PlantShopSizeOptionPurchaseMode`
+
+### Important note on questionnaire content fields
+
+Do not rely on removed temporary questionnaire content fields such as:
+
+- `growthIntroLine1`
+- `growthIntroLine2`
+
+New logic should use the remaining supported questionnaire content fields only, such as:
+
+- `seedRevealBlock`
+- `plantInfoBlock`
+- `updatesIntroBlock`
+- `careTipsBlock`
+- `confirmationBlock`
 
 ## Current folder structure
 
@@ -766,6 +1023,8 @@ src/
       QuestionnaireShell.tsx
       QuestionnaireShell.module.css
   config/
+    delivery/
+      deliveryConfig.ts
     questionnaires/
       gardenHerbsDsl.txt
       registry.ts
@@ -780,16 +1039,19 @@ src/
   lib/
     googleSheets.ts
     plants/
+      getPlantShopCatalog.ts
       getSeedCampaignData.ts
     prisma.ts
     questionnaire/
       custom/
         selfTrustStats.ts
         selfTrustSyntheticData.ts
+      delivery.ts
       engine.ts
       loadDslText.ts
       parser.ts
       resolveDslTemplate.ts
+      shop.ts
   types/
     questionnaire.ts
 package.json
@@ -808,7 +1070,12 @@ Central registry that maps questionnaire slug to:
 - optional dynamic variables endpoint
 - optional questionnaire-level `showStepText` setting
 
-For `seed`, this is also the place that loads DB-backed campaign variables and picks the active DSL version.
+For `seed`, this is also the place that loads:
+
+- DB-backed campaign variables
+- DB-backed `shopCatalog`
+- config-backed `deliveryConfig`
+- active DSL version
 
 ### `src/config/questionnaires/seedDslVersions.ts`
 
@@ -825,6 +1092,29 @@ Recommended responsibilities:
 - choose the featured plant
 - choose the alternate switch plants
 - expose the values needed by the DSL template and runtime renderer
+
+### `src/lib/plants/getPlantShopCatalog.ts`
+
+Builds the shared `shopCatalog` object from plant shop tables.
+
+Recommended responsibilities:
+
+- query visible, purchasable plants
+- include active size options
+- include optional purchase modes
+- map DB records to the generic shop catalog shape used by the shared renderer
+
+### `src/config/delivery/deliveryConfig.ts`
+
+Development-time config source for:
+
+- stable pickup stops
+- pop-up shop dates
+- countries
+- regions
+- delivery rates
+
+This can later be replaced by DB-backed logic without changing delivery slide behavior.
 
 ### `src/lib/questionnaire/loadDslText.ts`
 
@@ -858,14 +1148,45 @@ Parses the custom DSL into structured slide data, including:
 - per-slide button style directives
 - per-slide progress-count flags
 - per-slide step-text visibility flags
+- shop directives
+- delivery directives
+- conditional completion-check routing directives
+
+### `src/lib/questionnaire/shop.ts`
+
+Shared helpers for:
+
+- catalog normalization
+- cart normalization
+- line selection
+- purchase mode selection
+- quantity updates
+- cart total calculation
+- total weight calculation
+
+### `src/lib/questionnaire/delivery.ts`
+
+Shared helpers for:
+
+- delivery config lookup
+- delivery selection normalization
+- delivery fee calculation
+- delivery completeness checks
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, action runner, media renderer, and slide-level visual override handler.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, action runner, media renderer, shop renderer, delivery renderer, review-summary renderer, and slide-level visual override handler.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
-Styles for the questionnaire shell, including pinned bottom action areas, media overlays, and scrollable slide content regions.
+Styles for the questionnaire shell, including:
+
+- pinned bottom action areas
+- media overlays
+- scrollable slide content regions
+- shop panel UI
+- delivery selection UI
+- review summary cards
 
 ### `prisma/schema.prisma`
 
@@ -873,7 +1194,7 @@ Contains the database schema, including questionnaire submissions and plant-rela
 
 ### `prisma/seed.ts`
 
-Seeds the plant tables with starter data.
+Seeds the plant tables, questionnaire content blocks, shop size options, and optional purchase modes.
 
 ## Optional Google Sheets mirror
 
@@ -975,4 +1296,3 @@ For Vercel deployments:
 - set `SELF_TRUST_STATS_MODE` to `real` or `synthetic` depending on the behavior you want
 - commit static assets in `public/` when they are part of the experience
 - the project uses `postinstall` to generate Prisma Client during install
-````

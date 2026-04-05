@@ -55,10 +55,11 @@ type PlantSeedInput = {
   plantShopSummary?: string;
   whatsappPromoCopy?: string;
   claimPageSnippet?: string;
-  growthIntroLine1?: string;
-  growthIntroLine2?: string;
   seedRevealBlock?: string;
   plantInfoBlock?: string;
+  updatesIntroBlock?: string;
+  careTipsBlock?: string;
+  confirmationBlock?: string;
   offerModes?: Array<{
     offerMode: Prisma.PlantOfferModeType;
     enabled?: boolean;
@@ -78,6 +79,32 @@ type PlantSeedInput = {
     claimEligible?: boolean | null;
     claimSwitchEligible?: boolean | null;
     claimFeatured?: boolean | null;
+  }>;
+  shopSizeOptions?: Array<{
+    label: string;
+    slug?: string;
+    description?: string;
+    active?: boolean;
+    featured?: boolean;
+    sortOrder?: number;
+    priceJmd: string;
+    compareAtPriceJmd?: string;
+    weight?: string;
+    weightUnit?: Prisma.WeightUnit;
+    stockOnHand?: number;
+    stockReserved?: number;
+    stockAvailable?: number;
+    supportsPickup?: boolean;
+    supportsDelivery?: boolean;
+    purchaseModes?: Array<{
+      modeType: Prisma.PlantShopPurchaseModeType;
+      label: string;
+      description?: string;
+      active?: boolean;
+      featured?: boolean;
+      sortOrder?: number;
+      priceAdjustmentJmd: string;
+    }>;
   }>;
 };
 
@@ -126,8 +153,6 @@ const plants: PlantSeedInput[] = [
       "Claim or buy Malbar Spinach and watch the growth journey from seed to harvest-ready plant.",
     claimPageSnippet:
       "3 Malbar Spinach plants in your garden can keep fresh greens on the table regularly for a family.",
-    growthIntroLine1: "A Malbar Spinach seed has been planted for you.",
-    growthIntroLine2: "But not all seeds grow.",
     seedRevealBlock: `
 [c2] It's a
 # [c1] Malbar Spinach
@@ -196,6 +221,61 @@ BR
         priority: 1,
       },
     ],
+    shopSizeOptions: [
+      {
+        label: '2.5" pot',
+        slug: "2-5-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "350.00",
+        weight: "0.600",
+        weightUnit: "LB",
+        stockOnHand: 74,
+        stockAvailable: 74,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        sortOrder: 2,
+        priceJmd: "550.00",
+        weight: "1.100",
+        weightUnit: "LB",
+        stockOnHand: 108,
+        stockAvailable: 108,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
+    ],
   },
   {
     slug: "sweet-pepper",
@@ -235,8 +315,6 @@ BR
       "Choose Sweet Pepper and watch the plant develop toward productive harvests.",
     claimPageSnippet:
       "A Sweet Pepper plant can support everyday cooking with fresh peppers from home.",
-    growthIntroLine1: "A Sweet Pepper seed has been planted for you.",
-    growthIntroLine2: "But not all seeds grow.",
     seedRevealBlock: `
 [c2] It's a
 # [c1] Sweet Pepper
@@ -265,8 +343,18 @@ BR
 `,
     offerModes: [
       { offerMode: "SWITCH_FREE", label: "Switch to Sweet Pepper", enabled: true },
-      { offerMode: "WATCH_FROM_SEED", label: "Watch from seed", enabled: true, requiresUpdates: true },
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "500.00" },
+      {
+        offerMode: "WATCH_FROM_SEED",
+        label: "Watch from seed",
+        enabled: true,
+        requiresUpdates: true,
+      },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "500.00",
+      },
     ],
     channels: [
       {
@@ -278,6 +366,61 @@ BR
         claimFeatured: false,
       },
       { channel: "PLANT_SHOP", visible: true, priority: 2 },
+    ],
+    shopSizeOptions: [
+      {
+        label: '2.5" pot',
+        slug: "2-5-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "400.00",
+        weight: "0.550",
+        weightUnit: "LB",
+        stockOnHand: 30,
+        stockAvailable: 30,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        sortOrder: 2,
+        priceJmd: "500.00",
+        weight: "1.000",
+        weightUnit: "LB",
+        stockOnHand: 20,
+        stockAvailable: 20,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
     ],
   },
   {
@@ -312,8 +455,6 @@ BR
     adCopyShort:
       "Scotch Bonnet Pepper brings strong flavor value to the kitchen and can reduce repeated pepper purchases.",
     plantShopSummary: "Popular hot pepper option for Jamaican cooking.",
-    growthIntroLine1: "A Scotch Bonnet Pepper seed has been planted for you.",
-    growthIntroLine2: "But not all seeds grow.",
     seedRevealBlock: `
 [c2] It's a
 # [c1] Scotch Bonnet Pepper
@@ -341,9 +482,23 @@ BR
 BR
 `,
     offerModes: [
-      { offerMode: "SWITCH_FREE", label: "Switch to Scotch Bonnet Pepper", enabled: true },
-      { offerMode: "WATCH_FROM_SEED", label: "Watch from seed", enabled: true, requiresUpdates: true },
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "550.00" },
+      {
+        offerMode: "SWITCH_FREE",
+        label: "Switch to Scotch Bonnet Pepper",
+        enabled: true,
+      },
+      {
+        offerMode: "WATCH_FROM_SEED",
+        label: "Watch from seed",
+        enabled: true,
+        requiresUpdates: true,
+      },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "550.00",
+      },
     ],
     channels: [
       {
@@ -355,6 +510,61 @@ BR
         claimFeatured: false,
       },
       { channel: "PLANT_SHOP", visible: true, priority: 3 },
+    ],
+    shopSizeOptions: [
+      {
+        label: '2.5" pot',
+        slug: "2-5-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.550",
+        weightUnit: "LB",
+        stockOnHand: 25,
+        stockAvailable: 25,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        sortOrder: 2,
+        priceJmd: "550.00",
+        weight: "1.000",
+        weightUnit: "LB",
+        stockOnHand: 20,
+        stockAvailable: 20,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
     ],
   },
   {
@@ -388,8 +598,6 @@ BR
     adCopyShort:
       "Beefstake Tomatoes can support repeated home harvests and reduce dependence on store-bought tomatoes.",
     plantShopSummary: "Large-fruit tomato choice for home growers.",
-    growthIntroLine1: "A Beefstake Tomato seed has been planted for you.",
-    growthIntroLine2: "But not all seeds grow.",
     seedRevealBlock: `
 [c2] It's a
 # [c1] Beefstake Tomato
@@ -417,9 +625,23 @@ BR
 BR
 `,
     offerModes: [
-      { offerMode: "SWITCH_FREE", label: "Switch to Beefstake Tomatoes", enabled: true },
-      { offerMode: "WATCH_FROM_SEED", label: "Watch from seed", enabled: true, requiresUpdates: true },
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "600.00" },
+      {
+        offerMode: "SWITCH_FREE",
+        label: "Switch to Beefstake Tomatoes",
+        enabled: true,
+      },
+      {
+        offerMode: "WATCH_FROM_SEED",
+        label: "Watch from seed",
+        enabled: true,
+        requiresUpdates: true,
+      },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "600.00",
+      },
     ],
     channels: [
       {
@@ -431,6 +653,61 @@ BR
         claimFeatured: false,
       },
       { channel: "PLANT_SHOP", visible: true, priority: 4 },
+    ],
+    shopSizeOptions: [
+      {
+        label: '2.5" pot',
+        slug: "2-5-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.600",
+        weightUnit: "LB",
+        stockOnHand: 20,
+        stockAvailable: 20,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        sortOrder: 2,
+        priceJmd: "600.00",
+        weight: "1.050",
+        weightUnit: "LB",
+        stockOnHand: 20,
+        stockAvailable: 20,
+        supportsPickup: true,
+        supportsDelivery: true,
+        purchaseModes: [
+          {
+            modeType: "WATCH_FROM_START",
+            label: "Watch it grow from start to maturity",
+            sortOrder: 1,
+            priceAdjustmentJmd: "150.00",
+          },
+          {
+            modeType: "BUY_MATURE_NOW",
+            label: "Skip the wait and get a mature plant now",
+            sortOrder: 2,
+            priceAdjustmentJmd: "0.00",
+          },
+        ],
+      },
     ],
   },
   {
@@ -464,13 +741,48 @@ BR
     adCopyShort:
       "Plummy Tomatoes can keep a useful home tomato supply closer to your kitchen.",
     plantShopSummary: "Everyday tomato choice for home gardens.",
-    growthIntroLine1: "A Plummy Tomato seed has been planted for you.",
-    growthIntroLine2: "But not all seeds grow.",
     offerModes: [
-      { offerMode: "WATCH_FROM_SEED", label: "Watch from seed", enabled: true, requiresUpdates: true },
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "600.00" },
+      {
+        offerMode: "WATCH_FROM_SEED",
+        label: "Watch from seed",
+        enabled: true,
+        requiresUpdates: true,
+      },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "600.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 5 }],
+    shopSizeOptions: [
+      {
+        label: '2.5" pot',
+        slug: "2-5-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.600",
+        weightUnit: "LB",
+        stockOnHand: 18,
+        stockAvailable: 18,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        sortOrder: 2,
+        priceJmd: "600.00",
+        weight: "1.050",
+        weightUnit: "LB",
+        stockOnHand: 17,
+        stockAvailable: 17,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "peppermint",
@@ -499,9 +811,29 @@ BR
       "Peppermint brings fragrance, freshness, and everyday herbal value to the home garden.",
     plantShopSummary: "Popular aromatic herb for home growers.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "450.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "450.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 6 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.900",
+        weightUnit: "LB",
+        stockOnHand: 25,
+        stockAvailable: 25,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "cilantro",
@@ -533,9 +865,29 @@ BR
       "Cilantro helps bring quick fresh flavor to meals without repeated herb shopping.",
     plantShopSummary: "Fast-use kitchen herb for home growers.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "400.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "400.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 7 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "400.00",
+        weight: "0.850",
+        weightUnit: "LB",
+        stockOnHand: 20,
+        stockAvailable: 20,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "black-mint",
@@ -563,9 +915,29 @@ BR
       "Black Mint adds aromatic value, herbal interest, and freshness to the home garden.",
     plantShopSummary: "Aromatic herb option for herb lovers.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "450.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "450.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 8 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.900",
+        weightUnit: "LB",
+        stockOnHand: 18,
+        stockAvailable: 18,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "rosemary",
@@ -596,9 +968,29 @@ BR
       "Rosemary can keep fragrance, flavor, and repeated clipping value close to your kitchen.",
     plantShopSummary: "Classic kitchen herb with strong garden presence.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "500.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "500.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 9 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "500.00",
+        weight: "0.950",
+        weightUnit: "LB",
+        stockOnHand: 22,
+        stockAvailable: 22,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "lemon-balm",
@@ -625,9 +1017,29 @@ BR
       "Lemon Balm brings fragrance, softness, and herbal value to the garden or yard.",
     plantShopSummary: "Fragrant herb with home wellness appeal.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "450.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "450.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 10 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.900",
+        weightUnit: "LB",
+        stockOnHand: 16,
+        stockAvailable: 16,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "sweet-basil",
@@ -657,9 +1069,29 @@ BR
       "Sweet Basil gives quick kitchen value with repeated leaf harvests and fresh flavor at home.",
     plantShopSummary: "Easy kitchen herb with regular harvest potential.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "400.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "400.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 11 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "400.00",
+        weight: "0.850",
+        weightUnit: "LB",
+        stockOnHand: 30,
+        stockAvailable: 30,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "genovese-basil",
@@ -689,9 +1121,29 @@ BR
       "Genovese Basil adds premium fresh-herb value and repeated clipping potential at home.",
     plantShopSummary: "Specialty basil option for flavor-focused growers.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "450.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "450.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 12 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.850",
+        weightUnit: "LB",
+        stockOnHand: 28,
+        stockAvailable: 28,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "thai-basil",
@@ -721,9 +1173,29 @@ BR
       "Thai Basil adds a distinct fresh-herb option to your home garden and cooking routine.",
     plantShopSummary: "Distinct basil type for herb lovers.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "450.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "450.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 13 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "450.00",
+        weight: "0.850",
+        weightUnit: "LB",
+        stockOnHand: 24,
+        stockAvailable: 24,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "dill",
@@ -753,9 +1225,29 @@ BR
       "Dill adds a distinct fresh-herb option to the home garden and kitchen.",
     plantShopSummary: "Fresh herb option with a distinct character.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "400.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "400.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 14 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "400.00",
+        weight: "0.800",
+        weightUnit: "LB",
+        stockOnHand: 15,
+        stockAvailable: 15,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
   {
     slug: "sage",
@@ -782,9 +1274,29 @@ BR
       "Sage brings culinary value, fragrance, and herbal interest to the home garden.",
     plantShopSummary: "Classic herb with strong traditional appeal.",
     offerModes: [
-      { offerMode: "BUY_MATURE_NOW", label: "Get mature plant now", enabled: true, priceJmd: "500.00" },
+      {
+        offerMode: "BUY_MATURE_NOW",
+        label: "Get mature plant now",
+        enabled: true,
+        priceJmd: "500.00",
+      },
     ],
     channels: [{ channel: "PLANT_SHOP", visible: true, priority: 15 }],
+    shopSizeOptions: [
+      {
+        label: '4" pot',
+        slug: "4-inch-pot",
+        featured: true,
+        sortOrder: 1,
+        priceJmd: "500.00",
+        weight: "0.950",
+        weightUnit: "LB",
+        stockOnHand: 14,
+        stockAvailable: 14,
+        supportsPickup: true,
+        supportsDelivery: true,
+      },
+    ],
   },
 ];
 
@@ -793,6 +1305,9 @@ function decimal(value?: string) {
 }
 
 async function upsertPlant(input: PlantSeedInput) {
+  const quantityAvailable = input.stockAvailable ?? 0;
+  const quantityReserved = input.stockCommitted ?? 0;
+
   const plant = await prisma.plant.upsert({
     where: { slug: input.slug },
     update: {
@@ -814,8 +1329,8 @@ async function upsertPlant(input: PlantSeedInput) {
       supportsGrowthUpdates: input.supportsGrowthUpdates ?? false,
       supportsPickup: input.supportsPickup ?? true,
       supportsDelivery: input.supportsDelivery ?? false,
-      quantityAvailable: input.stockAvailable ?? input.quantityAvailable ?? 0,
-      quantityReserved: input.quantityReserved ?? 0,
+      quantityAvailable,
+      quantityReserved,
       basePriceJmd: decimal(input.basePriceJmd),
       compareAtPriceJmd: decimal(input.compareAtPriceJmd),
     },
@@ -839,8 +1354,8 @@ async function upsertPlant(input: PlantSeedInput) {
       supportsGrowthUpdates: input.supportsGrowthUpdates ?? false,
       supportsPickup: input.supportsPickup ?? true,
       supportsDelivery: input.supportsDelivery ?? false,
-      quantityAvailable: input.stockAvailable ?? input.quantityAvailable ?? 0,
-      quantityReserved: input.quantityReserved ?? 0,
+      quantityAvailable,
+      quantityReserved,
       basePriceJmd: decimal(input.basePriceJmd),
       compareAtPriceJmd: decimal(input.compareAtPriceJmd),
     },
@@ -851,7 +1366,7 @@ async function upsertPlant(input: PlantSeedInput) {
     update: {
       stockOnHand: input.stockOnHand ?? 0,
       stockCommitted: input.stockCommitted ?? 0,
-      stockAvailable: input.stockAvailable ?? input.quantityAvailable ?? 0,
+      stockAvailable: input.stockAvailable ?? 0,
       propagationMethod: input.propagationMethod,
       propagationStatus: input.propagationStatus,
       readyNow: input.readyNow ?? false,
@@ -860,7 +1375,7 @@ async function upsertPlant(input: PlantSeedInput) {
       plantId: plant.id,
       stockOnHand: input.stockOnHand ?? 0,
       stockCommitted: input.stockCommitted ?? 0,
-      stockAvailable: input.stockAvailable ?? input.quantityAvailable ?? 0,
+      stockAvailable: input.stockAvailable ?? 0,
       propagationMethod: input.propagationMethod,
       propagationStatus: input.propagationStatus,
       readyNow: input.readyNow ?? false,
@@ -917,15 +1432,17 @@ async function upsertPlant(input: PlantSeedInput) {
     update: {
       seedRevealBlock: input.seedRevealBlock,
       plantInfoBlock: input.plantInfoBlock,
-      growthIntroLine1: input.growthIntroLine1,
-      growthIntroLine2: input.growthIntroLine2,
+      updatesIntroBlock: input.updatesIntroBlock,
+      careTipsBlock: input.careTipsBlock,
+      confirmationBlock: input.confirmationBlock,
     },
     create: {
       plantId: plant.id,
       seedRevealBlock: input.seedRevealBlock,
       plantInfoBlock: input.plantInfoBlock,
-      growthIntroLine1: input.growthIntroLine1,
-      growthIntroLine2: input.growthIntroLine2,
+      updatesIntroBlock: input.updatesIntroBlock,
+      careTipsBlock: input.careTipsBlock,
+      confirmationBlock: input.confirmationBlock,
     },
   });
 
@@ -992,6 +1509,88 @@ async function upsertPlant(input: PlantSeedInput) {
           claimFeatured: channel.claimFeatured ?? null,
         },
       });
+    }
+  }
+
+  if (input.shopSizeOptions?.length) {
+    for (const sizeOption of input.shopSizeOptions) {
+      const savedSizeOption = await prisma.plantShopSizeOption.upsert({
+        where: {
+          plantId_label: {
+            plantId: plant.id,
+            label: sizeOption.label,
+          },
+        },
+        update: {
+          slug: sizeOption.slug,
+          description: sizeOption.description,
+          active: sizeOption.active ?? true,
+          featured: sizeOption.featured ?? false,
+          sortOrder: sizeOption.sortOrder ?? 0,
+          priceJmd: new Prisma.Decimal(sizeOption.priceJmd),
+          compareAtPriceJmd: decimal(sizeOption.compareAtPriceJmd),
+          weight: decimal(sizeOption.weight),
+          weightUnit: sizeOption.weightUnit,
+          stockOnHand: sizeOption.stockOnHand ?? 0,
+          stockReserved: sizeOption.stockReserved ?? 0,
+          stockAvailable: sizeOption.stockAvailable ?? 0,
+          supportsPickup: sizeOption.supportsPickup,
+          supportsDelivery: sizeOption.supportsDelivery,
+        },
+        create: {
+          plantId: plant.id,
+          slug: sizeOption.slug,
+          label: sizeOption.label,
+          description: sizeOption.description,
+          active: sizeOption.active ?? true,
+          featured: sizeOption.featured ?? false,
+          sortOrder: sizeOption.sortOrder ?? 0,
+          priceJmd: new Prisma.Decimal(sizeOption.priceJmd),
+          compareAtPriceJmd: decimal(sizeOption.compareAtPriceJmd),
+          weight: decimal(sizeOption.weight),
+          weightUnit: sizeOption.weightUnit,
+          stockOnHand: sizeOption.stockOnHand ?? 0,
+          stockReserved: sizeOption.stockReserved ?? 0,
+          stockAvailable: sizeOption.stockAvailable ?? 0,
+          supportsPickup: sizeOption.supportsPickup,
+          supportsDelivery: sizeOption.supportsDelivery,
+        },
+      });
+
+      if (sizeOption.purchaseModes?.length) {
+        for (const purchaseMode of sizeOption.purchaseModes) {
+          await prisma.plantShopSizeOptionPurchaseMode.upsert({
+            where: {
+              sizeOptionId_modeType: {
+                sizeOptionId: savedSizeOption.id,
+                modeType: purchaseMode.modeType,
+              },
+            },
+            update: {
+              label: purchaseMode.label,
+              description: purchaseMode.description,
+              active: purchaseMode.active ?? true,
+              featured: purchaseMode.featured ?? false,
+              sortOrder: purchaseMode.sortOrder ?? 0,
+              priceAdjustmentJmd: new Prisma.Decimal(
+                purchaseMode.priceAdjustmentJmd
+              ),
+            },
+            create: {
+              sizeOptionId: savedSizeOption.id,
+              modeType: purchaseMode.modeType,
+              label: purchaseMode.label,
+              description: purchaseMode.description,
+              active: purchaseMode.active ?? true,
+              featured: purchaseMode.featured ?? false,
+              sortOrder: purchaseMode.sortOrder ?? 0,
+              priceAdjustmentJmd: new Prisma.Decimal(
+                purchaseMode.priceAdjustmentJmd
+              ),
+            },
+          });
+        }
+      }
     }
   }
 

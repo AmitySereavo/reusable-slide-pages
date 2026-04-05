@@ -1,4 +1,14 @@
 ===
+// PLANT SHOP
+@id: plant-shop
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@reviewgoto: review-order
+@next: Checkout
+===
 // INTRO
 @id: intro
 @type: content
@@ -249,20 +259,38 @@ BR
 ===
 // PLANT SHOP
 @id: plant-shop
-@type: content
----
-BR
-## [c1] Plant Shop
-# [c1] Opening Soon.
-BR
-## More plants
-## will be available here soon.
----
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@reviewgoto: review-order
+@next: Checkout
+===
+
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: contact-details
 @back: Back
-@next: Back to policy
-@goto: plant-collection-policy
+@next: Continue
+
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
 
 ===
+//REVIEW ORDER
+@id: review-order
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@next: Pay now
+===
+
 // PLANT COLLECTION POLICY
 @id: plant-collection-policy
 @type: content

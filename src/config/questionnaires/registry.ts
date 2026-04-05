@@ -6,6 +6,8 @@ import { gardenHerbsTheme } from "@/config/themes/gardenHerbsTheme";
 import { seedTheme } from "@/config/themes/seedTheme";
 import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
+import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
+import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 
 const activeSeedDsl = "v2";
 
@@ -62,7 +64,13 @@ export async function getQuestionnaireBySlug(slug: string) {
 
   if (entry.slug === "seed") {
     const seedCampaign = await getSeedCampaignData();
-    resolvedVariables = seedCampaign.variables;
+    const shopCatalog = await getPlantShopCatalog();
+
+    resolvedVariables = {
+      ...seedCampaign.variables,
+      shopCatalog,
+      deliveryConfig,
+    };
   }
 
   const rawDsl = await loadDslText(entry.dslPath);

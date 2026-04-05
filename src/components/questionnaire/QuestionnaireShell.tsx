@@ -4,10 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import styles from "./QuestionnaireShell.module.css";
 import {
+  DeliveryConfig,
+  DeliverySelection,
   FormField,
   PrimitiveValue,
   QuestionnaireAnswers,
   QuestionnaireConfig,
+  QuestionnaireVariableMap,
+  QuestionnaireVariableValue,
+  ShopCart,
+  ShopCatalog,
+  ShopResolvedCartLine,
   SlideRouteRule,
   SlideSection,
   ThemeConfig,
@@ -16,6 +23,25 @@ import {
   getSlideIndexById,
   getVisibleSlides,
 } from "@/lib/questionnaire/engine";
+import {
+  findShopSizeOption,
+  getDefaultPurchaseModeId,
+  getShopCartTotal,
+  getShopCartTotalWeight,
+  getShopCatalog,
+  normalizeShopCart,
+  removeShopLine,
+  resolveShopSelectedLines,
+  setShopLinePurchaseMode,
+  setShopLineQuantity,
+  toggleShopLineSelected,
+} from "@/lib/questionnaire/shop";
+import {
+  getDeliveryConfig,
+  getDeliveryFeeJmd,
+  isDeliverySelectionComplete,
+  normalizeDeliverySelection,
+} from "@/lib/questionnaire/delivery";
 
 type Props = {
   config: QuestionnaireConfig;
@@ -27,6 +53,8 @@ type ResolvedButtonStyle = {
   color: string;
   borderColor: string;
 };
+
+
 
 function hexToRgb(hex: string) {
   const clean = hex.replace("#", "").trim();
@@ -54,7 +82,6 @@ function getContrastTextColor(background: string) {
   return luminance > 0.62 ? "#111111" : "#FFFFFF";
 }
 
-
 function withOpacity(color: string, opacity?: number) {
   if (opacity === undefined) return color;
 
@@ -65,8 +92,6 @@ function withOpacity(color: string, opacity?: number) {
 
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalized})`;
 }
-
-
 
 function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
   if (!styleKey) return null;
@@ -125,6 +150,25 @@ function resolveButtonStyle(
   };
 }
 
+function isContactInfoComplete(
+  answers: QuestionnaireAnswers,
+  deliverySelection?: DeliverySelection
+) {
+  const fullName = String(answers.fullName ?? "").trim();
+  const email = String(answers.email ?? "").trim();
+  const phone = String(answers.phone ?? "").trim();
+
+  if (!fullName) {
+    return false;
+  }
+
+  if (deliverySelection?.method === "delivery") {
+    return phone.length > 0;
+  }
+
+  return phone.length > 0 || email.length > 0;
+}
+
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -136,11 +180,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
 
-  const [dynamicVariables, setDynamicVariables] = useState<
-    Record<string, string | number>
-  >({});
+  const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
+    {}
+  );
 
-  const mergedVariables = useMemo(
+  const mergedVariables = useMemo<QuestionnaireVariableMap>(
     () => ({
       ...(config.variables ?? {}),
       ...dynamicVariables,
@@ -230,6 +274,80 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const totalStepCount = countableVisibleSlides.length;
 
+  const currentShopCatalog = useMemo(
+    () =>
+      currentSlide?.type === "shop"
+        ? getShopCatalog(mergedVariables, currentSlide.catalogKey)
+        : null,
+    [mergedVariables, currentSlide]
+  );
+
+  const currentShopCart = useMemo<ShopCart>(
+    () =>
+      currentSlide?.type === "shop" && currentSlide.storeAs
+        ? normalizeShopCart(answers[currentSlide.storeAs])
+        : {},
+    [answers, currentSlide]
+  );
+
+  const currentShopSelectedLines = useMemo<ShopResolvedCartLine[]>(
+    () =>
+      currentSlide?.type === "shop"
+        ? resolveShopSelectedLines(currentShopCatalog, currentShopCart)
+        : [],
+    [currentSlide, currentShopCatalog, currentShopCart]
+  );
+
+  const currentShopSubtotal = useMemo(
+    () =>
+      currentSlide?.type === "shop"
+        ? getShopCartTotal(currentShopCatalog, currentShopCart)
+        : 0,
+    [currentSlide, currentShopCatalog, currentShopCart]
+  );
+
+  const currentShopTotalWeight = useMemo(
+    () =>
+      currentSlide?.type === "shop"
+        ? getShopCartTotalWeight(currentShopCatalog, currentShopCart)
+        : 0,
+    [currentSlide, currentShopCatalog, currentShopCart]
+  );
+
+  const currentDeliveryConfig = useMemo<DeliveryConfig | null>(
+    () =>
+      currentSlide?.type === "delivery"
+        ? getDeliveryConfig(mergedVariables, currentSlide.deliveryConfigKey)
+        : null,
+    [mergedVariables, currentSlide]
+  );
+
+  const currentDeliverySelection = useMemo<DeliverySelection>(
+    () =>
+      currentSlide?.type === "delivery" && currentSlide.storeAs
+        ? normalizeDeliverySelection(answers[currentSlide.storeAs])
+        : {},
+    [answers, currentSlide]
+  );
+
+  const currentDeliveryFee = useMemo(
+    () =>
+      currentSlide?.type === "delivery"
+        ? getDeliveryFeeJmd(currentDeliveryConfig, currentDeliverySelection)
+        : 0,
+    [currentSlide, currentDeliveryConfig, currentDeliverySelection]
+  );
+
+    const sharedDeliverySelection = useMemo<DeliverySelection>(
+    () => normalizeDeliverySelection(answers.deliverySelection),
+    [answers.deliverySelection]
+  );
+
+  const contactInfoComplete = useMemo(
+    () => isContactInfoComplete(answers, sharedDeliverySelection),
+    [answers, sharedDeliverySelection]
+  );
+
   useEffect(() => {
     const endpoint = config.dynamicVariablesEndpoint;
     const selfScore = answers.selfScore;
@@ -260,7 +378,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
           return;
         }
 
-        setDynamicVariables((prev) => ({
+        setDynamicVariables((prev: QuestionnaireVariableMap) => ({
           ...prev,
           ...data.variables,
         }));
@@ -301,8 +419,29 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }, [currentSlide?.id, isMediaSlide]);
 
-  function setAnswer(key: string, value: string | number | boolean) {
+  function setAnswer(key: string, value: QuestionnaireVariableValue) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateCurrentShopCart(updater: (cart: ShopCart) => ShopCart) {
+    if (currentSlide?.type !== "shop" || !currentSlide.storeAs) return;
+
+    const nextCart = updater(currentShopCart);
+    setAnswer(currentSlide.storeAs, nextCart);
+  }
+
+  function updateCurrentDeliverySelection(
+    updater: (selection: DeliverySelection) => DeliverySelection
+  ) {
+    if (currentSlide?.type !== "delivery" || !currentSlide.storeAs) return;
+
+    const nextSelection = updater(currentDeliverySelection);
+    const nextFee = getDeliveryFeeJmd(currentDeliveryConfig, nextSelection);
+
+    setAnswer(currentSlide.storeAs, {
+      ...nextSelection,
+      deliveryFeeJmd: nextFee,
+    });
   }
 
   function isExternalTarget(value: string) {
@@ -357,22 +496,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     switch (rule.operator) {
       case "eq":
         return actual === parseRulePrimitive(rule.value);
-
       case "neq":
         return actual !== parseRulePrimitive(rule.value);
-
       case "gt":
         return Number(actual) > Number(rule.value);
-
       case "gte":
         return Number(actual) >= Number(rule.value);
-
       case "lt":
         return Number(actual) < Number(rule.value);
-
       case "lte":
         return Number(actual) <= Number(rule.value);
-
       case "between": {
         const [minRaw, maxRaw] = rule.value.split("..").map((part) => part.trim());
         const actualNum = Number(actual);
@@ -389,7 +522,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
         return actualNum >= min && actualNum <= max;
       }
-
       case "in": {
         const allowedValues = rule.value
           .split(",")
@@ -397,7 +529,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
         return allowedValues.some((item) => item === actual);
       }
-
       default:
         return false;
     }
@@ -412,6 +543,32 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   function next() {
     if (!currentSlide) return;
+
+    if (currentSlide.completionCheck === "contact") {
+      if (contactInfoComplete && currentSlide.gotoIfComplete) {
+        goToTarget(currentSlide.gotoIfComplete);
+        return;
+      }
+
+      if (!contactInfoComplete && currentSlide.gotoIfIncomplete) {
+        goToTarget(currentSlide.gotoIfIncomplete);
+        return;
+      }
+    }
+
+    if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
+      if (currentSlide.deliveryGoto) {
+        goToTarget(currentSlide.deliveryGoto);
+        return;
+      }
+
+      if (currentSlide.reviewGoto) {
+        goToTarget(currentSlide.reviewGoto);
+        return;
+      }
+
+      
+    }
 
     const conditionalTarget = resolveRouteRuleTarget(currentSlide.routeRules);
     if (conditionalTarget) {
@@ -460,6 +617,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   function canGoNext() {
     if (!currentSlide) return false;
+
+    if (currentSlide.type === "shop") {
+      return currentShopSelectedLines.length > 0;
+    }
+
+    if (currentSlide.type === "delivery") {
+      return isDeliverySelectionComplete(
+        currentDeliveryConfig,
+        currentDeliverySelection
+      );
+    }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
       return answers[currentSlide.storeAs] !== undefined;
@@ -569,8 +737,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     "primary"
   );
 
+  const nextLabel =
+    currentSlide.type === "shop"
+      ? `${currentSlide.nextLabel ?? (currentSlide.shopMode === "review" ? "Pay now" : "Checkout")} · ${formatCurrency(
+          currentShopSubtotal,
+          currentShopCatalog?.currencyCode
+        )}`
+      : currentSlide.type === "delivery"
+        ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
+            currentDeliveryFee,
+            "JMD"
+          )}`
+        : isSubmitting
+          ? "Submitting..."
+          : currentSlide.nextLabel ?? "Next";
+
   return (
-   <main
+    <main
       className={styles.page}
       style={{
         backgroundColor:
@@ -587,7 +770,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       }}
     >
       <div className={styles.pageInner}>
-                <div
+        <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
           style={{
             background: isMediaSlide
@@ -684,6 +867,85 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           setAnswer
                         )}
 
+                        {currentSlide.type === "shop" ? (
+                          <ShopSlideRenderer
+                            slideMode={currentSlide.shopMode ?? "browse"}
+                            catalog={currentShopCatalog}
+                            cart={currentShopCart}
+                            selectedLines={currentShopSelectedLines}
+                            totalWeight={currentShopTotalWeight}
+                            theme={theme}
+                            onToggleLine={(productId, sizeOptionId, selected) =>
+                              updateCurrentShopCart((cart) =>
+                                toggleShopLineSelected(
+                                  cart,
+                                  currentShopCatalog,
+                                  productId,
+                                  sizeOptionId,
+                                  selected
+                                )
+                              )
+                            }
+                            onSetQuantity={(productId, sizeOptionId, quantity) =>
+                              updateCurrentShopCart((cart) =>
+                                setShopLineQuantity(
+                                  cart,
+                                  productId,
+                                  sizeOptionId,
+                                  quantity
+                                )
+                              )
+                            }
+                            onSetPurchaseMode={(
+                              productId,
+                              sizeOptionId,
+                              purchaseModeId
+                            ) =>
+                              updateCurrentShopCart((cart) =>
+                                setShopLinePurchaseMode(
+                                  cart,
+                                  productId,
+                                  sizeOptionId,
+                                  purchaseModeId
+                                )
+                              )
+                            }
+                            onRemoveLine={(productId, sizeOptionId) =>
+                              updateCurrentShopCart((cart) =>
+                                removeShopLine(cart, productId, sizeOptionId)
+                              )
+                            }
+                          />
+                        ) : null}
+
+                        {currentSlide.type === "delivery" ? (
+                          <DeliverySlideRenderer
+                            config={currentDeliveryConfig}
+                            selection={currentDeliverySelection}
+                            theme={theme}
+                            onChange={(patch) =>
+                              updateCurrentDeliverySelection((prev) => ({
+                                ...prev,
+                                ...patch,
+                              }))
+                            }
+                          />
+                        ) : null}
+
+                                                {currentSlide.type === "shop" &&
+                        currentSlide.shopMode === "review" ? (
+                          <ReviewSummaryRenderer
+                            answers={answers}
+                            deliverySelection={sharedDeliverySelection}
+                            deliveryConfig={getDeliveryConfig(
+                              mergedVariables,
+                              "deliveryConfig"
+                            )}
+                            onAdjustDelivery={() => goToTarget("delivery-options")}
+                            onAdjustContact={() => goToTarget("contact-details")}
+                          />
+                        ) : null}
+
                         {(currentSlide.type === "form" ||
                           currentSlide.type === "contact") &&
                         currentSlide.fields?.length ? (
@@ -775,6 +1037,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                   </div>
                 ) : null}
 
+                {currentSlide.type === "shop" && currentSlide.shopMode === "review" ? (
+                  <div className={styles.orderWeightSummary}>
+                    Total order weight:{" "}
+                    {formatWeight(
+                      currentShopTotalWeight,
+                      currentShopCatalog?.weightUnit
+                    )}
+                  </div>
+                ) : null}
+
+                {currentSlide.type === "delivery" ? (
+                  <div className={styles.orderWeightSummary}>
+                    Delivery fee: {formatCurrency(currentDeliveryFee, "JMD")}
+                  </div>
+                ) : null}
+
                 {hasVisibleNav ? (
                   <div className={styles.navRow}>
                     {showBackButton ? (
@@ -820,9 +1098,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           borderRadius: theme.radius?.button ?? "14px",
                         }}
                       >
-                        {isSubmitting
-                          ? "Submitting..."
-                          : currentSlide.nextLabel ?? "Next"}
+                        {nextLabel}
                       </button>
                     ) : (
                       <div />
@@ -838,6 +1114,690 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 }
 
+function DeliverySlideRenderer({
+  config,
+  selection,
+  theme,
+  onChange,
+}: {
+  config: DeliveryConfig | null;
+  selection: DeliverySelection;
+  theme: ThemeConfig;
+  onChange: (patch: Partial<DeliverySelection>) => void;
+}) {
+  const regionOptions =
+    selection.countryCode && config
+      ? config.regionOptions[selection.countryCode] ?? []
+      : [];
+
+  if (!config) {
+    return <p className={styles.body}>Delivery options are not available yet.</p>;
+  }
+
+  return (
+    <div className={styles.deliveryStack}>
+      <div className={styles.deliveryMethodStack}>
+        <label className={styles.deliveryMethodRow}>
+          <input
+            type="radio"
+            name="delivery-method"
+            checked={selection.method === "pickup_stable"}
+            onChange={() =>
+              onChange({
+                method: "pickup_stable",
+                popupShopLocationId: undefined,
+                countryCode: undefined,
+                regionCode: undefined,
+                addressLine1: undefined,
+                addressLine2: undefined,
+                apartmentOrUnit: undefined,
+                cityOrTown: undefined,
+                postalCode: undefined,
+              })
+            }
+          />
+          <span>Pick up at a stable location</span>
+        </label>
+
+        {selection.method === "pickup_stable" ? (
+          <div className={styles.deliveryNestedList}>
+            {config.stablePickupLocations.map((location) => (
+              <label key={location.id} className={styles.deliveryChoiceCard}>
+                <input
+                  type="radio"
+                  name="stable-pickup"
+                  checked={selection.stablePickupLocationId === location.id}
+                  onChange={() =>
+                    onChange({ stablePickupLocationId: location.id })
+                  }
+                />
+                <div className={styles.deliveryChoiceBody}>
+                  <div className={styles.deliveryChoiceTitle}>{location.label}</div>
+                  <div className={styles.deliveryChoiceMeta}>
+                    {location.pickupWindowLabel}
+                  </div>
+                  {selection.stablePickupLocationId === location.id && location.notes ? (
+                    <div className={styles.deliveryChoiceNote}>{location.notes}</div>
+                  ) : null}
+                </div>
+              </label>
+            ))}
+          </div>
+        ) : null}
+
+        <label className={styles.deliveryMethodRow}>
+          <input
+            type="radio"
+            name="delivery-method"
+            checked={selection.method === "pickup_popup"}
+            onChange={() =>
+              onChange({
+                method: "pickup_popup",
+                stablePickupLocationId: undefined,
+                countryCode: undefined,
+                regionCode: undefined,
+                addressLine1: undefined,
+                addressLine2: undefined,
+                apartmentOrUnit: undefined,
+                cityOrTown: undefined,
+                postalCode: undefined,
+              })
+            }
+          />
+          <span>Pick up at the next pop-up shop</span>
+        </label>
+
+        {selection.method === "pickup_popup" ? (
+          <div className={styles.deliveryNestedList}>
+            {config.popupShopLocations.map((location) => (
+              <label key={location.id} className={styles.deliveryChoiceCard}>
+                <input
+                  type="radio"
+                  name="popup-pickup"
+                  checked={selection.popupShopLocationId === location.id}
+                  onChange={() =>
+                    onChange({ popupShopLocationId: location.id })
+                  }
+                />
+                <div className={styles.deliveryChoiceBody}>
+                  <div className={styles.deliveryChoiceTitle}>{location.label}</div>
+                  <div className={styles.deliveryChoiceMeta}>
+                    {location.eventDateLabel}
+                  </div>
+                  {selection.popupShopLocationId === location.id && location.notes ? (
+                    <div className={styles.deliveryChoiceNote}>{location.notes}</div>
+                  ) : null}
+                </div>
+              </label>
+            ))}
+          </div>
+        ) : null}
+
+        <label className={styles.deliveryMethodRow}>
+          <input
+            type="radio"
+            name="delivery-method"
+            checked={selection.method === "delivery"}
+            onChange={() =>
+              onChange({
+                method: "delivery",
+                stablePickupLocationId: undefined,
+                popupShopLocationId: undefined,
+              })
+            }
+          />
+          <span>Deliver to my address</span>
+        </label>
+
+        {selection.method === "delivery" ? (
+          <div className={styles.deliveryFormGrid}>
+            <select
+              className={styles.input}
+              value={selection.countryCode ?? ""}
+              onChange={(event) =>
+                onChange({
+                  countryCode:
+                    (event.target.value as DeliverySelection["countryCode"]) ||
+                    undefined,
+                  regionCode: undefined,
+                })
+              }
+              style={{ borderColor: theme.colors.border }}
+            >
+              <option value="">Select country</option>
+              {config.countries.map((country) => (
+                <option key={country.code} value={country.code}>
+                  {country.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className={styles.input}
+              value={selection.regionCode ?? ""}
+              onChange={(event) =>
+                onChange({
+                  regionCode: event.target.value || undefined,
+                })
+              }
+              style={{ borderColor: theme.colors.border }}
+              disabled={!selection.countryCode}
+            >
+              <option value="">
+                {selection.countryCode ? "Select parish / state / province" : "Select country first"}
+              </option>
+              {regionOptions.map((region) => (
+                <option key={region.code} value={region.code}>
+                  {region.label}
+                </option>
+              ))}
+            </select>
+
+            <input
+              className={styles.input}
+              value={selection.addressLine1 ?? ""}
+              onChange={(event) =>
+                onChange({ addressLine1: event.target.value })
+              }
+              placeholder="Street address"
+              style={{ borderColor: theme.colors.border }}
+            />
+
+            <input
+              className={styles.input}
+              value={selection.addressLine2 ?? ""}
+              onChange={(event) =>
+                onChange({ addressLine2: event.target.value })
+              }
+              placeholder="Address line 2 (optional)"
+              style={{ borderColor: theme.colors.border }}
+            />
+
+            <input
+              className={styles.input}
+              value={selection.apartmentOrUnit ?? ""}
+              onChange={(event) =>
+                onChange({ apartmentOrUnit: event.target.value })
+              }
+              placeholder="Apartment / unit / suite"
+              style={{ borderColor: theme.colors.border }}
+            />
+
+            <input
+              className={styles.input}
+              value={selection.cityOrTown ?? ""}
+              onChange={(event) =>
+                onChange({ cityOrTown: event.target.value })
+              }
+              placeholder="City / town"
+              style={{ borderColor: theme.colors.border }}
+            />
+
+            <input
+              className={styles.input}
+              value={selection.postalCode ?? ""}
+              onChange={(event) =>
+                onChange({ postalCode: event.target.value })
+              }
+              placeholder="Postal code"
+              style={{ borderColor: theme.colors.border }}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ReviewSummaryRenderer({
+  answers,
+  deliverySelection,
+  deliveryConfig,
+  onAdjustDelivery,
+  onAdjustContact,
+}: {
+  answers: QuestionnaireAnswers;
+  deliverySelection: DeliverySelection;
+  deliveryConfig: DeliveryConfig | null;
+  onAdjustDelivery: () => void;
+  onAdjustContact: () => void;
+}) {
+  const stablePickup = deliveryConfig?.stablePickupLocations.find(
+    (location) => location.id === deliverySelection.stablePickupLocationId
+  );
+
+  const popupPickup = deliveryConfig?.popupShopLocations.find(
+    (location) => location.id === deliverySelection.popupShopLocationId
+  );
+
+  const region =
+    deliverySelection.countryCode && deliverySelection.regionCode
+      ? deliveryConfig?.regionOptions[deliverySelection.countryCode]?.find(
+          (item) => item.code === deliverySelection.regionCode
+        )
+      : undefined;
+
+  const country = deliverySelection.countryCode
+    ? deliveryConfig?.countries.find(
+        (item) => item.code === deliverySelection.countryCode
+      )
+    : undefined;
+
+  return (
+    <div className={styles.reviewSummaryStack}>
+      <div className={styles.reviewSummaryCard}>
+        <div className={styles.reviewSummaryHeader}>
+          <div className={styles.reviewSummaryTitle}>Delivery / Pickup</div>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={onAdjustDelivery}
+          >
+            Adjust
+          </button>
+        </div>
+
+        <div className={styles.reviewSummaryBody}>
+          {deliverySelection.method === "pickup_stable" && stablePickup ? (
+            <>
+              <div>{stablePickup.label}</div>
+              <div>{stablePickup.pickupWindowLabel}</div>
+            </>
+          ) : null}
+
+          {deliverySelection.method === "pickup_popup" && popupPickup ? (
+            <>
+              <div>{popupPickup.label}</div>
+              <div>{popupPickup.eventDateLabel}</div>
+            </>
+          ) : null}
+
+          {deliverySelection.method === "delivery" ? (
+            <>
+              <div>Deliver to address</div>
+              <div>
+                {[deliverySelection.addressLine1, deliverySelection.addressLine2]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+              <div>
+                {[
+                  deliverySelection.apartmentOrUnit,
+                  deliverySelection.cityOrTown,
+                  region?.label,
+                  country?.label,
+                  deliverySelection.postalCode,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+              <div>
+                Delivery fee:{" "}
+                {formatCurrency(deliverySelection.deliveryFeeJmd ?? 0, "JMD")}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={styles.reviewSummaryCard}>
+        <div className={styles.reviewSummaryHeader}>
+          <div className={styles.reviewSummaryTitle}>Contact information</div>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={onAdjustContact}
+          >
+            Adjust
+          </button>
+        </div>
+
+        <div className={styles.reviewSummaryBody}>
+          <div>{String(answers.fullName ?? "").trim() || "No name added yet."}</div>
+          {String(answers.phone ?? "").trim() ? (
+            <div>{String(answers.phone ?? "").trim()}</div>
+          ) : null}
+          {String(answers.email ?? "").trim() ? (
+            <div>{String(answers.email ?? "").trim()}</div>
+          ) : null}
+        </div>
+
+        {deliverySelection.method === "delivery" ? (
+          <div className={styles.contactNote}>
+            Phone number is required for delivery orders.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ShopSlideRenderer({
+  slideMode,
+  catalog,
+  cart,
+  selectedLines,
+  totalWeight,
+  theme,
+  onToggleLine,
+  onSetQuantity,
+  onSetPurchaseMode,
+  onRemoveLine,
+}: {
+  slideMode: "browse" | "review";
+  catalog: ShopCatalog | null;
+  cart: ShopCart;
+  selectedLines: ShopResolvedCartLine[];
+  totalWeight: number;
+  theme: ThemeConfig;
+  onToggleLine: (
+    productId: string,
+    sizeOptionId: string,
+    selected: boolean
+  ) => void;
+  onSetQuantity: (
+    productId: string,
+    sizeOptionId: string,
+    quantity: number
+  ) => void;
+  onSetPurchaseMode: (
+    productId: string,
+    sizeOptionId: string,
+    purchaseModeId?: string
+  ) => void;
+  onRemoveLine: (productId: string, sizeOptionId: string) => void;
+}) {
+  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  useEffect(() => {
+    if (slideMode === "review") {
+      const nextExpanded: Record<string, boolean> = {};
+      for (const line of selectedLines) {
+        nextExpanded[line.productId] = true;
+      }
+      setExpandedProducts(nextExpanded);
+    }
+  }, [slideMode, selectedLines]);
+
+  if (!catalog?.products.length) {
+    return <p className={styles.body}>No shop items available yet.</p>;
+  }
+
+  const products =
+    slideMode === "review"
+      ? catalog.products.filter((product) =>
+          selectedLines.some((line) => line.productId === product.id)
+        )
+      : catalog.products;
+
+  return (
+    <div className={styles.shopStack}>
+      {products.map((product) => {
+        const isExpanded =
+          slideMode === "review" || expandedProducts[product.id] === true;
+
+        return (
+          <div
+            key={product.id}
+            className={styles.productPanel}
+            style={{ borderColor: theme.colors.border }}
+          >
+            <div className={styles.productPanelHeader}>
+              <div className={styles.productHeaderMain}>
+                <div className={styles.productImageWrap}>
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.title}
+                      className={styles.productImage}
+                    />
+                  ) : (
+                    <div
+                      className={styles.productImageFallback}
+                      style={{ borderColor: theme.colors.border }}
+                    />
+                  )}
+                </div>
+
+                <div className={styles.productHeaderText}>
+                  <h3 className={styles.productTitle}>{product.title}</h3>
+                </div>
+              </div>
+
+              {slideMode === "browse" ? (
+                <button
+                  type="button"
+                  className={styles.seeCostButton}
+                  onClick={() =>
+                    setExpandedProducts((prev) => ({
+                      ...prev,
+                      [product.id]: !prev[product.id],
+                    }))
+                  }
+                  style={{
+                    borderColor: theme.colors.border,
+                    color: theme.colors.text,
+                  }}
+                >
+                  {isExpanded ? "Hide cost" : "See cost"}
+                </button>
+              ) : null}
+            </div>
+
+            {isExpanded ? (
+              <div className={styles.sizeRows}>
+                {product.sizeOptions
+                  .filter((sizeOption) => {
+                    if (slideMode === "browse") return true;
+
+                    return selectedLines.some(
+                      (line) =>
+                        line.productId === product.id &&
+                        line.sizeOptionId === sizeOption.id
+                    );
+                  })
+                  .map((sizeOption) => {
+                    const lineKey = `${product.id}::${sizeOption.id}`;
+                    const cartLine = cart[lineKey];
+                    const selected =
+                      slideMode === "review" ? true : cartLine?.selected === true;
+                    const quantity = Math.max(1, cartLine?.quantity ?? 1);
+                    const activePurchaseMode =
+                      sizeOption.purchaseModes?.find(
+                        (mode) => mode.id === cartLine?.purchaseModeId
+                      ) ?? sizeOption.purchaseModes?.[0];
+
+                    const unitPrice =
+                      sizeOption.price +
+                      (activePurchaseMode?.priceAdjustment ?? 0);
+
+                    return (
+                      <div
+                        key={sizeOption.id}
+                        className={styles.sizeRowBlock}
+                        style={{ borderTopColor: theme.colors.border }}
+                      >
+                        <div className={styles.sizeRow}>
+                          {slideMode === "browse" ? (
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={(event) => {
+                                const nextSelected = event.target.checked;
+
+                                if (
+                                  nextSelected &&
+                                  sizeOption.purchaseModes?.length &&
+                                  !cartLine?.purchaseModeId
+                                ) {
+                                  onSetPurchaseMode(
+                                    product.id,
+                                    sizeOption.id,
+                                    getDefaultPurchaseModeId(sizeOption)
+                                  );
+                                }
+
+                                onToggleLine(
+                                  product.id,
+                                  sizeOption.id,
+                                  nextSelected
+                                );
+                              }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.removeLineButton}
+                              onClick={() => onRemoveLine(product.id, sizeOption.id)}
+                              style={{
+                                borderColor: theme.colors.border,
+                                color: theme.colors.text,
+                              }}
+                            >
+                              Remove
+                            </button>
+                          )}
+
+                          <div className={styles.sizeLabel}>{sizeOption.label}</div>
+
+                          <div className={styles.sizePrice}>
+                            {formatCurrency(unitPrice, catalog.currencyCode)}
+                          </div>
+
+                          <QuantityControl
+                            quantity={quantity}
+                            disabled={slideMode === "browse" ? !selected : false}
+                            onDecrease={() =>
+                              onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                            }
+                            onIncrease={() =>
+                              onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                            }
+                            theme={theme}
+                          />
+                        </div>
+
+                        {sizeOption.purchaseModes?.length ? (
+                          <div className={styles.purchaseModes}>
+                            {sizeOption.purchaseModes.map((mode) => {
+                              const checked =
+                                (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
+                                mode.id;
+
+                              return (
+                                <label
+                                  key={mode.id}
+                                  className={styles.purchaseModeOption}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`${product.id}-${sizeOption.id}-purchase-mode`}
+                                    checked={checked}
+                                    disabled={slideMode === "browse" ? !selected : false}
+                                    onChange={() =>
+                                      onSetPurchaseMode(
+                                        product.id,
+                                        sizeOption.id,
+                                        mode.id
+                                      )
+                                    }
+                                  />
+                                  <span>{mode.label}</span>
+                                  {mode.priceAdjustment !== 0 ? (
+                                    <span className={styles.purchaseModePrice}>
+                                      {mode.priceAdjustment > 0 ? "+" : ""}
+                                      {formatCurrency(
+                                        mode.priceAdjustment,
+                                        catalog.currencyCode
+                                      )}
+                                    </span>
+                                  ) : null}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+
+                        {slideMode === "review" ? (
+                          <div className={styles.reviewMetaRow}>
+                            {sizeOption.weight !== undefined ? (
+                              <span>
+                                Weight:{" "}
+                                {formatWeight(
+                                  sizeOption.weight * quantity,
+                                  catalog.weightUnit
+                                )}
+                              </span>
+                            ) : null}
+                            <span>
+                              Line total:{" "}
+                              {formatCurrency(
+                                unitPrice * quantity,
+                                catalog.currencyCode
+                              )}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+
+      {slideMode === "review" ? (
+        <div className={styles.reviewTotals}>
+          <div>
+            Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function QuantityControl({
+  quantity,
+  disabled,
+  onDecrease,
+  onIncrease,
+  theme,
+}: {
+  quantity: number;
+  disabled: boolean;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  theme: ThemeConfig;
+}) {
+  return (
+    <div className={styles.quantityControl}>
+      <button
+        type="button"
+        disabled={disabled || quantity <= 1}
+        onClick={onDecrease}
+        className={styles.quantityButton}
+        style={{ borderColor: theme.colors.border }}
+      >
+        -
+      </button>
+      <span className={styles.quantityValue}>{quantity}</span>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onIncrease}
+        className={styles.quantityButton}
+        style={{ borderColor: theme.colors.border }}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 function FormFieldRenderer({
   field,
   theme,
@@ -848,8 +1808,8 @@ function FormFieldRenderer({
   field: FormField;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
-  variables?: Record<string, string | number>;
-  setAnswer: (key: string, value: string | number | boolean) => void;
+  variables?: QuestionnaireVariableMap;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
 }) {
   const resolvedLabel =
     replaceDynamicText(field.label, answers, variables) ?? field.label;
@@ -1095,7 +2055,7 @@ function renderSections(
   theme: ThemeConfig,
   answers: QuestionnaireAnswers,
   storeAs: string | undefined,
-  setAnswer: (key: string, value: string | number | boolean) => void
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void
 ) {
   if (!sections?.length) return null;
 
@@ -1205,18 +2165,18 @@ function renderSections(
 function replaceDynamicText(
   value: string | undefined,
   answers: QuestionnaireAnswers,
-  variables?: Record<string, string | number>
+  variables?: QuestionnaireVariableMap
 ): string | undefined {
   if (value === undefined) return undefined;
 
   const resolveValueByKey = (key: string): string | undefined => {
     const answerValue = answers[key];
-    if (answerValue !== undefined && answerValue !== null) {
+    if (isDisplayTokenValue(answerValue)) {
       return String(answerValue);
     }
 
     const variableValue = variables?.[key];
-    if (variableValue !== undefined && variableValue !== null) {
+    if (isDisplayTokenValue(variableValue)) {
       return String(variableValue);
     }
 
@@ -1281,4 +2241,30 @@ function hasRenderableSections(sections: SlideSection[] | undefined) {
   if (!sections?.length) return false;
 
   return sections.some((section) => section.type !== "break");
+}
+
+function isDisplayTokenValue(
+  value: QuestionnaireVariableValue | undefined
+): value is PrimitiveValue {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
+function formatCurrency(amount: number, currencyCode = "USD") {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currencyCode} ${amount.toLocaleString()}`;
+  }
+}
+
+function formatWeight(weight: number, weightUnit = "lb") {
+  return `${weight.toLocaleString()} ${weightUnit}`;
 }

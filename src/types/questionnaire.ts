@@ -1,6 +1,135 @@
 export type PrimitiveValue = string | number | boolean;
 
-export type QuestionnaireVariables = Record<string, string | number>;
+export interface QuestionnaireVariableMap {
+  [key: string]: QuestionnaireVariableValue;
+}
+
+export type QuestionnaireVariableValue =
+  | PrimitiveValue
+  | null
+  | QuestionnaireVariableMap
+  | QuestionnaireVariableValue[];
+  
+export type ShopPurchaseMode = {
+  id: string;
+  label: string;
+  priceAdjustment: number;
+};
+
+export type ShopCatalogSizeOption = {
+  id: string;
+  label: string;
+  price: number;
+  weight?: number;
+  purchaseModes?: ShopPurchaseMode[];
+};
+
+export type ShopCatalogProduct = {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  description?: string;
+  sizeOptions: ShopCatalogSizeOption[];
+};
+
+export type ShopCatalog = {
+  currencyCode?: string;
+  weightUnit?: string;
+  products: ShopCatalogProduct[];
+};
+
+export type ShopMode = "browse" | "review";
+
+export type ShopCartLine = {
+  productId: string;
+  sizeOptionId: string;
+  selected: boolean;
+  quantity: number;
+  purchaseModeId?: string;
+};
+
+export type ShopCart = Record<string, ShopCartLine>;
+
+export type ShopResolvedCartLine = {
+  lineKey: string;
+  productId: string;
+  productTitle: string;
+  productImageUrl?: string;
+  sizeOptionId: string;
+  sizeLabel: string;
+  quantity: number;
+  purchaseModeId?: string;
+  purchaseModeLabel?: string;
+  unitPrice: number;
+  lineTotal: number;
+  unitWeight?: number;
+  lineWeight?: number;
+};
+
+export type DeliveryCountryCode = "JM" | "US" | "CA" | "AE";
+
+export type DeliveryRegionOption = {
+  code: string;
+  label: string;
+};
+
+export type StablePickupLocation = {
+  id: string;
+  label: string;
+  parishOrRegion: string;
+  countryCode: DeliveryCountryCode;
+  nextVisitDate: string;
+  pickupWindowLabel: string;
+  notes?: string;
+};
+
+export type PopupShopLocation = {
+  id: string;
+  label: string;
+  parishOrRegion: string;
+  countryCode: DeliveryCountryCode;
+  eventDate: string;
+  eventDateLabel: string;
+  notes?: string;
+};
+
+export type DeliveryZoneRate = {
+  countryCode: DeliveryCountryCode;
+  regionCode: string;
+  regionLabel: string;
+  feeJmd: number;
+  notes?: string;
+};
+
+export type DeliveryConfig = {
+  countries: Array<{
+    code: DeliveryCountryCode;
+    label: string;
+  }>;
+  regionOptions: Record<DeliveryCountryCode, DeliveryRegionOption[]>;
+  stablePickupLocations: StablePickupLocation[];
+  popupShopLocations: PopupShopLocation[];
+  deliveryZoneRates: DeliveryZoneRate[];
+};
+
+export type DeliveryMethod =
+  | "pickup_stable"
+  | "pickup_popup"
+  | "delivery";
+
+export type DeliverySelection = {
+  method?: DeliveryMethod;
+  stablePickupLocationId?: string;
+  popupShopLocationId?: string;
+  countryCode?: DeliveryCountryCode;
+  regionCode?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  apartmentOrUnit?: string;
+  cityOrTown?: string;
+  postalCode?: string;
+  deliveryFeeJmd?: number;
+};
 
 export type Option = {
   label: string;
@@ -75,7 +204,9 @@ export type SlideType =
   | "story"
   | "form"
   | "video"
-  | "media";
+  | "media"
+  | "shop"
+  | "delivery";
 
 export type Slide = {
   id: string;
@@ -117,6 +248,14 @@ export type Slide = {
   pageBackgroundSize?: string;
   pageBackgroundPosition?: string;
   cardOpacity?: number;
+  catalogKey?: string;
+  shopMode?: ShopMode;
+  deliveryGoto?: string;
+  reviewGoto?: string;
+  deliveryConfigKey?: string;
+  completionCheck?: "contact";
+  gotoIfComplete?: string;
+  gotoIfIncomplete?: string;
 };
 
 export type ThemeConfig = {
@@ -148,12 +287,13 @@ export type QuestionnaireConfig = {
   name: string;
   themeKey: string;
   slides: Slide[];
-  variables?: QuestionnaireVariables;
+  variables?: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
 };
 
-export type QuestionnaireAnswers = Record<string, PrimitiveValue>;
+export type QuestionnaireAnswerValue = QuestionnaireVariableValue;
+export type QuestionnaireAnswers = Record<string, QuestionnaireAnswerValue>;
 
 export type LeadFormData = {
   fullName: string;
@@ -198,6 +338,14 @@ export type ParsedSlideDraft = {
   pageBackgroundSize?: string;
   pageBackgroundPosition?: string;
   cardOpacity?: number;
+  catalogKey?: string;
+  shopMode?: ShopMode;
+  deliveryGoto?: string;
+  reviewGoto?: string;
+  deliveryConfigKey?: string;
+    completionCheck?: "contact";
+  gotoIfComplete?: string;
+  gotoIfIncomplete?: string;
 };
 
 export type ParsedQuestionnaireDocument = {
