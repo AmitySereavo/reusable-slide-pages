@@ -130,54 +130,6 @@ BR
 @goto: delivery-options
 
 ===
-// SWITCH OFFER
-@id: switch-offer
-@type: content
----
-[c2] Before you enter your contact details,
-BR
-## you now have the
-## [c1] opportunity
-[c2] to
-# [c1] Switch
-[c2] your
-# [c1] [mainPlantName] seed
-## for another type of
-## plant seed.
-BR
-## [c1] Do you want to switch?
-[c2] (This is your one and only chance).
----
-@choices:
-- change-plant|Change plant|switch-seed-form|c2
-- keep-my-plant|Keep my plant|contact-details|primary
-@back: Back
-@shownext: false
-
-===
-// SWITCH SEED CHOICES
-@id: switch-seed-form
-@type: content
----
-BR
-# Choose the seed
-# you would rather get.
-BR
-## Select the one
-## you want us
-## to grow for you.
-BR
----
-@choices:
-- switch-plant-1|[switchPlant1Name]|contact-details|c1
-- switch-plant-2|[switchPlant2Name]|contact-details|c1
-- switch-plant-3|[switchPlant3Name]|contact-details|c1
-- switch-plant-4|[switchPlant4Name]|contact-details|c1
-- keep-main-plant|No, keep my [mainPlantName] seed|contact-details|c3
-@back: Back
-@shownext: false
-
-===
 // CONTACT DETAILS
 @id: contact-details
 @type: form

@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, media-rich slide flows, lightweight storefront flows, and delivery / pickup selection flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, isolated custom business-logic modules, database-backed questionnaire content, database-backed shop catalog loading, config-backed delivery data, and pre-parse DSL template resolution for richer content injection.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, media-rich slide flows, lightweight storefront flows, promotion-driven questionnaire offers, and delivery / pickup selection flows. The system supports multiple questionnaires through a shared parser, shared renderer, slug-based registry system, optional questionnaire-specific dynamic variable endpoints, isolated custom business-logic modules, database-backed questionnaire content, database-backed shop catalog loading, config-backed delivery data, pre-parse DSL template resolution for richer content injection, and a reusable discount layer that can be activated from URL parameters or questionnaire-linked promotion logic.
 
 ## Current stack
 
@@ -40,6 +40,10 @@ This makes it possible to:
 - support plain `.txt` DSL files instead of TS string exports
 - support reusable shop slides backed by structured catalog data
 - support reusable delivery slides backed by config or DB-provided delivery data
+- support reusable order review flows
+- support reusable discount definitions that affect shop and review totals
+- support questionnaire-paired promotional items selected from real inventory
+- support URL-driven discount and promo-item selection
 
 ## Current architecture
 
@@ -90,12 +94,15 @@ Route:
 
 ### `seed`
 
-A seed-claim / plant-growth / follow-up funnel that now also supports:
+A seed / plant-growth / follow-up funnel that now also supports:
 
 - DB-backed shop catalog rendering
 - reusable shop selection slides
 - reusable delivery / pickup slides
 - review flow for cart, delivery, and contact info
+- URL-driven discounts
+- questionnaire-paired promotion items selected from inventory
+- promotion-closed fallback when no eligible promo items remain
 
 Route:
 
@@ -107,15 +114,16 @@ Route:
 
 The seed flow is now database-backed for plant and shop content.
 
-Instead of using config files as the source of truth for plants, the flow now reads from plant tables and builds questionnaire variables from the database.
+Instead of using config files as the source of truth for plants, the flow reads from plant tables and builds questionnaire variables from the database.
 
 Recommended responsibilities:
 
 - database stores plant identity, availability, questionnaire blocks, shop size options, and marketing content
-- a seed campaign helper queries featured and switch-eligible plants
+- a seed campaign helper queries featured and eligible campaign plants
 - a plant shop helper queries purchasable shop plants and maps them to `shopCatalog`
 - the registry loads the `.txt` DSL file
 - the registry resolves template variables before parsing
+- the registry injects discount definitions, promotion flags, and promo-eligible item data
 - the shared parser and shell render the result
 
 ### Current seed data flow
@@ -131,24 +139,82 @@ database
 → /questionnaire/seed
 ```
 
-### Featured plant logic
+### Campaign plant logic
 
-The featured plant is selected from plants that are:
+Campaign plants are selected from plants that are:
 
 - active
 - claim eligible
 - available in quantity
-- optionally marked as featured
 
-### Switch plant logic
+The featured plant is selected from that list by:
 
-Switch plants are selected from plants that are:
+- first preferring a plant marked as featured
+- otherwise falling back to the first available campaign plant
 
-- active
-- claim eligible
-- switch eligible
-- available in quantity
-- not the currently featured plant
+### Promo eligible item logic
+
+The registry builds `promoEligibleItems` by intersecting:
+
+- campaign plants returned by `getSeedCampaignData.ts`
+- products that actually exist in the live in-stock shop catalog returned by `getPlantShopCatalog.ts`
+
+This means:
+
+- sold-out items naturally drop out
+- non-purchasable items do not get paired to the questionnaire
+- the questionnaire can default to the first valid eligible item
+- a URL item param can request a specific eligible item by slug
+- if no eligible promo items remain, the flow can route to a promotion-closed slide
+
+## Discount system
+
+The project now includes a reusable discount layer.
+
+Current capabilities:
+
+- URL-based discount activation through query params
+- questionnaire-linked promotion discount logic
+- order-wide percentage discounts
+- order-wide fixed-amount discounts
+- product-scoped discounts
+- size-option-scoped discounts
+- discounted line totals on review
+- discounted grand total including delivery
+- review rendering of discount labels and discount totals
+
+### Current discount activation sources
+
+The current shell can activate discounts from:
+
+- `?discount=CODE`
+- `?promo=CODE`
+- `?code=CODE`
+
+For the seed questionnaire, the shell can also build a questionnaire promotion discount automatically when:
+
+- a paired promo item exists
+- the customer has entered a phone number
+
+Current note:
+
+- this is only gated by phone-number entry right now
+- verified-phone requirements are intended to be added later when the reusable auth / lead system is mounted on top
+
+### Current promotion item selection sources
+
+The current shell can choose a paired questionnaire promo item from URL params:
+
+- `?item=slug`
+- `?plant=slug`
+- `?promoItem=slug`
+
+Behavior:
+
+- if no promo item slug is supplied, the first eligible item is used
+- if a slug is supplied and matches an eligible item, that item is used
+- if the slug is not eligible, the first eligible item is used
+- if the eligible list is empty, the flow can route to a closed-promotion slide
 
 ## DSL file format
 
@@ -218,6 +284,7 @@ and do not surround them with backticks.
 - `@completioncheck:`
 - `@gotoifcomplete:`
 - `@gotoifincomplete:`
+- `@contactmode:`
 
 ## Supported slide types
 
@@ -242,6 +309,7 @@ The reusable `shop` slide type is designed around:
 - optional purchase modes per size row
 - live cart total on the bottom action button
 - review mode that shows selected rows only
+- discount-aware review totals
 
 ### Shop data shape
 
@@ -252,6 +320,8 @@ High-level shape:
 - `currencyCode`
 - `weightUnit`
 - `products[]`
+- `products[].id`
+- optional `products[].slug`
 - `products[].sizeOptions[]`
 - optional `products[].sizeOptions[].purchaseModes[]`
 
@@ -260,7 +330,9 @@ High-level shape:
 Browse mode:
 
 - product panel shows image + title
-- tapping `See cost` expands the panel
+
+- tapping `See details` expands the panel
+
 - expanded rows show:
   - checkbox
   - size label
@@ -268,6 +340,7 @@ Browse mode:
   - quantity adjustment
 
 - optional purchase mode radio choices appear per size row
+
 - total updates live
 
 Review mode:
@@ -275,11 +348,14 @@ Review mode:
 - only selected rows render
 - remove button replaces checkbox
 - weight is shown on review only
+- line discount metadata can appear on review
+- delivery fee is included in the final total
+- discount total is included in the final total
 - total order weight is shown on review only
 
 ### Current shop catalog source
 
-The `seed` questionnaire now injects `shopCatalog` through:
+The `seed` questionnaire injects `shopCatalog` through:
 
 ```txt
 src/lib/plants/getPlantShopCatalog.ts
@@ -290,6 +366,13 @@ That helper reads from:
 - `Plant`
 - `PlantShopSizeOption`
 - `PlantShopSizeOptionPurchaseMode`
+
+It only includes items that are:
+
+- active
+- visible in the plant shop
+- purchasable
+- backed by at least one active size option with stock available
 
 ## Delivery slide architecture
 
@@ -341,7 +424,9 @@ For delivery:
   - UAE
 
 - region list changes by selected country
+
 - address fields are collected
+
 - delivery fee is calculated from selected country + region
 
 ### Contact skip / completion behavior
@@ -366,7 +451,7 @@ Current contact rules:
 
 ### Review page behavior
 
-The review stage now supports:
+The review stage currently supports:
 
 - order summary
 - delivery / pickup summary
@@ -374,6 +459,37 @@ The review stage now supports:
 - adjust links that route back to:
   - `delivery-options`
   - `contact-details`
+
+## Promotion flow behavior in `seed`
+
+At the current repo state, the seed DSL includes:
+
+- intro content
+- seed reveal content
+- plant info content
+- updates intro
+- care tips
+- pickup / delivery intro step
+- lead/contact capture
+- delivery selection
+- order contact details
+- review order
+- confirmation message
+- promotion-closed fallback
+- plant collection policy
+- plant shop
+
+Current flow notes:
+
+- `pickup-location` is now a content step that sends the user to `delivery-options`
+- `contact-details` uses `@when:` rules to route either to:
+  - `promotion-closed`
+  - `review-order`
+
+- the review slide uses the shared `shop` renderer in review mode
+- the review slide currently routes to `confirmation-message`
+- `promotion-closed` offers a path to visit the store
+- some older slides such as `switch-offer` and `switch-seed-form` still exist in the DSL file, but the newer flow no longer depends on them
 
 ## Line-level color support
 
@@ -519,7 +635,7 @@ Field line format:
 @next: Checkout
 
 # [c1] Choose your plants
-[c3] Tap a product to see sizes and cost.
+[c3] Tap a product to see sizes and details.
 ```
 
 ### 6. Delivery slide with contact skip behavior
@@ -550,10 +666,10 @@ Field line format:
 @catalog: shopCatalog
 @shopmode: review
 @back: Back
-@next: Pay now
+@next: Continue
 
 # [c1] Review your order
-[c3] Check your selected items before payment.
+[c3] Check your selected items before confirmation.
 ```
 
 ### 8. Placeholder usage
@@ -787,12 +903,17 @@ Do not prefix them with `public/` in the DSL.
 - dynamic questionnaire variables can be loaded from questionnaire-specific endpoints without polluting the shared parser
 - slide-level page backgrounds can override the outer page wrapper
 - slide-level card opacity can override card background transparency
-- the `seed` flow can promote one featured plant while exposing alternate campaign plants
-- the `seed` flow reads featured and switch plants from the database
 - the system loads questionnaire DSL from `.txt` files
 - the system supports DB-backed shop catalog rendering
 - the system supports reusable delivery / pickup selection slides
 - the review flow can surface delivery and contact summaries with adjust links
+- discount codes can be applied from URL params
+- review totals can include both discount and delivery fee
+- the seed flow can pair to a real inventory-backed promotional item
+- the seed flow can auto-seed a paired item into `orderCart` when the order is empty
+- the seed flow can fall back to a promotion-closed screen if no eligible promotional items remain
+- the seed flow can activate a questionnaire promotion discount after phone number entry
+- future verified-phone discount gating is intended to be layered in later through the reusable auth / lead system
 
 ## Adding a new questionnaire project
 
@@ -947,7 +1068,7 @@ src/lib/questionnaire/delivery.ts
 
 ## Plant catalog database direction
 
-The plant side of the system is now intended to be the source of truth for plant-related flows.
+The plant side of the system is intended to be the source of truth for plant-related flows.
 
 Current DB-backed plant responsibilities include:
 
@@ -1025,6 +1146,8 @@ src/
   config/
     delivery/
       deliveryConfig.ts
+    discounts/
+      discountDefinitions.ts
     questionnaires/
       gardenHerbsDsl.txt
       registry.ts
@@ -1075,6 +1198,10 @@ For `seed`, this is also the place that loads:
 - DB-backed campaign variables
 - DB-backed `shopCatalog`
 - config-backed `deliveryConfig`
+- shared `discountDefinitions`
+- `promoEligibleItems`
+- promotion availability flags
+- promotion discount settings
 - active DSL version
 
 ### `src/config/questionnaires/seedDslVersions.ts`
@@ -1087,21 +1214,22 @@ Use this when you want `/questionnaire/seed` to keep the same route while switch
 
 Builds the variables for the active seed campaign from the database.
 
-Recommended responsibilities:
+Current responsibilities:
 
 - choose the featured plant
-- choose the alternate switch plants
+- build `campaignPlants`
 - expose the values needed by the DSL template and runtime renderer
 
 ### `src/lib/plants/getPlantShopCatalog.ts`
 
 Builds the shared `shopCatalog` object from plant shop tables.
 
-Recommended responsibilities:
+Current responsibilities:
 
 - query visible, purchasable plants
-- include active size options
+- include active in-stock size options
 - include optional purchase modes
+- include product slug for URL-based promo-item matching
 - map DB records to the generic shop catalog shape used by the shared renderer
 
 ### `src/config/delivery/deliveryConfig.ts`
@@ -1115,6 +1243,12 @@ Development-time config source for:
 - delivery rates
 
 This can later be replaced by DB-backed logic without changing delivery slide behavior.
+
+### `src/config/discounts/discountDefinitions.ts`
+
+Current config source for reusable discount definitions.
+
+This is where general discount codes such as URL-applied codes are defined.
 
 ### `src/lib/questionnaire/loadDslText.ts`
 
@@ -1151,17 +1285,21 @@ Parses the custom DSL into structured slide data, including:
 - shop directives
 - delivery directives
 - conditional completion-check routing directives
+- contact mode directives
 
 ### `src/lib/questionnaire/shop.ts`
 
 Shared helpers for:
 
 - catalog normalization
+- discount definition normalization
+- discount lookup by code
 - cart normalization
 - line selection
 - purchase mode selection
 - quantity updates
-- cart total calculation
+- line discount application
+- discounted order summary calculation
 - total weight calculation
 
 ### `src/lib/questionnaire/delivery.ts`
@@ -1175,7 +1313,7 @@ Shared helpers for:
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, step counter, action runner, media renderer, shop renderer, delivery renderer, review-summary renderer, and slide-level visual override handler.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, dynamic variable loader, URL discount reader, promotion-item selector, seeded promo-item cart initializer, step counter, action runner, media renderer, shop renderer, delivery renderer, review-summary renderer, and slide-level visual override handler.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
@@ -1284,6 +1422,15 @@ http://localhost:3000/questionnaire/garden-herbs
 http://localhost:3000/questionnaire/seed
 ```
 
+Examples for the seed questionnaire:
+
+```txt
+http://localhost:3000/questionnaire/seed
+http://localhost:3000/questionnaire/seed?discount=WELCOME25
+http://localhost:3000/questionnaire/seed?item=peppermint
+http://localhost:3000/questionnaire/seed?item=rosemary&discount=WELCOME25
+```
+
 ## Deployment notes
 
 For Vercel deployments:
@@ -1296,3 +1443,18 @@ For Vercel deployments:
 - set `SELF_TRUST_STATS_MODE` to `real` or `synthetic` depending on the behavior you want
 - commit static assets in `public/` when they are part of the experience
 - the project uses `postinstall` to generate Prisma Client during install
+
+## Current project direction
+
+This repository is currently focused on:
+
+**A reusable slide-based questionnaire system with a shared DSL engine, media support, DB-backed plant catalog content, reusable shop and delivery flows, and a discount-aware promotion layer for questionnaire-linked storefront offers.**
+
+Practical direction:
+
+- keep the shared questionnaire shell generic
+- keep questionnaire-specific business rules outside the parser where possible
+- treat the shop, delivery, review, and discount layers as reusable platform capabilities
+- use real inventory-backed items for questionnaire promotions
+- use URL params for discount and paired-item selection where appropriate
+- layer verified phone/email discount eligibility later through the reusable auth + lead system
