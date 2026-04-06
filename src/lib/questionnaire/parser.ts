@@ -100,23 +100,23 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       continue;
     }
 
-            if (line.startsWith("@completioncheck:")) {
-        draft.completionCheck = readValue(
-          line,
-          "@completioncheck:"
-        ) as ParsedSlideDraft["completionCheck"];
-        continue;
-      }
+    if (line.startsWith("@completioncheck:")) {
+      draft.completionCheck = readValue(
+        line,
+        "@completioncheck:"
+      ) as ParsedSlideDraft["completionCheck"];
+      continue;
+    }
 
-      if (line.startsWith("@gotoifcomplete:")) {
-        draft.gotoIfComplete = readValue(line, "@gotoifcomplete:");
-        continue;
-      }
+    if (line.startsWith("@gotoifcomplete:")) {
+      draft.gotoIfComplete = readValue(line, "@gotoifcomplete:");
+      continue;
+    }
 
-      if (line.startsWith("@gotoifincomplete:")) {
-        draft.gotoIfIncomplete = readValue(line, "@gotoifincomplete:");
-        continue;
-      }
+    if (line.startsWith("@gotoifincomplete:")) {
+      draft.gotoIfIncomplete = readValue(line, "@gotoifincomplete:");
+      continue;
+    }
 
     if (line.startsWith("@backwhen:")) {
       inBackWhenBlock = true;
@@ -210,6 +210,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
       if (line.startsWith("@deliveryconfig:")) {
         draft.deliveryConfigKey = readValue(line, "@deliveryconfig:");
+        continue;
+      }
+
+      if (line.startsWith("@contactmode:")) {
+        draft.contactMode = readValue(line, "@contactmode:") as ParsedSlideDraft["contactMode"];
         continue;
       }
 
@@ -465,6 +470,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     completionCheck: draft.completionCheck,
     gotoIfComplete: draft.gotoIfComplete,
     gotoIfIncomplete: draft.gotoIfIncomplete,
+    contactMode: draft.contactMode,
   };
 
   if (draft.feature?.type === "numberscale") {

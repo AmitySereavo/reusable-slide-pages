@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import styles from "./QuestionnaireShell.module.css";
 import {
   DeliveryConfig,
   DeliverySelection,
+  DiscountDefinition,
+  DiscountedOrderSummary,
   FormField,
   PrimitiveValue,
   QuestionnaireAnswers,
@@ -18,24 +21,31 @@ import {
   SlideRouteRule,
   SlideSection,
   ThemeConfig,
+  PromotionEligibleItem,
 } from "@/types/questionnaire";
+
 import {
   getSlideIndexById,
   getVisibleSlides,
 } from "@/lib/questionnaire/engine";
+
 import {
+  applyDiscountToShopLines,
   findShopSizeOption,
   getDefaultPurchaseModeId,
-  getShopCartTotal,
+  getDiscountDefinitionByCode,
   getShopCartTotalWeight,
   getShopCatalog,
+  normalizeDiscountDefinitions,
   normalizeShopCart,
   removeShopLine,
   resolveShopSelectedLines,
   setShopLinePurchaseMode,
   setShopLineQuantity,
+  summarizeDiscountedOrder,
   toggleShopLineSelected,
 } from "@/lib/questionnaire/shop";
+
 import {
   getDeliveryConfig,
   getDeliveryFeeJmd,
@@ -53,8 +63,6 @@ type ResolvedButtonStyle = {
   color: string;
   borderColor: string;
 };
-
-
 
 function hexToRgb(hex: string) {
   const clean = hex.replace("#", "").trim();
@@ -169,6 +177,87 @@ function isContactInfoComplete(
   return phone.length > 0 || email.length > 0;
 }
 
+function normalizePromotionEligibleItems(
+  value: QuestionnaireVariableValue | undefined
+): PromotionEligibleItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, QuestionnaireVariableValue>;
+
+      const productId =
+        typeof record.productId === "string" ? record.productId : undefined;
+      const slug =
+        typeof record.slug === "string" ? record.slug.trim().toLowerCase() : undefined;
+      const label =
+        typeof record.label === "string" ? record.label : undefined;
+
+      if (!productId || !slug || !label) {
+        return null;
+      }
+
+      return {
+        productId,
+        slug,
+        label,
+      };
+    })
+    .filter(Boolean) as PromotionEligibleItem[];
+}
+
+function resolvePromotionItem(
+  items: PromotionEligibleItem[],
+  requestedSlug: string
+) {
+  if (!items.length) {
+    return null;
+  }
+
+  if (!requestedSlug) {
+    return items[0];
+  }
+
+  return (
+    items.find((item) => item.slug === requestedSlug.trim().toLowerCase()) ??
+    items[0]
+  );
+}
+
+function buildPromotionDiscountDefinition(
+  productId: string | undefined,
+  label: string | undefined,
+  percent: number | undefined,
+  enabled: boolean
+): DiscountDefinition | null {
+  if (!enabled || !productId) {
+    return null;
+  }
+
+  const amount =
+    typeof percent === "number" && Number.isFinite(percent) ? percent : 100;
+
+  return {
+    code: "QUESTIONNAIRE_PROMO",
+    label: label?.trim() || "Questionnaire promotion",
+    active: true,
+    type: "percentage",
+    scope: "product",
+    amount,
+    productIds: [productId],
+  };
+}
+
+function hasPhoneNote() {
+  return " (applies after phone number is entered)";
+}
+
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -179,6 +268,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     useState(false);
 
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
+  const searchParams = useSearchParams();
 
   const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
     {}
@@ -190,6 +280,84 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       ...dynamicVariables,
     }),
     [config.variables, dynamicVariables]
+  );
+
+  const discountDefinitions = useMemo<DiscountDefinition[]>(
+    () => normalizeDiscountDefinitions(mergedVariables, "discountDefinitions"),
+    [mergedVariables]
+  );
+
+  const requestedDiscountCode = useMemo(() => {
+    const raw =
+      searchParams.get("discount") ??
+      searchParams.get("promo") ??
+      searchParams.get("code") ??
+      "";
+
+    return raw.trim().toUpperCase();
+  }, [searchParams]);
+
+  const requestedPromotionSlug = useMemo(() => {
+    const raw =
+      searchParams.get("item") ??
+      searchParams.get("plant") ??
+      searchParams.get("promoItem") ??
+      "";
+
+    return raw.trim().toLowerCase();
+  }, [searchParams]);
+
+  const promotionEligibleItems = useMemo<PromotionEligibleItem[]>(
+    () => normalizePromotionEligibleItems(mergedVariables.promoEligibleItems),
+    [mergedVariables.promoEligibleItems]
+  );
+
+  const selectedPromotionItem = useMemo(
+    () => resolvePromotionItem(promotionEligibleItems, requestedPromotionSlug),
+    [promotionEligibleItems, requestedPromotionSlug]
+  );
+
+  const hasPromotionPhone = useMemo(
+    () => String(answers.phone ?? "").trim().length > 0,
+    [answers.phone]
+  );
+
+  const promotionDiscountDefinition = useMemo(
+    () =>
+      buildPromotionDiscountDefinition(
+        selectedPromotionItem?.productId,
+        typeof mergedVariables.promotionDiscountLabel === "string"
+          ? mergedVariables.promotionDiscountLabel
+          : undefined,
+        typeof mergedVariables.promotionDiscountPercent === "number"
+          ? mergedVariables.promotionDiscountPercent
+          : undefined,
+        hasPromotionPhone
+      ),
+    [
+      selectedPromotionItem,
+      mergedVariables.promotionDiscountLabel,
+      mergedVariables.promotionDiscountPercent,
+      hasPromotionPhone,
+    ]
+  );
+
+  const activeDiscountCode = useMemo(
+    () =>
+      typeof answers.appliedDiscountCode === "string"
+        ? answers.appliedDiscountCode.trim().toUpperCase()
+        : "",
+    [answers.appliedDiscountCode]
+  );
+
+    const urlDiscountDefinition = useMemo(
+    () => getDiscountDefinitionByCode(discountDefinitions, activeDiscountCode),
+    [discountDefinitions, activeDiscountCode]
+  );
+
+  const activeDiscountDefinition = useMemo(
+    () => urlDiscountDefinition ?? promotionDiscountDefinition,
+    [urlDiscountDefinition, promotionDiscountDefinition]
   );
 
   const evaluationContext = useMemo(
@@ -290,7 +458,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [answers, currentSlide]
   );
 
-  const currentShopSelectedLines = useMemo<ShopResolvedCartLine[]>(
+  const currentShopBaseSelectedLines = useMemo<ShopResolvedCartLine[]>(
     () =>
       currentSlide?.type === "shop"
         ? resolveShopSelectedLines(currentShopCatalog, currentShopCart)
@@ -298,12 +466,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentSlide, currentShopCatalog, currentShopCart]
   );
 
-  const currentShopSubtotal = useMemo(
+  const currentShopSelectedLines = useMemo<ShopResolvedCartLine[]>(
     () =>
-      currentSlide?.type === "shop"
-        ? getShopCartTotal(currentShopCatalog, currentShopCart)
-        : 0,
-    [currentSlide, currentShopCatalog, currentShopCart]
+      currentSlide?.type === "shop" && currentSlide.storeAs === "orderCart"
+        ? applyDiscountToShopLines(
+            currentShopBaseSelectedLines,
+            activeDiscountDefinition
+          )
+        : currentShopBaseSelectedLines,
+    [currentSlide, currentShopBaseSelectedLines, activeDiscountDefinition]
+  );
+
+  const currentShopSubtotal = useMemo(
+    () => currentShopSelectedLines.reduce((sum, line) => sum + line.lineTotal, 0),
+    [currentShopSelectedLines]
   );
 
   const currentShopTotalWeight = useMemo(
@@ -338,9 +514,44 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentSlide, currentDeliveryConfig, currentDeliverySelection]
   );
 
-    const sharedDeliverySelection = useMemo<DeliverySelection>(
+  const sharedShopCatalog = useMemo(
+    () => getShopCatalog(mergedVariables, "shopCatalog"),
+    [mergedVariables]
+  );
+
+  const sharedOrderCart = useMemo<ShopCart>(
+    () => normalizeShopCart(answers.orderCart),
+    [answers.orderCart]
+  );
+
+  const sharedOrderBaseLines = useMemo<ShopResolvedCartLine[]>(
+    () => resolveShopSelectedLines(sharedShopCatalog, sharedOrderCart),
+    [sharedShopCatalog, sharedOrderCart]
+  );
+
+  const sharedOrderLines = useMemo<ShopResolvedCartLine[]>(
+    () => applyDiscountToShopLines(sharedOrderBaseLines, activeDiscountDefinition),
+    [sharedOrderBaseLines, activeDiscountDefinition]
+  );
+
+  const sharedDeliverySelection = useMemo<DeliverySelection>(
     () => normalizeDeliverySelection(answers.deliverySelection),
     [answers.deliverySelection]
+  );
+
+  const sharedDeliveryConfig = useMemo<DeliveryConfig | null>(
+    () => getDeliveryConfig(mergedVariables, "deliveryConfig"),
+    [mergedVariables]
+  );
+
+  const sharedDeliveryFee = useMemo(
+    () => getDeliveryFeeJmd(sharedDeliveryConfig, sharedDeliverySelection),
+    [sharedDeliveryConfig, sharedDeliverySelection]
+  );
+
+  const sharedOrderSummary = useMemo<DiscountedOrderSummary>(
+    () => summarizeDiscountedOrder(sharedOrderLines, sharedDeliveryFee),
+    [sharedOrderLines, sharedDeliveryFee]
   );
 
   const contactInfoComplete = useMemo(
@@ -400,6 +611,88 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     answers.futureScore,
   ]);
 
+  useEffect(() => {
+    if (!requestedDiscountCode) {
+      return;
+    }
+
+    const matchedDiscount = getDiscountDefinitionByCode(
+      discountDefinitions,
+      requestedDiscountCode
+    );
+
+    if (!matchedDiscount) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const currentCode =
+        typeof prev.appliedDiscountCode === "string"
+          ? prev.appliedDiscountCode.trim().toUpperCase()
+          : "";
+
+      if (currentCode === matchedDiscount.code) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        appliedDiscountCode: matchedDiscount.code,
+      };
+    });
+  }, [discountDefinitions, requestedDiscountCode]);
+
+    useEffect(() => {
+    if (config.slug !== "seed") {
+      return;
+    }
+
+    if (!selectedPromotionItem || !sharedShopCatalog) {
+      return;
+    }
+
+    const existingSelectedLines = resolveShopSelectedLines(
+      sharedShopCatalog,
+      sharedOrderCart
+    );
+
+    if (existingSelectedLines.length > 0) {
+      return;
+    }
+
+    const product = sharedShopCatalog.products.find(
+      (item) => item.id === selectedPromotionItem.productId
+    );
+
+    const sizeOption = product?.sizeOptions[0];
+
+    if (!product || !sizeOption) {
+      return;
+    }
+
+    const purchaseModeId = getDefaultPurchaseModeId(sizeOption);
+
+    const seededLine = {
+      productId: product.id,
+      sizeOptionId: sizeOption.id,
+      selected: true,
+      quantity: 1,
+      ...(purchaseModeId ? { purchaseModeId } : {}),
+    };
+
+    setAnswers((prev) => ({
+      ...prev,
+      orderCart: {
+        [`${product.id}::${sizeOption.id}`]: seededLine,
+      },
+    }));
+  }, [
+    config.slug,
+    selectedPromotionItem,
+    sharedShopCatalog,
+    sharedOrderCart,
+  ]);
+  
   useEffect(() => {
     setIsCurrentVerticalVideoPlaying(false);
 
@@ -566,8 +859,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         goToTarget(currentSlide.reviewGoto);
         return;
       }
-
-      
     }
 
     const conditionalTarget = resolveRouteRuleTarget(currentSlide.routeRules);
@@ -738,19 +1029,28 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   const nextLabel =
-    currentSlide.type === "shop"
-      ? `${currentSlide.nextLabel ?? (currentSlide.shopMode === "review" ? "Pay now" : "Checkout")} · ${formatCurrency(
-          currentShopSubtotal,
-          currentShopCatalog?.currencyCode
+    currentSlide.type === "shop" && currentSlide.shopMode === "review"
+      ? `${
+          sharedOrderSummary.grandTotal > 0
+            ? currentSlide.nextLabel ?? "Pay now"
+            : currentSlide.nextLabel ?? "Continue"
+        } · ${formatCurrency(
+          sharedOrderSummary.grandTotal,
+          sharedShopCatalog?.currencyCode ?? "JMD"
         )}`
-      : currentSlide.type === "delivery"
-        ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
-            currentDeliveryFee,
-            "JMD"
+      : currentSlide.type === "shop"
+        ? `${currentSlide.nextLabel ?? "Checkout"} · ${formatCurrency(
+            currentShopSubtotal,
+            currentShopCatalog?.currencyCode
           )}`
-        : isSubmitting
-          ? "Submitting..."
-          : currentSlide.nextLabel ?? "Next";
+        : currentSlide.type === "delivery"
+          ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
+              sharedOrderSummary.subtotal + currentDeliveryFee,
+              sharedShopCatalog?.currencyCode ?? "JMD"
+            )}`
+          : isSubmitting
+            ? "Submitting..."
+            : currentSlide.nextLabel ?? "Next";
 
   return (
     <main
@@ -872,8 +1172,35 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                             slideMode={currentSlide.shopMode ?? "browse"}
                             catalog={currentShopCatalog}
                             cart={currentShopCart}
-                            selectedLines={currentShopSelectedLines}
-                            totalWeight={currentShopTotalWeight}
+                            selectedLines={
+                              currentSlide.shopMode === "review"
+                                ? sharedOrderLines
+                                : currentShopSelectedLines
+                            }
+                            totalWeight={
+                              currentSlide.shopMode === "review"
+                                ? sharedOrderLines.reduce(
+                                    (sum, line) => sum + (line.lineWeight ?? 0),
+                                    0
+                                  )
+                                : currentShopTotalWeight
+                            }
+                            deliveryFee={
+                              currentSlide.shopMode === "review"
+                                ? sharedOrderSummary.deliveryFee
+                                : 0
+                            }
+                            discountTotal={
+                              currentSlide.shopMode === "review"
+                                ? sharedOrderSummary.discountTotal
+                                : 0
+                            }
+                            grandTotal={
+                              currentSlide.shopMode === "review"
+                                ? sharedOrderSummary.grandTotal
+                                : currentShopSubtotal
+                            }
+                            activeDiscountLabel={activeDiscountDefinition?.label}
                             theme={theme}
                             onToggleLine={(productId, sizeOptionId, selected) =>
                               updateCurrentShopCart((cart) =>
@@ -932,7 +1259,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           />
                         ) : null}
 
-                                                {currentSlide.type === "shop" &&
+                        {currentSlide.type === "shop" &&
                         currentSlide.shopMode === "review" ? (
                           <ReviewSummaryRenderer
                             answers={answers}
@@ -1041,15 +1368,27 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                   <div className={styles.orderWeightSummary}>
                     Total order weight:{" "}
                     {formatWeight(
-                      currentShopTotalWeight,
-                      currentShopCatalog?.weightUnit
+                      sharedOrderLines.reduce(
+                        (sum, line) => sum + (line.lineWeight ?? 0),
+                        0
+                      ),
+                      sharedShopCatalog?.weightUnit
                     )}
                   </div>
                 ) : null}
 
                 {currentSlide.type === "delivery" ? (
                   <div className={styles.orderWeightSummary}>
-                    Delivery fee: {formatCurrency(currentDeliveryFee, "JMD")}
+                    Items:{" "}
+                    {formatCurrency(
+                      sharedOrderSummary.subtotal,
+                      sharedShopCatalog?.currencyCode ?? "JMD"
+                    )}{" "}
+                    · Delivery: {formatCurrency(currentDeliveryFee, "JMD")} · Total:{" "}
+                    {formatCurrency(
+                      sharedOrderSummary.subtotal + currentDeliveryFee,
+                      sharedShopCatalog?.currencyCode ?? "JMD"
+                    )}
                   </div>
                 ) : null}
 
@@ -1478,6 +1817,10 @@ function ShopSlideRenderer({
   cart,
   selectedLines,
   totalWeight,
+  deliveryFee,
+  discountTotal,
+  grandTotal,
+  activeDiscountLabel,
   theme,
   onToggleLine,
   onSetQuantity,
@@ -1489,6 +1832,10 @@ function ShopSlideRenderer({
   cart: ShopCart;
   selectedLines: ShopResolvedCartLine[];
   totalWeight: number;
+  deliveryFee: number;
+  discountTotal: number;
+  grandTotal: number;
+  activeDiscountLabel?: string;
   theme: ThemeConfig;
   onToggleLine: (
     productId: string,
@@ -1581,7 +1928,7 @@ function ShopSlideRenderer({
                     color: theme.colors.text,
                   }}
                 >
-                  {isExpanded ? "Hide cost" : "See cost"}
+                  {isExpanded ? "Hide details" : "See details"}
                 </button>
               ) : null}
             </div>
@@ -1601,6 +1948,15 @@ function ShopSlideRenderer({
                   .map((sizeOption) => {
                     const lineKey = `${product.id}::${sizeOption.id}`;
                     const cartLine = cart[lineKey];
+                    const resolvedLine =
+                      slideMode === "review"
+                        ? selectedLines.find(
+                            (line) =>
+                              line.productId === product.id &&
+                              line.sizeOptionId === sizeOption.id
+                          )
+                        : undefined;
+
                     const selected =
                       slideMode === "review" ? true : cartLine?.selected === true;
                     const quantity = Math.max(1, cartLine?.quantity ?? 1);
@@ -1610,8 +1966,10 @@ function ShopSlideRenderer({
                       ) ?? sizeOption.purchaseModes?.[0];
 
                     const unitPrice =
-                      sizeOption.price +
-                      (activePurchaseMode?.priceAdjustment ?? 0);
+                      slideMode === "review"
+                        ? resolvedLine?.unitPrice ??
+                          sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
+                        : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
 
                     return (
                       <div
@@ -1663,7 +2021,28 @@ function ShopSlideRenderer({
                           <div className={styles.sizeLabel}>{sizeOption.label}</div>
 
                           <div className={styles.sizePrice}>
-                            {formatCurrency(unitPrice, catalog.currencyCode)}
+                            {resolvedLine?.baseUnitPrice !== undefined &&
+                            resolvedLine.baseUnitPrice > unitPrice ? (
+                              <div>
+                                <div
+                                  style={{
+                                    textDecoration: "line-through",
+                                    opacity: 0.6,
+                                    fontSize: "0.9em",
+                                  }}
+                                >
+                                  {formatCurrency(
+                                    resolvedLine.baseUnitPrice,
+                                    catalog.currencyCode
+                                  )}
+                                </div>
+                                <div>
+                                  {formatCurrency(unitPrice, catalog.currencyCode)}
+                                </div>
+                              </div>
+                            ) : (
+                              formatCurrency(unitPrice, catalog.currencyCode)
+                            )}
                           </div>
 
                           <QuantityControl
@@ -1679,7 +2058,7 @@ function ShopSlideRenderer({
                           />
                         </div>
 
-                        {sizeOption.purchaseModes?.length ? (
+                        {slideMode === "browse" && sizeOption.purchaseModes?.length ? (
                           <div className={styles.purchaseModes}>
                             {sizeOption.purchaseModes.map((mode) => {
                               const checked =
@@ -1695,7 +2074,7 @@ function ShopSlideRenderer({
                                     type="radio"
                                     name={`${product.id}-${sizeOption.id}-purchase-mode`}
                                     checked={checked}
-                                    disabled={slideMode === "browse" ? !selected : false}
+                                    disabled={slideMode === "browse" ? !selected : true}
                                     onChange={() =>
                                       onSetPurchaseMode(
                                         product.id,
@@ -1722,6 +2101,10 @@ function ShopSlideRenderer({
 
                         {slideMode === "review" ? (
                           <div className={styles.reviewMetaRow}>
+                            {resolvedLine?.purchaseModeLabel ? (
+                              <span>{resolvedLine.purchaseModeLabel}</span>
+                            ) : null}
+
                             {sizeOption.weight !== undefined ? (
                               <span>
                                 Weight:{" "}
@@ -1731,10 +2114,21 @@ function ShopSlideRenderer({
                                 )}
                               </span>
                             ) : null}
+
+                            {resolvedLine?.discountLabel && resolvedLine.lineDiscount ? (
+                              <span>
+                                {resolvedLine.discountLabel} · -
+                                {formatCurrency(
+                                  resolvedLine.lineDiscount,
+                                  catalog.currencyCode
+                                )}
+                              </span>
+                            ) : null}
+
                             <span>
                               Line total:{" "}
                               {formatCurrency(
-                                unitPrice * quantity,
+                                resolvedLine?.lineTotal ?? unitPrice * quantity,
                                 catalog.currencyCode
                               )}
                             </span>
@@ -1751,8 +2145,26 @@ function ShopSlideRenderer({
 
       {slideMode === "review" ? (
         <div className={styles.reviewTotals}>
+                    {activeDiscountLabel ? (
+            <div>
+              Discount: {activeDiscountLabel}
+              {String(activeDiscountLabel).toLowerCase().includes("questionnaire")
+                ? hasPhoneNote()
+                : null}
+            </div>
+          ) : null}
+          <div>
+            Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
+          </div>
+          <div>
+            Discount total: -
+            {formatCurrency(discountTotal, catalog.currencyCode)}
+          </div>
           <div>
             Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
+          </div>
+          <div style={{ fontWeight: 700 }}>
+            Total due: {formatCurrency(grandTotal, catalog.currencyCode)}
           </div>
         </div>
       ) : null}

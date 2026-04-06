@@ -1,13 +1,4 @@
-===
-// PLANT SHOP
-@id: plant-shop
-@type: shop
-@store: orderCart
-@catalog: shopCatalog
-@shopmode: browse
-@deliverygoto: delivery-options
-@reviewgoto: review-order
-@next: Checkout
+
 ===
 // INTRO
 @id: intro
@@ -123,34 +114,20 @@ BR
 @shownext: false
 
 ===
-// PICKUP LOCATION
+// PICKUP / DELIVERY STEP
 @id: pickup-location
-@type: form
+@type: content
 ---
 BR
-# [c1] Collect
-# [c1] your plant
-[c3] at one of our
-# Pop-up shops
-## or
-# [c3] Pickup locations.
+# [c1] How would you like
+# [c1] to receive
+# [c1] your free gift?
 BR
-## [c1] What location would
-## [c1] work best for you?
-BR
-@fields:
-- pickupSovereignLiguanea|checkbox|Sovereign Centre Liguanea|optional
-- pickupSovereignPortmore|checkbox|Sovereign Centre Portmore|optional
-- pickupDevonHouse|checkbox|Devon House|optional
-- wantDelivery|checkbox|Get it delivered|optional
----
-[c3] P.S. If you have already
-[c3] claimed a plant through this portal,
-[c3] you might not be able to claim another.
+[c3] Choose delivery or pickup on the next step.
 ---
 @back: Back
 @next: Continue
-@goto: switch-offer
+@goto: delivery-options
 
 ===
 // SWITCH OFFER
@@ -204,6 +181,7 @@ BR
 // CONTACT DETAILS
 @id: contact-details
 @type: form
+@contactmode: lead
 ---
 BR
 ## We will send you
@@ -222,11 +200,12 @@ BR
 - phone|tel|WhatsApp number|optional|Include country code and area code
 - whatsappOptIn|checkbox|Send me updates on WhatsApp|optional
 ---
+@when:
+- promotionClosed|eq|true|promotion-closed
+- promotionClosed|eq|false|review-order
 @run: submitLead
 @back: Back
 @next: Continue
-@goto: confirmation-message
-
 ===
 // CONFIRMATION MESSAGE
 @id: confirmation-message
@@ -251,8 +230,9 @@ BR
 # [c1] What Next?
 ---
 @choices:
-- go-plant-shop|Grow another seed|plant-shop|c1
+- go-plant-shop|Add more items to this order|plant-shop|c1
 - plant-collection-policy|Read plant collection policy|plant-collection-policy|c2
+
 @showback: false
 @shownext: false
 
@@ -274,12 +254,36 @@ BR
 @deliveryconfig: deliveryConfig
 @completioncheck: contact
 @gotoifcomplete: review-order
-@gotoifincomplete: contact-details
+@gotoifincomplete: order-contact-details
 @back: Back
 @next: Continue
 
 # [c1] Choose delivery or pickup
 [c3] Select how you want to receive your order.
+
+===
+// ORDER CONTACT DETAILS
+@id: order-contact-details
+@type: form
+@contactmode: order
+---
+BR
+## [c1] Contact details
+## for your
+# [c3] Order
+BR
+[c2] We will use these details
+[c2] for your pickup or delivery.
+BR
+@fields:
+- fullName|text|Full name|required|Full name
+- email|email|Email address|optional|Email address
+- phone|tel|Phone number|optional|Include country code and area code
+- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
+---
+@back: Back
+@next: Review order
+@goto: review-order
 
 ===
 //REVIEW ORDER
@@ -288,7 +292,26 @@ BR
 @store: orderCart
 @catalog: shopCatalog
 @shopmode: review
-@next: Pay now
+@next: Continue
+@goto: confirmation-message
+
+===
+// PROMOTION CLOSED
+@id: promotion-closed
+@type: content
+---
+# [c3] This promotion
+# [c3] is closed.
+BR
+[c2] The paired promotional item is no longer available.
+BR
+## [c1] Would you like
+## [c1] to visit the store?
+---
+@choices:
+- visit-store|Visit store|plant-shop|c1
+@back: Back
+@shownext: false
 ===
 
 // PLANT COLLECTION POLICY

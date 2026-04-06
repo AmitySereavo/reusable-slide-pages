@@ -8,6 +8,7 @@ import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
+import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 
 const activeSeedDsl = "v2";
 
@@ -66,10 +67,23 @@ export async function getQuestionnaireBySlug(slug: string) {
     const seedCampaign = await getSeedCampaignData();
     const shopCatalog = await getPlantShopCatalog();
 
+    const shopProductIds = new Set(
+      shopCatalog.products.map((product) => product.id)
+    );
+
+    const promoEligibleItems = seedCampaign.campaignPlants.filter((plant) =>
+      shopProductIds.has(plant.id)
+    );
+
     resolvedVariables = {
       ...seedCampaign.variables,
       shopCatalog,
       deliveryConfig,
+      discountDefinitions,
+      promoEligibleItems,
+      promotionClosed: promoEligibleItems.length === 0,
+      promotionDiscountPercent: 100,
+      promotionDiscountLabel: "Questionnaire promotion",
     };
   }
 

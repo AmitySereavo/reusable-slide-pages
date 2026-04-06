@@ -33,10 +33,7 @@ export async function getSeedCampaignData() {
         gt: 0,
       },
     },
-    orderBy: [
-      { claimFeatured: "desc" },
-      { updatedAt: "desc" },
-    ],
+    orderBy: [{ claimFeatured: "desc" }, { updatedAt: "desc" }],
     select: {
       id: true,
       slug: true,
@@ -55,17 +52,12 @@ export async function getSeedCampaignData() {
     },
   });
 
-  if (!plants.length) {
-    throw new Error("No claim-eligible plants are available for the seed campaign.");
-  }
-
-  const featuredPlant =
-    plants.find((plant) => plant.claimFeatured) ??
-    plants[0];
+  const featuredPlant = plants.find((plant) => plant.claimFeatured) ?? plants[0];
 
   const switchPlants = plants
     .filter(
       (plant) =>
+        featuredPlant &&
         plant.slug !== featuredPlant.slug &&
         plant.claimSwitchEligible
     )
@@ -74,10 +66,15 @@ export async function getSeedCampaignData() {
   return {
     featuredPlant,
     switchPlants,
+    campaignPlants: plants.map((plant) => ({
+      id: plant.id,
+      slug: plant.slug,
+      label: getPlantDisplayName(plant),
+    })),
     variables: {
       mainPlantName: getPlantDisplayName(featuredPlant),
-      seedRevealBlock: ensureBlock(featuredPlant.questionnaire?.seedRevealBlock),
-      plantInfoBlock: ensureBlock(featuredPlant.questionnaire?.plantInfoBlock),
+      seedRevealBlock: ensureBlock(featuredPlant?.questionnaire?.seedRevealBlock),
+      plantInfoBlock: ensureBlock(featuredPlant?.questionnaire?.plantInfoBlock),
 
       switchPlant1Name: getPlantDisplayName(switchPlants[0]),
       switchPlant2Name: getPlantDisplayName(switchPlants[1]),

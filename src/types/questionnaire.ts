@@ -1,15 +1,18 @@
 export type PrimitiveValue = string | number | boolean;
 
 export interface QuestionnaireVariableMap {
-  [key: string]: QuestionnaireVariableValue;
+  [key: string]: QuestionnaireVariableValue | undefined;
 }
+
+export type QuestionnaireAnswerValue = QuestionnaireVariableValue | undefined;
+export type QuestionnaireAnswers = Record<string, QuestionnaireAnswerValue>;
 
 export type QuestionnaireVariableValue =
   | PrimitiveValue
   | null
   | QuestionnaireVariableMap
   | QuestionnaireVariableValue[];
-  
+
 export type ShopPurchaseMode = {
   id: string;
   label: string;
@@ -26,6 +29,7 @@ export type ShopCatalogSizeOption = {
 
 export type ShopCatalogProduct = {
   id: string;
+  slug?: string;
   title: string;
   imageUrl?: string;
   description?: string;
@@ -40,12 +44,46 @@ export type ShopCatalog = {
 
 export type ShopMode = "browse" | "review";
 
+export type DiscountType = "percentage" | "fixed_amount";
+
+export type DiscountScope = "order" | "product" | "size_option";
+
+export type DiscountDefinition = {
+  code: string;
+  label: string;
+  active: boolean;
+  type: DiscountType;
+  scope: DiscountScope;
+  amount: number;
+  productIds?: string[];
+  sizeOptionIds?: string[];
+};
+
+export type DiscountedOrderSummary = {
+  subtotal: number;
+  discountTotal: number;
+  deliveryFee: number;
+  grandTotal: number;
+};
+
+export type PromotionEligibleItem = {
+  productId: string;
+  slug: string;
+  label: string;
+};
+
 export type ShopCartLine = {
   productId: string;
   sizeOptionId: string;
   selected: boolean;
   quantity: number;
   purchaseModeId?: string;
+  unitPriceOverride?: number;
+  compareAtUnitPrice?: number;
+  discountLabel?: string;
+  isComplimentaryGift?: boolean;
+  lockedQuantity?: boolean;
+  lockedPurchaseMode?: boolean;
 };
 
 export type ShopCart = Record<string, ShopCartLine>;
@@ -64,6 +102,12 @@ export type ShopResolvedCartLine = {
   lineTotal: number;
   unitWeight?: number;
   lineWeight?: number;
+  baseUnitPrice?: number;
+  baseLineTotal?: number;
+  unitDiscount?: number;
+  lineDiscount?: number;
+  discountCode?: string;
+  discountLabel?: string;
 };
 
 export type DeliveryCountryCode = "JM" | "US" | "CA" | "AE";
@@ -130,6 +174,15 @@ export type DeliverySelection = {
   postalCode?: string;
   deliveryFeeJmd?: number;
 };
+
+export type OrderContact = {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  whatsappOptIn?: boolean;
+};
+
+export type ContactMode = "lead" | "order";
 
 export type Option = {
   label: string;
@@ -256,6 +309,7 @@ export type Slide = {
   completionCheck?: "contact";
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
+  contactMode?: ContactMode;
 };
 
 export type ThemeConfig = {
@@ -292,8 +346,6 @@ export type QuestionnaireConfig = {
   showStepText?: boolean;
 };
 
-export type QuestionnaireAnswerValue = QuestionnaireVariableValue;
-export type QuestionnaireAnswers = Record<string, QuestionnaireAnswerValue>;
 
 export type LeadFormData = {
   fullName: string;
@@ -343,9 +395,10 @@ export type ParsedSlideDraft = {
   deliveryGoto?: string;
   reviewGoto?: string;
   deliveryConfigKey?: string;
-    completionCheck?: "contact";
+  completionCheck?: "contact";
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
+  contactMode?: ContactMode;
 };
 
 export type ParsedQuestionnaireDocument = {

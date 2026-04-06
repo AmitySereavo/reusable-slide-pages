@@ -112,11 +112,13 @@ export async function getPlantShopCatalog(): Promise<ShopCatalog> {
         return null;
       }
 
-      return {
+            return {
         id: plant.id,
+        slug: plant.slug,
         title: getDisplayName(plant),
         imageUrl: plant.thumbnailUrl || plant.imageUrl || undefined,
-        description: plant.marketing?.plantShopSummary || plant.description || undefined,
+        description:
+          plant.marketing?.plantShopSummary || plant.description || undefined,
         sizeOptions,
       };
     })

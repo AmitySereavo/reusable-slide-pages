@@ -1,4 +1,6 @@
 import {
+  DiscountDefinition,
+  DiscountedOrderSummary,
   QuestionnaireVariableMap,
   QuestionnaireVariableValue,
   ShopCart,
@@ -38,6 +40,193 @@ export function getShopCatalog(
     weightUnit:
       typeof record.weightUnit === "string" ? record.weightUnit : undefined,
     products,
+  };
+}
+
+export function normalizeDiscountDefinitions(
+  variables: QuestionnaireVariableMap,
+  discountKey: string | undefined
+): DiscountDefinition[] {
+  if (!discountKey) return [];
+
+  const rawValue = variables[discountKey];
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+
+  return rawValue
+    .map(normalizeDiscountDefinition)
+    .filter(Boolean) as DiscountDefinition[];
+}
+
+export function getDiscountDefinitionByCode(
+  definitions: DiscountDefinition[],
+  code: string | undefined
+): DiscountDefinition | null {
+  if (!code) return null;
+
+  const normalizedCode = code.trim().toUpperCase();
+
+  return (
+    definitions.find(
+      (definition) =>
+        definition.active && definition.code.trim().toUpperCase() === normalizedCode
+    ) ?? null
+  );
+}
+
+export function applyDiscountToShopLines(
+  lines: ShopResolvedCartLine[],
+  discount: DiscountDefinition | null
+): ShopResolvedCartLine[] {
+  if (!discount?.active || !lines.length) {
+    return lines.map((line) => ({
+      ...line,
+      baseUnitPrice: line.baseUnitPrice ?? line.unitPrice,
+      baseLineTotal: line.baseLineTotal ?? line.lineTotal,
+    }));
+  }
+
+  const eligibleLines = getEligibleLines(lines, discount);
+
+  if (!eligibleLines.length) {
+    return lines.map((line) => ({
+      ...line,
+      baseUnitPrice: line.baseUnitPrice ?? line.unitPrice,
+      baseLineTotal: line.baseLineTotal ?? line.lineTotal,
+    }));
+  }
+
+  if (discount.type === "percentage") {
+    return lines.map((line) => {
+      const isEligible = eligibleLines.some(
+        (eligible) => eligible.lineKey === line.lineKey
+      );
+
+      const baseLineTotal = line.lineTotal;
+      const baseUnitPrice = line.unitPrice;
+
+      if (!isEligible) {
+        return {
+          ...line,
+          baseUnitPrice,
+          baseLineTotal,
+        };
+      }
+
+      const lineDiscount = clampMoney(
+        roundMoney((baseLineTotal * discount.amount) / 100),
+        0,
+        baseLineTotal
+      );
+
+      const nextLineTotal = clampMoney(baseLineTotal - lineDiscount, 0, baseLineTotal);
+      const unitDiscount = roundMoney(lineDiscount / Math.max(1, line.quantity));
+      const nextUnitPrice = roundMoney(nextLineTotal / Math.max(1, line.quantity));
+
+      return {
+        ...line,
+        unitPrice: nextUnitPrice,
+        lineTotal: nextLineTotal,
+        baseUnitPrice,
+        baseLineTotal,
+        unitDiscount,
+        lineDiscount,
+        discountCode: discount.code,
+        discountLabel: discount.label,
+      };
+    });
+  }
+
+  const totalEligibleAmount = eligibleLines.reduce(
+    (sum, line) => sum + line.lineTotal,
+    0
+  );
+
+  if (totalEligibleAmount <= 0) {
+    return lines.map((line) => ({
+      ...line,
+      baseUnitPrice: line.baseUnitPrice ?? line.unitPrice,
+      baseLineTotal: line.baseLineTotal ?? line.lineTotal,
+    }));
+  }
+
+  const maxDiscount = clampMoney(discount.amount, 0, totalEligibleAmount);
+  let remainingDiscount = maxDiscount;
+  let remainingEligibleBase = totalEligibleAmount;
+
+  return lines.map((line) => {
+    const isEligible = eligibleLines.some(
+      (eligible) => eligible.lineKey === line.lineKey
+    );
+
+    const baseLineTotal = line.lineTotal;
+    const baseUnitPrice = line.unitPrice;
+
+    if (!isEligible) {
+      return {
+        ...line,
+        baseUnitPrice,
+        baseLineTotal,
+      };
+    }
+
+    const isLastEligible =
+      eligibleLines.filter((eligible) => eligible.lineKey >= line.lineKey).length === 1;
+
+    let lineDiscount = 0;
+
+    if (remainingDiscount > 0 && remainingEligibleBase > 0) {
+      if (isLastEligible) {
+        lineDiscount = remainingDiscount;
+      } else {
+        lineDiscount = roundMoney(
+          (baseLineTotal / remainingEligibleBase) * remainingDiscount
+        );
+      }
+    }
+
+    lineDiscount = clampMoney(lineDiscount, 0, baseLineTotal);
+    remainingDiscount = clampMoney(remainingDiscount - lineDiscount, 0, maxDiscount);
+    remainingEligibleBase = clampMoney(
+      remainingEligibleBase - baseLineTotal,
+      0,
+      totalEligibleAmount
+    );
+
+    const nextLineTotal = clampMoney(baseLineTotal - lineDiscount, 0, baseLineTotal);
+    const unitDiscount = roundMoney(lineDiscount / Math.max(1, line.quantity));
+    const nextUnitPrice = roundMoney(nextLineTotal / Math.max(1, line.quantity));
+
+    return {
+      ...line,
+      unitPrice: nextUnitPrice,
+      lineTotal: nextLineTotal,
+      baseUnitPrice,
+      baseLineTotal,
+      unitDiscount,
+      lineDiscount,
+      discountCode: discount.code,
+      discountLabel: discount.label,
+    };
+  });
+}
+
+export function summarizeDiscountedOrder(
+  lines: ShopResolvedCartLine[],
+  deliveryFee: number
+): DiscountedOrderSummary {
+  const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const discountTotal = lines.reduce(
+    (sum, line) => sum + (line.lineDiscount ?? 0),
+    0
+  );
+
+  return {
+    subtotal,
+    discountTotal,
+    deliveryFee,
+    grandTotal: subtotal + deliveryFee,
   };
 }
 
@@ -277,6 +466,74 @@ function resolvePurchaseMode(
   );
 }
 
+function normalizeDiscountDefinition(
+  input: QuestionnaireVariableValue
+): DiscountDefinition | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null;
+  }
+
+  const record = input as Record<string, QuestionnaireVariableValue>;
+
+  const code = typeof record.code === "string" ? record.code.trim().toUpperCase() : "";
+  const label = typeof record.label === "string" ? record.label : "";
+  const active = record.active === true;
+  const type =
+    record.type === "percentage" || record.type === "fixed_amount"
+      ? record.type
+      : undefined;
+  const scope =
+    record.scope === "order" ||
+    record.scope === "product" ||
+    record.scope === "size_option"
+      ? record.scope
+      : undefined;
+  const amount =
+    typeof record.amount === "number" && Number.isFinite(record.amount)
+      ? record.amount
+      : undefined;
+
+  const productIds = Array.isArray(record.productIds)
+    ? record.productIds.filter((value): value is string => typeof value === "string")
+    : undefined;
+
+  const sizeOptionIds = Array.isArray(record.sizeOptionIds)
+    ? record.sizeOptionIds.filter((value): value is string => typeof value === "string")
+    : undefined;
+
+  if (!code || !label || !type || !scope || amount === undefined) {
+    return null;
+  }
+
+  return {
+    code,
+    label,
+    active,
+    type,
+    scope,
+    amount,
+    productIds: productIds?.length ? productIds : undefined,
+    sizeOptionIds: sizeOptionIds?.length ? sizeOptionIds : undefined,
+  };
+}
+
+function getEligibleLines(
+  lines: ShopResolvedCartLine[],
+  discount: DiscountDefinition
+) {
+  if (discount.scope === "order") {
+    return lines;
+  }
+
+  if (discount.scope === "product") {
+    const allowedProductIds = new Set(discount.productIds ?? []);
+    return lines.filter((line) => allowedProductIds.has(line.productId));
+  }
+
+  const allowedSizeOptionIds = new Set(discount.sizeOptionIds ?? []);
+  return lines.filter((line) => allowedSizeOptionIds.has(line.sizeOptionId));
+}
+
 function normalizeShopProduct(
   input: QuestionnaireVariableValue
 ): ShopCatalogProduct | null {
@@ -384,4 +641,12 @@ function normalizePositiveInteger(value: unknown, fallback: number) {
   }
 
   return Math.max(1, Math.floor(parsed));
+}
+
+function roundMoney(value: number) {
+  return Math.round(value);
+}
+
+function clampMoney(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, roundMoney(value)));
 }
