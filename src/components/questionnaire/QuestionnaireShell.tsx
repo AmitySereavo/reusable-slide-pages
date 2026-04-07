@@ -31,7 +31,6 @@ import {
 
 import {
   applyDiscountToShopLines,
-  findShopSizeOption,
   getDefaultPurchaseModeId,
   getDiscountDefinitionByCode,
   getShopCartTotalWeight,
@@ -99,6 +98,19 @@ function withOpacity(color: string, opacity?: number) {
   if (!rgb) return color;
 
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalized})`;
+}
+
+function isTransparentColor(value?: string) {
+  if (!value) return false;
+
+  const normalized = value.trim().toLowerCase();
+
+  return (
+    normalized === "transparent" ||
+    normalized === "none" ||
+    normalized === "rgba(0,0,0,0)" ||
+    normalized === "rgba(0, 0, 0, 0)"
+  );
 }
 
 function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
@@ -350,7 +362,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [answers.appliedDiscountCode]
   );
 
-    const urlDiscountDefinition = useMemo(
+  const urlDiscountDefinition = useMemo(
     () => getDiscountDefinitionByCode(discountDefinitions, activeDiscountCode),
     [discountDefinitions, activeDiscountCode]
   );
@@ -408,9 +420,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               choice.label,
           })),
         })),
-        answers
+        evaluationContext
       ),
-    [config.slides, answers, mergedVariables, evaluationContext]
+    [config.slides, evaluationContext, mergedVariables]
   );
 
   const currentSlide = visibleSlides[currentIndex];
@@ -642,7 +654,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }, [discountDefinitions, requestedDiscountCode]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (config.slug !== "seed") {
       return;
     }
@@ -692,7 +704,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sharedShopCatalog,
     sharedOrderCart,
   ]);
-  
+
   useEffect(() => {
     setIsCurrentVerticalVideoPlaying(false);
 
@@ -1052,20 +1064,45 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             ? "Submitting..."
             : currentSlide.nextLabel ?? "Next";
 
+  const stageBackgroundColor = isMediaSlide
+    ? "#000000"
+    : currentSlide.pageBackgroundColor ?? withOpacity(theme.colors.card, currentSlide.cardOpacity);
+  
+    const resolvedProgressOverlayBackground =
+    currentSlide.progressOverlayBackgroundColor ??
+    (isMediaSlide
+      ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
+      : "transparent");
+
+  const resolvedActionBarBackground =
+    currentSlide.actionBarBackgroundColor ?? "transparent";
+
+  const resolvedProgressOverlayTextColor =
+    currentSlide.progressOverlayTextColor ??
+    (isTransparentColor(currentSlide.progressOverlayBackgroundColor)
+      ? theme.colors.text
+      : currentSlide.progressOverlayBackgroundColor
+        ? getContrastTextColor(currentSlide.progressOverlayBackgroundColor)
+        : isMediaSlide
+          ? "#FFFFFF"
+          : theme.colors.text);
+
+  const resolvedActionBarTextColor =
+    currentSlide.actionBarTextColor ??
+    (isTransparentColor(currentSlide.actionBarBackgroundColor)
+      ? theme.colors.text
+      : currentSlide.actionBarBackgroundColor
+        ? getContrastTextColor(currentSlide.actionBarBackgroundColor)
+        : theme.colors.text);
+
+  const actionBarHidden =
+    isCurrentVerticalVideoPlaying && isVerticalMediaSlide;
+
   return (
     <main
       className={styles.page}
       style={{
-        backgroundColor:
-          currentSlide.pageBackgroundColor ?? theme.colors.background,
-        backgroundImage: currentSlide.pageBackgroundImage
-          ? `url(${currentSlide.pageBackgroundImage})`
-          : undefined,
-        backgroundSize: currentSlide.pageBackgroundSize ?? "cover",
-        backgroundPosition: currentSlide.pageBackgroundPosition ?? "center",
-        backgroundRepeat: currentSlide.pageBackgroundImage
-          ? "no-repeat"
-          : undefined,
+        backgroundColor: theme.colors.background,
         color: theme.colors.text,
       }}
     >
@@ -1073,44 +1110,40 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
           style={{
-            background: isMediaSlide
-              ? theme.colors.card
-              : withOpacity(theme.colors.card, currentSlide.cardOpacity),
             borderColor: theme.colors.border,
             borderRadius: theme.radius?.card ?? "24px",
             boxShadow: theme.shadow?.card,
           }}
         >
           <div
-            className={`${styles.topSection} ${
-              isMediaSlide ? styles.topSectionMedia : ""
-            }`}
+            className={`${styles.slideStage} ${isMediaSlide ? styles.slideStageMedia : ""}`}
+            style={{
+              backgroundColor: stageBackgroundColor,
+              backgroundImage: currentSlide.pageBackgroundImage
+                ? `url(${currentSlide.pageBackgroundImage})`
+                : undefined,
+              backgroundSize: currentSlide.pageBackgroundSize ?? "cover",
+              backgroundPosition: currentSlide.pageBackgroundPosition ?? "center",
+              backgroundRepeat: currentSlide.pageBackgroundImage
+                ? "no-repeat"
+                : undefined,
+            }}
           >
             <div
-              className={`${styles.contentFrame} ${
-                isMediaSlide ? styles.contentFrameMedia : ""
-              }`}
+              className={styles.progressOverlay}
+              style={{
+                background: resolvedProgressOverlayBackground,
+                color: resolvedProgressOverlayTextColor,
+              }}
             >
-              <div
-                className={`${styles.progressWrap} ${
-                  isMediaSlide ? styles.progressWrapMedia : ""
-                }`}
-              >
+              <div className={styles.overlayFrame}>
                 {showStepText ? (
-                  <div
-                    className={`${styles.stepText} ${
-                      isMediaSlide ? styles.stepTextOverlay : ""
-                    }`}
-                  >
+                 <div className={styles.stepText}>
                     Slide {currentStepNumber} of {totalStepCount}
                   </div>
                 ) : null}
 
-                <div
-                  className={`${styles.progressBar} ${
-                    isMediaSlide ? styles.progressBarOverlay : ""
-                  }`}
-                >
+                <div className={styles.progressBar}>
                   <div
                     className={styles.progressFill}
                     style={{
@@ -1120,333 +1153,324 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                   />
                 </div>
               </div>
-
-              <div
-                ref={slideBodyRef}
-                className={`${styles.slideBody} ${
-                  isMediaSlide ? styles.slideBodyMedia : ""
-                }`}
-              >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={currentSlide.id}
-                    className={isMediaSlide ? styles.mediaStage : undefined}
-                    initial={{ x: 40, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -40, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {isMediaSlide ? (
-                      <>
-                        <MediaRenderer
-                          slide={currentSlide}
-                          onVerticalVideoPlayingChange={
-                            setIsCurrentVerticalVideoPlaying
-                          }
-                        />
-
-                        {hasRenderableSections(currentSlide.sections) ? (
-                          <div className={styles.mediaTextOverlay}>
-                            {renderSections(
-                              currentSlide.sections,
-                              theme,
-                              answers,
-                              currentSlide.storeAs,
-                              setAnswer
-                            )}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        {renderSections(
-                          currentSlide.sections,
-                          theme,
-                          answers,
-                          currentSlide.storeAs,
-                          setAnswer
-                        )}
-
-                        {currentSlide.type === "shop" ? (
-                          <ShopSlideRenderer
-                            slideMode={currentSlide.shopMode ?? "browse"}
-                            catalog={currentShopCatalog}
-                            cart={currentShopCart}
-                            selectedLines={
-                              currentSlide.shopMode === "review"
-                                ? sharedOrderLines
-                                : currentShopSelectedLines
-                            }
-                            totalWeight={
-                              currentSlide.shopMode === "review"
-                                ? sharedOrderLines.reduce(
-                                    (sum, line) => sum + (line.lineWeight ?? 0),
-                                    0
-                                  )
-                                : currentShopTotalWeight
-                            }
-                            deliveryFee={
-                              currentSlide.shopMode === "review"
-                                ? sharedOrderSummary.deliveryFee
-                                : 0
-                            }
-                            discountTotal={
-                              currentSlide.shopMode === "review"
-                                ? sharedOrderSummary.discountTotal
-                                : 0
-                            }
-                            grandTotal={
-                              currentSlide.shopMode === "review"
-                                ? sharedOrderSummary.grandTotal
-                                : currentShopSubtotal
-                            }
-                            activeDiscountLabel={activeDiscountDefinition?.label}
-                            theme={theme}
-                            onToggleLine={(productId, sizeOptionId, selected) =>
-                              updateCurrentShopCart((cart) =>
-                                toggleShopLineSelected(
-                                  cart,
-                                  currentShopCatalog,
-                                  productId,
-                                  sizeOptionId,
-                                  selected
-                                )
-                              )
-                            }
-                            onSetQuantity={(productId, sizeOptionId, quantity) =>
-                              updateCurrentShopCart((cart) =>
-                                setShopLineQuantity(
-                                  cart,
-                                  productId,
-                                  sizeOptionId,
-                                  quantity
-                                )
-                              )
-                            }
-                            onSetPurchaseMode={(
-                              productId,
-                              sizeOptionId,
-                              purchaseModeId
-                            ) =>
-                              updateCurrentShopCart((cart) =>
-                                setShopLinePurchaseMode(
-                                  cart,
-                                  productId,
-                                  sizeOptionId,
-                                  purchaseModeId
-                                )
-                              )
-                            }
-                            onRemoveLine={(productId, sizeOptionId) =>
-                              updateCurrentShopCart((cart) =>
-                                removeShopLine(cart, productId, sizeOptionId)
-                              )
-                            }
-                          />
-                        ) : null}
-
-                        {currentSlide.type === "delivery" ? (
-                          <DeliverySlideRenderer
-                            config={currentDeliveryConfig}
-                            selection={currentDeliverySelection}
-                            theme={theme}
-                            onChange={(patch) =>
-                              updateCurrentDeliverySelection((prev) => ({
-                                ...prev,
-                                ...patch,
-                              }))
-                            }
-                          />
-                        ) : null}
-
-                        {currentSlide.type === "shop" &&
-                        currentSlide.shopMode === "review" ? (
-                          <ReviewSummaryRenderer
-                            answers={answers}
-                            deliverySelection={sharedDeliverySelection}
-                            deliveryConfig={getDeliveryConfig(
-                              mergedVariables,
-                              "deliveryConfig"
-                            )}
-                            onAdjustDelivery={() => goToTarget("delivery-options")}
-                            onAdjustContact={() => goToTarget("contact-details")}
-                          />
-                        ) : null}
-
-                        {(currentSlide.type === "form" ||
-                          currentSlide.type === "contact") &&
-                        currentSlide.fields?.length ? (
-                          <div
-                            className={styles.formGrid}
-                            style={{ marginTop: "20px" }}
-                          >
-                            {currentSlide.fields.map((field) => (
-                              <FormFieldRenderer
-                                key={field.name}
-                                field={field}
-                                theme={theme}
-                                answers={answers}
-                                variables={mergedVariables}
-                                setAnswer={setAnswer}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-
-                        {submitError ? (
-                          <p className={styles.formError}>{submitError}</p>
-                        ) : null}
-
-                        <div className={styles.scrollBottomSpacer} />
-                      </>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
             </div>
-          </div>
 
-          {hasPinnedChoices || hasVisibleNav ? (
             <div
-              className={`${styles.actionBar} ${
-                isMediaSlide ? styles.actionBarMedia : ""
-              } ${
-                isCurrentVerticalVideoPlaying && isVerticalMediaSlide
-                  ? styles.actionBarShifted
-                  : ""
+              ref={slideBodyRef}
+              className={`${styles.slideBody} ${
+                isMediaSlide ? styles.slideBodyMedia : ""
               }`}
             >
-              <div className={styles.actionFrame}>
-                {hasPinnedChoices ? (
-                  <div className={styles.choiceStack}>
-                    {currentSlide.choices?.map((choice) => {
-                      const selected =
-                        currentSlide.storeAs &&
-                        answers[currentSlide.storeAs] === choice.value;
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentSlide.id}
+                  className={isMediaSlide ? styles.mediaStage : styles.slideContentFrame}
+                  initial={{ x: 40, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -40, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {isMediaSlide ? (
+                    <>
+                      <MediaRenderer
+                        slide={currentSlide}
+                        onVerticalVideoPlayingChange={
+                          setIsCurrentVerticalVideoPlaying
+                        }
+                      />
 
-                      const choiceStyle = resolveButtonStyle(
+                      {hasRenderableSections(currentSlide.sections) ? (
+                        <div className={styles.mediaTextOverlay}>
+                          {renderSections(
+                            currentSlide.sections,
+                            theme,
+                            answers,
+                            currentSlide.storeAs,
+                            setAnswer
+                          )}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {renderSections(
+                        currentSlide.sections,
                         theme,
-                        choice.styleKey ?? currentSlide.buttonStyleKey,
-                        "secondary"
-                      );
+                        answers,
+                        currentSlide.storeAs,
+                        setAnswer
+                      )}
 
-                      return (
-                        <button
-                          key={`${currentSlide.id}-${String(choice.value)}`}
-                          type="button"
-                          onClick={() =>
-                            handleChoiceClick(choice.value, choice.goto)
+                      {currentSlide.type === "shop" ? (
+                        <ShopSlideRenderer
+                          slideMode={currentSlide.shopMode ?? "browse"}
+                          catalog={currentShopCatalog}
+                          cart={currentShopCart}
+                          selectedLines={
+                            currentSlide.shopMode === "review"
+                              ? sharedOrderLines
+                              : currentShopSelectedLines
                           }
-                          className={styles.secondaryButton}
-                          style={{
-                            width: "100%",
-                            maxWidth: "420px",
-                            borderColor: choiceStyle.borderColor,
-                            background:
-                              choice.styleKey || currentSlide.buttonStyleKey
-                                ? choiceStyle.background
-                                : selected
+                          totalWeight={
+                            currentSlide.shopMode === "review"
+                              ? sharedOrderLines.reduce(
+                                  (sum, line) => sum + (line.lineWeight ?? 0),
+                                  0
+                                )
+                              : currentShopTotalWeight
+                          }
+                          deliveryFee={
+                            currentSlide.shopMode === "review"
+                              ? sharedOrderSummary.deliveryFee
+                              : 0
+                          }
+                          discountTotal={
+                            currentSlide.shopMode === "review"
+                              ? sharedOrderSummary.discountTotal
+                              : 0
+                          }
+                          grandTotal={
+                            currentSlide.shopMode === "review"
+                              ? sharedOrderSummary.grandTotal
+                              : currentShopSubtotal
+                          }
+                          activeDiscountLabel={activeDiscountDefinition?.label}
+                          theme={theme}
+                          onToggleLine={(productId, sizeOptionId, selected) =>
+                            updateCurrentShopCart((cart) =>
+                              toggleShopLineSelected(
+                                cart,
+                                currentShopCatalog,
+                                productId,
+                                sizeOptionId,
+                                selected
+                              )
+                            )
+                          }
+                          onSetQuantity={(productId, sizeOptionId, quantity) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLineQuantity(
+                                cart,
+                                productId,
+                                sizeOptionId,
+                                quantity
+                              )
+                            )
+                          }
+                          onSetPurchaseMode={(
+                            productId,
+                            sizeOptionId,
+                            purchaseModeId
+                          ) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLinePurchaseMode(
+                                cart,
+                                productId,
+                                sizeOptionId,
+                                purchaseModeId
+                              )
+                            )
+                          }
+                          onRemoveLine={(productId, sizeOptionId) =>
+                            updateCurrentShopCart((cart) =>
+                              removeShopLine(cart, productId, sizeOptionId)
+                            )
+                          }
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "delivery" ? (
+                        <DeliverySlideRenderer
+                          config={currentDeliveryConfig}
+                          selection={currentDeliverySelection}
+                          theme={theme}
+                          onChange={(patch) =>
+                            updateCurrentDeliverySelection((prev) => ({
+                              ...prev,
+                              ...patch,
+                            }))
+                          }
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "shop" &&
+                      currentSlide.shopMode === "review" ? (
+                        <ReviewSummaryRenderer
+                          answers={answers}
+                          deliverySelection={sharedDeliverySelection}
+                          deliveryConfig={getDeliveryConfig(
+                            mergedVariables,
+                            "deliveryConfig"
+                          )}
+                          onAdjustDelivery={() => goToTarget("delivery-options")}
+                          onAdjustContact={() => goToTarget("contact-details")}
+                        />
+                      ) : null}
+
+                      {(currentSlide.type === "form" ||
+                        currentSlide.type === "contact") &&
+                      currentSlide.fields?.length ? (
+                        <div
+                          className={styles.formGrid}
+                          style={{ marginTop: "20px" }}
+                        >
+                          {currentSlide.fields.map((field) => (
+                            <FormFieldRenderer
+                              key={field.name}
+                              field={field}
+                              theme={theme}
+                              answers={answers}
+                              variables={mergedVariables}
+                              setAnswer={setAnswer}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {submitError ? (
+                        <p className={styles.formError}>{submitError}</p>
+                      ) : null}
+
+                      <div className={styles.scrollBottomSpacer} />
+                    </>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {hasPinnedChoices || hasVisibleNav ? (
+              <div
+                className={`${styles.actionBarOverlay} ${
+                  actionBarHidden ? styles.actionBarShifted : ""
+                }`}
+                style={{
+                  background: resolvedActionBarBackground,
+                  color: resolvedActionBarTextColor,
+                }}
+              >
+                <div className={styles.overlayFrame}>
+                  {hasPinnedChoices ? (
+                    <div className={styles.choiceStack}>
+                      {currentSlide.choices?.map((choice) => {
+                        const selected =
+                          currentSlide.storeAs &&
+                          answers[currentSlide.storeAs] === choice.value;
+
+                        const choiceStyle = resolveButtonStyle(
+                          theme,
+                          choice.styleKey ?? currentSlide.buttonStyleKey,
+                          "secondary"
+                        );
+
+                        return (
+                          <button
+                            key={`${currentSlide.id}-${String(choice.value)}`}
+                            type="button"
+                            onClick={() =>
+                              handleChoiceClick(choice.value, choice.goto)
+                            }
+                            className={`${styles.secondaryButton} ${styles.actionButton}`}
+                            style={{
+                              borderColor: choiceStyle.borderColor,
+                              background:
+                                choice.styleKey || currentSlide.buttonStyleKey
                                   ? choiceStyle.background
-                                  : "#FFFFFF",
-                            color:
-                              choice.styleKey || currentSlide.buttonStyleKey
-                                ? choiceStyle.color
-                                : selected
+                                  : selected
+                                    ? choiceStyle.background
+                                    : "#FFFFFF",
+                              color:
+                                choice.styleKey || currentSlide.buttonStyleKey
                                   ? choiceStyle.color
-                                  : theme.colors.text,
-                            opacity: selected ? 1 : 0.96,
+                                  : selected
+                                    ? choiceStyle.color
+                                    : resolvedActionBarTextColor,
+                              opacity: selected ? 1 : 0.96,
+                            }}
+                          >
+                            {choice.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {currentSlide.type === "shop" && currentSlide.shopMode === "review" ? (
+                    <div className={styles.orderWeightSummary}>
+                      Total order weight:{" "}
+                      {formatWeight(
+                        sharedOrderLines.reduce(
+                          (sum, line) => sum + (line.lineWeight ?? 0),
+                          0
+                        ),
+                        sharedShopCatalog?.weightUnit
+                      )}
+                    </div>
+                  ) : null}
+
+                  {currentSlide.type === "delivery" ? (
+                    <div className={styles.orderWeightSummary}>
+                      Items:{" "}
+                      {formatCurrency(
+                        sharedOrderSummary.subtotal,
+                        sharedShopCatalog?.currencyCode ?? "JMD"
+                      )}{" "}
+                      · Delivery: {formatCurrency(currentDeliveryFee, "JMD")} · Total:{" "}
+                      {formatCurrency(
+                        sharedOrderSummary.subtotal + currentDeliveryFee,
+                        sharedShopCatalog?.currencyCode ?? "JMD"
+                      )}
+                    </div>
+                  ) : null}
+
+                  {hasVisibleNav ? (
+                    <div className={styles.navRow}>
+                      {showNextButton ? (
+                        <button
+                          type="button"
+                          onClick={handleNext}
+                          disabled={!canGoNext() || isSubmitting}
+                          className={`${styles.primaryButton} ${styles.actionButton}`}
+                          style={{
+                            background: nextButtonStyle.background,
+                            color: nextButtonStyle.color,
+                            borderColor: nextButtonStyle.borderColor,
+                            borderRadius: theme.radius?.button ?? "14px",
                           }}
                         >
-                          {choice.label}
+                          {nextLabel}
                         </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
+                        ) : null}
 
-                {currentSlide.type === "shop" && currentSlide.shopMode === "review" ? (
-                  <div className={styles.orderWeightSummary}>
-                    Total order weight:{" "}
-                    {formatWeight(
-                      sharedOrderLines.reduce(
-                        (sum, line) => sum + (line.lineWeight ?? 0),
-                        0
-                      ),
-                      sharedShopCatalog?.weightUnit
-                    )}
-                  </div>
-                ) : null}
-
-                {currentSlide.type === "delivery" ? (
-                  <div className={styles.orderWeightSummary}>
-                    Items:{" "}
-                    {formatCurrency(
-                      sharedOrderSummary.subtotal,
-                      sharedShopCatalog?.currencyCode ?? "JMD"
-                    )}{" "}
-                    · Delivery: {formatCurrency(currentDeliveryFee, "JMD")} · Total:{" "}
-                    {formatCurrency(
-                      sharedOrderSummary.subtotal + currentDeliveryFee,
-                      sharedShopCatalog?.currencyCode ?? "JMD"
-                    )}
-                  </div>
-                ) : null}
-
-                {hasVisibleNav ? (
-                  <div className={styles.navRow}>
-                    {showBackButton ? (
-                      <button
-                        type="button"
-                        onClick={back}
-                        disabled={
-                          ((currentIndex === 0 &&
-                            history.length === 0 &&
-                            !currentSlide.backGoto &&
-                            !currentSlide.backRouteRules?.length) ||
-                            isSubmitting)
-                        }
-                        className={styles.secondaryButton}
-                        style={{
-                          borderColor: backButtonStyle.borderColor,
-                          background: isMediaSlide
-                            ? "#ffffff"
-                            : backButtonStyle.background,
-                          color: backButtonStyle.color,
-                        }}
-                      >
-                        {currentSlide.backLabel ?? "Back"}
-                      </button>
-                    ) : (
-                      <div />
-                    )}
-
-                    {showNextButton ? (
-                      <button
-                        type="button"
-                        onClick={handleNext}
-                        disabled={!canGoNext() || isSubmitting}
-                        className={styles.primaryButton}
-                        style={{
-                          background: isMediaSlide
-                            ? "#111111"
-                            : nextButtonStyle.background,
-                          color: nextButtonStyle.color,
-                          borderColor: isMediaSlide
-                            ? "#111111"
-                            : nextButtonStyle.borderColor,
-                          borderRadius: theme.radius?.button ?? "14px",
-                        }}
-                      >
-                        {nextLabel}
-                      </button>
-                    ) : (
-                      <div />
-                    )}
-                  </div>
-                ) : null}
+                      {showBackButton ? (
+                        <button
+                          type="button"
+                          onClick={back}
+                          disabled={
+                            ((currentIndex === 0 &&
+                              history.length === 0 &&
+                              !currentSlide.backGoto &&
+                              !currentSlide.backRouteRules?.length) ||
+                              isSubmitting)
+                          }
+                          className={`${styles.secondaryButton} ${styles.actionButton}`}
+                          style={{
+                            borderColor: backButtonStyle.borderColor,
+                            background: backButtonStyle.background,
+                            color:
+                              backButtonStyle.background === "transparent"
+                                ? resolvedActionBarTextColor
+                                : backButtonStyle.color,
+                          }}
+                        >
+                          {currentSlide.backLabel ?? "Back"}
+                        </button>
+                      ) : null}
+                      </div>
+                    ) : null}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
     </main>
@@ -2145,7 +2169,7 @@ function ShopSlideRenderer({
 
       {slideMode === "review" ? (
         <div className={styles.reviewTotals}>
-                    {activeDiscountLabel ? (
+          {activeDiscountLabel ? (
             <div>
               Discount: {activeDiscountLabel}
               {String(activeDiscountLabel).toLowerCase().includes("questionnaire")

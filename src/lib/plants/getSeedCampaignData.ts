@@ -67,7 +67,7 @@ export async function getSeedCampaignData() {
     featuredPlant,
     switchPlants,
     campaignPlants: plants.map((plant) => ({
-      id: plant.id,
+      productId: plant.id,
       slug: plant.slug,
       label: getPlantDisplayName(plant),
     })),

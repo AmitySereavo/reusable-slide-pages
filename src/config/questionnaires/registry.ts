@@ -72,7 +72,7 @@ export async function getQuestionnaireBySlug(slug: string) {
     );
 
     const promoEligibleItems = seedCampaign.campaignPlants.filter((plant) =>
-      shopProductIds.has(plant.id)
+      shopProductIds.has(plant.productId)
     );
 
     resolvedVariables = {

@@ -1,8 +1,33 @@
+===
+// PROMOTION CLOSED
+@id: promotion-closed
+@type: content
+@showif:
+- promotionClosed|eq|true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+# [c3] This promotion
+# [c3] is closed.
+BR
+[c2] The paired promotional item is no longer available.
+BR
+## [c1] Would you like
+## [c1] to visit the store?
+---
+@choices:
+- visit-store|Visit store|plant-shop|c1
+@showback: false
+@shownext: false
 
 ===
 // INTRO
 @id: intro
 @type: content
+@showif:
+- promotionClosed|eq|false
 
 @pagebgcolor: #ffffff
 @pagebgimage: /media/background/young-plant.jpg
@@ -110,6 +135,7 @@ BR
 ---
 @choices:
 - sounds-good|Sounds good|pickup-location|c4
+- sounds-ok|Sounds ok|pickup-location|c2
 @back: Back
 @shownext: false
 
@@ -125,39 +151,78 @@ BR
 BR
 [c3] Choose delivery or pickup on the next step.
 ---
+@when:
+- promotionClosed|eq|true|promotion-closed
+- promotionClosed|eq|false|delivery-options
 @back: Back
 @next: Continue
-@goto: delivery-options
+
+===
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: contact-details
+@gotoifincomplete: contact-details
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
 
 ===
 // CONTACT DETAILS
 @id: contact-details
 @type: form
-@contactmode: lead
+@contactmode: order
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
 ---
 BR
 ## We will send you
 ## photo and video updates
 ## of
 # [c1] Your Plant
-## via
-## [c1] WhatsApp or Email
+## and use these details
+## for your
+# [c3] Order
 BR
-## Enter the best contact
-## details for updates below.
+[c2] Enter the best contact
+[c2] details below.
 BR
 @fields:
-- fullName|text|Full name|optional|Full name
+- fullName|text|Full name|required|Full name
 - email|email|Email address|optional|Email address
-- phone|tel|WhatsApp number|optional|Include country code and area code
-- whatsappOptIn|checkbox|Send me updates on WhatsApp|optional
+- phone|tel|Phone number|optional|Include country code and area code
+- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
 ---
-@when:
-- promotionClosed|eq|true|promotion-closed
-- promotionClosed|eq|false|review-order
 @run: submitLead
 @back: Back
+@next: Review order
+@goto: review-order
+
+===
+// REVIEW ORDER
+@id: review-order
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
 @next: Continue
+@goto: confirmation-message
+
 ===
 // CONFIRMATION MESSAGE
 @id: confirmation-message
@@ -184,7 +249,6 @@ BR
 @choices:
 - go-plant-shop|Add more items to this order|plant-shop|c1
 - plant-collection-policy|Read plant collection policy|plant-collection-policy|c2
-
 @showback: false
 @shownext: false
 
@@ -195,80 +259,23 @@ BR
 @store: orderCart
 @catalog: shopCatalog
 @shopmode: browse
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
 @deliverygoto: delivery-options
 @reviewgoto: review-order
+@back: Back
 @next: Checkout
-===
-
-@id: delivery-options
-@type: delivery
-@store: deliverySelection
-@deliveryconfig: deliveryConfig
-@completioncheck: contact
-@gotoifcomplete: review-order
-@gotoifincomplete: order-contact-details
-@back: Back
-@next: Continue
-
-# [c1] Choose delivery or pickup
-[c3] Select how you want to receive your order.
 
 ===
-// ORDER CONTACT DETAILS
-@id: order-contact-details
-@type: form
-@contactmode: order
----
-BR
-## [c1] Contact details
-## for your
-# [c3] Order
-BR
-[c2] We will use these details
-[c2] for your pickup or delivery.
-BR
-@fields:
-- fullName|text|Full name|required|Full name
-- email|email|Email address|optional|Email address
-- phone|tel|Phone number|optional|Include country code and area code
-- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
----
-@back: Back
-@next: Review order
-@goto: review-order
-
-===
-//REVIEW ORDER
-@id: review-order
-@type: shop
-@store: orderCart
-@catalog: shopCatalog
-@shopmode: review
-@next: Continue
-@goto: confirmation-message
-
-===
-// PROMOTION CLOSED
-@id: promotion-closed
-@type: content
----
-# [c3] This promotion
-# [c3] is closed.
-BR
-[c2] The paired promotional item is no longer available.
-BR
-## [c1] Would you like
-## [c1] to visit the store?
----
-@choices:
-- visit-store|Visit store|plant-shop|c1
-@back: Back
-@shownext: false
-===
-
 // PLANT COLLECTION POLICY
 @id: plant-collection-policy
 @type: content
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
 ---
 ## [c1] Our plant professionals
 ## [c1] will inspect and ensure

@@ -345,6 +345,32 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@progressoverlaybg:")) {
+        draft.progressOverlayBackgroundColor = readValue(
+          line,
+          "@progressoverlaybg:"
+        );
+        continue;
+      }
+
+      if (line.startsWith("@actionbarbg:")) {
+        draft.actionBarBackgroundColor = readValue(line, "@actionbarbg:");
+        continue;
+      }
+
+      if (line.startsWith("@progressoverlaytextcolor:")) {
+        draft.progressOverlayTextColor = readValue(
+          line,
+          "@progressoverlaytextcolor:"
+        );
+        continue;
+      }
+
+      if (line.startsWith("@actionbartextcolor:")) {
+        draft.actionBarTextColor = readValue(line, "@actionbartextcolor:");
+        continue;
+      }
+
       continue;
     }
 
@@ -406,6 +432,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 }
 
 function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
+  
+  
   if (!draft.id || !draft.type) {
     return null;
   }
@@ -471,6 +499,10 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     gotoIfComplete: draft.gotoIfComplete,
     gotoIfIncomplete: draft.gotoIfIncomplete,
     contactMode: draft.contactMode,
+    progressOverlayBackgroundColor: draft.progressOverlayBackgroundColor,
+    actionBarBackgroundColor: draft.actionBarBackgroundColor,
+    progressOverlayTextColor: draft.progressOverlayTextColor,
+    actionBarTextColor: draft.actionBarTextColor,
   };
 
   if (draft.feature?.type === "numberscale") {

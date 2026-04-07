@@ -17,9 +17,9 @@ function parseRulePrimitive(raw: string): PrimitiveValue {
 
 function evaluateConditionRule(
   rule: ConditionRule,
-  answers: QuestionnaireAnswers
+  context: QuestionnaireAnswers
 ) {
-  const actual = answers[rule.field];
+  const actual = context[rule.field];
 
   if (actual === undefined || actual === null) {
     return false;
@@ -76,11 +76,20 @@ function evaluateConditionRule(
 
 export function getVisibleSlides(
   slides: Slide[],
-  answers: QuestionnaireAnswers
+  context: QuestionnaireAnswers
 ) {
   return slides.filter((slide) => {
     if (slide.showIf) {
-      const answer = answers[slide.showIf.field];
+      const answer = context[slide.showIf.field];
+
+      if (
+        typeof answer !== "string" &&
+        typeof answer !== "number" &&
+        typeof answer !== "boolean"
+      ) {
+        return false;
+      }
+
       if (!slide.showIf.in.includes(answer)) {
         return false;
       }
@@ -88,7 +97,7 @@ export function getVisibleSlides(
 
     if (slide.showIfRules?.length) {
       return slide.showIfRules.every((rule) =>
-        evaluateConditionRule(rule, answers)
+        evaluateConditionRule(rule, context)
       );
     }
 

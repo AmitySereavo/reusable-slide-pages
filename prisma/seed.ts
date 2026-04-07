@@ -1,5 +1,18 @@
 import "dotenv/config";
-import { PrismaClient, Prisma } from "@prisma/client";
+import {
+  PrismaClient,
+  Prisma,
+  PlantKind,
+  PlantCategory,
+  PlantLifecycleStage,
+  PlantPropagationMethod,
+  PlantPropagationStatus,
+  PlantYieldType,
+  PlantOfferModeType,
+  PlantSalesChannel,
+  WeightUnit,
+  PlantShopPurchaseModeType,
+} from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
@@ -16,9 +29,9 @@ const prisma = new PrismaClient({ adapter });
 type PlantSeedInput = {
   slug: string;
   name: string;
-  plantKind: Prisma.PlantKind;
-  plantCategory: Prisma.PlantCategory;
-  lifecycleStage: Prisma.PlantLifecycleStage;
+  plantKind: PlantKind;
+  plantCategory: PlantCategory;
+  lifecycleStage: PlantLifecycleStage;
   visibleInPlantShop?: boolean;
   purchasable?: boolean;
   claimEligible?: boolean;
@@ -32,8 +45,8 @@ type PlantSeedInput = {
   stockOnHand?: number;
   stockCommitted?: number;
   stockAvailable?: number;
-  propagationMethod?: Prisma.PlantPropagationMethod;
-  propagationStatus?: Prisma.PlantPropagationStatus;
+  propagationMethod?: PlantPropagationMethod;
+  propagationStatus?: PlantPropagationStatus;
   readyNow?: boolean;
   basePriceJmd?: string;
   compareAtPriceJmd?: string;
@@ -44,7 +57,7 @@ type PlantSeedInput = {
   environmentBenefit?: string;
   incomeBenefit?: string;
   savingsBenefit?: string;
-  yieldType?: Prisma.PlantYieldType;
+  yieldType?: PlantYieldType;
   yieldFrequency?: string;
   yieldQuantityEstimate?: string;
   monetaryValueNote?: string;
@@ -61,7 +74,7 @@ type PlantSeedInput = {
   careTipsBlock?: string;
   confirmationBlock?: string;
   offerModes?: Array<{
-    offerMode: Prisma.PlantOfferModeType;
+    offerMode: PlantOfferModeType;
     enabled?: boolean;
     label?: string;
     description?: string;
@@ -72,7 +85,7 @@ type PlantSeedInput = {
     requiresReservation?: boolean;
   }>;
   channels?: Array<{
-    channel: Prisma.PlantSalesChannel;
+    channel: PlantSalesChannel;
     visible?: boolean;
     featured?: boolean;
     priority?: number;
@@ -90,14 +103,14 @@ type PlantSeedInput = {
     priceJmd: string;
     compareAtPriceJmd?: string;
     weight?: string;
-    weightUnit?: Prisma.WeightUnit;
+    weightUnit?: WeightUnit;
     stockOnHand?: number;
     stockReserved?: number;
     stockAvailable?: number;
     supportsPickup?: boolean;
     supportsDelivery?: boolean;
     purchaseModes?: Array<{
-      modeType: Prisma.PlantShopPurchaseModeType;
+      modeType: PlantShopPurchaseModeType;
       label: string;
       description?: string;
       active?: boolean;

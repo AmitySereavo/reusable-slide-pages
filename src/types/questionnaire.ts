@@ -310,6 +310,10 @@ export type Slide = {
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
+  progressOverlayBackgroundColor?: string;
+  actionBarBackgroundColor?: string;
+  progressOverlayTextColor?: string;
+  actionBarTextColor?: string;
 };
 
 export type ThemeConfig = {
@@ -399,6 +403,10 @@ export type ParsedSlideDraft = {
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
+  progressOverlayBackgroundColor?: string;
+  actionBarBackgroundColor?: string;
+  progressOverlayTextColor?: string;
+  actionBarTextColor?: string;
 };
 
 export type ParsedQuestionnaireDocument = {
