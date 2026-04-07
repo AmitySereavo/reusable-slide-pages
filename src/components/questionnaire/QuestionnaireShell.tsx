@@ -11,6 +11,7 @@ import {
   DiscountedOrderSummary,
   FormField,
   PrimitiveValue,
+  PromotionEligibleItem,
   QuestionnaireAnswers,
   QuestionnaireConfig,
   QuestionnaireVariableMap,
@@ -21,7 +22,6 @@ import {
   SlideRouteRule,
   SlideSection,
   ThemeConfig,
-  PromotionEligibleItem,
 } from "@/types/questionnaire";
 
 import {
@@ -100,19 +100,6 @@ function withOpacity(color: string, opacity?: number) {
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalized})`;
 }
 
-function isTransparentColor(value?: string) {
-  if (!value) return false;
-
-  const normalized = value.trim().toLowerCase();
-
-  return (
-    normalized === "transparent" ||
-    normalized === "none" ||
-    normalized === "rgba(0,0,0,0)" ||
-    normalized === "rgba(0, 0, 0, 0)"
-  );
-}
-
 function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
   if (!styleKey) return null;
 
@@ -168,6 +155,19 @@ function resolveButtonStyle(
     color: theme.colors.text,
     borderColor: theme.colors.border,
   };
+}
+
+function isTransparentColor(value?: string) {
+  if (!value) return false;
+
+  const normalized = value.trim().toLowerCase();
+
+  return (
+    normalized === "transparent" ||
+    normalized === "none" ||
+    normalized === "rgba(0,0,0,0)" ||
+    normalized === "rgba(0, 0, 0, 0)"
+  );
 }
 
 function isContactInfoComplete(
@@ -1066,9 +1066,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const stageBackgroundColor = isMediaSlide
     ? "#000000"
-    : currentSlide.pageBackgroundColor ?? withOpacity(theme.colors.card, currentSlide.cardOpacity);
-  
-    const resolvedProgressOverlayBackground =
+    : currentSlide.pageBackgroundColor ??
+      withOpacity(theme.colors.card, currentSlide.cardOpacity);
+
+  const resolvedProgressOverlayBackground =
     currentSlide.progressOverlayBackgroundColor ??
     (isMediaSlide
       ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
@@ -1138,7 +1139,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             >
               <div className={styles.overlayFrame}>
                 {showStepText ? (
-                 <div className={styles.stepText}>
+                  <div className={styles.stepText}>
                     Slide {currentStepNumber} of {totalStepCount}
                   </div>
                 ) : null}
@@ -1236,6 +1237,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           }
                           activeDiscountLabel={activeDiscountDefinition?.label}
                           theme={theme}
+                          answers={answers}
                           onToggleLine={(productId, sizeOptionId, selected) =>
                             updateCurrentShopCart((cart) =>
                               toggleShopLineSelected(
@@ -1271,11 +1273,30 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                               )
                             )
                           }
-                          onRemoveLine={(productId, sizeOptionId) =>
+                          onRemoveLine={(productId, sizeOptionId) => {
+                            if (currentSlide.shopMode === "review") {
+                              if (sharedOrderLines.length <= 1) {
+                                goToTarget("plant-shop");
+                                return;
+                              }
+                            }
+
                             updateCurrentShopCart((cart) =>
                               removeShopLine(cart, productId, sizeOptionId)
-                            )
-                          }
+                            );
+                          }}
+                          onAdjustLine={(productId, sizeOptionId) => {
+                            if (currentSlide.shopMode === "review") {
+                              const targetKey = `${productId}::${sizeOptionId}`;
+
+                              setAnswers((prev) => ({
+                                ...prev,
+                                shopFocusLineKey: targetKey,
+                              }));
+
+                              goToTarget("plant-shop");
+                            }
+                          }}
                         />
                       ) : null}
 
@@ -1439,7 +1460,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                         >
                           {nextLabel}
                         </button>
-                        ) : null}
+                      ) : null}
 
                       {showBackButton ? (
                         <button
@@ -1465,8 +1486,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           {currentSlide.backLabel ?? "Back"}
                         </button>
                       ) : null}
-                      </div>
-                    ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -1846,10 +1867,12 @@ function ShopSlideRenderer({
   grandTotal,
   activeDiscountLabel,
   theme,
+  answers,
   onToggleLine,
   onSetQuantity,
   onSetPurchaseMode,
   onRemoveLine,
+  onAdjustLine,
 }: {
   slideMode: "browse" | "review";
   catalog: ShopCatalog | null;
@@ -1861,6 +1884,7 @@ function ShopSlideRenderer({
   grandTotal: number;
   activeDiscountLabel?: string;
   theme: ThemeConfig;
+  answers: QuestionnaireAnswers;
   onToggleLine: (
     productId: string,
     sizeOptionId: string,
@@ -1877,10 +1901,12 @@ function ShopSlideRenderer({
     purchaseModeId?: string
   ) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
+  onAdjustLine?: (productId: string, sizeOptionId: string) => void;
 }) {
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>(
     {}
   );
+  const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (slideMode === "review") {
@@ -1891,6 +1917,36 @@ function ShopSlideRenderer({
       setExpandedProducts(nextExpanded);
     }
   }, [slideMode, selectedLines]);
+
+  const focusedLineKey =
+    typeof answers.shopFocusLineKey === "string" ? answers.shopFocusLineKey : "";
+
+  useEffect(() => {
+    if (slideMode !== "browse" || !focusedLineKey) {
+      return;
+    }
+
+    const [productId] = focusedLineKey.split("::");
+    if (!productId) {
+      return;
+    }
+
+    setExpandedProducts((prev) => ({
+      ...prev,
+      [productId]: true,
+    }));
+
+    const node = productRefs.current[productId];
+
+    if (node) {
+      window.requestAnimationFrame(() => {
+        node.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    }
+  }, [slideMode, focusedLineKey]);
 
   if (!catalog?.products.length) {
     return <p className={styles.body}>No shop items available yet.</p>;
@@ -1909,9 +1965,16 @@ function ShopSlideRenderer({
         const isExpanded =
           slideMode === "review" || expandedProducts[product.id] === true;
 
+        const firstReviewLine = selectedLines.find(
+          (line) => line.productId === product.id
+        );
+
         return (
           <div
             key={product.id}
+            ref={(node) => {
+              productRefs.current[product.id] = node;
+            }}
             className={styles.productPanel}
             style={{ borderColor: theme.colors.border }}
           >
@@ -1933,7 +1996,26 @@ function ShopSlideRenderer({
                 </div>
 
                 <div className={styles.productHeaderText}>
-                  <h3 className={styles.productTitle}>{product.title}</h3>
+                  <div className={styles.productTitleRow}>
+                    <div className={styles.productTitleGroup}>
+                      <h3 className={styles.productTitle}>{product.title}</h3>
+                      {slideMode === "review" ? (
+                        <span className={styles.cartItemBadge}>Cart item</span>
+                      ) : null}
+                    </div>
+
+                    {slideMode === "review" && firstReviewLine ? (
+                      <button
+                        type="button"
+                        className={styles.adjustLinkButton}
+                        onClick={() =>
+                          onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
+                        }
+                      >
+                        Adjust
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

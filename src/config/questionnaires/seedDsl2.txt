@@ -36,18 +36,12 @@ BR
 @cardopacity: 0.80
 ---
 BR
-## [c2] A
-# [c1] Seed
-BR
-## [c2] has been
-# [c3] Planted
-# [c2] For You!
-[c1] but
-[c1] it has not been
-## [c1] watered yet.
+## [c2] I planted a seed
+## [c2] for you on
+# [c1] [plantStartDate].
 ---
 @choices:
-- reveal-seed|Seed from what plant?|seed-reveal|c1
+- reveal-seed|What type of seed?|seed-reveal|c1
 @showback: false
 @shownext: false
 
@@ -56,124 +50,103 @@ BR
 @id: seed-reveal
 @type: content
 ---
-[seedRevealBlock]
+## [c2] It's a
+# [c1] [plantName]
+## [c2] seed.
+BR
+[c3] [productCopyShortBasicNeedsValue]
 ---
 @choices:
-- tell-me-more|Tell me more|plant-info|c1
-- skip-the-info|I know enough|will-it-grow|c3
+- learn-more|Learn More|plant-info-basic-needs|c1
+- not-interested|Not Interested|plant-info-economical-value|c3
 @showback: false
 @shownext: false
 
 ===
-// PLANT INFO
-@id: plant-info
+// BASIC NEEDS VALUE
+@id: plant-info-basic-needs
 @type: content
 ---
-[plantInfoBlock]
+[c3] [productCopyShortBasicNeedsValue]
 ---
 @choices:
-- tell-me-more|Seems healthy!|will-it-grow|c1
+- continue-basic-needs|Continue|plant-info-economical-value|c1
 @back: Back
 @shownext: false
 
 ===
-// WILL IT GROW
-@id: will-it-grow
+// ECONOMICAL VALUE
+@id: plant-info-economical-value
 @type: content
 ---
-BR
-[c1] [mainPlantGrowthIntroLine1]
-BR
-## [c1] but
----
-# Not All
-# Seeds Grow
----
-@back: Back
-@next: Will mine grow?
-@goto: updates-intro
-
-===
-// WEEKLY UPDATES INTRO
-@id: updates-intro
-@type: content
----
-[c1] once-a-week
-## [c1] you'll receive
----
-# Photo & Video
-# Updates
----
-[c1] of the
-## [c1] real-life growth
-BR
-## [c2] up until the day you collect
-## [c2] your plant.
-BR
-[c1] That way, you can see the actual progress.
----
-@back: Back
-@next: OK
-@goto: care-tips
-
-===
-// CARE TIPS
-@id: care-tips
-@type: content
----
-## you'll also get
-# [c1] Plant Care
-## [c1] tips & guidance
-BR
-[c2] to
-## ensure you are
-# [c1] prepared
-## to grow your plant
-[c1] to the
-## [c1] next level,
-[c1] when you receive it.
+[c3] [productCopyShortEconomicalValue]
 ---
 @choices:
-- sounds-good|Sounds good|pickup-location|c4
-- sounds-ok|Sounds ok|pickup-location|c2
+- continue-economical|Continue|growth-updates-offer|c1
 @back: Back
 @shownext: false
 
 ===
-// PICKUP / DELIVERY STEP
-@id: pickup-location
+// GROWTH UPDATES OFFER
+@id: growth-updates-offer
 @type: content
 ---
+## [c2] A [plantName] seed
+## [c2] was planted for you
+## [c2] in [plantingMedium],
 BR
-# [c1] How would you like
-# [c1] to receive
-# [c1] your free gift?
+[c3] and it is currently at the
+## [c1] [plantGrowthStage]
+[c3] stage.
 BR
-[c3] Choose delivery or pickup on the next step.
+[c2] Would you like weekly
+[c2] photo and video updates
+[c2] as it grows,
+BR
+[c2] and then collect it
+[c2] when it reaches
+[c2] a transportable stage?
 ---
-@when:
-- promotionClosed|eq|true|promotion-closed
-- promotionClosed|eq|false|delivery-options
+@choices:
+- absolutely-yes|Absolutely, Yes!|gift-intro|c1
+- no-thanks|Not for me|gift-intro|c3
 @back: Back
-@next: Continue
+@shownext: false
 
 ===
-@id: delivery-options
-@type: delivery
-@store: deliverySelection
-@deliveryconfig: deliveryConfig
-@completioncheck: contact
-@gotoifcomplete: contact-details
-@gotoifincomplete: contact-details
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
+// GIFT INTRO
+@id: gift-intro
+@type: content
+---
+[c2] This is a gift
+[c2] from me as I introduce you
+[c2] to my plant nursery
+# [c1] here in Jamaica.
+---
+@choices:
+- i-understand|I understand|care-guide-offer|c1
 @back: Back
-@next: Continue
+@shownext: false
 
-# [c1] Choose delivery or pickup
-[c3] Select how you want to receive your order.
+===
+// CARE GUIDE OFFER
+@id: care-guide-offer
+@type: content
+---
+[c2] Would you also like
+# [c1] a plant care guide
+[c2] showing the best location for it,
+[c2] how much to water it,
+BR
+[c2] and what you can do
+[c2] to increase
+[c2] its productivity?
+---
+@choices:
+- sure|Sure|contact-details|c1
+- already-know|I already know|contact-details|c2
+@back: Back
+@shownext: false
 
 ===
 // CONTACT DETAILS
@@ -205,8 +178,80 @@ BR
 ---
 @run: submitLead
 @back: Back
-@next: Review order
-@goto: review-order
+@next: Continue
+@goto: collection-intro
+
+===
+// COLLECTION INTRO
+@id: collection-intro
+@type: content
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+[c2] You can collect your plant
+[c2] at the most epic
+[c2] plant festival of the year:
+BR
+# [c1] Little Orchard &
+# [c1] ParaLife Trees
+# [c1] Plant Fest.
+BR
+[c3] You can collect it
+[c3] at one of our regular stops
+[c3] or popup shops,
+BR
+[c3] or have it delivered
+[c3] to your mailing address.
+BR
+[c2] A small delivery fee applies.
+---
+@back: Back
+@next: Continue
+@goto: one-per-household
+
+===
+// ONE PER HOUSEHOLD
+@id: one-per-household
+@type: content
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+## [c2] It's one plant
+## [c2] per household.
+BR
+[c3] So if you've already
+[c3] received a plant,
+[c3] you won't be able
+[c3] to claim this one.
+BR
+[c2] But you will still
+[c2] be able to purchase it.
+---
+@back: Back
+@next: OK
+@goto: delivery-options
+
+===
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: review-order
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
 
 ===
 // REVIEW ORDER
@@ -247,8 +292,9 @@ BR
 # [c1] What Next?
 ---
 @choices:
-- go-plant-shop|Add more items to this order|plant-shop|c1
-- plant-collection-policy|Read plant collection policy|plant-collection-policy|c2
+- go-plant-shop|See More Plants|plant-shop|c1
+- plant-festival|Plant Festival|plant-festival-info|c2
+- plant-collection-policy|Read Collection Policy|plant-collection-policy|c3
 @showback: false
 @shownext: false
 
@@ -267,6 +313,28 @@ BR
 @reviewgoto: review-order
 @back: Back
 @next: Checkout
+
+===
+// PLANT FESTIVAL INFO
+@id: plant-festival-info
+@type: content
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+# [c1] Little Orchard &
+# [c1] ParaLife Trees
+# [c1] Plant Fest
+BR
+[c3] More details about
+[c3] the plant festival
+[c3] can go here later.
+---
+@choices:
+- visit-shop-from-fest|See More Plants|plant-shop|c1
+@back: Back
+@shownext: false
 
 ===
 // PLANT COLLECTION POLICY
@@ -305,6 +373,6 @@ BR
 ## [c1] also apply to free and complimentary gifted plants
 ---
 @choices:
-- visit-plant-shop|Visit Plant Shop|plant-shop|c1
+- visit-plant-shop|See More Plants|plant-shop|c1
 @back: Back
 @shownext: false

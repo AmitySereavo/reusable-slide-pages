@@ -97,46 +97,52 @@ export function applyDiscountToShopLines(
     }));
   }
 
-  if (discount.type === "percentage") {
-    return lines.map((line) => {
-      const isEligible = eligibleLines.some(
-        (eligible) => eligible.lineKey === line.lineKey
-      );
+    if (discount.type === "percentage") {
+      return lines.map((line) => {
+        const isEligible = eligibleLines.some(
+          (eligible) => eligible.lineKey === line.lineKey
+        );
 
-      const baseLineTotal = line.lineTotal;
-      const baseUnitPrice = line.unitPrice;
+        const baseLineTotal = line.lineTotal;
+        const baseUnitPrice = line.unitPrice;
 
-      if (!isEligible) {
+        if (!isEligible) {
+          return {
+            ...line,
+            baseUnitPrice,
+            baseLineTotal,
+          };
+        }
+
+        const eligibleQuantity = Math.max(1, line.quantity);
+        const discountedQuantity =
+          discount.code === "QUESTIONNAIRE_PROMO" ? 1 : eligibleQuantity;
+
+        const eligibleBaseAmount = roundMoney(baseUnitPrice * discountedQuantity);
+
+        const lineDiscount = clampMoney(
+          roundMoney((eligibleBaseAmount * discount.amount) / 100),
+          0,
+          baseLineTotal
+        );
+
+        const nextLineTotal = clampMoney(baseLineTotal - lineDiscount, 0, baseLineTotal);
+        const unitDiscount = roundMoney(lineDiscount / Math.max(1, line.quantity));
+        const nextUnitPrice = roundMoney(nextLineTotal / Math.max(1, line.quantity));
+
         return {
           ...line,
+          unitPrice: nextUnitPrice,
+          lineTotal: nextLineTotal,
           baseUnitPrice,
           baseLineTotal,
+          unitDiscount,
+          lineDiscount,
+          discountCode: discount.code,
+          discountLabel: discount.label,
         };
-      }
-
-      const lineDiscount = clampMoney(
-        roundMoney((baseLineTotal * discount.amount) / 100),
-        0,
-        baseLineTotal
-      );
-
-      const nextLineTotal = clampMoney(baseLineTotal - lineDiscount, 0, baseLineTotal);
-      const unitDiscount = roundMoney(lineDiscount / Math.max(1, line.quantity));
-      const nextUnitPrice = roundMoney(nextLineTotal / Math.max(1, line.quantity));
-
-      return {
-        ...line,
-        unitPrice: nextUnitPrice,
-        lineTotal: nextLineTotal,
-        baseUnitPrice,
-        baseLineTotal,
-        unitDiscount,
-        lineDiscount,
-        discountCode: discount.code,
-        discountLabel: discount.label,
-      };
-    });
-  }
+      });
+    }
 
   const totalEligibleAmount = eligibleLines.reduce(
     (sum, line) => sum + line.lineTotal,
