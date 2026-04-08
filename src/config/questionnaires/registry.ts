@@ -16,11 +16,11 @@ type QuestionnaireRegistryEntry = {
   slug: string;
   name: string;
   themeKey: string;
-  theme: typeof selfTrustTheme;
+  theme: ThemeConfig;
   dslPath: string;
   showStepText?: boolean;
   overlayMode?: "transparent" | "opaque";
-  variables: Record<string, unknown>;
+  variables: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
 };
 
