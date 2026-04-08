@@ -442,7 +442,7 @@ export async function POST(req: Request) {
           displayName: plantName,
           category: inferPlantCategory(
             plantTypeValue.toLowerCase()
-          ) as Prisma.EnumNurseryPlantCategoryFieldUpdateOperationsInput["set"],
+          ) as Prisma.NullableEnumNurseryPlantCategoryFieldUpdateOperationsInput["set"],
           active: true,
         },
       }));
