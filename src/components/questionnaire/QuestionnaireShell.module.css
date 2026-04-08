@@ -58,6 +58,15 @@
   gap: 12px;
 }
 
+.persistentTopActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
 .stepText {
   margin-bottom: 12px;
   font-size: 14px;

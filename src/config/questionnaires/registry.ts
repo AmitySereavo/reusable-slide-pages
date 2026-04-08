@@ -53,6 +53,17 @@ export const questionnaireRegistry = {
     variables: {},
     dynamicVariablesEndpoint: undefined,
   },
+
+  "nursery-ops": {
+    slug: "nursery-ops",
+    name: "Nursery Operations",
+    themeKey: "nurseryOps",
+    theme: gardenHerbsTheme,
+    dslPath: "src/config/questionnaires/nurseryOpsDsl.txt",
+    showStepText: true,
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
 } as const;
 
 export async function getQuestionnaireBySlug(slug: string) {

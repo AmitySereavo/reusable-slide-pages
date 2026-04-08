@@ -205,7 +205,7 @@ model PlantShopSizeOption {
   priceJmd          Decimal  @db.Decimal(10, 2)
   compareAtPriceJmd Decimal? @db.Decimal(10, 2)
 
-  weight     Decimal? @db.Decimal(10, 3)
+  weight     Decimal?    @db.Decimal(10, 3)
   weightUnit WeightUnit?
 
   stockOnHand    Int @default(0)
@@ -220,17 +220,17 @@ model PlantShopSizeOption {
 
   purchaseModes PlantShopSizeOptionPurchaseMode[]
 
-  @@index([plantId, active, sortOrder])
   @@unique([plantId, label])
+  @@index([plantId, active, sortOrder])
 }
 
 model PlantShopSizeOptionPurchaseMode {
-  id               String              @id @default(cuid())
-  sizeOptionId     String
-  sizeOption       PlantShopSizeOption @relation(fields: [sizeOptionId], references: [id], onDelete: Cascade)
+  id           String              @id @default(cuid())
+  sizeOptionId String
+  sizeOption   PlantShopSizeOption @relation(fields: [sizeOptionId], references: [id], onDelete: Cascade)
 
-  modeType PlantShopPurchaseModeType
-  label    String
+  modeType    PlantShopPurchaseModeType
+  label       String
   description String?
 
   active    Boolean @default(true)
@@ -242,8 +242,8 @@ model PlantShopSizeOptionPurchaseMode {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([sizeOptionId, active, sortOrder])
   @@unique([sizeOptionId, modeType])
+  @@index([sizeOptionId, active, sortOrder])
 }
 
 enum PlantKind {
@@ -350,4 +350,623 @@ enum PlantShopPurchaseModeType {
   SUBSCRIBE_TO_UPDATES
   STANDARD
   OTHER
+}
+
+model PlantType {
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  name           String
+  displayName    String?
+  scientificName String?
+
+  category      NurseryPlantCategory?
+  form          NurseryPlantForm?
+  lifecycleType NurseryLifecycleType?
+
+  description String?
+
+  prefersShade      Boolean?
+  prefersPartialSun Boolean?
+  prefersFullSun    Boolean?
+
+  preferredTemperatureMinC Decimal? @db.Decimal(5, 2)
+  preferredTemperatureMaxC Decimal? @db.Decimal(5, 2)
+
+  preferredHumidityNotes String?
+  preferredMediumNotes   String?
+  preferredSoilNotes     String?
+  preferredWateringNotes String?
+
+  averageHeightCmMin Decimal? @db.Decimal(8, 2)
+  averageHeightCmMax Decimal? @db.Decimal(8, 2)
+
+  blooms     Boolean?
+  bloomNotes String?
+  fruits     Boolean?
+  fruitNotes String?
+
+  indoorSuitable    Boolean?
+  citySuitable      Boolean?
+  coolAreaSuitable  Boolean?
+  hotAreaSuitable   Boolean?
+  windyAreaSuitable Boolean?
+
+  diseaseProne   Boolean?
+  diseaseNotes   String?
+  treatmentNotes String?
+
+  ornamental    Boolean  @default(false)
+  edible        Boolean  @default(false)
+  medicinal     Boolean  @default(false)
+  shadeTree     Boolean  @default(false)
+  fruitProducer Boolean  @default(false)
+  sellable      Boolean  @default(true)
+  profitable    Boolean?
+
+  healthBenefits        String?
+  environmentalBenefits String?
+  commercialBenefits    String?
+  economicBenefits      String?
+
+  maintenanceDifficulty NurseryMaintenanceDifficulty?
+  usageNotes            String?
+  companionPlantNotes   String?
+
+  attractsBirds             Boolean?
+  attractsBeneficialInsects Boolean?
+  attractsPollinators       Boolean?
+  attractsPests             Boolean?
+  invasiveRiskNotes         String?
+
+  adCopyShort           String?
+  adCopyBasicNeeds      String?
+  adCopyHealthBenefit   String?
+  adCopyEconomicBenefit String?
+  adCopyEnvironmental   String?
+  adCopyEasyGrow        String?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches PlantBatch[]
+  media   PlantMedia[]
+}
+
+model PlantBatch {
+  id   String @id @default(cuid())
+  code String @unique
+
+  plantTypeId String
+  plantType   PlantType @relation(fields: [plantTypeId], references: [id], onDelete: Cascade)
+
+  startMethod    PlantStartMethod
+  startDate      DateTime
+  transplantDate DateTime?
+
+  quantityStarted      Int @default(0)
+  quantityTransplanted Int @default(0)
+  quantityAlive        Int @default(0)
+  quantityLost         Int @default(0)
+  quantitySold         Int @default(0)
+  quantityGifted       Int @default(0)
+
+  intendedUse     BatchIntendedUse
+  targetBuyerType BatchBuyerType?
+  targetBuyerName String?
+
+  sourceType  PlantSourceType?
+  sourceName  String?
+  sourceNotes String?
+
+  containerId String?
+  container   Container? @relation(fields: [containerId], references: [id], onDelete: SetNull)
+
+  mediumId String?
+  medium   GrowingMedium? @relation(fields: [mediumId], references: [id], onDelete: SetNull)
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  labeledForSale Boolean   @default(false)
+  labelPrintedAt DateTime?
+
+  startMediumSnapshot String?
+  containerSnapshot   String?
+  locationSnapshot    String?
+  startNotes          String?
+  commercialNotes     String?
+
+  active   Boolean @default(true)
+  archived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units      PlantUnit[]
+  activities PlantActivity[]
+  reminders  Reminder[]
+  media      PlantMedia[]
+
+  @@index([plantTypeId, startDate])
+  @@index([intendedUse, targetBuyerType])
+}
+
+model PlantUnit {
+  id   String @id @default(cuid())
+  code String @unique
+
+  batchId String
+  batch   PlantBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  sequenceNumber Int
+
+  status          PlantUnitStatus       @default(ACTIVE)
+  conditionStatus PlantConditionStatus?
+
+  containerId String?
+  container   Container? @relation(fields: [containerId], references: [id], onDelete: SetNull)
+
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  labeledForSale Boolean   @default(false)
+  labelPrintedAt DateTime?
+
+  transplantDate DateTime?
+  soldAt         DateTime?
+  giftedAt       DateTime?
+  lostAt         DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities PlantActivity[]
+  reminders  Reminder[]
+  media      PlantMedia[]
+
+  @@unique([batchId, sequenceNumber])
+  @@index([batchId, status])
+}
+
+model Container {
+  id   String @id @default(cuid())
+  code String @unique
+
+  type        ContainerType
+  description String?
+
+  lengthCm     Decimal? @db.Decimal(8, 2)
+  widthCm      Decimal? @db.Decimal(8, 2)
+  depthCm      Decimal? @db.Decimal(8, 2)
+  diameterCm   Decimal? @db.Decimal(8, 2)
+  volumeLiters Decimal? @db.Decimal(8, 2)
+
+  condition ContainerCondition?
+  reusable  Boolean             @default(true)
+  active    Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches PlantBatch[]
+  units   PlantUnit[]
+}
+
+model GrowingMedium {
+  id   String @id @default(cuid())
+  code String @unique
+
+  name        String
+  type        GrowingMediumType
+  quality     MediumQuality?
+  description String?
+
+  compositionNotes String?
+  drainageNotes    String?
+  moistureNotes    String?
+  fertilityNotes   String?
+  sourceNotes      String?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches PlantBatch[]
+}
+
+model Location {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  exposure        SunExposure?
+  temperatureMinC Decimal?     @db.Decimal(5, 2)
+  temperatureMaxC Decimal?     @db.Decimal(5, 2)
+
+  humidityNotes String?
+  indoor        Boolean?
+  outdoor       Boolean?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches PlantBatch[]
+  units   PlantUnit[]
+}
+
+model PlantActivity {
+  id String @id @default(cuid())
+
+  batchId String
+  batch   PlantBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  unitId String?
+  unit   PlantUnit? @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  activityType PlantActivityType
+  activityAt   DateTime
+
+  quantityAffected Int?
+  performedBy      String?
+
+  waterType      WaterType?
+  wateringMethod WateringMethod?
+  amountValue    Decimal?        @db.Decimal(10, 2)
+  amountUnit     String?
+  skipReason     String?
+
+  feedType     FeedType?
+  feedStrength String?
+  feedNotes    String?
+
+  pestTreatmentType PestTreatmentType?
+  pestProductName   String?
+  pestStrength      String?
+  targetPest        String?
+  pestResultNotes   String?
+
+  oldLocationId    String?
+  newLocationId    String?
+  locationReason   String?
+  locationSnapshot String?
+
+  conditionStatus PlantConditionStatus?
+  vigorRating     Int?
+  moistureStatus  MoistureStatus?
+  pestObserved    Boolean?
+  diseaseObserved Boolean?
+  symptomNotes    String?
+
+  transplantQuantity Int?
+  labeledSetTo       Boolean?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([batchId, activityAt])
+  @@index([unitId, activityAt])
+  @@index([activityType, activityAt])
+}
+
+model PlantMedia {
+  id String @id @default(cuid())
+
+  plantTypeId String?
+  plantType   PlantType? @relation(fields: [plantTypeId], references: [id], onDelete: SetNull)
+
+  batchId String?
+  batch   PlantBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  unitId String?
+  unit   PlantUnit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  mediaType PlantMediaType
+  usageType MediaUsageType
+
+  filePath   String
+  caption    String?
+  altText    String?
+  capturedAt DateTime?
+  isPrimary  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([plantTypeId, mediaType])
+  @@index([batchId, mediaType])
+  @@index([unitId, mediaType])
+}
+
+model Reminder {
+  id String @id @default(cuid())
+
+  batchId String?
+  batch   PlantBatch? @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  unitId String?
+  unit   PlantUnit? @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  type        ReminderType
+  title       String
+  description String?
+
+  dueAt          DateTime
+  recurrenceRule String?
+  status         ReminderStatus @default(PENDING)
+
+  completedAt DateTime?
+  skippedAt   DateTime?
+  skipReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dueAt, status])
+  @@index([batchId, status])
+  @@index([unitId, status])
+}
+
+enum NurseryPlantCategory {
+  HERB
+  VEGETABLE
+  FRUIT
+  TREE
+  ORNAMENTAL
+  FLOWERING
+  MEDICINAL
+  SHADE
+  AIR_PURIFYING
+  OTHER
+}
+
+enum NurseryPlantForm {
+  HERB
+  VINE
+  SHRUB
+  TREE
+  GROUNDCOVER
+  CLIMBER
+  SUCCULENT
+  OTHER
+}
+
+enum NurseryLifecycleType {
+  ANNUAL
+  BIENNIAL
+  PERENNIAL
+  OTHER
+}
+
+enum NurseryMaintenanceDifficulty {
+  EASY
+  MODERATE
+  HARD
+}
+
+enum PlantStartMethod {
+  SEED
+  CUTTING
+  AIR_LAYERING
+  WATER_PROPAGATION
+  VENDOR
+  GIFT
+  FORAGED
+  TRANSPLANT
+  OTHER
+}
+
+enum PlantSourceType {
+  SELF_STARTED
+  VENDOR
+  GIFT
+  FORAGED
+  PARTNER
+  CUSTOMER_RETURN
+  OTHER
+}
+
+enum BatchIntendedUse {
+  RETAIL
+  WHOLESALE
+  POPUP_SHOP
+  SPECIAL_EVENT
+  GREENHOUSE_STOCK
+  FARM_USE
+  PROMOTIONAL_GIFT
+  LEAD_MAGNET
+  RESEARCH
+  OTHER
+}
+
+enum BatchBuyerType {
+  HI_PRO
+  EVERGROW
+  HOPE_GARDENS
+  GENERAL_WHOLESALE
+  RETAIL_WALK_IN
+  POPUP_CUSTOMER
+  CUSTOM
+}
+
+enum PlantUnitStatus {
+  ACTIVE
+  TRANSPLANTED
+  SOLD
+  GIFTED
+  LOST
+  DEAD
+  DISCARDED
+}
+
+enum PlantConditionStatus {
+  EXCELLENT
+  GOOD
+  FAIR
+  WEAK
+  CRITICAL
+  DEAD
+}
+
+enum ContainerType {
+  POT
+  TRAY
+  CUP
+  BAG
+  BUCKET
+  BED
+  BOTTLE
+  TROUGH
+  OTHER
+}
+
+enum ContainerCondition {
+  BRAND_NEW
+  GOOD
+  FAIR
+  WORN
+  DAMAGED
+}
+
+enum GrowingMediumType {
+  SOIL
+  SEED_STARTER
+  COCONUT_COIR
+  TISSUE
+  SPONGE
+  HAY
+  WATER
+  ROCK
+  SAND
+  MIXED
+  OTHER
+}
+
+enum MediumQuality {
+  PROFESSIONAL
+  GOOD
+  FAIR
+  POOR
+}
+
+enum SunExposure {
+  FULL_SUN
+  PARTIAL_SUN
+  SHADE
+  BRIGHT_INDIRECT
+  MIXED
+}
+
+enum PlantActivityType {
+  STARTED
+  WATERED
+  FED
+  SKIPPED_WATERING
+  PEST_CONTROL
+  TRANSPLANTED
+  MOVED_LOCATION
+  CONDITION_UPDATE
+  LABELED
+  PRUNED
+  HARVESTED
+  SOLD
+  GIFTED
+  LOSS_RECORDED
+  PHOTO_CAPTURED
+  NOTE_ADDED
+}
+
+enum WaterType {
+  RAINWATER
+  PLAIN_WATER
+  NUTRIENT_SOLUTION
+  PLANT_FOOD
+  FERTILIZER_MIX
+  OTHER
+}
+
+enum WateringMethod {
+  DEEP_ROOT
+  LIGHT_SPRAY
+  MIST
+  SOAK
+  TOP_WATER
+  BOTTOM_WATER
+  OTHER
+}
+
+enum FeedType {
+  LIQUID_FEED
+  GRANULAR_FEED
+  COMPOST_TEA
+  NUTRIENT_SOLUTION
+  OTHER
+}
+
+enum PestTreatmentType {
+  SOAP_WATER
+  INSECTICIDE
+  FUNGICIDE
+  ORGANIC_SPRAY
+  MANUAL_REMOVAL
+  OTHER
+}
+
+enum MoistureStatus {
+  DRY
+  SLIGHTLY_DRY
+  MOIST
+  WET
+  WATERLOGGED
+}
+
+enum PlantMediaType {
+  FULL_PLANT
+  LEAF_CLOSEUP
+  FLOWER_CLOSEUP
+  FRUIT_CLOSEUP
+  ROOT_CLOSEUP
+  BARK_CLOSEUP
+  LIMB_CLOSEUP
+  SEED_IMAGE
+  TRAY_IMAGE
+  BATCH_OVERVIEW
+  OTHER
+}
+
+enum MediaUsageType {
+  OPERATIONS
+  PROMOTION
+  PRODUCT_LISTING
+  DIAGNOSIS
+  RESEARCH
+}
+
+enum ReminderType {
+  WATER
+  FEED
+  SPRAY
+  TRANSPLANT
+  LABEL
+  ROOT_CHECK
+  MOVE_LOCATION
+  PHOTO_UPDATE
+  DISEASE_CHECK
+  GENERAL_CHECK
+}
+
+enum ReminderStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  CANCELED
 }

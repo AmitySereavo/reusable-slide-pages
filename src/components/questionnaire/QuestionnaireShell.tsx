@@ -771,6 +771,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
   }
 
+  function resetNurseryOpsSession() {
+    setAnswers({});
+    setHistory([]);
+    setSubmitError(null);
+
+    const homeIndex = getSlideIndexById(visibleSlides, "nursery-ops-home");
+    setCurrentIndex(homeIndex === -1 ? 0 : homeIndex);
+  }
+
   function handleChoiceClick(value: PrimitiveValue, goto?: string) {
     if (currentSlide?.storeAs) {
       setAnswer(currentSlide.storeAs, value);
@@ -957,6 +966,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return true;
   }
 
+
   function getLeadPayload() {
     return {
       questionnaireSlug: config.slug,
@@ -969,31 +979,92 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     };
   }
 
-  async function runSlideAction(runName: string) {
-    if (runName !== "submitLead") return true;
+  function getNurseryBatchPayload() {
+  return {
+    questionnaireSlug: config.slug,
+    action: "createNurseryBatch",
+    answers,
+  };
+  }
 
-    setIsSubmitting(true);
-    setSubmitError(null);
+  function getNurseryActivityPayload() {
+    return {
+      questionnaireSlug: config.slug,
+      action: "logNurseryActivity",
+      answers,
+    };
+  }
 
-    try {
-      const response = await fetch("/api/questionnaires/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(getLeadPayload()),
-      });
+  function getNurseryTransplantPayload() {
+    return {
+      questionnaireSlug: config.slug,
+      action: "recordNurseryTransplant",
+      answers,
+    };
+  }
 
-      const data = await response.json().catch(() => null);
+ async function runSlideAction(runName: string) {
+  const actionMap: Record<
+    string,
+    { url: string; payload: () => Record<string, unknown> }
+  > = {
+    submitLead: {
+      url: "/api/questionnaires/submit",
+      payload: getLeadPayload,
+    },
+    createNurseryBatch: {
+      url: "/api/nursery-ops/create-batch",
+      payload: getNurseryBatchPayload,
+    },
+    logNurseryActivity: {
+      url: "/api/nursery-ops/log-activity",
+      payload: getNurseryActivityPayload,
+    },
+    recordNurseryTransplant: {
+      url: "/api/nursery-ops/record-transplant",
+      payload: getNurseryTransplantPayload,
+    },
+  };
 
-      if (!response.ok) {
-        throw new Error(data?.error || "Failed to submit lead.");
-      }
+  const action = actionMap[runName];
+
+  if (!action) {
+    return true;
+  }
+
+  setIsSubmitting(true);
+  setSubmitError(null);
+
+  try {
+    const response = await fetch(action.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(action.payload()),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error || data?.message || "Failed to run action.");
+    }
+
+    if (
+      runName === "createNurseryBatch" &&
+      data?.generatedBatchCode &&
+      typeof data.generatedBatchCode === "string"
+    ) {
+      setAnswers((prev) => ({
+        ...prev,
+        opsGeneratedBatchCode: data.generatedBatchCode,
+      }));
+    }
 
       return true;
     } catch (error) {
       setSubmitError(
-        error instanceof Error ? error.message : "Failed to submit lead."
+        error instanceof Error ? error.message : "Failed to run action."
       );
       return false;
     } finally {
@@ -1064,40 +1135,42 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             ? "Submitting..."
             : currentSlide.nextLabel ?? "Next";
 
-  const stageBackgroundColor = isMediaSlide
-    ? "#000000"
-    : currentSlide.pageBackgroundColor ??
-      withOpacity(theme.colors.card, currentSlide.cardOpacity);
+    const stageBackgroundColor = isMediaSlide
+      ? "#000000"
+      : currentSlide.pageBackgroundColor ??
+        withOpacity(theme.colors.card, currentSlide.cardOpacity);
 
-  const resolvedProgressOverlayBackground =
-    currentSlide.progressOverlayBackgroundColor ??
-    (isMediaSlide
-      ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
-      : "transparent");
+    const resolvedProgressOverlayBackground =
+      currentSlide.progressOverlayBackgroundColor ??
+      (isMediaSlide
+        ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
+        : "transparent");
 
-  const resolvedActionBarBackground =
-    currentSlide.actionBarBackgroundColor ?? "transparent";
+    const resolvedActionBarBackground =
+      currentSlide.actionBarBackgroundColor ?? "transparent";
 
-  const resolvedProgressOverlayTextColor =
-    currentSlide.progressOverlayTextColor ??
-    (isTransparentColor(currentSlide.progressOverlayBackgroundColor)
-      ? theme.colors.text
-      : currentSlide.progressOverlayBackgroundColor
-        ? getContrastTextColor(currentSlide.progressOverlayBackgroundColor)
-        : isMediaSlide
-          ? "#FFFFFF"
+    const resolvedProgressOverlayTextColor =
+      currentSlide.progressOverlayTextColor ??
+      (isTransparentColor(currentSlide.progressOverlayBackgroundColor)
+        ? theme.colors.text
+        : currentSlide.progressOverlayBackgroundColor
+          ? getContrastTextColor(currentSlide.progressOverlayBackgroundColor)
+          : isMediaSlide
+            ? "#FFFFFF"
+            : theme.colors.text);
+
+    const resolvedActionBarTextColor =
+      currentSlide.actionBarTextColor ??
+      (isTransparentColor(currentSlide.actionBarBackgroundColor)
+        ? theme.colors.text
+        : currentSlide.actionBarBackgroundColor
+          ? getContrastTextColor(currentSlide.actionBarBackgroundColor)
           : theme.colors.text);
 
-  const resolvedActionBarTextColor =
-    currentSlide.actionBarTextColor ??
-    (isTransparentColor(currentSlide.actionBarBackgroundColor)
-      ? theme.colors.text
-      : currentSlide.actionBarBackgroundColor
-        ? getContrastTextColor(currentSlide.actionBarBackgroundColor)
-        : theme.colors.text);
+    const actionBarHidden =
+      isCurrentVerticalVideoPlaying && isVerticalMediaSlide;
 
-  const actionBarHidden =
-    isCurrentVerticalVideoPlaying && isVerticalMediaSlide;
+    const isNurseryOps = config.slug === "nursery-ops";
 
   return (
     <main
@@ -1138,6 +1211,26 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               }}
             >
               <div className={styles.overlayFrame}>
+                {isNurseryOps ? (
+                  <div className={styles.persistentTopActions}>
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => goToTarget("nursery-ops-home")}
+                    >
+                      Return Home
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={resetNurseryOpsSession}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+              
                 {showStepText ? (
                   <div className={styles.stepText}>
                     Slide {currentStepNumber} of {totalStepCount}
@@ -2364,6 +2457,56 @@ function FormFieldRenderer({
           resize: "vertical",
         }}
       />
+    );
+  }
+
+  if (field.type === "date") {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const todayValue = `${yyyy}-${mm}-${dd}`;
+
+    return (
+      <div style={{ display: "grid", gap: "10px" }}>
+        <input
+          className={styles.input}
+          type="date"
+          value={String(answers[field.name] ?? "")}
+          onChange={(e) => setAnswer(field.name, e.target.value)}
+          style={{ borderColor: theme.colors.border }}
+        />
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => setAnswer(field.name, todayValue)}
+          style={{
+            borderColor: theme.colors.border,
+            background: "#FFFFFF",
+            color: theme.colors.text,
+          }}
+        >
+          Use today
+        </button>
+      </div>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <select
+        className={styles.input}
+        value={String(answers[field.name] ?? "")}
+        onChange={(e) => setAnswer(field.name, e.target.value)}
+        style={{ borderColor: theme.colors.border }}
+      >
+        <option value="">{resolvedPlaceholder || `Select ${resolvedLabel}`}</option>
+        {(field.options ?? []).map((option) => (
+          <option key={`${field.name}-${option.value}`} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     );
   }
 

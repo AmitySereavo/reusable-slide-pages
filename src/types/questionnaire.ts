@@ -190,6 +190,11 @@ export type Option = {
   disabled?: boolean;
 };
 
+export type SelectOption = {
+  label: string;
+  value: string;
+};
+
 export type ChoiceItem = {
   value: PrimitiveValue;
   label: string;
@@ -222,7 +227,15 @@ export type ShowIfRule = {
   in: PrimitiveValue[];
 };
 
-export type FieldType = "text" | "email" | "tel" | "checkbox" | "textarea";
+export type FieldType =
+  | "text"
+  | "email"
+  | "tel"
+  | "number"
+  | "date"
+  | "checkbox"
+  | "textarea"
+  | "select";
 
 export type FormField = {
   name: string;
@@ -230,6 +243,7 @@ export type FormField = {
   label: string;
   required?: boolean;
   placeholder?: string;
+  options?: SelectOption[];
 };
 
 export type SlideFeature =
@@ -349,7 +363,6 @@ export type QuestionnaireConfig = {
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
 };
-
 
 export type LeadFormData = {
   fullName: string;

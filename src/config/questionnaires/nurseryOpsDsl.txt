@@ -1,0 +1,321 @@
+// NURSERY OPS HOME
+===
+@id: nursery-ops-home
+@type: content
+---
+BR
+# [c2] Nursery
+# [c2] Operations
+BR
+[c3] Choose what you want to do.
+@choices:
+- create-batch|Create New Batch|batch-intro|c1
+- view-batches|View Existing Batches|batches-list|c2
+@showback: false
+@shownext: false
+
+===
+@id: batches-list
+@type: content
+---
+BR
+# [c2] Existing
+# [c2] Batches
+BR
+[c3] Saved batch cards will appear here.
+[c3] From here, you will open a batch profile,
+[c3] then choose transplant or activity log.
+@back: Back
+@next: Continue
+@goto: nursery-ops-home
+
+// ============================================================
+// CREATE NEW BATCH FLOW
+// ============================================================
+
+===
+@id: batch-intro
+@type: content
+---
+BR
+# [c2] Create
+# [c2] New Batch
+BR
+[c3] Log a new set of plants
+[c3] for nursery operations.
+@back: Back
+@next: Start
+@goto: batch-plant-info
+
+===
+@id: batch-plant-info
+@type: form
+---
+[c2] Enter the plant and batch basics.
+BR
+@fields:
+- opsBatchPlantName|text|Plant name|required|Plant name
+- opsBatchPlantTypeCode|text|Plant type code or slug|optional|Plant type code or slug
+- opsBatchStartDate|date|Start date|required|Select date
+- opsBatchSourceName|text|Source name|optional|Vendor, gift source, partner, etc.
+- opsBatchSourceNotes|textarea|Source notes|optional|Brief source notes
+---
+@back: Back
+@next: Continue
+@goto: batch-production-setup
+
+===
+@id: batch-production-setup
+@type: form
+---
+[c2] Enter production setup details.
+BR
+@fields:
+- opsBatchStartMethod|select|Start method|required|Select start method|seed=Started from seed,cutting=Started from cuttings,air-layering=Started from air layering,water-propagation=Started from water propagation,vendor=Received from vendor,gift=Received as gift,foraged=Foraged,transplant=Started from transplant,other=Other
+- opsBatchQuantityStarted|number|Quantity started|required|How many started
+- opsBatchQuantityNotes|textarea|Quantity notes|optional|Brief notes
+---
+@back: Back
+@next: Continue
+@goto: batch-container
+
+===
+@id: batch-container
+@type: form
+---
+[c2] Describe the starting container.
+BR
+@fields:
+- opsContainerType|select|Starting container|required|Select container|pot-2-5=2.5 inch pot,pot-4=4 inch pot,pot-6=6 inch pot,pot-8=8 inch pot,tray-8x16=8x16 tray,cup=Cup,grow-bag=Grow bag,bucket=Bucket,other=Other
+- opsContainerOtherDescription|textarea|Other container description|optional|Describe the container if you selected other
+- opsContainerLength|number|Container length|optional|Length
+- opsContainerWidth|number|Container width|optional|Width
+- opsContainerDepth|number|Container depth|optional|Depth
+- opsContainerCondition|select|Container condition|required|Select condition|brand-new=Brand new,good=Good,used=Used,worn=Worn,damaged=Damaged
+- opsContainerDescription|textarea|Container description|optional|Brief description
+---
+@back: Back
+@next: Continue
+@goto: batch-medium
+
+===
+@id: batch-medium
+@type: form
+---
+[c2] Describe the starting medium.
+BR
+@fields:
+- opsMediumName|text|Medium name|required|Soil, coir, tissue, sponge, etc.
+- opsMediumQuality|select|Medium quality|optional|Select quality|professional=Professional,good=Good,fair=Fair,poor=Poor
+- opsMediumDescription|textarea|Medium description|optional|Brief description
+- opsMediumSource|text|Medium source|optional|Where it came from
+---
+@back: Back
+@next: Continue
+@goto: batch-location
+
+===
+@id: batch-location
+@type: form
+---
+[c2] Describe the starting location.
+BR
+@fields:
+- opsLocationCode|text|Location code or name|optional|Greenhouse shelf A1, under table 2, etc.
+- opsLocationSun|select|Sun level|required|Select sun level|full-sun=Full sun,partial-sun=Partial sun,shade=Shade,bright-indirect=Bright indirect,mixed-light=Mixed light
+- opsLocationTemperature|select|Temperature feel|optional|Select temperature|cool=Cool,warm=Warm,hot=Hot,mixed=Mixed,not-sure=Not sure
+- opsLocationDescription|textarea|Location description|optional|Brief area description
+---
+@back: Back
+@next: Continue
+@goto: batch-commercial-setup
+
+===
+@id: batch-commercial-setup
+@type: form
+---
+[c2] Enter commercial setup details.
+BR
+@fields:
+- opsBatchIntendedUse|select|Goal for this batch|required|Select goal|retail=Retail sales,wholesale=Wholesale,popup-shop=Popup shop,special-event=Special event,greenhouse-stock=For greenhouse stock,farm-use=For farm use,promotional-gift=Promotional gifts,lead-magnet=Lead magnet use,other=Other
+- opsBatchBuyerTarget|select|Target buyer|optional|Select target buyer|hi-pro=Hi-Pro,evergrow=Evergrow,hope-gardens=Hope Gardens,general-wholesale=General wholesale,retail-walk-in=Retail walk-in,popup-customer=Popup customer,not-applicable=Not applicable,custom=Custom target
+- opsBatchLabeledForSale|checkbox|Already labeled for sale|optional
+- opsBatchCommercialNotes|textarea|Commercial notes|optional|Wholesale, retail, promo, etc.
+- opsBatchStartNotes|textarea|Start notes|optional|Any important setup notes
+---
+@run: createNurseryBatch
+@back: Back
+@next: Save batch
+@goto: batch-saved
+
+===
+@id: batch-saved
+@type: content
+---
+BR
+# [c2] Batch Saved
+BR
+[c3] Your nursery batch
+[c3] has been recorded.
+BR
+## [c1] Batch code:
+# [c1] [opsGeneratedBatchCode]
+@choices:
+- create-another|Create another batch|batch-intro|c1
+- home|Return home|nursery-ops-home|c2
+@showback: false
+@shownext: false
+
+// ============================================================
+// ACTIVITY LOG FLOW
+// ============================================================
+
+===
+@id: activity-intro
+@type: content
+---
+BR
+# [c2] Log
+# [c2] Activity
+BR
+[c3] Record watering, feeding,
+[c3] pest control, movement,
+[c3] or condition updates.
+@back: Back
+@next: Start
+@goto: activity-batch-select
+
+===
+@id: activity-batch-select
+@type: form
+---
+[c2] Select the batch or plant.
+BR
+@fields:
+- opsActivityBatchCode|text|Batch code|required|Batch code
+- opsActivityPlantCode|text|Individual plant code|optional|Plant code if logging one plant
+- opsActivityDate|date|Activity date|required|Select date
+- opsActivityType|select|Activity type|required|Select activity type|watered=Watered,fed=Fed,skipped-watering=Skipped watering,pest-control=Pest control,moved-location=Moved location,condition-update=Condition update,labeled=Labeled,note-added=General note
+---
+@back: Back
+@next: Continue
+@goto: activity-details
+
+===
+@id: activity-details
+@type: form
+---
+[c2] Enter activity details.
+BR
+@fields:
+- opsWaterType|select|Water type|optional|Select water type|rainwater=Rainwater,plain-water=Plain water,nutrient-solution=Nutrient solution,plant-food=Plant food,fertilizer-mix=Fertilizer mix,other=Other
+- opsWaterMethod|select|Watering method|optional|Select method|deep-root=Deep root,light-spray=Light spray,mist=Mist,soak=Soak,top-water=Top water,bottom-water=Bottom water,other=Other
+- opsWaterAmount|number|Amount used|optional|How much was used
+- opsWaterReason|textarea|Reason for watering|optional|Why you watered
+- opsFeedType|text|Feed type|optional|Plant food, fertilizer, nutrient solution, etc.
+- opsFeedStrength|text|Strength used|optional|Half strength, full strength, etc.
+- opsFeedAmount|number|Feed amount|optional|How much was used
+- opsFeedReason|textarea|Reason for feeding|optional|Why feeding was done
+- opsSkippedWateringReason|textarea|Skipped watering reason|optional|Why watering was skipped
+- opsSkippedWateringNextCheck|date|Next check date|optional|Select date
+- opsPestTreatmentType|text|Pest treatment type|optional|Soap water, insecticide, etc.
+- opsPestProductName|text|Product used|optional|Product name
+- opsPestStrength|text|Pest treatment strength|optional|Strength
+- opsTargetPest|text|Target pest|optional|What pest was targeted
+- opsPestResultNotes|textarea|Pest result notes|optional|Observed result
+- opsOldLocation|text|Old location|optional|Previous location
+- opsNewLocation|text|New location|optional|New location
+- opsNewSunLevel|select|New sun level|optional|Select sun level|full-sun=Full sun,partial-sun=Partial sun,shade=Shade,bright-indirect=Bright indirect,mixed-light=Mixed light
+- opsNewTemperature|select|New temperature feel|optional|Select temperature|cool=Cool,warm=Warm,hot=Hot,mixed=Mixed,not-sure=Not sure
+- opsMoveReason|textarea|Reason for move|optional|Why plant was moved
+- opsConditionStatus|text|Condition status|optional|Excellent, good, weak, etc.
+- opsVigorRating|number|Vigor rating|optional|1 to 10
+- opsMoistureStatus|text|Moisture status|optional|Dry, moist, wet, etc.
+- opsPestObserved|text|Pests observed|optional|Yes, no, or notes
+- opsDiseaseObserved|text|Disease observed|optional|Yes, no, or notes
+- opsConditionNotes|textarea|Condition notes|optional|Brief notes
+- opsLabeledSetTo|checkbox|Marked as labeled|optional
+- opsLabelNotes|textarea|Label notes|optional|Commercial label notes
+- opsGeneralNote|textarea|General note|optional|Enter note
+---
+@run: logNurseryActivity
+@back: Back
+@next: Save activity
+@goto: activity-saved
+
+===
+@id: activity-saved
+@type: content
+---
+BR
+# [c2] Activity Saved
+BR
+[c3] Your nursery activity
+[c3] has been recorded.
+@choices:
+- log-another|Log another activity|activity-batch-select|c1
+- home|Return home|nursery-ops-home|c2
+@showback: false
+@shownext: false
+
+// ============================================================
+// TRANSPLANT FLOW
+// ============================================================
+
+===
+@id: transplant-intro
+@type: content
+---
+BR
+# [c2] Record
+# [c2] Transplant
+BR
+[c3] Update transplant details
+[c3] for a batch or set.
+@back: Back
+@next: Start
+@goto: transplant-details
+
+===
+@id: transplant-details
+@type: form
+---
+[c2] Enter transplant details.
+BR
+@fields:
+- opsTransplantBatchCode|text|Batch code|required|Batch code
+- opsTransplantDate|date|Transplant date|required|Select date
+- opsTransplantQuantity|number|Quantity transplanted|required|How many transplanted
+- opsTransplantContainerType|select|Container type|required|Select container|pot-2-5=2.5 inch pot,pot-4=4 inch pot,pot-6=6 inch pot,pot-8=8 inch pot,tray-8x16=8x16 tray,cup=Cup,grow-bag=Grow bag,bucket=Bucket,other=Other
+- opsTransplantContainerDescription|textarea|Container description|optional|Brief description
+- opsTransplantContainerCondition|select|Container condition|optional|Select condition|brand-new=Brand new,good=Good,used=Used,worn=Worn,damaged=Damaged
+- opsTransplantMediumName|text|Medium name|required|Soil, coir, mixed medium, etc.
+- opsTransplantMediumQuality|select|Medium quality|optional|Select quality|professional=Professional,good=Good,fair=Fair,poor=Poor
+- opsTransplantMediumDescription|textarea|Medium description|optional|Brief description
+- opsTransplantLocationCode|text|Location code or name|optional|Greenhouse shelf A1, under table 2, etc.
+- opsTransplantSun|select|Sun level|optional|Select sun level|full-sun=Full sun,partial-sun=Partial sun,shade=Shade,bright-indirect=Bright indirect,mixed-light=Mixed light
+- opsTransplantTemperature|select|Temperature feel|optional|Select temperature|cool=Cool,warm=Warm,hot=Hot,mixed=Mixed,not-sure=Not sure
+- opsTransplantLocationDescription|textarea|Location description|optional|Brief area description
+- opsTransplantLabeledForSale|checkbox|Labeled after transplant|optional
+- opsTransplantCreateUnits|text|Create individual plant codes?|optional|Yes, no, or quantity
+- opsTransplantNotes|textarea|Transplant notes|optional|Brief notes
+---
+@run: recordNurseryTransplant
+@back: Back
+@next: Save transplant
+@goto: transplant-saved
+
+===
+@id: transplant-saved
+@type: content
+---
+BR
+# [c2] Transplant Saved
+BR
+[c3] Your transplant update
+[c3] has been recorded.
+@choices:
+- record-another|Record another transplant|transplant-details|c1
+- home|Return home|nursery-ops-home|c2
+@showback: false
+@shownext: false

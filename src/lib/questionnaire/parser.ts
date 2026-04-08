@@ -7,6 +7,7 @@ import {
   Option,
   ParsedQuestionnaireDocument,
   ParsedSlideDraft,
+  SelectOption,
   Slide,
   SlideFeature,
   SlideRouteRule,
@@ -432,8 +433,6 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 }
 
 function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
-  
-  
   if (!draft.id || !draft.type) {
     return null;
   }
@@ -543,7 +542,7 @@ function parseFeature(value: string): SlideFeature | undefined {
 function parseFieldLine(line: string): FormField | null {
   const value = line.replace(/^-+\s*/, "").trim();
 
-  const [name, type, label, requiredFlag, placeholder] = value
+  const [name, type, label, requiredFlag, placeholder, rawOptions] = value
     .split("|")
     .map((part) => part.trim());
 
@@ -555,7 +554,32 @@ function parseFieldLine(line: string): FormField | null {
     label,
     required: requiredFlag?.toLowerCase() === "required",
     placeholder: placeholder || undefined,
+    options: parseFieldOptions(rawOptions),
   };
+}
+
+function parseFieldOptions(rawOptions?: string): SelectOption[] | undefined {
+  if (!rawOptions) return undefined;
+
+  const options = rawOptions
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const [rawValue, rawLabel] = item.split("=").map((part) => part.trim());
+
+      if (!rawValue) {
+        return null;
+      }
+
+      return {
+        value: rawValue,
+        label: rawLabel || rawValue,
+      };
+    })
+    .filter(Boolean) as SelectOption[];
+
+  return options.length ? options : undefined;
 }
 
 function parseChoiceLine(line: string): ChoiceItem | null {
