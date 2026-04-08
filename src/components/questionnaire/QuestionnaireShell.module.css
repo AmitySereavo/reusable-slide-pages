@@ -58,6 +58,14 @@
   gap: 12px;
 }
 
+.topUtilityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .persistentTopActions {
   display: flex;
   justify-content: flex-end;
@@ -65,6 +73,8 @@
   gap: 12px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 5;
 }
 
 .stepText {
@@ -231,6 +241,73 @@
   pointer-events: none;
 }
 
+.recordListStack {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.recordCard {
+  width: 100%;
+  text-align: left;
+  border: 1px solid;
+  border-radius: 18px;
+  padding: 16px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.recordCard:hover {
+  transform: translateY(-1px);
+}
+
+.recordCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.recordCardTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.recordCardCount {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.recordCardSubtitle {
+  margin-top: 8px;
+  font-size: 15px;
+  opacity: 0.92;
+}
+
+.recordCardMeta {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  opacity: 0.82;
+}
+
+.persistentTopActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 5;
+}
 .storyStack {
   display: grid;
   gap: 0;

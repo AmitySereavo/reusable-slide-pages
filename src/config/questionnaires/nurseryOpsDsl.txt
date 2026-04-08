@@ -16,18 +16,83 @@ BR
 
 ===
 @id: batches-list
-@type: content
+@type: recordlist
+@store: opsSelectedBatchCode
+@source: nurseryBatches
+@titlefield: code
+@subtitlefield: plantName
+@metafields: startDate,quantityAlive,intendedUse
+@emptytext: No batches available yet.
 ---
 BR
 # [c2] Existing
 # [c2] Batches
 BR
-[c3] Saved batch cards will appear here.
-[c3] From here, you will open a batch profile,
-[c3] then choose transplant or activity log.
+[c3] Select a batch to open its profile.
 @back: Back
-@next: Continue
-@goto: nursery-ops-home
+@next: Open Batch
+@goto: batch-profile
+
+===
+@id: batch-profile
+@type: content
+---
+BR
+# [c2] Batch
+# [c2] Profile
+BR
+[c3] This is where the selected batch
+[c3] summary will appear.
+BR
+[c2] From here you will:
+[c2] transplant,
+[c2] log batch activity,
+[c2] or view individual plants.
+@choices:
+- transplant|Record Transplant|transplant-details|c1
+- batch-activity|Log Batch Activity|activity-batch-select|c2
+- view-plants|View Individual Plants|batch-plants-list|c3
+- return-batches|Back to Batches|batches-list|c1
+@showback: false
+@shownext: false
+
+===
+@id: batch-plants-list
+@type: recordlist
+@store: opsSelectedPlantCode
+@source: nurseryBatchPlants
+@titlefield: code
+@subtitlefield: conditionStatus
+@metafields: location,labelStatus
+@emptytext: No individual plants available for this batch yet.
+---
+BR
+# [c2] Individual
+# [c2] Plants
+BR
+[c3] Select a plant to open its profile.
+@back: Back
+@next: Open Plant
+@goto: plant-profile
+
+===
+@id: plant-profile
+@type: content
+---
+BR
+# [c2] Plant
+# [c2] Profile
+BR
+[c3] This is where one individual plant
+[c3] summary will appear.
+BR
+[c2] From here you will log
+[c2] single-plant updates.
+@choices:
+- single-activity|Log Single Plant Activity|activity-batch-select|c1
+- back-to-plants|Back to Plants|batch-plants-list|c2
+@showback: false
+@shownext: false
 
 // ============================================================
 // CREATE NEW BATCH FLOW
@@ -51,11 +116,17 @@ BR
 @id: batch-plant-info
 @type: form
 ---
-[c2] Enter the plant and batch basics.
+# [c2] Plant
+# [c2] Details
+BR
+[c3] Enter the plant identity
+[c3] and where it came from.
 BR
 @fields:
-- opsBatchPlantName|text|Plant name|required|Plant name
-- opsBatchPlantTypeCode|text|Plant type code or slug|optional|Plant type code or slug
+- opsBatchPlantName|select|Plant name|required|Select plant name|other=Other / New plant
+- opsBatchPlantNameOther|text|New plant name|optional|Enter if not listed
+- opsBatchPlantType|select|Plant type|required|Select plant type|herb=Herb,vegetable=Vegetable,fruit=Fruit,tree=Tree,ornamental=Ornamental,flowering=Flowering,medicinal=Medicinal,shade=Shade,other=Other / New type
+- opsBatchPlantTypeOther|text|New plant type|optional|Enter if not listed
 - opsBatchStartDate|date|Start date|required|Select date
 - opsBatchSourceName|text|Source name|optional|Vendor, gift source, partner, etc.
 - opsBatchSourceNotes|textarea|Source notes|optional|Brief source notes
@@ -68,7 +139,11 @@ BR
 @id: batch-production-setup
 @type: form
 ---
-[c2] Enter production setup details.
+# [c2] Production
+# [c2] Setup
+BR
+[c3] Enter how this batch was started
+[c3] and how many were started.
 BR
 @fields:
 - opsBatchStartMethod|select|Start method|required|Select start method|seed=Started from seed,cutting=Started from cuttings,air-layering=Started from air layering,water-propagation=Started from water propagation,vendor=Received from vendor,gift=Received as gift,foraged=Foraged,transplant=Started from transplant,other=Other
@@ -83,16 +158,22 @@ BR
 @id: batch-container
 @type: form
 ---
-[c2] Describe the starting container.
+# [c2] Container
+# [c2] Details
+BR
+[c3] Enter the container type,
+[c3] quantity, size, and condition.
 BR
 @fields:
-- opsContainerType|select|Starting container|required|Select container|pot-2-5=2.5 inch pot,pot-4=4 inch pot,pot-6=6 inch pot,pot-8=8 inch pot,tray-8x16=8x16 tray,cup=Cup,grow-bag=Grow bag,bucket=Bucket,other=Other
-- opsContainerOtherDescription|textarea|Other container description|optional|Describe the container if you selected other
+- opsContainerType|select|Starting container|required|Select container|2.5 inch pot,4 inch pot,6 inch pot,8x16 tray,cup,grow bag,bucket,other
+- opsContainerQuantity|number|Container quantity|required|How many containers
 - opsContainerLength|number|Container length|optional|Length
 - opsContainerWidth|number|Container width|optional|Width
 - opsContainerDepth|number|Container depth|optional|Depth
-- opsContainerCondition|select|Container condition|required|Select condition|brand-new=Brand new,good=Good,used=Used,worn=Worn,damaged=Damaged
-- opsContainerDescription|textarea|Container description|optional|Brief description
+- opsContainerDimensionUnit|select|Dimension unit|optional|Select unit|inches,cm
+- opsContainerCondition|select|Container condition|required|Select condition|brand new,good,used,worn,damaged
+- opsContainerOtherDescription|textarea|Other container description|optional|Describe the container if other
+- opsContainerDescription|textarea|Container notes|optional|Brief description
 ---
 @back: Back
 @next: Continue
@@ -102,7 +183,11 @@ BR
 @id: batch-medium
 @type: form
 ---
-[c2] Describe the starting medium.
+# [c2] Medium
+# [c2] Details
+BR
+[c3] Describe the growing medium
+[c3] used to start this batch.
 BR
 @fields:
 - opsMediumName|text|Medium name|required|Soil, coir, tissue, sponge, etc.
@@ -118,7 +203,11 @@ BR
 @id: batch-location
 @type: form
 ---
-[c2] Describe the starting location.
+# [c2] Location
+# [c2] Details
+BR
+[c3] Describe where this batch
+[c3] is being kept right now.
 BR
 @fields:
 - opsLocationCode|text|Location code or name|optional|Greenhouse shelf A1, under table 2, etc.
@@ -134,7 +223,11 @@ BR
 @id: batch-commercial-setup
 @type: form
 ---
-[c2] Enter commercial setup details.
+# [c2] Commercial
+# [c2] Setup
+BR
+[c3] Enter the intended use,
+[c3] buyer direction, and sale notes.
 BR
 @fields:
 - opsBatchIntendedUse|select|Goal for this batch|required|Select goal|retail=Retail sales,wholesale=Wholesale,popup-shop=Popup shop,special-event=Special event,greenhouse-stock=For greenhouse stock,farm-use=For farm use,promotional-gift=Promotional gifts,lead-magnet=Lead magnet use,other=Other
@@ -171,25 +264,14 @@ BR
 // ============================================================
 
 ===
-@id: activity-intro
-@type: content
----
-BR
-# [c2] Log
-# [c2] Activity
-BR
-[c3] Record watering, feeding,
-[c3] pest control, movement,
-[c3] or condition updates.
-@back: Back
-@next: Start
-@goto: activity-batch-select
-
-===
 @id: activity-batch-select
 @type: form
 ---
-[c2] Select the batch or plant.
+# [c2] Activity
+# [c2] Selection
+BR
+[c3] Select the batch or plant
+[c3] and the activity date.
 BR
 @fields:
 - opsActivityBatchCode|text|Batch code|required|Batch code
@@ -205,7 +287,11 @@ BR
 @id: activity-details
 @type: form
 ---
-[c2] Enter activity details.
+# [c2] Activity
+# [c2] Details
+BR
+[c3] Enter the update details
+[c3] for this batch or plant.
 BR
 @fields:
 - opsWaterType|select|Water type|optional|Select water type|rainwater=Rainwater,plain-water=Plain water,nutrient-solution=Nutrient solution,plant-food=Plant food,fertilizer-mix=Fertilizer mix,other=Other
@@ -263,24 +349,14 @@ BR
 // ============================================================
 
 ===
-@id: transplant-intro
-@type: content
----
-BR
-# [c2] Record
-# [c2] Transplant
-BR
-[c3] Update transplant details
-[c3] for a batch or set.
-@back: Back
-@next: Start
-@goto: transplant-details
-
-===
 @id: transplant-details
 @type: form
 ---
-[c2] Enter transplant details.
+# [c2] Transplant
+# [c2] Details
+BR
+[c3] Enter the transplant setup
+[c3] for this batch.
 BR
 @fields:
 - opsTransplantBatchCode|text|Batch code|required|Batch code
@@ -288,6 +364,13 @@ BR
 - opsTransplantQuantity|number|Quantity transplanted|required|How many transplanted
 - opsTransplantContainerType|select|Container type|required|Select container|pot-2-5=2.5 inch pot,pot-4=4 inch pot,pot-6=6 inch pot,pot-8=8 inch pot,tray-8x16=8x16 tray,cup=Cup,grow-bag=Grow bag,bucket=Bucket,other=Other
 - opsTransplantContainerDescription|textarea|Container description|optional|Brief description
+- opsTransplantContainerQuantity|number|Container quantity|required|How many containers
+- opsTransplantContainerLength|number|Container length|optional|Length
+- opsTransplantContainerLengthUnit|select|Length unit|optional|Select unit|inches=Inches,cm=Centimeters
+- opsTransplantContainerWidth|number|Container width|optional|Width
+- opsTransplantContainerWidthUnit|select|Width unit|optional|Select unit|inches=Inches,cm=Centimeters
+- opsTransplantContainerDepth|number|Container depth|optional|Depth
+- opsTransplantContainerDepthUnit|select|Depth unit|optional|Select unit|inches=Inches,cm=Centimeters
 - opsTransplantContainerCondition|select|Container condition|optional|Select condition|brand-new=Brand new,good=Good,used=Used,worn=Worn,damaged=Damaged
 - opsTransplantMediumName|text|Medium name|required|Soil, coir, mixed medium, etc.
 - opsTransplantMediumQuality|select|Medium quality|optional|Select quality|professional=Professional,good=Good,fair=Fair,poor=Poor

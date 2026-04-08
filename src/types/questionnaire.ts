@@ -195,6 +195,14 @@ export type SelectOption = {
   value: string;
 };
 
+export type RecordListItem = {
+  value: string;
+  title: string;
+  subtitle?: string;
+  meta?: string[];
+  childCount?: number;
+};
+
 export type ChoiceItem = {
   value: PrimitiveValue;
   label: string;
@@ -273,7 +281,8 @@ export type SlideType =
   | "video"
   | "media"
   | "shop"
-  | "delivery";
+  | "delivery"
+  | "recordlist";
 
 export type Slide = {
   id: string;
@@ -328,6 +337,11 @@ export type Slide = {
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;
   actionBarTextColor?: string;
+  recordSourceKey?: string;
+  recordTitleField?: string;
+  recordSubtitleField?: string;
+  recordMetaFields?: string[];
+  recordEmptyText?: string;
 };
 
 export type ThemeConfig = {
@@ -343,6 +357,7 @@ export type ThemeConfig = {
     accent?: string;
     subtitle?: string;
     lineColors?: Record<string, string>;
+    cardAlt?: string;
   };
   radius?: {
     card?: string;
@@ -362,6 +377,7 @@ export type QuestionnaireConfig = {
   variables?: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
+  overlayMode?: "transparent" | "opaque";
 };
 
 export type LeadFormData = {
@@ -420,6 +436,11 @@ export type ParsedSlideDraft = {
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;
   actionBarTextColor?: string;
+  recordSourceKey?: string;
+  recordTitleField?: string;
+  recordSubtitleField?: string;
+  recordMetaFields?: string[];
+  recordEmptyText?: string;
 };
 
 export type ParsedQuestionnaireDocument = {

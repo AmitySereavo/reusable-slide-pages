@@ -9,10 +9,22 @@ import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
-
+import type { QuestionnaireVariableMap, ThemeConfig } from "@/types/questionnaire";
 const activeSeedDsl = "v2";
 
-export const questionnaireRegistry = {
+type QuestionnaireRegistryEntry = {
+  slug: string;
+  name: string;
+  themeKey: string;
+  theme: typeof selfTrustTheme;
+  dslPath: string;
+  showStepText?: boolean;
+  overlayMode?: "transparent" | "opaque";
+  variables: Record<string, unknown>;
+  dynamicVariablesEndpoint?: string;
+};
+
+export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> = {
   "self-trust": {
     slug: "self-trust",
     name: "Self Trust",
@@ -55,14 +67,52 @@ export const questionnaireRegistry = {
   },
 
   "nursery-ops": {
-    slug: "nursery-ops",
-    name: "Nursery Operations",
-    themeKey: "nurseryOps",
-    theme: gardenHerbsTheme,
-    dslPath: "src/config/questionnaires/nurseryOpsDsl.txt",
-    showStepText: true,
-    variables: {},
-    dynamicVariablesEndpoint: undefined,
+  slug: "nursery-ops",
+  name: "Nursery Operations",
+  themeKey: "nurseryOps",
+  theme: gardenHerbsTheme,
+  dslPath: "src/config/questionnaires/nurseryOpsDsl.txt",
+  showStepText: false,
+  overlayMode: "opaque",
+  variables: {
+    nurseryBatches: [
+      {
+        value: "AA040826",
+        code: "AA040826",
+        plantName: "Malbar Spinach",
+        startDate: "2026-04-08",
+        quantityAlive: 74,
+        intendedUse: "Retail",
+        childCount: 74,
+      },
+      {
+        value: "BA040826",
+        code: "BA040826",
+        plantName: "Rosemary",
+        startDate: "2026-04-08",
+        quantityAlive: 30,
+        intendedUse: "Wholesale",
+        childCount: 30,
+      },
+    ],
+    nurseryBatchPlants: [
+      {
+        value: "AA040826-P001",
+        code: "AA040826-P001",
+        conditionStatus: "Good",
+        location: "Greenhouse Shelf A1",
+        labelStatus: "Not labeled",
+      },
+      {
+        value: "AA040826-P002",
+        code: "AA040826-P002",
+        conditionStatus: "Fair",
+        location: "Under Table 2",
+        labelStatus: "Labeled",
+      },
+    ],
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/nursery-ops/batches",
   },
 } as const;
 
@@ -99,7 +149,10 @@ export async function getQuestionnaireBySlug(slug: string) {
   }
 
   const rawDsl = await loadDslText(entry.dslPath);
-  const resolvedDsl = resolveDslTemplate(rawDsl, resolvedVariables);
+  const resolvedDsl = resolveDslTemplate(
+    rawDsl,
+    resolvedVariables as Record<string, string | number>
+  );
 
   return {
     config: {
@@ -110,6 +163,7 @@ export async function getQuestionnaireBySlug(slug: string) {
       variables: resolvedVariables,
       dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
       showStepText: entry.showStepText,
+      overlayMode: entry.overlayMode,
     },
     theme: entry.theme,
   };

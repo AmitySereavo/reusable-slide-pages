@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered questionnaire / slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, media-rich slide flows, lightweight storefront flows, promotion-driven questionnaire offers, and delivery / pickup selection flows.
+This project powers interactive multi-slide experiences that can be reused across different brands, campaigns, lead funnels, guided questionnaires, media-rich slide flows, lightweight storefront flows, promotion-driven questionnaire offers, delivery / pickup selection flows, and structured operational logging systems.
 
 ## Current stack
 
@@ -41,9 +41,11 @@ This makes it possible to:
 - support reusable delivery slides backed by config or DB-provided delivery data
 - support reusable order review flows
 - support reusable discount definitions that affect shop and review totals
-- support questionnaire-paired promotional items selected from real inventory
 - support URL-driven discount and promo-item selection
-- support slide-level overlay background and overlay text color control
+- support questionnaire-level step-counter visibility
+- support questionnaire-level overlay display mode
+- support persistent questionnaire utility controls such as Return Home and Cancel
+- support operational form flows beyond marketing and shop use cases
 
 ## Current architecture
 
@@ -56,6 +58,7 @@ Each questionnaire is defined by:
 - a variables object
 - an optional dynamic variables endpoint
 - an optional questionnaire-level `showStepText` setting
+- an optional questionnaire-level `overlayMode` setting
 - a slug used in the route
 
 Route:
@@ -101,6 +104,63 @@ Route:
 ```txt
 /questionnaire/seed
 ```
+
+### `nursery-ops`
+
+A nursery operations flow focused on operational record capture rather than storefront or lead-funnel behavior.
+
+Current direction:
+
+- create new plant batches
+- browse existing batches
+- prepare batch-level activity logging
+- prepare transplant logging
+- support structured operational data entry for nursery work
+- keep nursery logic isolated from shop, trust, and herb-specific business logic
+
+Route:
+
+```txt
+/questionnaire/nursery-ops
+```
+
+## Nursery operations architecture
+
+The nursery-ops flow is being built as a separate reusable slice inside the shared questionnaire system.
+
+Current goals:
+
+- support structured operational logging for nursery batches
+- support future batch profiles and individual-plant profiles
+- support reminders and follow-up actions based on saved operational data
+- support plant-reference expansion over time
+- stay isolated so it can later be separated into its own project copy
+
+### Current nursery-ops direction
+
+The nursery system is being shaped around:
+
+- plant reference data
+- batch creation
+- container selection
+- medium selection
+- location selection
+- activity logging
+- transplant tracking
+- future individual-plant tracking
+- future batch-card and plant-card selection flows
+
+### Current nursery-ops UI direction
+
+The nursery flow currently prefers:
+
+- opaque overlays by questionnaire-level config
+- hidden slide counter
+- persistent Return Home utility control
+- persistent Cancel utility control
+- structured form inputs rather than long action-button stacks for operational data entry
+- select menus for repeated operational values
+- date inputs with better date-entry UX
 
 ## Seed questionnaire architecture
 
@@ -216,6 +276,7 @@ src/config/questionnaires/selfTrustDsl.txt
 src/config/questionnaires/gardenHerbsDsl.txt
 src/config/questionnaires/seedDsl.txt
 src/config/questionnaires/seedDsl2.txt
+src/config/questionnaires/nurseryOpsDsl.txt
 ```
 
 Do not wrap them in:
@@ -287,6 +348,29 @@ export const ...
 - `shop`
 - `delivery`
 
+## Form field capabilities
+
+Current form rendering supports:
+
+- text-style inputs
+- email inputs
+- telephone inputs
+- textarea inputs
+- checkbox inputs
+- date inputs
+- select inputs
+
+Current nursery direction uses form fields more heavily than pinned action-button groups for repeated operational values.
+
+### Current reusable field direction
+
+The system now supports or is being shaped to support reusable field behaviors such as:
+
+- questionnaire-driven date fields
+- questionnaire-driven select menus
+- shared date-entry helpers such as `Use today`
+- select-based structured values for repeated operational data
+
 ## Visibility and routing behavior
 
 ### `@showif:`
@@ -312,7 +396,7 @@ Conditional next and back routing are evaluated in the questionnaire shell again
 
 ## Overlay system
 
-The shell now uses a full-card stage layout.
+The shell uses a full-card stage layout.
 
 That means:
 
@@ -322,9 +406,11 @@ That means:
 - image / video / page background styling can visually fill the whole card
 - content scrolls inside the same full-height stage
 
-### Overlay styling directives
+### Overlay styling sources
 
-Per slide, you can control overlay appearance with:
+Overlay styling can now come from two places:
+
+#### 1. Slide-level DSL directives
 
 ```txt
 @progressoverlaybg: rgba(255,255,255,0.92)
@@ -333,24 +419,30 @@ Per slide, you can control overlay appearance with:
 @actionbartextcolor: #1f1f1f
 ```
 
-Transparent example:
+#### 2. Questionnaire-level registry config
+
+A questionnaire can define:
+
+- `overlayMode: "transparent"`
+- `overlayMode: "opaque"`
+
+This lets a project set a default overlay behavior in:
 
 ```txt
-@progressoverlaybg: transparent
-@actionbarbg: transparent
-@progressoverlaytextcolor: #ffffff
-@actionbartextcolor: #ffffff
+src/config/questionnaires/registry.ts
 ```
 
-Typical use:
+without repeating the same overlay directives on every slide.
 
-- transparent overlays on media-heavy slides
-- opaque overlays on shop, delivery, review, and contact slides
-- brand-specific overlay colors per questionnaire or per slide
+### Current overlay behavior
+
+- slide-level overlay directives override questionnaire-level defaults
+- questionnaire-level `overlayMode` provides the fallback behavior
+- media slides still retain media-appropriate fallback behavior when needed
 
 ### Action bar button order
 
-The shell now renders action controls in a consistent order:
+The shell renders action controls in a consistent order:
 
 1. choice buttons
 2. next / continue button
@@ -358,13 +450,41 @@ The shell now renders action controls in a consistent order:
 
 ### Action bar button sizing
 
-Action bar buttons now use the same width rule so that:
+Action bar buttons use the same width rule so that:
 
 - choice buttons
 - next buttons
 - back buttons
 
 all align consistently inside the action area.
+
+## Shared utility controls
+
+The shared questionnaire shell now supports persistent utility controls such as:
+
+- Return Home
+- Cancel
+
+Current direction:
+
+- Return Home navigates back to the questionnaire’s home slide
+- Cancel clears the current questionnaire session state and returns home
+
+These are especially useful in operational systems such as `nursery-ops`.
+
+## Questionnaire-level display controls
+
+The registry can now control questionnaire-level visual behavior such as:
+
+- `showStepText`
+- `overlayMode`
+
+Examples:
+
+- `showStepText: false` hides the `Slide X of Y` counter
+- `overlayMode: "opaque"` makes non-slide-specific overlays opaque by default
+
+This allows project-level UX control without polluting every DSL file.
 
 ## Shop slide architecture
 
@@ -482,14 +602,19 @@ At the current repo state, the seed DSL includes:
 Current flow notes:
 
 - `promotion-closed` can appear first through `@showif:` when `promotionClosed === true`
+
 - `intro` only appears when `promotionClosed === false`
+
 - `pickup-location` routes to either:
   - `promotion-closed`
   - `delivery-options`
 
 - the review slide uses the shared `shop` renderer in review mode
+
 - the review slide routes to `confirmation-message`
+
 - `promotion-closed` offers a path to visit the store
+
 - older switch-offer special-case flow is no longer the active direction
 
 ## Line-level color support
@@ -582,6 +707,32 @@ BR
 @next: Continue
 ```
 
+### Date field example
+
+```txt
+===
+@id: activity-date
+@type: form
+# Choose the date
+@fields:
+- opsActivityDate|date|Activity date|required|Select date
+@back: Back
+@next: Continue
+```
+
+### Select field example
+
+```txt
+===
+@id: container-choice
+@type: form
+# Select the container
+@fields:
+- opsContainerType|select|Starting container|required|Select container|2.5 inch pot,4 inch pot,6 inch pot,8x16 tray,cup,grow bag,bucket,other
+@back: Back
+@next: Continue
+```
+
 ### Shop slide
 
 ```txt
@@ -669,7 +820,8 @@ BR
 
 - content is rendered in-order from the DSL
 - headings and subheadings only affect the line they are written on
-- form fields are fully DSL-driven
+- form fields are DSL-driven
+- date and select inputs can now be driven from the DSL field layer
 - choice-button groups can be rendered inline from `@choices:`
 - choice buttons can store a value with `@store:`
 - choice buttons can optionally route directly using per-choice `goto`
@@ -686,6 +838,7 @@ BR
 - slide-level page backgrounds can visually fill the full card stage
 - progress and action overlays now sit on top of the slide body
 - overlay background and text colors can be controlled per slide
+- questionnaire-level overlay mode can control default overlay opacity
 - the system supports DB-backed shop catalog rendering
 - the system supports reusable delivery / pickup selection slides
 - the review flow can surface delivery and contact summaries with adjust links
@@ -695,6 +848,7 @@ BR
 - the seed flow can auto-seed a paired item into `orderCart` when the order is empty
 - the seed flow can fall back to a promotion-closed screen if no eligible promotional items remain
 - the seed flow can activate a questionnaire promotion discount after phone number entry
+- the nursery flow can use questionnaire-level opaque overlays and hidden step text for operational UX
 
 ## Adding a new questionnaire
 
@@ -758,7 +912,25 @@ Current DB-backed plant responsibilities include:
   - reserve mature
   - watch circumposing
 
+## Nursery operations database direction
+
+Current nursery direction includes:
+
+- plant reference data
+- batch records
+- container data
+- medium data
+- location data
+- activity logs
+- transplant data
+- reminders
+- future individual-plant records
+
+The nursery project is being kept structurally separate from the seed storefront/catalog logic so it can later be split into its own project copy.
+
 ## Prisma models currently relevant
+
+### Storefront / seed side
 
 - `Plant`
 - `PlantInventory`
@@ -768,6 +940,18 @@ Current DB-backed plant responsibilities include:
 - `PlantChannelSetting`
 - `PlantShopSizeOption`
 - `PlantShopSizeOptionPurchaseMode`
+
+### Nursery direction
+
+- `PlantType`
+- `PlantBatch`
+- `PlantUnit`
+- `Container`
+- `GrowingMedium`
+- `Location`
+- `PlantActivity`
+- `PlantMedia`
+- `Reminder`
 
 ## Current folder structure
 
@@ -786,6 +970,13 @@ src/
             route.ts
         submit/
           route.ts
+      nursery-ops/
+        create-batch/
+          route.ts
+        log-activity/
+          route.ts
+        record-transplant/
+          route.ts
     questionnaire/
       [slug]/
         page.tsx
@@ -800,6 +991,7 @@ src/
       discountDefinitions.ts
     questionnaires/
       gardenHerbsDsl.txt
+      nurseryOpsDsl.txt
       registry.ts
       seedDsl.txt
       seedDsl2.txt
@@ -838,6 +1030,7 @@ Central registry that maps questionnaire slug to:
 - variables
 - optional dynamic variables endpoint
 - optional questionnaire-level `showStepText`
+- optional questionnaire-level `overlayMode`
 
 For `seed`, this is also where the app loads:
 
@@ -849,6 +1042,8 @@ For `seed`, this is also where the app loads:
 - promotion availability flags
 - promotion discount settings
 - active DSL version
+
+For `nursery-ops`, this is where project-level visual behavior is controlled without polluting each slide.
 
 ### `src/lib/plants/getSeedCampaignData.ts`
 
@@ -893,11 +1088,11 @@ Parses the custom DSL into structured slide data, including:
 
 Handles slide visibility.
 
-It now evaluates visibility rules against the merged runtime context so DSL `@showif:` can react to runtime variables such as `promotionClosed`.
+It evaluates visibility rules against the merged runtime context so DSL `@showif:` can react to runtime variables such as `promotionClosed`.
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, URL discount reader, promotion-item selector, seeded promo-item cart initializer, step counter, media renderer, shop renderer, delivery renderer, review-summary renderer, and slide-stage overlay handler.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, URL discount reader, promotion-item selector, seeded promo-item cart initializer, step counter, media renderer, shop renderer, delivery renderer, review-summary renderer, utility-control handler, and slide-stage overlay handler.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
@@ -910,6 +1105,7 @@ Styles for the questionnaire shell, including:
 - shop panel UI
 - delivery selection UI
 - review summary cards
+- persistent utility-control layout
 
 ## Local development
 
@@ -970,6 +1166,7 @@ Open:
 http://localhost:3000/questionnaire/self-trust
 http://localhost:3000/questionnaire/garden-herbs
 http://localhost:3000/questionnaire/seed
+http://localhost:3000/questionnaire/nursery-ops
 ```
 
 Examples for the seed questionnaire:
@@ -985,13 +1182,18 @@ http://localhost:3000/questionnaire/seed?item=rosemary&discount=WELCOME25
 
 This repository is currently focused on:
 
-**A reusable slide-based questionnaire system with a shared DSL engine, media support, DB-backed plant catalog content, reusable shop and delivery flows, discount-aware promotion logic, and full-card overlay-based slide presentation.**
+**A reusable slide-based questionnaire system with a shared DSL engine, media support, DB-backed plant catalog content, reusable shop and delivery flows, discount-aware promotion logic, questionnaire-level display controls, and operational flow support that can later be separated into project-specific copies.**
 
 Practical direction:
 
 - keep the shared questionnaire shell generic
 - keep questionnaire-specific business rules outside the parser where possible
-- treat shop, delivery, review, discount, and overlay styling as reusable platform capabilities
+- treat shop, delivery, review, discount, utility controls, and overlay behavior as reusable platform capabilities
 - use real inventory-backed items for questionnaire promotions
 - use URL params for discount and paired-item selection where appropriate
 - layer verified phone/email discount eligibility later through the reusable auth + lead system
+- build nursery-ops as an isolated operational slice that can later be separated cleanly from storefront and coaching flows
+
+```
+
+```

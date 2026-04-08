@@ -16,6 +16,7 @@ import {
   QuestionnaireConfig,
   QuestionnaireVariableMap,
   QuestionnaireVariableValue,
+  RecordListItem,
   ShopCart,
   ShopCatalog,
   ShopResolvedCartLine,
@@ -270,6 +271,91 @@ function hasPhoneNote() {
   return " (applies after phone number is entered)";
 }
 
+function getRecordListItems(
+  variables: QuestionnaireVariableMap,
+  slide: {
+    recordSourceKey?: string;
+    recordTitleField?: string;
+    recordSubtitleField?: string;
+    recordMetaFields?: string[];
+  }
+): RecordListItem[] {
+  if (!slide.recordSourceKey) {
+    return [];
+  }
+
+  const raw = variables[slide.recordSourceKey];
+
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, QuestionnaireVariableValue>;
+
+      const value =
+        typeof record.value === "string"
+          ? record.value
+          : typeof record.code === "string"
+            ? record.code
+            : typeof record.id === "string"
+              ? record.id
+              : undefined;
+
+      if (!value) {
+        return null;
+      }
+
+      const titleField = slide.recordTitleField ?? "title";
+      const subtitleField = slide.recordSubtitleField ?? "subtitle";
+      const metaFields = slide.recordMetaFields ?? [];
+
+      const titleValue = record[titleField];
+      const subtitleValue = record[subtitleField];
+
+      const title =
+        typeof titleValue === "string" && titleValue.trim().length > 0
+          ? titleValue
+          : value;
+
+      const subtitle =
+        typeof subtitleValue === "string" && subtitleValue.trim().length > 0
+          ? subtitleValue
+          : undefined;
+
+      const meta = metaFields
+        .map((field) => {
+          const fieldValue = record[field];
+          if (
+            typeof fieldValue === "string" ||
+            typeof fieldValue === "number" ||
+            typeof fieldValue === "boolean"
+          ) {
+            return String(fieldValue);
+          }
+          return null;
+        })
+        .filter(Boolean) as string[];
+
+      const childCount =
+        typeof record.childCount === "number" ? record.childCount : undefined;
+
+      return {
+        value,
+        title,
+        subtitle,
+        meta: meta.length ? meta : undefined,
+        childCount,
+      };
+    })
+    .filter(Boolean) as RecordListItem[];
+}
+
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -427,6 +513,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
 
+  const currentRecordListItems = useMemo<RecordListItem[]>(
+    () =>
+      currentSlide?.type === "recordlist"
+        ? getRecordListItems(mergedVariables, currentSlide)
+        : [],
+    [mergedVariables, currentSlide]
+  );
+
   const isMediaSlide =
     (currentSlide?.type === "media" || currentSlide?.type === "video") &&
     Boolean(currentSlide?.mediaUrl || currentSlide?.embedUrl);
@@ -573,10 +667,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   useEffect(() => {
     const endpoint = config.dynamicVariablesEndpoint;
-    const selfScore = answers.selfScore;
-    const futureScore = answers.futureScore;
 
-    if (!endpoint || selfScore === undefined || futureScore === undefined) {
+    if (!endpoint) {
       return;
     }
 
@@ -584,12 +676,29 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     async function loadDynamicVariables() {
       try {
-        const params = new URLSearchParams({
-          selfScore: String(selfScore),
-          futureScore: String(futureScore),
-        });
+        let requestUrl = endpoint;
 
-        const response = await fetch(`${endpoint}?${params.toString()}`, {
+        if (config.slug === "self-trust") {
+          const selfScore = answers.selfScore;
+          const futureScore = answers.futureScore;
+
+          if (selfScore === undefined || futureScore === undefined) {
+            return;
+          }
+
+          const params = new URLSearchParams({
+            selfScore: String(selfScore),
+            futureScore: String(futureScore),
+          });
+
+          requestUrl = `${endpoint}?${params.toString()}`;
+        }
+
+        if (!requestUrl) {
+          return;
+        }
+
+        const response = await fetch(requestUrl, {
           method: "GET",
           cache: "no-store",
           signal: controller.signal,
@@ -597,13 +706,29 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
         const data = await response.json().catch(() => null);
 
-        if (!response.ok || !data?.variables) {
+        if (!response.ok || !data) {
+          return;
+        }
+
+        const nextVariables =
+          data.variables && typeof data.variables === "object"
+            ? data.variables
+            : {
+                ...(Array.isArray(data.nurseryBatches)
+                  ? { nurseryBatches: data.nurseryBatches }
+                  : {}),
+                ...(Array.isArray(data.nurseryBatchPlants)
+                  ? { nurseryBatchPlants: data.nurseryBatchPlants }
+                  : {}),
+              };
+
+        if (!Object.keys(nextVariables).length) {
           return;
         }
 
         setDynamicVariables((prev: QuestionnaireVariableMap) => ({
           ...prev,
-          ...data.variables,
+          ...nextVariables,
         }));
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -618,9 +743,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     return () => controller.abort();
   }, [
+    config.slug,
     config.dynamicVariablesEndpoint,
     answers.selfScore,
     answers.futureScore,
+    answers.opsGeneratedBatchCode,
   ]);
 
   useEffect(() => {
@@ -775,9 +902,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setAnswers({});
     setHistory([]);
     setSubmitError(null);
-
-    const homeIndex = getSlideIndexById(visibleSlides, "nursery-ops-home");
-    setCurrentIndex(homeIndex === -1 ? 0 : homeIndex);
+    setCurrentIndex(0);
   }
 
   function handleChoiceClick(value: PrimitiveValue, goto?: string) {
@@ -963,6 +1088,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       });
     }
 
+    if (currentSlide.type === "recordlist" && currentSlide.storeAs) {
+      return String(answers[currentSlide.storeAs] ?? "").trim().length > 0;
+    }
+
     return true;
   }
 
@@ -1013,15 +1142,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       payload: getLeadPayload,
     },
     createNurseryBatch: {
-      url: "/api/nursery-ops/create-batch",
+      url: "/api/questionnaires/nursery-ops/create-batch",
       payload: getNurseryBatchPayload,
     },
     logNurseryActivity: {
-      url: "/api/nursery-ops/log-activity",
+      url: "/api/questionnaires/nursery-ops/log-activity",
       payload: getNurseryActivityPayload,
     },
     recordNurseryTransplant: {
-      url: "/api/nursery-ops/record-transplant",
+      url: "/api/questionnaires/nursery-ops/record-transplant",
       payload: getNurseryTransplantPayload,
     },
   };
@@ -1140,14 +1269,21 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       : currentSlide.pageBackgroundColor ??
         withOpacity(theme.colors.card, currentSlide.cardOpacity);
 
+    const questionnaireOverlayMode = config.overlayMode ?? "transparent";
+
     const resolvedProgressOverlayBackground =
       currentSlide.progressOverlayBackgroundColor ??
       (isMediaSlide
         ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
-        : "transparent");
+        : questionnaireOverlayMode === "opaque"
+          ? "rgba(255,255,255,0.98)"
+          : "transparent");
 
     const resolvedActionBarBackground =
-      currentSlide.actionBarBackgroundColor ?? "transparent";
+      currentSlide.actionBarBackgroundColor ??
+      (questionnaireOverlayMode === "opaque"
+        ? "rgba(255,255,255,0.98)"
+        : "transparent");
 
     const resolvedProgressOverlayTextColor =
       currentSlide.progressOverlayTextColor ??
@@ -1212,7 +1348,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             >
               <div className={styles.overlayFrame}>
                 {isNurseryOps ? (
-                  <div className={styles.persistentTopActions}>
+                  <div className={styles.topUtilityRow}>
                     <button
                       type="button"
                       className={styles.linkButton}
@@ -1418,6 +1554,27 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                           )}
                           onAdjustDelivery={() => goToTarget("delivery-options")}
                           onAdjustContact={() => goToTarget("contact-details")}
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "recordlist" ? (
+                        <RecordListRenderer
+                          items={currentRecordListItems}
+                          emptyText={
+                            currentSlide.recordEmptyText ??
+                            "No records available yet."
+                          }
+                          selectedValue={
+                            currentSlide.storeAs
+                              ? String(answers[currentSlide.storeAs] ?? "")
+                              : ""
+                          }
+                          onSelect={(value) => {
+                            if (currentSlide.storeAs) {
+                              setAnswer(currentSlide.storeAs, value);
+                            }
+                          }}
+                          theme={theme}
                         />
                       ) : null}
 
@@ -2405,6 +2562,69 @@ function QuantityControl({
       >
         +
       </button>
+    </div>
+  );
+}
+
+function RecordListRenderer({
+  items,
+  emptyText,
+  selectedValue,
+  onSelect,
+  theme,
+}: {
+  items: RecordListItem[];
+  emptyText: string;
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  theme: ThemeConfig;
+}) {
+  if (!items.length) {
+    return <p className={styles.body}>{emptyText}</p>;
+  }
+
+  return (
+    <div className={styles.recordListStack}>
+      {items.map((item) => {
+        const selected = selectedValue === item.value;
+
+        return (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onSelect(item.value)}
+            className={styles.recordCard}
+            style={{
+              borderColor: theme.colors.border,
+              background: selected
+                ? theme.colors.cardAlt ?? theme.colors.card
+                : theme.colors.card,
+              color: theme.colors.text,
+            }}
+          >
+            <div className={styles.recordCardHeader}>
+              <div className={styles.recordCardTitle}>{item.title}</div>
+              {item.childCount !== undefined ? (
+                <div className={styles.recordCardCount}>
+                  {item.childCount}
+                </div>
+              ) : null}
+            </div>
+
+            {item.subtitle ? (
+              <div className={styles.recordCardSubtitle}>{item.subtitle}</div>
+            ) : null}
+
+            {item.meta?.length ? (
+              <div className={styles.recordCardMeta}>
+                {item.meta.map((metaLine, index) => (
+                  <div key={`${item.value}-meta-${index}`}>{metaLine}</div>
+                ))}
+              </div>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

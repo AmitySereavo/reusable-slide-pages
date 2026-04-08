@@ -219,6 +219,34 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@source:")) {
+        draft.recordSourceKey = readValue(line, "@source:");
+        continue;
+      }
+
+      if (line.startsWith("@titlefield:")) {
+        draft.recordTitleField = readValue(line, "@titlefield:");
+        continue;
+      }
+
+      if (line.startsWith("@subtitlefield:")) {
+        draft.recordSubtitleField = readValue(line, "@subtitlefield:");
+        continue;
+      }
+
+      if (line.startsWith("@metafields:")) {
+        draft.recordMetaFields = readValue(line, "@metafields:")
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        continue;
+      }
+
+      if (line.startsWith("@emptytext:")) {
+        draft.recordEmptyText = readValue(line, "@emptytext:");
+        continue;
+      }
+
       if (line.startsWith("@back:")) {
         draft.backLabel = readValue(line, "@back:");
         continue;
@@ -502,6 +530,11 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     actionBarBackgroundColor: draft.actionBarBackgroundColor,
     progressOverlayTextColor: draft.progressOverlayTextColor,
     actionBarTextColor: draft.actionBarTextColor,
+    recordSourceKey: draft.recordSourceKey,
+    recordTitleField: draft.recordTitleField,
+    recordSubtitleField: draft.recordSubtitleField,
+    recordMetaFields: draft.recordMetaFields,
+    recordEmptyText: draft.recordEmptyText,
   };
 
   if (draft.feature?.type === "numberscale") {
