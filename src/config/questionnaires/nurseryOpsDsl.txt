@@ -1,6 +1,6 @@
 // NURSERY OPS HOME
 ===
-@id: nursery-ops-home
+@id: home
 @type: content
 ---
 BR
@@ -36,24 +36,43 @@ BR
 ===
 @id: batch-profile
 @type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Batches
 ---
 BR
 # [c2] Batch
 # [c2] Profile
 BR
-[c3] This is where the selected batch
-[c3] summary will appear.
+## [c1] [opsSelectedBatchCode]
+[c3] Plant: [opsSelectedBatchPlantName]
+[c3] Start date: [opsSelectedBatchStartDate]
+[c3] Start method: [opsSelectedBatchStartMethod]
+[c3] Intended use: [opsSelectedBatchIntendedUse]
+[c3] Target buyer: [opsSelectedBatchTargetBuyer]
+[c3] Quantity started: [opsSelectedBatchQuantityStarted]
+[c3] Quantity alive: [opsSelectedBatchQuantityAlive]
+[c3] Quantity lost: [opsSelectedBatchQuantityLost]
+[c3] Quantity transplanted: [opsSelectedBatchQuantityTransplanted]
+[c3] Labeled for sale: [opsSelectedBatchLabeledForSale]
 BR
-[c2] From here you will:
-[c2] transplant,
-[c2] log batch activity,
-[c2] or view individual plants.
+[c2] Container: [opsSelectedBatchContainerType]
+[c2] Container quantity: [opsSelectedBatchContainerQuantity]
+[c2] Container notes: [opsSelectedBatchContainerDescription]
+BR
+[c2] Medium: [opsSelectedBatchMediumName]
+[c2] Medium quality: [opsSelectedBatchMediumQuality]
+BR
+[c2] Location: [opsSelectedBatchLocationCode]
+[c2] Location notes: [opsSelectedBatchLocationDescription]
+BR
+[c2] Source: [opsSelectedBatchSourceName]
+[c2] Source notes: [opsSelectedBatchSourceNotes]
+@choiceplacement: inline
 @choices:
 - transplant|Record Transplant|transplant-details|c1
 - batch-activity|Log Batch Activity|activity-batch-select|c2
-- view-plants|View Individual Plants|batch-plants-list|c3
-- return-batches|Back to Batches|batches-list|c1
-@showback: false
+- view-plants|View Individuals|batch-plants-list|c3
 @shownext: false
 
 ===
@@ -78,6 +97,8 @@ BR
 ===
 @id: plant-profile
 @type: content
+@showreturnhome: true
+@showcancel: true
 ---
 BR
 # [c2] Plant
@@ -86,8 +107,10 @@ BR
 [c3] This is where one individual plant
 [c3] summary will appear.
 BR
-[c2] From here you will log
-[c2] single-plant updates.
+[c2] From here you can log
+[c2] single-plant updates
+[c2] or return to the plant list.
+@choiceplacement: inline
 @choices:
 - single-activity|Log Single Plant Activity|activity-batch-select|c1
 - back-to-plants|Back to Plants|batch-plants-list|c2
@@ -115,6 +138,8 @@ BR
 ===
 @id: batch-plant-info
 @type: form
+@showreturnhome: true
+@showcancel: true
 ---
 # [c2] Plant
 # [c2] Details

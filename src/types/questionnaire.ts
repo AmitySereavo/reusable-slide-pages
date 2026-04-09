@@ -203,6 +203,8 @@ export type RecordListItem = {
   childCount?: number;
 };
 
+export type ChoicePlacement = "actionbar" | "inline";
+
 export type ChoiceItem = {
   value: PrimitiveValue;
   label: string;
@@ -294,6 +296,7 @@ export type Slide = {
   helperTextBelowOptions?: boolean;
   options?: Option[];
   choices?: ChoiceItem[];
+  choicePlacement?: ChoicePlacement;
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -301,6 +304,8 @@ export type Slide = {
   showNext?: boolean;
   countStep?: boolean;
   showStepText?: boolean;
+  showReturnHome?: boolean;
+  showCancel?: boolean;
   storeAs?: string;
   showIf?: ShowIfRule;
   showIfRules?: ConditionRule[];
@@ -369,6 +374,7 @@ export type ThemeConfig = {
   };
 };
 
+
 export type QuestionnaireConfig = {
   slug: string;
   name: string;
@@ -398,15 +404,18 @@ export type ParsedSlideDraft = {
   storeAs?: string;
   backLabel?: string;
   backGoto?: string;
-  showBack?: boolean;
+    showBack?: boolean;
   showNext?: boolean;
   nextLabel?: string;
   countStep?: boolean;
   showStepText?: boolean;
+  showReturnHome?: boolean;
+  showCancel?: boolean;
   goto?: string;
   run?: string;
-  fields?: FormField[];
+    fields?: FormField[];
   choices?: ChoiceItem[];
+  choicePlacement?: ChoicePlacement;
   routeRules?: SlideRouteRule[];
   backRouteRules?: SlideRouteRule[];
   showIfRules?: ConditionRule[];

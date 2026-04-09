@@ -9,7 +9,10 @@ import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
-import type { QuestionnaireVariableMap, ThemeConfig } from "@/types/questionnaire";
+import type {
+  QuestionnaireVariableMap,
+  ThemeConfig,
+} from "@/types/questionnaire";
 const activeSeedDsl = "v2";
 
 type QuestionnaireRegistryEntry = {
@@ -74,6 +77,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
   dslPath: "src/config/questionnaires/nurseryOpsDsl.txt",
   showStepText: false,
   overlayMode: "opaque",
+  
   variables: {
     nurseryBatches: [
       {

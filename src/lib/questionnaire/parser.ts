@@ -1,5 +1,6 @@
 import {
-  ChoiceItem,
+    ChoiceItem,
+  ChoicePlacement,
   ConditionRule,
   FormField,
   MediaAspect,
@@ -272,11 +273,35 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-      if (line.startsWith("@showsteptext:")) {
+            if (line.startsWith("@showsteptext:")) {
         draft.showStepText = parseBooleanValue(
           readValue(line, "@showsteptext:"),
           true
         );
+        continue;
+      }
+
+      if (line.startsWith("@showreturnhome:")) {
+        draft.showReturnHome = parseBooleanValue(
+          readValue(line, "@showreturnhome:"),
+          true
+        );
+        continue;
+      }
+
+      if (line.startsWith("@showcancel:")) {
+        draft.showCancel = parseBooleanValue(
+          readValue(line, "@showcancel:"),
+          true
+        );
+        continue;
+      }
+
+            if (line.startsWith("@choiceplacement:")) {
+        draft.choicePlacement = readValue(
+          line,
+          "@choiceplacement:"
+        ) as ChoicePlacement;
         continue;
       }
 
@@ -487,18 +512,21 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     body: draft.paragraphs.join(" "),
     backLabel: draft.backLabel,
     backGoto: draft.backGoto,
-    showBack: draft.showBack,
+        showBack: draft.showBack,
     showNext: draft.showNext,
     countStep: draft.countStep,
     showStepText: draft.showStepText,
+    showReturnHome: draft.showReturnHome,
+    showCancel: draft.showCancel,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,
     run: draft.run,
     sections: draft.sections,
     feature: draft.feature,
-    fields: draft.fields?.length ? draft.fields : undefined,
+        fields: draft.fields?.length ? draft.fields : undefined,
     choices: draft.choices?.length ? draft.choices : undefined,
+    choicePlacement: draft.choicePlacement,
     routeRules: draft.routeRules?.length ? draft.routeRules : undefined,
     backRouteRules: draft.backRouteRules?.length
       ? draft.backRouteRules

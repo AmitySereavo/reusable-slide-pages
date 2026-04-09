@@ -44,7 +44,9 @@ This makes it possible to:
 - support URL-driven discount and promo-item selection
 - support questionnaire-level step-counter visibility
 - support questionnaire-level overlay display mode
-- support persistent questionnaire utility controls such as Return Home and Cancel
+- support record-list slides backed by structured data
+- support DSL-owned persistent utility controls such as Return Home and Cancel
+- support inline choice rendering inside the text flow
 - support operational form flows beyond marketing and shop use cases
 
 ## Current architecture
@@ -113,6 +115,7 @@ Current direction:
 
 - create new plant batches
 - browse existing batches
+- open a batch profile from a record list
 - prepare batch-level activity logging
 - prepare transplant logging
 - support structured operational data entry for nursery work
@@ -142,6 +145,8 @@ The nursery system is being shaped around:
 
 - plant reference data
 - batch creation
+- batch lists
+- batch profile viewing
 - container selection
 - medium selection
 - location selection
@@ -156,11 +161,16 @@ The nursery flow currently prefers:
 
 - opaque overlays by questionnaire-level config
 - hidden slide counter
-- persistent Return Home utility control
-- persistent Cancel utility control
+- DSL-owned Return Home utility control
+- DSL-owned Cancel utility control
+- a shared `home` slide id convention for DSL-owned utility routing
 - structured form inputs rather than long action-button stacks for operational data entry
 - select menus for repeated operational values
 - date inputs with better date-entry UX
+- inline choices for profile-page actions that should live in the text flow
+- real DB-backed record lists and profiles
+- reusable record-list behavior where clicking the record title opens the record profile
+- action-bar controls reserved for true navigation / utility behavior
 
 ## Seed questionnaire architecture
 
@@ -215,7 +225,7 @@ This means:
 - non-purchasable items do not get paired to the questionnaire
 - the questionnaire can default to the first valid eligible item
 - a URL item param can request a specific eligible item by slug
-- if no eligible promo items remain, the flow can route to a promotion-closed slide
+- if no eligible promo items remain, the flow can route to a closed-promotion slide
 
 ## Discount system
 
@@ -301,10 +311,13 @@ export const ...
 - `@shownext:`
 - `@countstep:`
 - `@showsteptext:`
+- `@showreturnhome:`
+- `@showcancel:`
 - `@next:`
 - `@goto:`
 - `@fields:`
 - `@choices:`
+- `@choiceplacement:`
 - `@when:`
 - `@backwhen:`
 - `@showif:`
@@ -335,6 +348,11 @@ export const ...
 - `@gotoifcomplete:`
 - `@gotoifincomplete:`
 - `@contactmode:`
+- `@source:`
+- `@titlefield:`
+- `@subtitlefield:`
+- `@metafields:`
+- `@emptytext:`
 
 ## Supported slide types
 
@@ -347,6 +365,7 @@ export const ...
 - `video`
 - `shop`
 - `delivery`
+- `recordlist`
 
 ## Form field capabilities
 
@@ -355,6 +374,7 @@ Current form rendering supports:
 - text-style inputs
 - email inputs
 - telephone inputs
+- number inputs
 - textarea inputs
 - checkbox inputs
 - date inputs
@@ -370,6 +390,27 @@ The system now supports or is being shaped to support reusable field behaviors s
 - questionnaire-driven select menus
 - shared date-entry helpers such as `Use today`
 - select-based structured values for repeated operational data
+
+## Record list architecture
+
+The shared system now supports reusable `recordlist` slides backed by structured variable data.
+
+Current capabilities:
+
+- read record items from a configured data source key
+- choose title, subtitle, and meta fields through the DSL
+- select a record into a stored answer field
+- render a selected state with different tone and border treatment
+- open a record profile by clicking the record title
+- preserve the action bar for navigation or future search/panel actions
+- keep record-list behavior reusable across brands and DSL files
+
+Current direction:
+
+- record title click opens the configured profile target
+- selected record tone is visual, separate from profile opening
+- future action-bar controls can be used for search / filter / panel actions
+- record counts remain visible as a compact count indicator on the card
 
 ## Visibility and routing behavior
 
@@ -393,6 +434,17 @@ This allows visibility rules based on runtime variables such as `promotionClosed
 ### `@when:` and `@backwhen:`
 
 Conditional next and back routing are evaluated in the questionnaire shell against the merged runtime context.
+
+### Current direction for conditions
+
+The existing condition system is also the intended base for future reusable data-driven UI behavior such as:
+
+- showing or hiding profile actions
+- showing or hiding data rows
+- gating buttons based on record values
+- future reusable block-level visibility rules
+
+That means future database-backed profile and summary sections should build on the existing rule system rather than introducing DSL-specific shell logic.
 
 ## Overlay system
 
@@ -460,15 +512,19 @@ all align consistently inside the action area.
 
 ## Shared utility controls
 
-The shared questionnaire shell now supports persistent utility controls such as:
+The shared questionnaire shell now supports DSL-owned persistent utility controls such as:
 
 - Return Home
 - Cancel
 
 Current direction:
 
-- Return Home navigates back to the questionnaire’s home slide
-- Cancel clears the current questionnaire session state and returns home
+- utility control visibility is owned by the current slide DSL, not the registry
+- `@showreturnhome: true` displays Return Home on that slide
+- `@showcancel: true` displays Cancel on that slide
+- `Return Home` routes to the shared `home` slide id convention
+- `Cancel` clears the current questionnaire session state and returns to `home`
+- future DSL files should use `@id: home` for the first/home slide when this feature is needed
 
 These are especially useful in operational systems such as `nursery-ops`.
 
@@ -733,6 +789,52 @@ BR
 @next: Continue
 ```
 
+### Record list example
+
+```txt
+===
+@id: batches-list
+@type: recordlist
+@store: opsSelectedBatchCode
+@source: nurseryBatches
+@titlefield: code
+@subtitlefield: plantName
+@metafields: startDate,quantityAlive,intendedUse
+@emptytext: No batches available yet.
+@showreturnhome: true
+@showcancel: true
+@back: Back
+@next: Search
+@goto: batch-profile
+```
+
+Current behavior:
+
+- selecting a card stores the selected record value
+- clicking the record title can open the configured record profile target
+- the selected card tone is independent from profile opening
+- the action bar can remain available for future search / panel actions
+
+### Inline choice example
+
+```txt
+===
+@id: batch-profile
+@type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Batches
+---
+# [c2] Batch
+# [c2] Profile
+[c3] Profile summary appears here.
+@choiceplacement: inline
+@choices:
+- transplant|Record Transplant|transplant-details|c1
+- batch-activity|Log Batch Activity|activity-batch-select|c2
+@shownext: false
+```
+
 ### Shop slide
 
 ```txt
@@ -816,6 +918,23 @@ BR
 @pagebgposition: center
 ```
 
+### Utility control convention example
+
+```txt
+===
+@id: home
+@type: content
+---
+# [c2] Home
+[c3] Choose what you want to do.
+
+===
+@id: batches-list
+@type: recordlist
+@showreturnhome: true
+@showcancel: true
+```
+
 ## Current behavior
 
 - content is rendered in-order from the DSL
@@ -823,6 +942,7 @@ BR
 - form fields are DSL-driven
 - date and select inputs can now be driven from the DSL field layer
 - choice-button groups can be rendered inline from `@choices:`
+- `@choiceplacement: inline` can place choice buttons in the content flow instead of the action bar
 - choice buttons can store a value with `@store:`
 - choice buttons can optionally route directly using per-choice `goto`
 - back navigation follows actual visited-slide history by default
@@ -832,6 +952,7 @@ BR
 - `@showif:` controls slide visibility through the visibility engine
 - `@countstep: false` can keep a slide visible while excluding it from progress count
 - `@showsteptext: false` can hide the `Slide X of Y` label for a specific slide
+- DSL-owned utility controls can be displayed per slide with `@showreturnhome` and `@showcancel`
 - named actions can be triggered from slides using `@run:`
 - submissions are saved to PostgreSQL through Prisma
 - dynamic questionnaire variables can be loaded from questionnaire-specific endpoints
@@ -849,6 +970,34 @@ BR
 - the seed flow can fall back to a promotion-closed screen if no eligible promotional items remain
 - the seed flow can activate a questionnaire promotion discount after phone number entry
 - the nursery flow can use questionnaire-level opaque overlays and hidden step text for operational UX
+- the nursery flow can render record lists from live DB-backed batch data
+- the nursery flow can open a batch profile from the record title
+- batch profile content can currently be populated from selected DB-backed batch variables
+
+## Current direction for reusable database-backed profile blocks
+
+The current repo can already merge live DB-backed variables into runtime context for profile pages.
+
+Near-future direction:
+
+- avoid filling profile pages with many handwritten DSL lines
+- add reusable data-block rendering so one DSL directive can render a structured profile section
+- keep wording and row definitions outside the shared questionnaire shell
+- let questionnaire data loaders provide source records
+- let reusable block configs control labels, formatting, and conditions
+- reuse the existing condition system for row visibility and action visibility
+
+Target pattern:
+
+```txt
+DSL selects block
+→ registry or data loader supplies source record
+→ reusable block config defines rows and actions
+→ shared engine evaluates conditions
+→ shared shell renders the block
+```
+
+That keeps the shell reusable while still allowing DSL files to connect to project-specific database records.
 
 ## Adding a new questionnaire
 
@@ -968,14 +1117,16 @@ src/
         self-trust/
           stats/
             route.ts
+        nursery-ops/
+          batches/
+            route.ts
+          create-batch/
+            route.ts
+          log-activity/
+            route.ts
+          record-transplant/
+            route.ts
         submit/
-          route.ts
-      nursery-ops/
-        create-batch/
-          route.ts
-        log-activity/
-          route.ts
-        record-transplant/
           route.ts
     questionnaire/
       [slug]/
@@ -1043,7 +1194,19 @@ For `seed`, this is also where the app loads:
 - promotion discount settings
 - active DSL version
 
-For `nursery-ops`, this is where project-level visual behavior is controlled without polluting each slide.
+For `nursery-ops`, this is where project-level visual behavior and initial variable loading remain controlled without polluting the shell with questionnaire-specific wording.
+
+### `src/app/api/questionnaires/nursery-ops/batches/route.ts`
+
+Loads nursery batch list data and related child-record data for dynamic questionnaire variables.
+
+Current responsibilities:
+
+- query live `PlantBatch` records
+- include plant type and unit information
+- map DB rows into reusable record-list items
+- expose selected-record-friendly fields for batch profile display
+- expose child counts and individuals visibility signals
 
 ### `src/lib/plants/getSeedCampaignData.ts`
 
@@ -1074,6 +1237,7 @@ Parses the custom DSL into structured slide data, including:
 - sections
 - fields
 - choices
+- choice placement
 - features
 - navigation directives
 - media directives
@@ -1083,6 +1247,8 @@ Parses the custom DSL into structured slide data, including:
 - overlay text-color directives
 - conditional route rules
 - visibility rules
+- record-list directives
+- DSL-owned utility-control directives
 
 ### `src/lib/questionnaire/engine.ts`
 
@@ -1092,7 +1258,7 @@ It evaluates visibility rules against the merged runtime context so DSL `@showif
 
 ### `src/components/questionnaire/QuestionnaireShell.tsx`
 
-Main questionnaire renderer, answer state manager, navigation controller, variable replacer, URL discount reader, promotion-item selector, seeded promo-item cart initializer, step counter, media renderer, shop renderer, delivery renderer, review-summary renderer, utility-control handler, and slide-stage overlay handler.
+Main questionnaire renderer, answer state manager, navigation controller, variable replacer, URL discount reader, promotion-item selector, seeded promo-item cart initializer, step counter, media renderer, shop renderer, delivery renderer, review-summary renderer, record-list renderer, DSL-owned utility-control handler, and slide-stage overlay handler.
 
 ### `src/components/questionnaire/QuestionnaireShell.module.css`
 
@@ -1102,6 +1268,9 @@ Styles for the questionnaire shell, including:
 - overlay progress area
 - overlay action bar
 - scrollable slide content region
+- record-list card UI
+- selected record card tone
+- inline choice layout
 - shop panel UI
 - delivery selection UI
 - review summary cards
@@ -1182,18 +1351,15 @@ http://localhost:3000/questionnaire/seed?item=rosemary&discount=WELCOME25
 
 This repository is currently focused on:
 
-**A reusable slide-based questionnaire system with a shared DSL engine, media support, DB-backed plant catalog content, reusable shop and delivery flows, discount-aware promotion logic, questionnaire-level display controls, and operational flow support that can later be separated into project-specific copies.**
+**A reusable slide-based questionnaire system with a shared DSL engine, media support, DB-backed plant catalog content, reusable shop and delivery flows, discount-aware promotion logic, record-list support, DSL-owned utility controls, inline choice placement, and operational flow support that can later be separated into project-specific copies.**
 
 Practical direction:
 
 - keep the shared questionnaire shell generic
 - keep questionnaire-specific business rules outside the parser where possible
-- treat shop, delivery, review, discount, utility controls, and overlay behavior as reusable platform capabilities
+- treat shop, delivery, review, discount, utility controls, record lists, and overlay behavior as reusable platform capabilities
 - use real inventory-backed items for questionnaire promotions
 - use URL params for discount and paired-item selection where appropriate
 - layer verified phone/email discount eligibility later through the reusable auth + lead system
 - build nursery-ops as an isolated operational slice that can later be separated cleanly from storefront and coaching flows
-
-```
-
-```
+- move toward reusable database-backed block rendering for profile-style pages so the shell does not need DSL-specific wording or field names

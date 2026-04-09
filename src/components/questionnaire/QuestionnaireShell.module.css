@@ -249,6 +249,8 @@
 
 .recordCard {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: left;
   border: 1px solid;
   border-radius: 18px;
@@ -268,20 +270,20 @@
   gap: 12px;
 }
 
+.recordCardTitleButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+}
+
 .recordCardTitle {
   font-size: 18px;
   font-weight: 700;
-}
-
-.recordCardCount {
-  min-width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 13px;
-  font-weight: 700;
-  border: 1px solid currentColor;
 }
 
 .recordCardSubtitle {
@@ -387,6 +389,16 @@
 .scoreButton:disabled {
   cursor: not-allowed;
   opacity: 0.65;
+}
+
+.inlineChoiceStack {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.inlineChoiceButton {
+  width: 100%;
 }
 
 .formGrid {

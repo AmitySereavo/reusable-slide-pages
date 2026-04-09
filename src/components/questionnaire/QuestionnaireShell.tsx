@@ -271,6 +271,23 @@ function hasPhoneNote() {
   return " (applies after phone number is entered)";
 }
 
+function getBatchRecords(
+  variables: QuestionnaireVariableMap,
+  key: string
+): Array<Record<string, QuestionnaireVariableValue>> {
+  const raw = variables[key];
+
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw.filter(
+    (item): item is Record<string, QuestionnaireVariableValue> =>
+      Boolean(item) && typeof item === "object" && !Array.isArray(item)
+  );
+}
+
+
 function getRecordListItems(
   variables: QuestionnaireVariableMap,
   slide: {
@@ -362,6 +379,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [history, setHistory] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [deleteBatchError, setDeleteBatchError] = useState<string | null>(null);
+  const [deleteBatchConfirmation, setDeleteBatchConfirmation] = useState("");
+  const [batchDataRefreshKey, setBatchDataRefreshKey] = useState(0);
   const [isCurrentVerticalVideoPlaying, setIsCurrentVerticalVideoPlaying] =
     useState(false);
 
@@ -458,12 +479,127 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [urlDiscountDefinition, promotionDiscountDefinition]
   );
 
+  const selectedBatchRecord = useMemo(() => {
+    const selectedBatchCode = String(answers.opsSelectedBatchCode ?? "").trim();
+
+    if (!selectedBatchCode) {
+      return null;
+    }
+
+    const batches = getBatchRecords(mergedVariables, "nurseryBatches");
+
+    return (
+      batches.find((batch) => {
+        const code =
+          typeof batch.code === "string"
+            ? batch.code
+            : typeof batch.value === "string"
+              ? batch.value
+              : "";
+
+        return code === selectedBatchCode;
+      }) ?? null
+    );
+  }, [mergedVariables, answers.opsSelectedBatchCode]);
+
+  const selectedBatchVariables = useMemo<QuestionnaireVariableMap>(() => {
+    if (!selectedBatchRecord) {
+      return {};
+    }
+
+    return {
+      opsSelectedBatchCode:
+        typeof selectedBatchRecord.code === "string"
+          ? selectedBatchRecord.code
+          : "",
+      opsSelectedBatchPlantName:
+        typeof selectedBatchRecord.plantName === "string"
+          ? selectedBatchRecord.plantName
+          : "",
+      opsSelectedBatchStartDate:
+        typeof selectedBatchRecord.startDate === "string"
+          ? selectedBatchRecord.startDate
+          : "",
+      opsSelectedBatchStartMethod:
+        typeof selectedBatchRecord.startMethod === "string"
+          ? selectedBatchRecord.startMethod
+          : "",
+      opsSelectedBatchQuantityStarted:
+        typeof selectedBatchRecord.quantityStarted === "number"
+          ? selectedBatchRecord.quantityStarted
+          : 0,
+      opsSelectedBatchQuantityAlive:
+        typeof selectedBatchRecord.quantityAlive === "number"
+          ? selectedBatchRecord.quantityAlive
+          : 0,
+      opsSelectedBatchQuantityLost:
+        typeof selectedBatchRecord.quantityLost === "number"
+          ? selectedBatchRecord.quantityLost
+          : 0,
+      opsSelectedBatchQuantityTransplanted:
+        typeof selectedBatchRecord.quantityTransplanted === "number"
+          ? selectedBatchRecord.quantityTransplanted
+          : 0,
+      opsSelectedBatchIntendedUse:
+        typeof selectedBatchRecord.intendedUse === "string"
+          ? selectedBatchRecord.intendedUse
+          : "",
+      opsSelectedBatchTargetBuyer:
+        typeof selectedBatchRecord.targetBuyerType === "string"
+          ? selectedBatchRecord.targetBuyerType
+          : "",
+      opsSelectedBatchSourceName:
+        typeof selectedBatchRecord.sourceName === "string"
+          ? selectedBatchRecord.sourceName
+          : "",
+      opsSelectedBatchSourceNotes:
+        typeof selectedBatchRecord.sourceNotes === "string"
+          ? selectedBatchRecord.sourceNotes
+          : "",
+      opsSelectedBatchContainerType:
+        typeof selectedBatchRecord.containerType === "string"
+          ? selectedBatchRecord.containerType
+          : "",
+      opsSelectedBatchContainerQuantity:
+        typeof selectedBatchRecord.containerQuantity === "number"
+          ? selectedBatchRecord.containerQuantity
+          : 0,
+      opsSelectedBatchContainerDescription:
+        typeof selectedBatchRecord.containerDescription === "string"
+          ? selectedBatchRecord.containerDescription
+          : "",
+      opsSelectedBatchMediumName:
+        typeof selectedBatchRecord.mediumName === "string"
+          ? selectedBatchRecord.mediumName
+          : "",
+      opsSelectedBatchMediumQuality:
+        typeof selectedBatchRecord.mediumQuality === "string"
+          ? selectedBatchRecord.mediumQuality
+          : "",
+      opsSelectedBatchLocationCode:
+        typeof selectedBatchRecord.locationCode === "string"
+          ? selectedBatchRecord.locationCode
+          : "",
+      opsSelectedBatchLocationDescription:
+        typeof selectedBatchRecord.locationDescription === "string"
+          ? selectedBatchRecord.locationDescription
+          : "",
+      opsSelectedBatchLabeledForSale:
+        typeof selectedBatchRecord.labeledForSaleText === "string"
+          ? selectedBatchRecord.labeledForSaleText
+          : "",
+      opsSelectedBatchIndividualsVisible:
+        selectedBatchRecord.individualsVisible === true,
+    };
+  }, [selectedBatchRecord]);
+
   const evaluationContext = useMemo(
     () => ({
       ...mergedVariables,
+      ...selectedBatchVariables,
       ...answers,
     }),
-    [mergedVariables, answers]
+    [mergedVariables, selectedBatchVariables, answers]
   );
 
   const visibleSlides = useMemo(
@@ -520,6 +656,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         : [],
     [mergedVariables, currentSlide]
   );
+
+  
 
   const isMediaSlide =
     (currentSlide?.type === "media" || currentSlide?.type === "video") &&
@@ -742,13 +880,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     loadDynamicVariables();
 
     return () => controller.abort();
-  }, [
+    }, [
     config.slug,
     config.dynamicVariablesEndpoint,
     answers.selfScore,
     answers.futureScore,
     answers.opsGeneratedBatchCode,
+    batchDataRefreshKey,
   ]);
+
 
   useEffect(() => {
     if (!requestedDiscountCode) {
@@ -898,11 +1038,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
   }
 
-  function resetNurseryOpsSession() {
+
+  function resetQuestionnaireSession() {
     setAnswers({});
     setHistory([]);
     setSubmitError(null);
+    setDeleteBatchError(null);
+    setDeleteBatchConfirmation("");
     setCurrentIndex(0);
+  }
+
+  function handleReturnHome() {
+    goToTarget("home");
+  }
+
+  function handleCancel() {
+    resetQuestionnaireSession();
   }
 
   function handleChoiceClick(value: PrimitiveValue, goto?: string) {
@@ -1201,6 +1352,98 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
   }
 
+  async function handleDeleteBatch() {
+    if (!selectedBatchRecord || isDeletingBatch) {
+      return;
+    }
+
+    const batchId =
+      typeof selectedBatchRecord.id === "string" ? selectedBatchRecord.id : "";
+    const batchCode =
+      typeof selectedBatchRecord.code === "string"
+        ? selectedBatchRecord.code
+        : typeof selectedBatchRecord.value === "string"
+          ? selectedBatchRecord.value
+          : "";
+
+    setIsDeletingBatch(true);
+    setDeleteBatchError(null);
+
+    try {
+      const response = await fetch("/api/questionnaires/nursery-ops/batches", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          batchId,
+          batchCode,
+          confirmation: deleteBatchConfirmation,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to delete batch.");
+      }
+
+      setDynamicVariables((prev) => {
+        const nextBatches = Array.isArray(prev.nurseryBatches)
+          ? prev.nurseryBatches.filter((item) => {
+              if (!item || typeof item !== "object" || Array.isArray(item)) {
+                return true;
+              }
+
+              const record = item as Record<string, QuestionnaireVariableValue>;
+              const code =
+                typeof record.code === "string"
+                  ? record.code
+                  : typeof record.value === "string"
+                    ? record.value
+                    : "";
+
+              return code !== batchCode;
+            })
+          : prev.nurseryBatches;
+
+        const nextPlants = Array.isArray(prev.nurseryBatchPlants)
+          ? prev.nurseryBatchPlants.filter((item) => {
+              if (!item || typeof item !== "object" || Array.isArray(item)) {
+                return true;
+              }
+
+              const record = item as Record<string, QuestionnaireVariableValue>;
+              return record.batchCode !== batchCode;
+            })
+          : prev.nurseryBatchPlants;
+
+        return {
+          ...prev,
+          nurseryBatches: nextBatches,
+          nurseryBatchPlants: nextPlants,
+        };
+      });
+
+      setAnswers((prev) => ({
+        ...prev,
+        opsSelectedBatchCode: undefined,
+        opsSelectedPlantCode: undefined,
+      }));
+
+      setDeleteBatchConfirmation("");
+      setBatchDataRefreshKey((prev) => prev + 1);
+      goToTarget("batches-list");
+    } catch (error) {
+      setDeleteBatchError(
+        error instanceof Error ? error.message : "Failed to delete batch."
+      );
+    } finally {
+      setIsDeletingBatch(false);
+    }
+  }
+
+
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
 
@@ -1221,13 +1464,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
       : 0;
 
-  const showBackButton = currentSlide.showBack !== false;
+    const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
-  const showStepText =
+  const inlineChoices =
+    currentSlide.choicePlacement === "inline" ? currentSlide.choices : undefined;
+  const pinnedChoices =
+    currentSlide.choicePlacement === "inline" ? undefined : currentSlide.choices;
+    const showStepText =
     config.showStepText !== false && currentSlide.showStepText !== false;
-  const hasPinnedChoices = Boolean(currentSlide.choices?.length);
-
+  const hasPinnedChoices = Boolean(pinnedChoices?.length);
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -1306,7 +1552,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     const actionBarHidden =
       isCurrentVerticalVideoPlaying && isVerticalMediaSlide;
 
-    const isNurseryOps = config.slug === "nursery-ops";
+    
 
   return (
     <main
@@ -1347,23 +1593,27 @@ export default function QuestionnaireShell({ config, theme }: Props) {
               }}
             >
               <div className={styles.overlayFrame}>
-                {isNurseryOps ? (
+                                {currentSlide.showReturnHome || currentSlide.showCancel ? (
                   <div className={styles.topUtilityRow}>
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      onClick={() => goToTarget("nursery-ops-home")}
-                    >
-                      Return Home
-                    </button>
+                    {currentSlide.showReturnHome ? (
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        onClick={handleReturnHome}
+                      >
+                        Return Home
+                      </button>
+                    ) : null}
 
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      onClick={resetNurseryOpsSession}
-                    >
-                      Cancel
-                    </button>
+                    {currentSlide.showCancel ? (
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        onClick={handleCancel}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               
@@ -1423,13 +1673,72 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                     </>
                   ) : (
                     <>
-                      {renderSections(
+                                            {renderSections(
                         currentSlide.sections,
                         theme,
                         answers,
                         currentSlide.storeAs,
                         setAnswer
                       )}
+
+                                            {inlineChoices?.length ? (
+                        <div className={styles.inlineChoiceStack}>
+                          {inlineChoices
+                            .filter((choice) => {
+                              if (
+                                currentSlide.id === "batch-profile" &&
+                                choice.value === "view-plants"
+                              ) {
+                                return (
+                                  selectedBatchVariables
+                                    .opsSelectedBatchIndividualsVisible === true
+                                );
+                              }
+
+                              return true;
+                            })
+                            .map((choice) => {
+                            const selected =
+                              currentSlide.storeAs &&
+                              answers[currentSlide.storeAs] === choice.value;
+
+                            const choiceStyle = resolveButtonStyle(
+                              theme,
+                              choice.styleKey ?? currentSlide.buttonStyleKey,
+                              "secondary"
+                            );
+
+                            return (
+                              <button
+                                key={`${currentSlide.id}-${String(choice.value)}`}
+                                type="button"
+                                onClick={() =>
+                                  handleChoiceClick(choice.value, choice.goto)
+                                }
+                                className={`${styles.secondaryButton} ${styles.inlineChoiceButton}`}
+                                style={{
+                                  borderColor: choiceStyle.borderColor,
+                                  background:
+                                    choice.styleKey || currentSlide.buttonStyleKey
+                                      ? choiceStyle.background
+                                      : selected
+                                        ? choiceStyle.background
+                                        : "#FFFFFF",
+                                  color:
+                                    choice.styleKey || currentSlide.buttonStyleKey
+                                      ? choiceStyle.color
+                                      : selected
+                                        ? choiceStyle.color
+                                        : theme.colors.text,
+                                  opacity: selected ? 1 : 0.96,
+                                }}
+                              >
+                                {choice.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
 
                       {currentSlide.type === "shop" ? (
                         <ShopSlideRenderer
@@ -1557,7 +1866,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                         />
                       ) : null}
 
-                      {currentSlide.type === "recordlist" ? (
+                                            {currentSlide.type === "recordlist" ? (
                         <RecordListRenderer
                           items={currentRecordListItems}
                           emptyText={
@@ -1574,8 +1883,62 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                               setAnswer(currentSlide.storeAs, value);
                             }
                           }}
+                          onOpenItem={(value) => {
+                            if (currentSlide.storeAs) {
+                              setAnswer(currentSlide.storeAs, value);
+                            }
+
+                            if (currentSlide.goto) {
+                              goToTarget(currentSlide.goto);
+                            }
+                          }}
                           theme={theme}
                         />
+                      ) : null}
+
+                      {currentSlide.id === "batch-profile" && selectedBatchRecord ? (
+                        <div className={styles.reviewSummaryCard}>
+                          <div className={styles.reviewSummaryHeader}>
+                            <div className={styles.reviewSummaryTitle}>
+                              Delete batch
+                            </div>
+                          </div>
+
+                          <div className={styles.reviewSummaryBody}>
+                            <div>
+                              Type <strong>delete batch</strong> to allow deletion.
+                            </div>
+                            <input
+                              className={styles.input}
+                              value={deleteBatchConfirmation}
+                              onChange={(event) =>
+                                setDeleteBatchConfirmation(event.target.value)
+                              }
+                              placeholder="delete batch"
+                              style={{ borderColor: theme.colors.border }}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleDeleteBatch}
+                              disabled={
+                                isDeletingBatch ||
+                                deleteBatchConfirmation.trim() !== "delete batch"
+                              }
+                              className={styles.secondaryButton}
+                              style={{
+                                borderColor: theme.colors.border,
+                                background: "#FFFFFF",
+                                color: theme.colors.text,
+                              }}
+                            >
+                              {isDeletingBatch ? "Deleting..." : "Delete batch"}
+                            </button>
+                          </div>
+
+                          {deleteBatchError ? (
+                            <p className={styles.formError}>{deleteBatchError}</p>
+                          ) : null}
+                        </div>
                       ) : null}
 
                       {(currentSlide.type === "form" ||
@@ -1622,7 +1985,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                 <div className={styles.overlayFrame}>
                   {hasPinnedChoices ? (
                     <div className={styles.choiceStack}>
-                      {currentSlide.choices?.map((choice) => {
+                      {pinnedChoices?.map((choice) => {
                         const selected =
                           currentSlide.storeAs &&
                           answers[currentSlide.storeAs] === choice.value;
@@ -2571,12 +2934,14 @@ function RecordListRenderer({
   emptyText,
   selectedValue,
   onSelect,
+  onOpenItem,
   theme,
 }: {
   items: RecordListItem[];
   emptyText: string;
   selectedValue: string;
   onSelect: (value: string) => void;
+  onOpenItem?: (value: string) => void;
   theme: ThemeConfig;
 }) {
   if (!items.length) {
@@ -2585,25 +2950,30 @@ function RecordListRenderer({
 
   return (
     <div className={styles.recordListStack}>
-      {items.map((item) => {
+                  {items.map((item) => {
         const selected = selectedValue === item.value;
 
         return (
-          <button
+          <div
             key={item.value}
-            type="button"
-            onClick={() => onSelect(item.value)}
             className={styles.recordCard}
             style={{
-              borderColor: theme.colors.border,
+              borderColor: selected ? theme.colors.primary : theme.colors.border,
               background: selected
-                ? theme.colors.cardAlt ?? theme.colors.card
+                ? theme.colors.cardAlt ?? withOpacity(theme.colors.primary, 0.12)
                 : theme.colors.card,
               color: theme.colors.text,
             }}
           >
             <div className={styles.recordCardHeader}>
-              <div className={styles.recordCardTitle}>{item.title}</div>
+              <button
+                type="button"
+                onClick={() => onOpenItem?.(item.value)}
+                className={styles.recordCardTitleButton}
+              >
+                <div className={styles.recordCardTitle}>{item.title}</div>
+              </button>
+
               {item.childCount !== undefined ? (
                 <div className={styles.recordCardCount}>
                   {item.childCount}
@@ -2622,7 +2992,7 @@ function RecordListRenderer({
                 ))}
               </div>
             ) : null}
-          </button>
+          </div>
         );
       })}
     </div>
