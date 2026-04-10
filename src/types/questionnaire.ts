@@ -232,10 +232,20 @@ export type DataBlockAction = {
   showIf?: ConditionRule[];
 };
 
+export type DataBlockSectionAction = {
+  key: string;
+  label: string;
+  kind: "goto";
+  target: string;
+  styleKey?: string;
+  showIf?: ConditionRule[];
+};
+
 export type DataBlockSection = {
   key: string;
   title?: string;
   rows: DataBlockRow[];
+  action?: DataBlockSectionAction;
   showIf?: ConditionRule[];
 };
 

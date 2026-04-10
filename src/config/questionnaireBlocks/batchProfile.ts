@@ -205,8 +205,16 @@ export function buildBatchProfileBlock(): DataBlockDefinition {
         deleteCodePayloadKey: "batchCode",
         deleteConfirmationPayloadKey: "confirmation",
         deleteSuccessGoto: "batches-list",
-        deleteRefreshSources: ["nurseryBatches", "nurseryBatchPlants"],
-        deleteClearAnswerKeys: ["opsSelectedBatchCode", "opsSelectedPlantCode"],
+        deleteRefreshSources: [
+          "nurseryBatches",
+          "nurseryBatchPlants",
+          "nurseryTransplantedIndividuals",
+        ],
+        deleteClearAnswerKeys: [
+          "opsSelectedBatchCode",
+          "opsSelectedPlantCode",
+          "opsSelectedTransplantedPlantCode",
+        ],
         confirmationPhrase: "delete batch",
         styleKey: "c3",
       },
@@ -218,9 +226,16 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
   return {
     key: "batchIndividualProfile",
     sourceKey: "nurseryBatchPlants",
-    sections: [
+       sections: [
       {
-        key: "individual-summary",
+        key: "individual-identity",
+        title: "Identity",
+        action: {
+          key: "update-individual-identity",
+          label: "Update",
+          kind: "goto",
+          target: "update-batch-individual-identity",
+        },
         rows: [
           {
             key: "individual-code",
@@ -241,6 +256,24 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
             emptyText: "—",
           },
           {
+            key: "quantity-in-container",
+            label: "Quantity of plants in container",
+            valueField: "quantityInContainer",
+            emptyText: "—",
+          },
+        ],
+      },
+      {
+        key: "individual-condition-location",
+        title: "Condition and Location",
+        action: {
+          key: "update-individual-condition-location",
+          label: "Update",
+          kind: "goto",
+          target: "update-batch-individual-condition-location",
+        },
+        rows: [
+          {
             key: "condition-status",
             label: "Condition status",
             valueField: "conditionStatus",
@@ -256,6 +289,30 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
             key: "label-status",
             label: "Label status",
             valueField: "labelStatus",
+            emptyText: "—",
+          },
+        ],
+      },
+      {
+        key: "individual-batch-context",
+        title: "Batch Context",
+        rows: [
+          {
+            key: "start-date",
+            label: "Start date",
+            valueField: "startDate",
+            emptyText: "—",
+          },
+          {
+            key: "start-method",
+            label: "Start method",
+            valueField: "startMethod",
+            emptyText: "—",
+          },
+          {
+            key: "intended-use",
+            label: "Intended use",
+            valueField: "intendedUse",
             emptyText: "—",
           },
         ],
@@ -290,6 +347,120 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
         target: "activity-batch-select",
         styleKey: "c2",
       },
+      {
+        key: "delete-batch-individual",
+        label: "Delete Individual",
+        kind: "delete_record",
+        deleteEndpoint: "/api/questionnaires/nursery-ops/batches",
+        deleteIdField: "id",
+        deleteCodeField: "code",
+        deleteIdPayloadKey: "batchId",
+        deleteCodePayloadKey: "batchCode",
+        deleteConfirmationPayloadKey: "confirmation",
+        deleteSuccessGoto: "batch-individuals-list",
+        deleteRefreshSources: [
+          "nurseryBatches",
+          "nurseryBatchPlants",
+          "nurseryTransplantedIndividuals",
+        ],
+        deleteClearAnswerKeys: [
+          "opsSelectedPlantCode",
+          "opsSelectedTransplantedPlantCode",
+        ],
+        confirmationPhrase: "delete record",
+        styleKey: "c3",
+      },
+    ],
+  };
+}
+
+export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
+  return {
+    key: "transplantedIndividualProfile",
+    sourceKey: "nurseryTransplantedIndividuals",
+    sections: [
+      {
+        key: "transplanted-summary",
+        rows: [
+          {
+            key: "transplanted-code",
+            label: "Transplanted code",
+            valueField: "code",
+            emptyText: "—",
+          },
+          {
+            key: "batch-code",
+            label: "Batch code",
+            valueField: "batchCode",
+            emptyText: "—",
+          },
+          {
+            key: "plant-name",
+            label: "Plant",
+            valueField: "plantName",
+            emptyText: "—",
+          },
+          {
+            key: "condition-status",
+            label: "Condition status",
+            valueField: "conditionStatus",
+            emptyText: "—",
+          },
+          {
+            key: "location",
+            label: "Location",
+            valueField: "location",
+            emptyText: "—",
+          },
+          {
+            key: "label-status",
+            label: "Label status",
+            valueField: "labelStatus",
+            emptyText: "—",
+          },
+          {
+            key: "batch-container-sequence",
+            label: "Batch container count",
+            valueField: "batchContainerSequence",
+            emptyText: "—",
+          },
+          {
+            key: "transplant-container-sequence",
+            label: "Transplant container count",
+            valueField: "transplantContainerSequence",
+            emptyText: "—",
+          },
+        ],
+      },
+    ],
+    actions: [
+      {
+        key: "log-transplanted-activity",
+        label: "Log Transplanted Activity",
+        kind: "goto",
+        target: "activity-batch-select",
+        styleKey: "c2",
+      },
+      {
+        key: "delete-transplanted-individual",
+        label: "Delete Transplanted",
+        kind: "delete_record",
+        deleteEndpoint: "/api/questionnaires/nursery-ops/batches",
+        deleteIdField: "id",
+        deleteCodeField: "code",
+        deleteIdPayloadKey: "batchId",
+        deleteCodePayloadKey: "batchCode",
+        deleteConfirmationPayloadKey: "confirmation",
+        deleteSuccessGoto: "transplanted-individuals-list",
+        deleteRefreshSources: [
+          "nurseryBatches",
+          "nurseryBatchPlants",
+          "nurseryTransplantedIndividuals",
+        ],
+        deleteClearAnswerKeys: ["opsSelectedTransplantedPlantCode"],
+        confirmationPhrase: "delete record",
+        styleKey: "c3",
+      },
     ],
   };
 }
@@ -298,5 +469,6 @@ export function buildQuestionnaireBlocks(): Record<string, DataBlockDefinition> 
   return {
     batchProfile: buildBatchProfileBlock(),
     batchIndividualProfile: buildBatchIndividualProfileBlock(),
+    transplantedIndividualProfile: buildTransplantedIndividualProfileBlock(),
   };
 }

@@ -501,6 +501,14 @@ model PlantUnit {
   batch   PlantBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   sequenceNumber Int
+  unitKind       PlantUnitKind @default(BATCH_INDIVIDUAL)
+
+  parentUnitId String?
+  parentUnit   PlantUnit?  @relation("PlantUnitChildren", fields: [parentUnitId], references: [id], onDelete: SetNull)
+  children     PlantUnit[] @relation("PlantUnitChildren")
+
+  batchContainerSequence      Int?
+  transplantContainerSequence Int?
 
   status          PlantUnitStatus       @default(ACTIVE)
   conditionStatus PlantConditionStatus?
@@ -530,6 +538,8 @@ model PlantUnit {
 
   @@unique([batchId, sequenceNumber])
   @@index([batchId, status])
+  @@index([batchId, unitKind])
+  @@index([parentUnitId])
 }
 
 model Container {
@@ -796,6 +806,11 @@ enum BatchBuyerType {
   RETAIL_WALK_IN
   POPUP_CUSTOMER
   CUSTOM
+}
+
+enum PlantUnitKind {
+  BATCH_INDIVIDUAL
+  TRANSPLANT_INDIVIDUAL
 }
 
 enum PlantUnitStatus {

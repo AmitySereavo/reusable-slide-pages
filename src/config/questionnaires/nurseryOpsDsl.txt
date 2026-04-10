@@ -112,7 +112,13 @@ BR
 
 ===
 @id: transplanted-individuals-list
-@type: content
+@type: recordlist
+@store: opsSelectedTransplantedPlantCode
+@source: nurseryTransplantedIndividuals
+@titlefield: code
+@subtitlefield: conditionStatus
+@metafields: location,labelStatus
+@emptytext: No transplanted individuals available for this container yet.
 @showreturnhome: true
 @showcancel: true
 @back: Back to Individual
@@ -121,8 +127,56 @@ BR
 # [c2] Transplanted
 # [c2] Individuals
 BR
-[c3] This list will show transplanted
-[c3] individuals for the selected container.
+[c3] Select a transplanted container
+[c3] to open its profile.
+@next: Open Transplanted
+@goto: transplanted-individual-profile
+
+===
+@id: transplanted-individual-profile
+@type: content
+@source: nurseryTransplantedIndividuals
+@block: transplantedIndividualProfile
+@showreturnhome: true
+@showcancel: true
+@back: Back to Transplanted
+---
+BR
+# [c2] Transplanted
+# [c2] Individual Profile
+BR
+## [c1] [opsSelectedTransplantedPlantCode]
+[c3] Summary appears below.
+@shownext: false
+
+===
+@id: update-batch-individual-identity
+@type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Individual
+---
+BR
+# [c2] Update
+# [c2] Individual Identity
+BR
+[c3] This section update flow
+[c3] will be built next.
+@shownext: false
+
+===
+@id: update-batch-individual-condition-location
+@type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Individual
+---
+BR
+# [c2] Update
+# [c2] Condition and Location
+BR
+[c3] This section update flow
+[c3] will be built next.
 @shownext: false
 
 // ============================================================
@@ -389,21 +443,19 @@ BR
 # [c2] Details
 BR
 [c3] Enter the transplant setup
-[c3] for this batch.
+[c3] for this source container.
 BR
 @fields:
-- opsTransplantBatchCode|text|Batch code|required|Batch code
 - opsTransplantDate|date|Transplant date|required|Select date
 - opsTransplantQuantity|number|Quantity transplanted|required|How many transplanted
+- opsTransplantQuantityPerContainer|number|Quantity of plants in container|required|How many plants will be in each new container
 - opsTransplantContainerType|select|Container type|required|Select container|pot-2-5=2.5 inch pot,pot-4=4 inch pot,pot-6=6 inch pot,pot-8=8 inch pot,tray-8x16=8x16 tray,cup=Cup,grow-bag=Grow bag,bucket=Bucket,other=Other
 - opsTransplantContainerDescription|textarea|Container description|optional|Brief description
 - opsTransplantContainerQuantity|number|Container quantity|required|How many containers
 - opsTransplantContainerLength|number|Container length|optional|Length
-- opsTransplantContainerLengthUnit|select|Length unit|optional|Select unit|inches=Inches,cm=Centimeters
 - opsTransplantContainerWidth|number|Container width|optional|Width
-- opsTransplantContainerWidthUnit|select|Width unit|optional|Select unit|inches=Inches,cm=Centimeters
 - opsTransplantContainerDepth|number|Container depth|optional|Depth
-- opsTransplantContainerDepthUnit|select|Depth unit|optional|Select unit|inches=Inches,cm=Centimeters
+- opsTransplantContainerDimensionUnit|select|Dimension unit|optional|Select unit|inches=Inches,cm=Centimeters
 - opsTransplantContainerCondition|select|Container condition|optional|Select condition|brand-new=Brand new,good=Good,used=Used,worn=Worn,damaged=Damaged
 - opsTransplantMediumName|text|Medium name|required|Soil, coir, mixed medium, etc.
 - opsTransplantMediumQuality|select|Medium quality|optional|Select quality|professional=Professional,good=Good,fair=Fair,poor=Poor
@@ -413,7 +465,6 @@ BR
 - opsTransplantTemperature|select|Temperature feel|optional|Select temperature|cool=Cool,warm=Warm,hot=Hot,mixed=Mixed,not-sure=Not sure
 - opsTransplantLocationDescription|textarea|Location description|optional|Brief area description
 - opsTransplantLabeledForSale|checkbox|Labeled after transplant|optional
-- opsTransplantCreateUnits|text|Create individual plant codes?|optional|Yes, no, or quantity
 - opsTransplantNotes|textarea|Transplant notes|optional|Brief notes
 ---
 @run: recordNurseryTransplant

@@ -604,6 +604,8 @@ export async function POST(req: Request) {
               code: buildBatchIndividualCode(createdBatch.code, sequenceNumber),
               batchId: createdBatch.id,
               sequenceNumber,
+              unitKind: "BATCH_INDIVIDUAL",
+              batchContainerSequence: sequenceNumber,
               status: "ACTIVE",
               conditionStatus: "GOOD",
               containerId,

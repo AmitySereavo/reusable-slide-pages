@@ -8,6 +8,7 @@ import {
   DataBlockAction,
   DataBlockDefinition,
   DataBlockRow,
+  DataBlockSectionAction,
   DeliveryConfig,
   DeliverySelection,
   DiscountDefinition,
@@ -565,7 +566,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [urlDiscountDefinition, promotionDiscountDefinition]
   );
 
-  const selectedBatchRecord = useMemo(
+    const selectedBatchRecord = useMemo(
     () =>
       getSelectedRecordFromSource(
         mergedVariables,
@@ -584,6 +585,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       ),
     [mergedVariables, answers.opsSelectedPlantCode]
   );
+
+  const selectedTransplantedIndividualRecord = useMemo(
+    () =>
+      getSelectedRecordFromSource(
+        mergedVariables,
+        "nurseryTransplantedIndividuals",
+        String(answers.opsSelectedTransplantedPlantCode ?? "").trim()
+      ),
+    [mergedVariables, answers.opsSelectedTransplantedPlantCode]
+  );
+
 
   const evaluationContext = useMemo(
     () => ({
@@ -622,8 +634,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
       nextBlocks[blockKey] = {
         ...block,
-        sections: block.sections.map((section) => ({
+               sections: block.sections.map((section) => ({
           ...section,
+          action:
+            section.action && shouldShowBlockItem(section.action, rowContext)
+              ? section.action
+              : undefined,
           rows: section.rows.map((row) => {
             const resolvedValue =
               getDisplayValueFromBlockRow(row) ??
@@ -708,7 +724,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
 
-  const currentRecordListItems = useMemo<RecordListItem[]>(() => {
+const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     if (currentSlide?.type !== "recordlist") {
       return [];
     }
@@ -719,16 +735,55 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return getRecordListItems(
         {
           ...mergedVariables,
-          nurseryBatchPlants: getRecordArray(mergedVariables, "nurseryBatchPlants").filter(
-            (record) => record.batchCode === selectedBatchCode
-          ),
+          nurseryBatchPlants: getRecordArray(
+            mergedVariables,
+            "nurseryBatchPlants"
+          ).filter((record) => record.batchCode === selectedBatchCode),
+        },
+        currentSlide
+      );
+    }
+
+    if (currentSlide.id === "transplanted-individuals-list") {
+      const selectedPlantCode = String(answers.opsSelectedPlantCode ?? "").trim();
+
+      return getRecordListItems(
+        {
+          ...mergedVariables,
+          nurseryTransplantedIndividuals: getRecordArray(
+            mergedVariables,
+            "nurseryTransplantedIndividuals"
+          ).filter((record) => {
+            const parentUnitId =
+              typeof record.parentUnitId === "string" ? record.parentUnitId : "";
+            const selectedBatchIndividualId =
+              typeof selectedBatchIndividualRecord?.id === "string"
+                ? selectedBatchIndividualRecord.id
+                : "";
+
+            if (selectedBatchIndividualId) {
+              return parentUnitId === selectedBatchIndividualId;
+            }
+
+            const batchCode =
+              typeof record.batchCode === "string" ? record.batchCode : "";
+
+            return batchCode === String(answers.opsSelectedBatchCode ?? "").trim() &&
+              selectedPlantCode.length === 0;
+          }),
         },
         currentSlide
       );
     }
 
     return getRecordListItems(mergedVariables, currentSlide);
-  }, [mergedVariables, currentSlide, answers.opsSelectedBatchCode]);
+  }, [
+    mergedVariables,
+    currentSlide,
+    answers.opsSelectedBatchCode,
+    answers.opsSelectedPlantCode,
+    selectedBatchIndividualRecord,
+  ]);
 
   const currentBlock = useMemo<DataBlockDefinition | null>(() => {
     if (!currentSlide?.blockKey) {
@@ -739,6 +794,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }, [currentSlide, resolvedBlocks]);
 
     const selectedRecord = useMemo(() => {
+    if (currentBlock?.sourceKey === "nurseryTransplantedIndividuals") {
+      return selectedTransplantedIndividualRecord;
+    }
+
     if (currentBlock?.sourceKey === "nurseryBatchPlants") {
       return selectedBatchIndividualRecord;
     }
@@ -748,8 +807,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     return null;
-  }, [currentBlock, selectedBatchIndividualRecord, selectedBatchRecord]);
-
+  }, [
+    currentBlock,
+    selectedTransplantedIndividualRecord,
+    selectedBatchIndividualRecord,
+    selectedBatchRecord,
+  ]);
     const currentDeleteAction = useMemo<DataBlockAction | null>(() => {
     if (!currentBlock?.actions?.length) {
       return null;
@@ -2005,7 +2068,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
                         />
                       ) : null}
 
-                      {currentBlock ? (
+                                            {currentBlock ? (
                         <DataBlockRenderer
                           block={currentBlock}
                           theme={theme}
@@ -2021,6 +2084,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
                             if (action.kind === "delete_record") {
                               setDeleteBatchError(null);
+                            }
+                          }}
+                          onSectionAction={(action) => {
+                            if (action.kind === "goto") {
+                              goToTarget(action.target);
                             }
                           }}
                         />
@@ -3141,11 +3209,13 @@ function DataBlockRenderer({
   theme,
   context,
   onAction,
+  onSectionAction,
 }: {
   block: DataBlockDefinition;
   theme: ThemeConfig;
   context: QuestionnaireAnswers;
   onAction: (action: DataBlockAction) => void;
+  onSectionAction: (action: DataBlockSectionAction) => void;
 }) {
   const visibleSections = block.sections.filter((section) =>
     shouldShowBlockItem(section, context)
@@ -3164,9 +3234,23 @@ function DataBlockRenderer({
 
         return (
           <div key={section.key} className={styles.reviewSummaryCard}>
-            {section.title ? (
+            {section.title || section.action ? (
               <div className={styles.reviewSummaryHeader}>
-                <div className={styles.reviewSummaryTitle}>{section.title}</div>
+                {section.title ? (
+                  <div className={styles.reviewSummaryTitle}>{section.title}</div>
+                ) : (
+                  <div />
+                )}
+
+                {section.action ? (
+                  <button
+                    type="button"
+                    className={styles.linkButton}
+                    onClick={() => onSectionAction(section.action!)}
+                  >
+                    {section.action.label}
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

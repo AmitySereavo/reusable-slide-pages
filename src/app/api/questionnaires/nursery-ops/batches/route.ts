@@ -31,11 +31,15 @@ export async function GET() {
       orderBy: [{ createdAt: "desc" }],
       include: {
         plantType: true,
-                units: {
+                  units: {
           select: {
             id: true,
             code: true,
             sequenceNumber: true,
+            unitKind: true,
+            parentUnitId: true,
+            batchContainerSequence: true,
+            transplantContainerSequence: true,
             conditionStatus: true,
             labeledForSale: true,
             notes: true,
@@ -118,71 +122,107 @@ export async function GET() {
       };
     });;
 
-    const nurseryBatchPlants = batches.flatMap((batch) =>
-      batch.units.map((unit) => {
-        const containerSnapshot = parseSnapshot(batch.containerSnapshot);
-        const mediumSnapshot = parseSnapshot(batch.startMediumSnapshot);
-        const locationSnapshot = parseSnapshot(batch.locationSnapshot);
+        const nurseryBatchPlants = batches.flatMap((batch) =>
+      batch.units
+        .filter((unit) => unit.unitKind === "BATCH_INDIVIDUAL")
+        .map((unit) => {
+          const containerSnapshot = parseSnapshot(batch.containerSnapshot);
+          const mediumSnapshot = parseSnapshot(batch.startMediumSnapshot);
+          const locationSnapshot = parseSnapshot(batch.locationSnapshot);
 
-        return {
+          const childTransplants = batch.units.filter(
+            (childUnit) => childUnit.parentUnitId === unit.id
+          );
+
+          return {
+            value: unit.code,
+            id: unit.id,
+            code: unit.code,
+            batchCode: batch.code,
+            batchContainerSequence:
+              typeof unit.batchContainerSequence === "number"
+                ? unit.batchContainerSequence
+                : unit.sequenceNumber,
+            plantName: batch.plantType.displayName ?? batch.plantType.name,
+            startDate: batch.startDate.toISOString().slice(0, 10),
+            startMethod: formatEnumLabel(batch.startMethod),
+            quantityStarted: batch.quantityStarted,
+            quantityAlive: batch.quantityAlive,
+            quantityLost: batch.quantityLost,
+            quantityTransplanted: batch.quantityTransplanted,
+            intendedUse: formatEnumLabel(batch.intendedUse),
+            targetBuyerType: formatEnumLabel(batch.targetBuyerType),
+            sourceName: batch.sourceName ?? "",
+            sourceNotes: batch.sourceNotes ?? "",
+            labeledForSale: unit.labeledForSale,
+            labeledForSaleText: unit.labeledForSale ? "Yes" : "No",
+            commercialNotes: batch.commercialNotes ?? "",
+            startNotes: batch.startNotes ?? "",
+            conditionStatus: formatEnumLabel(unit.conditionStatus),
+            location: unit.location?.name ?? unit.location?.code ?? "",
+            labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
+            quantityInContainer: 1,
+            childCount:
+              typeof unit.batchContainerSequence === "number"
+                ? unit.batchContainerSequence
+                : unit.sequenceNumber,
+            containerType:
+              typeof containerSnapshot?.type === "string"
+                ? containerSnapshot.type
+                : "",
+            containerQuantity: 1,
+            containerDescription:
+              typeof containerSnapshot?.description === "string"
+                ? containerSnapshot.description
+                : typeof containerSnapshot?.otherDescription === "string"
+                  ? containerSnapshot.otherDescription
+                  : "",
+            mediumName:
+              typeof mediumSnapshot?.name === "string" ? mediumSnapshot.name : "",
+            mediumQuality:
+              typeof mediumSnapshot?.quality === "string"
+                ? mediumSnapshot.quality
+                : "",
+            locationCode:
+              typeof locationSnapshot?.code === "string"
+                ? locationSnapshot.code
+                : "",
+            locationDescription:
+              typeof locationSnapshot?.description === "string"
+                ? locationSnapshot.description
+                : "",
+            hasTransplantedIndividuals: childTransplants.length > 0,
+          };
+        })
+    );
+
+        const nurseryTransplantedIndividuals = batches.flatMap((batch) =>
+      batch.units
+        .filter((unit) => unit.unitKind === "TRANSPLANT_INDIVIDUAL")
+        .map((unit) => ({
           value: unit.code,
           id: unit.id,
           code: unit.code,
           batchCode: batch.code,
-          batchContainerSequence: unit.sequenceNumber,
+          parentUnitId: unit.parentUnitId,
+          batchContainerSequence: unit.batchContainerSequence,
+          transplantContainerSequence: unit.transplantContainerSequence,
           plantName: batch.plantType.displayName ?? batch.plantType.name,
-          startDate: batch.startDate.toISOString().slice(0, 10),
-          startMethod: formatEnumLabel(batch.startMethod),
-          quantityStarted: batch.quantityStarted,
-          quantityAlive: batch.quantityAlive,
-          quantityLost: batch.quantityLost,
-          quantityTransplanted: batch.quantityTransplanted,
-          intendedUse: formatEnumLabel(batch.intendedUse),
-          targetBuyerType: formatEnumLabel(batch.targetBuyerType),
-          sourceName: batch.sourceName ?? "",
-          sourceNotes: batch.sourceNotes ?? "",
-          labeledForSale: unit.labeledForSale,
-          labeledForSaleText: unit.labeledForSale ? "Yes" : "No",
-          commercialNotes: batch.commercialNotes ?? "",
-          startNotes: batch.startNotes ?? "",
           conditionStatus: formatEnumLabel(unit.conditionStatus),
           location: unit.location?.name ?? unit.location?.code ?? "",
           labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
-          childCount: unit.sequenceNumber,
-          containerType:
-            typeof containerSnapshot?.type === "string"
-              ? containerSnapshot.type
-              : "",
-          containerQuantity: 1,
-          containerDescription:
-            typeof containerSnapshot?.description === "string"
-              ? containerSnapshot.description
-              : typeof containerSnapshot?.otherDescription === "string"
-                ? containerSnapshot.otherDescription
-                : "",
-          mediumName:
-            typeof mediumSnapshot?.name === "string" ? mediumSnapshot.name : "",
-          mediumQuality:
-            typeof mediumSnapshot?.quality === "string"
-              ? mediumSnapshot.quality
-              : "",
-          locationCode:
-            typeof locationSnapshot?.code === "string"
-              ? locationSnapshot.code
-              : "",
-          locationDescription:
-            typeof locationSnapshot?.description === "string"
-              ? locationSnapshot.description
-              : "",
-          hasTransplantedIndividuals: false,
-        };
-      })
+          childCount:
+            typeof unit.transplantContainerSequence === "number"
+              ? unit.transplantContainerSequence
+              : unit.sequenceNumber,
+        }))
     );
 
     return NextResponse.json({
       ok: true,
       nurseryBatches,
       nurseryBatchPlants,
+      nurseryTransplantedIndividuals,
     });
   } catch (error) {
     console.error("Nursery batches route error:", error);
