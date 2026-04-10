@@ -203,6 +203,49 @@ export type RecordListItem = {
   childCount?: number;
 };
 
+export type DataBlockRow = {
+  key: string;
+  label: string;
+  valueField?: string;
+  value?: PrimitiveValue;
+  emptyText?: string;
+  format?: "text" | "boolean_yes_no";
+  showIf?: ConditionRule[];
+};
+
+export type DataBlockAction = {
+  key: string;
+  label: string;
+  kind: "goto" | "delete_record";
+  target?: string;
+  deleteEndpoint?: string;
+  deleteIdField?: string;
+  deleteCodeField?: string;
+  deleteIdPayloadKey?: string;
+  deleteCodePayloadKey?: string;
+  deleteConfirmationPayloadKey?: string;
+  deleteSuccessGoto?: string;
+  deleteRefreshSources?: string[];
+  deleteClearAnswerKeys?: string[];
+  confirmationPhrase?: string;
+  styleKey?: string;
+  showIf?: ConditionRule[];
+};
+
+export type DataBlockSection = {
+  key: string;
+  title?: string;
+  rows: DataBlockRow[];
+  showIf?: ConditionRule[];
+};
+
+export type DataBlockDefinition = {
+  key: string;
+  sourceKey?: string;
+  sections: DataBlockSection[];
+  actions?: DataBlockAction[];
+};
+
 export type ChoicePlacement = "actionbar" | "inline";
 
 export type ChoiceItem = {
@@ -347,6 +390,8 @@ export type Slide = {
   recordSubtitleField?: string;
   recordMetaFields?: string[];
   recordEmptyText?: string;
+  blockKey?: string;
+  blockSourceKey?: string;
 };
 
 export type ThemeConfig = {
@@ -384,6 +429,7 @@ export type QuestionnaireConfig = {
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
   overlayMode?: "transparent" | "opaque";
+  blocks?: Record<string, DataBlockDefinition>;
 };
 
 export type LeadFormData = {
@@ -449,7 +495,9 @@ export type ParsedSlideDraft = {
   recordTitleField?: string;
   recordSubtitleField?: string;
   recordMetaFields?: string[];
-  recordEmptyText?: string;
+    recordEmptyText?: string;
+  blockKey?: string;
+  blockSourceKey?: string;
 };
 
 export type ParsedQuestionnaireDocument = {

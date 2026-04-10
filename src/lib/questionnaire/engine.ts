@@ -5,7 +5,7 @@ import {
   Slide,
 } from "@/types/questionnaire";
 
-function parseRulePrimitive(raw: string): PrimitiveValue {
+export function parseRulePrimitive(raw: string): PrimitiveValue {
   const trimmed = raw.trim();
 
   if (trimmed.toLowerCase() === "true") return true;
@@ -15,7 +15,7 @@ function parseRulePrimitive(raw: string): PrimitiveValue {
   return Number.isNaN(num) ? trimmed : num;
 }
 
-function evaluateConditionRule(
+export function evaluateConditionRule(
   rule: ConditionRule,
   context: QuestionnaireAnswers
 ) {

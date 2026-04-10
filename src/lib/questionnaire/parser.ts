@@ -221,7 +221,19 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       }
 
       if (line.startsWith("@source:")) {
-        draft.recordSourceKey = readValue(line, "@source:");
+        const sourceKey = readValue(line, "@source:");
+        draft.recordSourceKey = sourceKey;
+        draft.blockSourceKey = sourceKey;
+        continue;
+      }
+
+            if (line.startsWith("@block:")) {
+        draft.blockKey = readValue(line, "@block:");
+        continue;
+      }
+
+      if (line.startsWith("@blocksource:")) {
+        draft.blockSourceKey = readValue(line, "@blocksource:");
         continue;
       }
 
@@ -563,6 +575,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     recordSubtitleField: draft.recordSubtitleField,
     recordMetaFields: draft.recordMetaFields,
     recordEmptyText: draft.recordEmptyText,
+        blockKey: draft.blockKey,
+    blockSourceKey: draft.blockSourceKey,
   };
 
   if (draft.feature?.type === "numberscale") {

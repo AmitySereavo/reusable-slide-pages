@@ -90,6 +90,14 @@ function getDateCodeParts(date = new Date()) {
   return `${mm}${dd}${yy}`;
 }
 
+function formatSequenceNumber(value: number) {
+  return String(value).padStart(4, "0");
+}
+
+function buildBatchIndividualCode(batchCode: string, sequenceNumber: number) {
+  return `${batchCode}-${formatSequenceNumber(sequenceNumber)}`;
+}
+
 async function generateBatchCode() {
   const now = new Date();
   const dateCode = getDateCodeParts(now);
@@ -417,6 +425,7 @@ export async function POST(req: Request) {
     }
 
     const quantityStarted = asPositiveInt(answers.opsBatchQuantityStarted);
+    const containerQuantity = asPositiveInt(answers.opsContainerQuantity);
     if (quantityStarted <= 0) {
       return NextResponse.json(
         { ok: false, error: "Quantity started must be greater than zero." },
@@ -542,63 +551,97 @@ export async function POST(req: Request) {
       locationId = location.id;
     }
 
-    const batch = await prisma.plantBatch.create({
-      data: {
-        code: generatedBatchCode,
-        plantTypeId: plantType.id,
-        startMethod: mapStartMethod(startMethodRaw),
-        startDate,
-        quantityStarted,
-        quantityAlive: quantityStarted,
-        quantityLost: 0,
-        quantityTransplanted: 0,
-        quantitySold: 0,
-        quantityGifted: 0,
-        intendedUse: mapIntendedUse(intendedUseRaw),
-        targetBuyerType: mapBuyerType(asOptionalString(answers.opsBatchBuyerTarget)),
-        targetBuyerName:
-          asOptionalString(answers.opsBatchBuyerTarget) === "custom"
-            ? asOptionalString(answers.opsBatchBuyerTargetOther)
-            : null,
-        sourceType: mapSourceType(startMethodRaw),
-        sourceName: asOptionalString(answers.opsBatchSourceName),
-        sourceNotes: asOptionalString(answers.opsBatchSourceNotes),
-        containerId,
-        mediumId,
-        locationId,
-        labeledForSale: asBoolean(answers.opsBatchLabeledForSale),
-        startMediumSnapshot: buildMediumSnapshot(answers),
-        containerSnapshot: buildContainerSnapshot(answers),
-        locationSnapshot: buildLocationSnapshot(answers),
-        startNotes: asOptionalString(answers.opsBatchStartNotes),
-        commercialNotes: asOptionalString(answers.opsBatchCommercialNotes),
-        active: true,
-        archived: false,
-      },
-      include: {
-        plantType: true,
-        container: true,
-        medium: true,
-        location: true,
-      },
-    });
+    const { batch, createdUnits } = await prisma.$transaction(async (tx) => {
+      const createdBatch = await tx.plantBatch.create({
+        data: {
+          code: generatedBatchCode,
+          plantTypeId: plantType.id,
+          startMethod: mapStartMethod(startMethodRaw),
+          startDate,
+          quantityStarted,
+          quantityAlive: quantityStarted,
+          quantityLost: 0,
+          quantityTransplanted: 0,
+          quantitySold: 0,
+          quantityGifted: 0,
+          intendedUse: mapIntendedUse(intendedUseRaw),
+          targetBuyerType: mapBuyerType(asOptionalString(answers.opsBatchBuyerTarget)),
+          targetBuyerName:
+            asOptionalString(answers.opsBatchBuyerTarget) === "custom"
+              ? asOptionalString(answers.opsBatchBuyerTargetOther)
+              : null,
+          sourceType: mapSourceType(startMethodRaw),
+          sourceName: asOptionalString(answers.opsBatchSourceName),
+          sourceNotes: asOptionalString(answers.opsBatchSourceNotes),
+          containerId,
+          mediumId,
+          locationId,
+          labeledForSale: asBoolean(answers.opsBatchLabeledForSale),
+          startMediumSnapshot: buildMediumSnapshot(answers),
+          containerSnapshot: buildContainerSnapshot(answers),
+          locationSnapshot: buildLocationSnapshot(answers),
+          startNotes: asOptionalString(answers.opsBatchStartNotes),
+          commercialNotes: asOptionalString(answers.opsBatchCommercialNotes),
+          active: true,
+          archived: false,
+        },
+        include: {
+          plantType: true,
+          container: true,
+          medium: true,
+          location: true,
+        },
+      });
 
-    await prisma.plantActivity.create({
-      data: {
-        batchId: batch.id,
-        activityType: "STARTED",
-        activityAt: startDate,
-        quantityAffected: quantityStarted,
-        notes:
-          asOptionalString(answers.opsBatchQuantityNotes) ??
-          "Batch created from nursery operations flow.",
-      },
+      const startingUnitCount = Math.max(containerQuantity, 1);
+
+      const units = await Promise.all(
+        Array.from({ length: startingUnitCount }, async (_, index) => {
+          const sequenceNumber = index + 1;
+
+          return tx.plantUnit.create({
+            data: {
+              code: buildBatchIndividualCode(createdBatch.code, sequenceNumber),
+              batchId: createdBatch.id,
+              sequenceNumber,
+              status: "ACTIVE",
+              conditionStatus: "GOOD",
+              containerId,
+              locationId,
+              labeledForSale: asBoolean(answers.opsBatchLabeledForSale),
+              notes:
+                startingUnitCount >= 2
+                  ? `Batch starting container ${formatSequenceNumber(sequenceNumber)}`
+                  : "Batch starting container",
+            },
+          });
+        })
+      );
+
+      await tx.plantActivity.create({
+        data: {
+          batchId: createdBatch.id,
+          activityType: "STARTED",
+          activityAt: startDate,
+          quantityAffected: quantityStarted,
+          notes:
+            asOptionalString(answers.opsBatchQuantityNotes) ??
+            "Batch created from nursery operations flow.",
+        },
+      });
+
+      return {
+        batch: createdBatch,
+        createdUnits: units,
+      };
     });
 
     return NextResponse.json({
       ok: true,
       message: "Nursery batch created.",
       generatedBatchCode,
+      createdUnitCount: createdUnits.length,
+      createdUnitCodes: createdUnits.map((unit) => unit.code),
       batch: {
         id: batch.id,
         code: batch.code,

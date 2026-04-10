@@ -9,6 +9,7 @@ import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
+import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
 import type {
   QuestionnaireVariableMap,
   ThemeConfig,
@@ -165,6 +166,7 @@ export async function getQuestionnaireBySlug(slug: string) {
       themeKey: entry.themeKey,
       slides: parseQuestionnaireDsl(resolvedDsl).slides,
       variables: resolvedVariables,
+      blocks: buildQuestionnaireBlocks(),
       dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
       showStepText: entry.showStepText,
       overlayMode: entry.overlayMode,

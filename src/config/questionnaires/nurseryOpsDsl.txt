@@ -36,6 +36,8 @@ BR
 ===
 @id: batch-profile
 @type: content
+@source: nurseryBatches
+@block: batchProfile
 @showreturnhome: true
 @showcancel: true
 @back: Back to Batches
@@ -45,54 +47,44 @@ BR
 # [c2] Profile
 BR
 ## [c1] [opsSelectedBatchCode]
-[c3] Plant: [opsSelectedBatchPlantName]
-[c3] Start date: [opsSelectedBatchStartDate]
-[c3] Start method: [opsSelectedBatchStartMethod]
-[c3] Intended use: [opsSelectedBatchIntendedUse]
-[c3] Target buyer: [opsSelectedBatchTargetBuyer]
-[c3] Quantity started: [opsSelectedBatchQuantityStarted]
-[c3] Quantity alive: [opsSelectedBatchQuantityAlive]
-[c3] Quantity lost: [opsSelectedBatchQuantityLost]
-[c3] Quantity transplanted: [opsSelectedBatchQuantityTransplanted]
-[c3] Labeled for sale: [opsSelectedBatchLabeledForSale]
-BR
-[c2] Container: [opsSelectedBatchContainerType]
-[c2] Container quantity: [opsSelectedBatchContainerQuantity]
-[c2] Container notes: [opsSelectedBatchContainerDescription]
-BR
-[c2] Medium: [opsSelectedBatchMediumName]
-[c2] Medium quality: [opsSelectedBatchMediumQuality]
-BR
-[c2] Location: [opsSelectedBatchLocationCode]
-[c2] Location notes: [opsSelectedBatchLocationDescription]
-BR
-[c2] Source: [opsSelectedBatchSourceName]
-[c2] Source notes: [opsSelectedBatchSourceNotes]
-@choiceplacement: inline
-@choices:
-- transplant|Record Transplant|transplant-details|c1
-- batch-activity|Log Batch Activity|activity-batch-select|c2
-- view-plants|View Individuals|batch-plants-list|c3
+[c3] Summary appears below.
 @shownext: false
 
 ===
-@id: batch-plants-list
+@id: batch-individuals-list
 @type: recordlist
 @store: opsSelectedPlantCode
 @source: nurseryBatchPlants
 @titlefield: code
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
-@emptytext: No individual plants available for this batch yet.
+@emptytext: No individual containers available for this batch yet.
 ---
 BR
-# [c2] Individual
-# [c2] Plants
+# [c2] Batch
+# [c2] Individuals
 BR
-[c3] Select a plant to open its profile.
+[c3] Select a container to open its profile.
 @back: Back
-@next: Open Plant
-@goto: plant-profile
+@next: Open Individual
+@goto: batch-individual-profile
+
+===
+@id: batch-individual-profile
+@type: content
+@source: nurseryBatchPlants
+@block: batchIndividualProfile
+@showreturnhome: true
+@showcancel: true
+@back: Back to Individuals
+---
+BR
+# [c2] Batch
+# [c2] Individual Profile
+BR
+## [c1] [opsSelectedPlantCode]
+[c3] Summary appears below.
+@shownext: false
 
 ===
 @id: plant-profile
@@ -115,6 +107,22 @@ BR
 - single-activity|Log Single Plant Activity|activity-batch-select|c1
 - back-to-plants|Back to Plants|batch-plants-list|c2
 @showback: false
+@shownext: false
+
+
+===
+@id: transplanted-individuals-list
+@type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Individual
+---
+BR
+# [c2] Transplanted
+# [c2] Individuals
+BR
+[c3] This list will show transplanted
+[c3] individuals for the selected container.
 @shownext: false
 
 // ============================================================
@@ -280,7 +288,7 @@ BR
 # [c1] [opsGeneratedBatchCode]
 @choices:
 - create-another|Create another batch|batch-intro|c1
-- home|Return home|nursery-ops-home|c2
+- home|Return home|home|c2
 @showback: false
 @shownext: false
 
@@ -365,7 +373,7 @@ BR
 [c3] has been recorded.
 @choices:
 - log-another|Log another activity|activity-batch-select|c1
-- home|Return home|nursery-ops-home|c2
+- home|Return home|home|c2
 @showback: false
 @shownext: false
 
@@ -424,6 +432,6 @@ BR
 [c3] has been recorded.
 @choices:
 - record-another|Record another transplant|transplant-details|c1
-- home|Return home|nursery-ops-home|c2
+- home|Return home|home|c2
 @showback: false
 @shownext: false
