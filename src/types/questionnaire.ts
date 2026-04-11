@@ -257,6 +257,7 @@ export type DataBlockDefinition = {
 };
 
 export type ChoicePlacement = "actionbar" | "inline";
+export type SlideTitlePlacement = "body" | "progress_overlay";
 
 export type ChoiceItem = {
   value: PrimitiveValue;
@@ -359,6 +360,8 @@ export type Slide = {
   showStepText?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
+  titlePlacement?: SlideTitlePlacement;
+  cancelGoto?: string;
   storeAs?: string;
   showIf?: ShowIfRule;
   showIfRules?: ConditionRule[];
@@ -460,16 +463,18 @@ export type ParsedSlideDraft = {
   storeAs?: string;
   backLabel?: string;
   backGoto?: string;
-    showBack?: boolean;
+  showBack?: boolean;
   showNext?: boolean;
   nextLabel?: string;
   countStep?: boolean;
   showStepText?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
+  titlePlacement?: SlideTitlePlacement;
+  cancelGoto?: string;
   goto?: string;
   run?: string;
-    fields?: FormField[];
+  fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
   routeRules?: SlideRouteRule[];

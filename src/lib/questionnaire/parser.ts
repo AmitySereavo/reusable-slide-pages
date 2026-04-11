@@ -12,6 +12,7 @@ import {
   Slide,
   SlideFeature,
   SlideRouteRule,
+  SlideTitlePlacement,
   SlideType,
 } from "@/types/questionnaire";
 
@@ -185,6 +186,24 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+            if (line.startsWith("@title:")) {
+        draft.title = readValue(line, "@title:");
+        continue;
+      }
+
+      if (line.startsWith("@subtitle:")) {
+        draft.subtitle = readValue(line, "@subtitle:");
+        continue;
+      }
+
+      if (line.startsWith("@titleplacement:")) {
+        draft.titlePlacement = readValue(
+          line,
+          "@titleplacement:"
+        ) as SlideTitlePlacement;
+        continue;
+      }
+
       if (line.startsWith("@store:")) {
         draft.storeAs = readValue(line, "@store:");
         continue;
@@ -309,7 +328,12 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-            if (line.startsWith("@choiceplacement:")) {
+      if (line.startsWith("@cancelgoto:")) {
+        draft.cancelGoto = readValue(line, "@cancelgoto:");
+        continue;
+      }
+
+      if (line.startsWith("@choiceplacement:")) {
         draft.choicePlacement = readValue(
           line,
           "@choiceplacement:"
@@ -524,12 +548,14 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     body: draft.paragraphs.join(" "),
     backLabel: draft.backLabel,
     backGoto: draft.backGoto,
-        showBack: draft.showBack,
+    showBack: draft.showBack,
     showNext: draft.showNext,
     countStep: draft.countStep,
     showStepText: draft.showStepText,
     showReturnHome: draft.showReturnHome,
+    cancelGoto: draft.cancelGoto,
     showCancel: draft.showCancel,
+    titlePlacement: draft.titlePlacement,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
     goto: draft.goto,

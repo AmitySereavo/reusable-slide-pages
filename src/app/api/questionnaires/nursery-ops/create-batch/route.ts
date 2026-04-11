@@ -83,10 +83,25 @@ function getBatchPrefix(bucketIndex: number) {
   return `${first}${second}`;
 }
 
-function getDateCodeParts(date = new Date()) {
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const yy = String(date.getFullYear()).slice(-2);
+function getDateCodePartsFromStartDate(value: string) {
+  const trimmed = value.trim();
+
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, yyyy, mm, dd] = match;
+    return `${mm}${dd}${yyyy.slice(-2)}`;
+  }
+
+  const parsed = new Date(trimmed);
+
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Unable to generate batch code from invalid start date.");
+  }
+
+  const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(parsed.getUTCDate()).padStart(2, "0");
+  const yy = String(parsed.getUTCFullYear()).slice(-2);
+
   return `${mm}${dd}${yy}`;
 }
 
@@ -98,9 +113,8 @@ function buildBatchIndividualCode(batchCode: string, sequenceNumber: number) {
   return `${batchCode}-${formatSequenceNumber(sequenceNumber)}`;
 }
 
-async function generateBatchCode() {
-  const now = new Date();
-  const dateCode = getDateCodeParts(now);
+async function generateBatchCode(startDateRaw: string) {
+  const dateCode = getDateCodePartsFromStartDate(startDateRaw);
 
   let existingBatchCount = await prisma.plantBatch.count();
   let attempts = 0;
@@ -433,7 +447,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const generatedBatchCode = await generateBatchCode();
+        const generatedBatchCode = await generateBatchCode(startDateRaw);
 
     const plantSlug = slugify(plantName);
     const plantTypeSlug = plantSlug || makeShortCode("PLANT");

@@ -1,0 +1,614 @@
+//CHAT GPT WORKFLOW DESCRIPTION:
+//
+//This file defines the preferred collaboration workflow for working in this repository.
+//
+//Purpose:
+//- keep each new chat window aligned with the same repo workflow
+//- reduce repeated setup instructions
+//- preserve the same response format, build style, and architectural direction across sessions
+//
+//How ChatGPT should use this file:
+//- read this file first before proposing or changing code
+//- treat the repo SHA given by the user as source of truth unless a newer SHA is provided
+//- if the user says an update was applied locally, treat that applied local version as the new source of truth even if not yet committed
+//- inspect README.md and current repo structure before making changes
+//- keep harmony with the existing architecture and naming direction
+//- protect the reusability of shared systems such as parser, registry, data loaders, block definitions, and QuestionnaireShell
+//
+//Response format expected:
+//- path first
+//- exact placement
+//- minimal commentary
+//- build only
+//- always include full file path
+//- when giving code updates, say exactly where the code goes
+//- show one line above and one line below the placement when possible
+//- do not give long explanations unless the user asks
+//
+//Architectural preference:
+//- keep QuestionnaireShell reusable
+//- avoid putting questionnaire-specific wording or logic in the shared shell
+//- prefer reusable capabilities in parser, config, registry, block definitions, and data loaders
+//- prefer generic naming such as selectedRecord where possible
+//
+//Workflow note:
+//- after reading this file, ChatGPT should ask what exact update is wanted next, then continue directly in this same workflow
+//
+//below is only an example of previous work, it's a delta we have passed, not where we are headed.
+//CHAT GPT WORKFLOW EXAMPLE:
+
+`prisma/schema.prisma`
+
+Placement: add new enum **below** `enum BatchBuyerType { ... }` and **above** `enum PlantUnitStatus { ... }`
+
+```prisma
+enum PlantUnitKind {
+  BATCH_INDIVIDUAL
+  TRANSPLANT_INDIVIDUAL
+}
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/create-batch/route.ts`
+
+Placement: inside the `tx.plantUnit.create({ data: { ... } })` block, add the new fields.
+
+Add **below**:
+
+```ts
+              batchId: createdBatch.id,
+              sequenceNumber,
+```
+
+and **above**:
+
+```ts
+              status: "ACTIVE",
+```
+
+```ts
+              unitKind: "BATCH_INDIVIDUAL",
+              batchContainerSequence: sequenceNumber,
+```
+
+So that section becomes:
+
+```ts
+            data: {
+              code: buildBatchIndividualCode(createdBatch.code, sequenceNumber),
+              batchId: createdBatch.id,
+              sequenceNumber,
+              unitKind: "BATCH_INDIVIDUAL",
+              batchContainerSequence: sequenceNumber,
+              status: "ACTIVE",
+              conditionStatus: "GOOD",
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/record-transplant/route.ts`
+
+Replace full file with:
+
+```ts
+import { NextResponse } from "next/server";
+import { PlantActivityType, PlantUnitKind, PlantUnitStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+
+type RecordNurseryTransplantPayload = {
+  questionnaireSlug?: string;
+  action?: string;
+  answers?: Record<string, unknown>;
+};
+
+function asString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function asOptionalString(value: unknown) {
+  const next = asString(value);
+  return next.length > 0 ? next : null;
+}
+
+function asBoolean(value: unknown) {
+  return value === true;
+}
+
+function asPositiveInt(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, Math.floor(parsed));
+    }
+  }
+
+  return 0;
+}
+
+function formatSequenceNumber(value: number) {
+  return String(value).padStart(4, "0");
+}
+
+function buildTransplantIndividualCode(params: {
+  batchCode: string;
+  batchContainerSequence?: number | null;
+  transplantContainerSequence: number;
+}) {
+  const batchContainerPart =
+    typeof params.batchContainerSequence === "number" &&
+    params.batchContainerSequence > 0
+      ? `-${formatSequenceNumber(params.batchContainerSequence)}`
+      : "";
+
+  return `${params.batchCode}${batchContainerPart}T-${formatSequenceNumber(
+    params.transplantContainerSequence
+  )}`;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as RecordNurseryTransplantPayload;
+    const answers =
+      body.answers && typeof body.answers === "object" ? body.answers : {};
+
+    const batchCode = asString(answers.opsTransplantBatchCode);
+    const transplantDateRaw = asString(answers.opsTransplantDate);
+    const transplantQuantity = asPositiveInt(answers.opsTransplantQuantity);
+    const selectedPlantCode = asString(answers.opsSelectedPlantCode);
+
+    if (!batchCode) {
+      return NextResponse.json(
+        { ok: false, error: "Batch code is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!transplantDateRaw) {
+      return NextResponse.json(
+        { ok: false, error: "Transplant date is required." },
+        { status: 400 }
+      );
+    }
+
+    const transplantDate = new Date(transplantDateRaw);
+
+    if (Number.isNaN(transplantDate.getTime())) {
+      return NextResponse.json(
+        { ok: false, error: "Enter a valid transplant date." },
+        { status: 400 }
+      );
+    }
+
+    if (transplantQuantity <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "Transplant quantity must be greater than zero." },
+        { status: 400 }
+      );
+    }
+
+    const batch = await prisma.plantBatch.findUnique({
+      where: { code: batchCode },
+      include: {
+        units: {
+          orderBy: [{ sequenceNumber: "asc" }],
+        },
+      },
+    });
+
+    if (!batch) {
+      return NextResponse.json(
+        { ok: false, error: "Batch not found." },
+        { status: 404 }
+      );
+    }
+
+    const batchIndividualUnits = batch.units.filter(
+      (unit) => unit.unitKind === PlantUnitKind.BATCH_INDIVIDUAL
+    );
+
+    const sourceUnit =
+      selectedPlantCode.length > 0
+        ? batchIndividualUnits.find((unit) => unit.code === selectedPlantCode) ?? null
+        : null;
+
+    if (selectedPlantCode && !sourceUnit) {
+      return NextResponse.json(
+        { ok: false, error: "Selected batch individual was not found." },
+        { status: 404 }
+      );
+    }
+
+    const nextBatchSequence =
+      batch.units.reduce(
+        (max, unit) => Math.max(max, unit.sequenceNumber),
+        0
+      ) + 1;
+
+    const sourceBatchContainerSequence =
+      sourceUnit?.batchContainerSequence ??
+      (batchIndividualUnits.length >= 2 ? null : null);
+
+    const sourceBatchContainerCodePart =
+      batchIndividualUnits.length >= 2 ? sourceUnit?.batchContainerSequence ?? null : null;
+
+    const existingSiblingTransplants = batch.units.filter((unit) => {
+      if (unit.unitKind !== PlantUnitKind.TRANSPLANT_INDIVIDUAL) {
+        return false;
+      }
+
+      if (sourceUnit?.id) {
+        return unit.parentUnitId === sourceUnit.id;
+      }
+
+      return unit.parentUnitId === null;
+    });
+
+    const createdTransplantUnits = await prisma.$transaction(async (tx) => {
+      const createdUnits = [];
+
+      for (let index = 0; index < transplantQuantity; index += 1) {
+        const transplantContainerSequence = existingSiblingTransplants.length + index + 1;
+        const sequenceNumber = nextBatchSequence + index;
+
+        const code = buildTransplantIndividualCode({
+          batchCode: batch.code,
+          batchContainerSequence: sourceBatchContainerCodePart,
+          transplantContainerSequence,
+        });
+
+        const createdUnit = await tx.plantUnit.create({
+          data: {
+            code,
+            batchId: batch.id,
+            sequenceNumber,
+            unitKind: PlantUnitKind.TRANSPLANT_INDIVIDUAL,
+            parentUnitId: sourceUnit?.id ?? null,
+            batchContainerSequence: sourceBatchContainerCodePart,
+            transplantContainerSequence,
+            status: PlantUnitStatus.ACTIVE,
+            conditionStatus: sourceUnit?.conditionStatus ?? undefined,
+            containerId: batch.containerId,
+            locationId: batch.locationId,
+            labeledForSale: asBoolean(answers.opsTransplantLabeledForSale),
+            transplantDate,
+            notes: asOptionalString(answers.opsTransplantNotes),
+          },
+        });
+
+        createdUnits.push(createdUnit);
+      }
+
+      await tx.plantBatch.update({
+        where: { id: batch.id },
+        data: {
+          transplantDate,
+          quantityTransplanted: {
+            increment: transplantQuantity,
+          },
+        },
+      });
+
+      if (sourceUnit) {
+        await tx.plantUnit.update({
+          where: { id: sourceUnit.id },
+          data: {
+            status: PlantUnitStatus.TRANSPLANTED,
+            transplantDate,
+          },
+        });
+      }
+
+      await tx.plantActivity.create({
+        data: {
+          batchId: batch.id,
+          unitId: sourceUnit?.id ?? null,
+          activityType: PlantActivityType.TRANSPLANTED,
+          activityAt: transplantDate,
+          transplantQuantity,
+          quantityAffected: transplantQuantity,
+          labeledSetTo: asBoolean(answers.opsTransplantLabeledForSale),
+          notes:
+            asOptionalString(answers.opsTransplantNotes) ??
+            "Transplant recorded from nursery operations flow.",
+        },
+      });
+
+      return createdUnits;
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "Nursery transplant recorded.",
+      batchCode: batch.code,
+      sourceUnitCode: sourceUnit?.code ?? null,
+      createdTransplantCount: createdTransplantUnits.length,
+      createdTransplantCodes: createdTransplantUnits.map((unit) => unit.code),
+    });
+  } catch (error) {
+    console.error("Nursery record-transplant route error:", error);
+
+    return NextResponse.json(
+      { ok: false, error: "Failed to record nursery transplant." },
+      { status: 500 }
+    );
+  }
+}
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/batches/route.ts`
+
+Placement: update the `units` include inside `findMany`.
+
+Replace:
+
+```ts
+        units: {
+          select: {
+            id: true,
+            code: true,
+            sequenceNumber: true,
+            conditionStatus: true,
+            labeledForSale: true,
+            notes: true,
+            location: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+          orderBy: [{ sequenceNumber: "asc" }],
+        },
+```
+
+with:
+
+```ts
+        units: {
+          select: {
+            id: true,
+            code: true,
+            sequenceNumber: true,
+            unitKind: true,
+            parentUnitId: true,
+            batchContainerSequence: true,
+            transplantContainerSequence: true,
+            conditionStatus: true,
+            labeledForSale: true,
+            notes: true,
+            location: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+          orderBy: [{ sequenceNumber: "asc" }],
+        },
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/batches/route.ts`
+
+Placement: replace the whole `nurseryBatchPlants` mapper.
+
+Replace:
+
+```ts
+    const nurseryBatchPlants = batches.flatMap((batch) =>
+      batch.units.map((unit) => {
+        const containerSnapshot = parseSnapshot(batch.containerSnapshot);
+        const mediumSnapshot = parseSnapshot(batch.startMediumSnapshot);
+        const locationSnapshot = parseSnapshot(batch.locationSnapshot);
+
+        return {
+          value: unit.code,
+          id: unit.id,
+          code: unit.code,
+          batchCode: batch.code,
+          batchContainerSequence: unit.sequenceNumber,
+          plantName: batch.plantType.displayName ?? batch.plantType.name,
+          startDate: batch.startDate.toISOString().slice(0, 10),
+          startMethod: formatEnumLabel(batch.startMethod),
+          quantityStarted: batch.quantityStarted,
+          quantityAlive: batch.quantityAlive,
+          quantityLost: batch.quantityLost,
+          quantityTransplanted: batch.quantityTransplanted,
+          intendedUse: formatEnumLabel(batch.intendedUse),
+          targetBuyerType: formatEnumLabel(batch.targetBuyerType),
+          sourceName: batch.sourceName ?? "",
+          sourceNotes: batch.sourceNotes ?? "",
+          labeledForSale: unit.labeledForSale,
+          labeledForSaleText: unit.labeledForSale ? "Yes" : "No",
+          commercialNotes: batch.commercialNotes ?? "",
+          startNotes: batch.startNotes ?? "",
+          conditionStatus: formatEnumLabel(unit.conditionStatus),
+          location: unit.location?.name ?? unit.location?.code ?? "",
+          labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
+          childCount: unit.sequenceNumber,
+          containerType:
+            typeof containerSnapshot?.type === "string"
+              ? containerSnapshot.type
+              : "",
+          containerQuantity: 1,
+          containerDescription:
+            typeof containerSnapshot?.description === "string"
+              ? containerSnapshot.description
+              : typeof containerSnapshot?.otherDescription === "string"
+                ? containerSnapshot.otherDescription
+                : "",
+          mediumName:
+            typeof mediumSnapshot?.name === "string" ? mediumSnapshot.name : "",
+          mediumQuality:
+            typeof mediumSnapshot?.quality === "string"
+              ? mediumSnapshot?.quality
+              : "",
+          locationCode:
+            typeof locationSnapshot?.code === "string"
+              ? locationSnapshot.code
+              : "",
+          locationDescription:
+            typeof locationSnapshot?.description === "string"
+              ? locationSnapshot.description
+              : "",
+          hasTransplantedIndividuals: false,
+        };
+      })
+    );
+```
+
+with:
+
+```ts
+    const nurseryBatchPlants = batches.flatMap((batch) =>
+      batch.units
+        .filter((unit) => unit.unitKind === "BATCH_INDIVIDUAL")
+        .map((unit) => {
+          const containerSnapshot = parseSnapshot(batch.containerSnapshot);
+          const mediumSnapshot = parseSnapshot(batch.startMediumSnapshot);
+          const locationSnapshot = parseSnapshot(batch.locationSnapshot);
+
+          const childTransplants = batch.units.filter(
+            (childUnit) => childUnit.parentUnitId === unit.id
+          );
+
+          return {
+            value: unit.code,
+            id: unit.id,
+            code: unit.code,
+            batchCode: batch.code,
+            batchContainerSequence:
+              typeof unit.batchContainerSequence === "number"
+                ? unit.batchContainerSequence
+                : unit.sequenceNumber,
+            plantName: batch.plantType.displayName ?? batch.plantType.name,
+            startDate: batch.startDate.toISOString().slice(0, 10),
+            startMethod: formatEnumLabel(batch.startMethod),
+            quantityStarted: batch.quantityStarted,
+            quantityAlive: batch.quantityAlive,
+            quantityLost: batch.quantityLost,
+            quantityTransplanted: batch.quantityTransplanted,
+            intendedUse: formatEnumLabel(batch.intendedUse),
+            targetBuyerType: formatEnumLabel(batch.targetBuyerType),
+            sourceName: batch.sourceName ?? "",
+            sourceNotes: batch.sourceNotes ?? "",
+            labeledForSale: unit.labeledForSale,
+            labeledForSaleText: unit.labeledForSale ? "Yes" : "No",
+            commercialNotes: batch.commercialNotes ?? "",
+            startNotes: batch.startNotes ?? "",
+            conditionStatus: formatEnumLabel(unit.conditionStatus),
+            location: unit.location?.name ?? unit.location?.code ?? "",
+            labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
+            childCount:
+              typeof unit.batchContainerSequence === "number"
+                ? unit.batchContainerSequence
+                : unit.sequenceNumber,
+            containerType:
+              typeof containerSnapshot?.type === "string"
+                ? containerSnapshot.type
+                : "",
+            containerQuantity: 1,
+            containerDescription:
+              typeof containerSnapshot?.description === "string"
+                ? containerSnapshot.description
+                : typeof containerSnapshot?.otherDescription === "string"
+                  ? containerSnapshot.otherDescription
+                  : "",
+            mediumName:
+              typeof mediumSnapshot?.name === "string" ? mediumSnapshot.name : "",
+            mediumQuality:
+              typeof mediumSnapshot?.quality === "string"
+                ? mediumSnapshot.quality
+                : "",
+            locationCode:
+              typeof locationSnapshot?.code === "string"
+                ? locationSnapshot.code
+                : "",
+            locationDescription:
+              typeof locationSnapshot?.description === "string"
+                ? locationSnapshot.description
+                : "",
+            hasTransplantedIndividuals: childTransplants.length > 0,
+          };
+        })
+    );
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/batches/route.ts`
+
+Placement: add a transplanted dataset **below** the `nurseryBatchPlants` block and **above** `return NextResponse.json({`
+
+```ts
+    const nurseryTransplantedIndividuals = batches.flatMap((batch) =>
+      batch.units
+        .filter((unit) => unit.unitKind === "TRANSPLANT_INDIVIDUAL")
+        .map((unit) => ({
+          value: unit.code,
+          id: unit.id,
+          code: unit.code,
+          batchCode: batch.code,
+          parentUnitId: unit.parentUnitId,
+          batchContainerSequence: unit.batchContainerSequence,
+          transplantContainerSequence: unit.transplantContainerSequence,
+          plantName: batch.plantType.displayName ?? batch.plantType.name,
+          conditionStatus: formatEnumLabel(unit.conditionStatus),
+          location: unit.location?.name ?? unit.location?.code ?? "",
+          labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
+          childCount:
+            typeof unit.transplantContainerSequence === "number"
+              ? unit.transplantContainerSequence
+              : unit.sequenceNumber,
+        }))
+    );
+```
+
+---
+
+`src/app/api/questionnaires/nursery-ops/batches/route.ts`
+
+Placement: in the JSON response, add the new dataset **below**:
+
+```ts
+      nurseryBatchPlants,
+```
+
+and **above**:
+
+```ts
+    });
+```
+
+```ts
+      nurseryTransplantedIndividuals,
+```
+
+So it becomes:
+
+```ts
+    return NextResponse.json({
+      ok: true,
+      nurseryBatches,
+      nurseryBatchPlants,
+      nurseryTransplantedIndividuals,
+    });
+```
+
+After this:
+
+* transplant records become real DB-backed individual records
+* multi-container source codes can become `BATCH-0002T-0001`
+* single-container source codes can become `BATCHT-0001`
+* each batch individual can truthfully expose `View Transplanted` based on real children
+
+Next:
+`src/config/questionnaires/nurseryOpsDsl.txt` + `src/config/questionnaireBlocks/` to turn the transplanted placeholder slide into a real list/profile flow.

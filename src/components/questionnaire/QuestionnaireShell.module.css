@@ -48,6 +48,14 @@
   pointer-events: none;
 }
 
+.progressOverlay .overlayFrame,
+.progressOverlay button,
+.progressOverlay input,
+.progressOverlay label,
+.progressOverlay a {
+  pointer-events: auto;
+}
+
 
 .overlayFrame {
   width: 100%;
@@ -82,6 +90,29 @@
   font-size: 14px;
   opacity: 0.88;
   text-align: center;
+}
+
+.overlayTitleStack {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.overlayTitleMain {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.18;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.overlayTitleSupport {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  opacity: 0.86;
+  white-space: pre-line;
 }
 
 
@@ -863,9 +894,7 @@
   .reviewMetaRow {
     padding-left: 0;
   }
-}
 
-@media (max-width: 768px) {
   .page {
     padding: 0;
   }
@@ -897,6 +926,14 @@
 
   .subtitle {
     font-size: 18px;
+  }
+
+  .overlayTitleMain {
+    font-size: 18px;
+  }
+
+  .overlayTitleSupport {
+    font-size: 12px;
   }
 
   .body,

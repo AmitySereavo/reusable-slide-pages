@@ -38,15 +38,14 @@ BR
 @type: content
 @source: nurseryBatches
 @block: batchProfile
+@titleplacement: progress_overlay
+@title: Batch Profile
+@subtitle: [selectedBatchPlantName] - [selectedBatchCode]
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batches-list
 @back: Back to Batches
 ---
-BR
-# [c2] Batch
-# [c2] Profile
-BR
-## [c1] [opsSelectedBatchCode]
 [c3] Summary appears below.
 @shownext: false
 
@@ -59,14 +58,14 @@ BR
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
 @emptytext: No transplants available for this batch yet.
+@titleplacement: progress_overlay
+@title: Batch Transplants
+@subtitle: [selectedBatchPlantName] - [selectedBatchCode]
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-profile
 @back: Back to Batch
 ---
-BR
-# [c2] Batch
-# [c2] Transplants
-BR
 [c3] Select a transplant to open its profile.
 @next: Open Transplant
 @goto: transplanted-individual-profile
@@ -80,11 +79,13 @@ BR
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
 @emptytext: No batch subsets available for this batch yet.
+@titleplacement: progress_overlay
+@title: Batch Subsets
+@subtitle: [selectedBatchPlantName] - [selectedBatchCode]
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: batch-profile
 ---
-BR
-# [c2] Batch
-# [c2] Subsets
-BR
 [c3] Select a subset to open its profile.
 @back: Back
 @next: Open Subset
@@ -96,15 +97,14 @@ BR
 @type: content
 @source: nurseryBatchSubsets
 @block: batchSubsetProfile
+@titleplacement: progress_overlay
+@title: Batch Subset Profile
+@subtitle: [selectedBatchSubsetPlantName] - [selectedBatchSubsetCode]
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-subsets-list
 @back: Back to Subsets
 ---
-BR
-# [c2] Batch
-# [c2] Subset Profile
-BR
-## [c1] [opsSelectedBatchSubsetCode]
 [c3] Summary appears below.
 @shownext: false
 
@@ -141,14 +141,14 @@ BR
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
 @emptytext: No transplants available for this subset yet.
+@titleplacement: progress_overlay
+@title: Subset Transplants
+@subtitle: [selectedBatchSubsetPlantName] - [selectedBatchSubsetCode]
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-subset-profile
 @back: Back to Subset
 ---
-BR
-# [c2] Subset
-# [c2] Transplants
-BR
 [c3] Select a transplant
 [c3] to open its profile.
 @next: Open Transplant
@@ -159,15 +159,14 @@ BR
 @type: content
 @source: nurseryTransplantedIndividuals
 @block: transplantedIndividualProfile
+@titleplacement: progress_overlay
+@title: Transplanted Profile
+@subtitle: [selectedTransplantPlantName] - [selectedTransplantCode]
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-transplants-list
 @back: Back to Transplanted
 ---
-BR
-# [c2] Transplanted
-# [c2] Individual Profile
-BR
-## [c1] [opsSelectedTransplantCode]
 [c3] Summary appears below.
 @shownext: false
 
@@ -176,6 +175,7 @@ BR
 @type: content
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-subset-profile
 @back: Back to Subset
 ---
 BR
@@ -191,6 +191,7 @@ BR
 @type: content
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: batch-subset-profile
 @back: Back to Subset
 ---
 BR
@@ -206,6 +207,7 @@ BR
 @type: content
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: transplanted-individual-profile
 @back: Back to Transplant
 ---
 BR
@@ -239,6 +241,7 @@ BR
 @type: form
 @showreturnhome: true
 @showcancel: true
+@cancelgoto: home
 ---
 # [c2] Plant
 # [c2] Details
@@ -390,6 +393,9 @@ BR
 ===
 @id: activity-batch-select
 @type: form
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
 ---
 # [c2] Activity
 # [c2] Selection
@@ -475,6 +481,9 @@ BR
 ===
 @id: transplant-details
 @type: form
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: batch-profile
 ---
 # [c2] Transplant
 # [c2] Details

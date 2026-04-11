@@ -597,13 +597,42 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
 
-  const evaluationContext = useMemo(
+    const evaluationContext = useMemo<QuestionnaireAnswers>(
     () => ({
       ...mergedVariables,
-
       ...answers,
+      selectedBatchCode:
+        typeof selectedBatchRecord?.code === "string"
+          ? selectedBatchRecord.code
+          : String(answers.opsSelectedBatchCode ?? "").trim(),
+      selectedBatchPlantName:
+        typeof selectedBatchRecord?.plantName === "string"
+          ? selectedBatchRecord.plantName
+          : "",
+      selectedBatchSubsetCode:
+        typeof selectedBatchSubsetRecord?.code === "string"
+          ? selectedBatchSubsetRecord.code
+          : String(answers.opsSelectedBatchSubsetCode ?? "").trim(),
+      selectedBatchSubsetPlantName:
+        typeof selectedBatchSubsetRecord?.plantName === "string"
+          ? selectedBatchSubsetRecord.plantName
+          : "",
+      selectedTransplantCode:
+        typeof selectedTransplantRecord?.code === "string"
+          ? selectedTransplantRecord.code
+          : String(answers.opsSelectedTransplantCode ?? "").trim(),
+      selectedTransplantPlantName:
+        typeof selectedTransplantRecord?.plantName === "string"
+          ? selectedTransplantRecord.plantName
+          : "",
     }),
-    [mergedVariables, answers]
+    [
+      mergedVariables,
+      answers,
+      selectedBatchRecord,
+      selectedBatchSubsetRecord,
+      selectedTransplantRecord,
+    ]
   );
 
   const resolvedBlocks = useMemo<Record<string, DataBlockDefinition>>(() => {
@@ -726,6 +755,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   const currentSlide = visibleSlides[currentIndex];
+    const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
+
+  const resolvedOverlayTitle = shouldShowOverlayTitle
+    ? replaceDynamicText(currentSlide?.title, evaluationContext, mergedVariables)
+    : undefined;
+
+  const resolvedOverlaySubtitle = shouldShowOverlayTitle
+    ? replaceDynamicText(currentSlide?.subtitle, evaluationContext, mergedVariables)
+    : undefined;
 
 const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     if (currentSlide?.type !== "recordlist") {
@@ -1175,6 +1213,34 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
+    function getAllFormFieldNames() {
+    return Array.from(
+      new Set(
+        config.slides.flatMap((slide) =>
+          slide.fields?.map((field) => field.name) ?? []
+        )
+      )
+    );
+  }
+
+  function clearAllFormFieldAnswers() {
+    const formFieldNames = getAllFormFieldNames();
+
+    if (!formFieldNames.length) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const nextAnswers = { ...prev };
+
+      for (const fieldName of formFieldNames) {
+        nextAnswers[fieldName] = undefined;
+      }
+
+      return nextAnswers;
+    });
+  }
+
   function updateCurrentShopCart(updater: (cart: ShopCart) => ShopCart) {
     if (currentSlide?.type !== "shop" || !currentSlide.storeAs) return;
 
@@ -1229,11 +1295,24 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   }
 
   function handleReturnHome() {
+    clearAllFormFieldAnswers();
     goToTarget("home");
   }
 
   function handleCancel() {
-    resetQuestionnaireSession();
+    clearAllFormFieldAnswers();
+
+    if (currentSlide?.cancelGoto) {
+      goToTarget(currentSlide.cancelGoto);
+      return;
+    }
+
+    if (currentSlide?.backGoto) {
+      goToTarget(currentSlide.backGoto);
+      return;
+    }
+
+    back();
   }
 
   function handleChoiceClick(value: PrimitiveValue, goto?: string) {
@@ -1653,6 +1732,10 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       if (!ok) return;
     }
 
+    if (currentSlide.run) {
+      clearAllFormFieldAnswers();
+    }
+
     next();
   }
 
@@ -1821,6 +1904,23 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                 {showStepText ? (
                   <div className={styles.stepText}>
                     Slide {currentStepNumber} of {totalStepCount}
+                  </div>
+                ) : null}
+
+              {shouldShowOverlayTitle &&
+                (resolvedOverlayTitle || resolvedOverlaySubtitle) ? (
+                  <div className={styles.overlayTitleStack}>
+                    {resolvedOverlayTitle ? (
+                      <div className={styles.overlayTitleMain}>
+                        {resolvedOverlayTitle}
+                      </div>
+                    ) : null}
+
+                    {resolvedOverlaySubtitle ? (
+                      <div className={styles.overlayTitleSupport}>
+                        {resolvedOverlaySubtitle}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
