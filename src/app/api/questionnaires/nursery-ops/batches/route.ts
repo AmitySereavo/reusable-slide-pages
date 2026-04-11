@@ -5,7 +5,7 @@ function formatEnumLabel(value: string | null | undefined) {
   if (!value) return "";
   return value
     .toLowerCase()
-    .split("_")
+    .split(/[_-]/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
@@ -23,6 +23,25 @@ function parseSnapshot(value: string | null | undefined) {
   } catch {
     return null;
   }
+}
+
+function parseTransplantSnapshot(value: string | null | undefined) {
+  const parsed = parseSnapshot(value);
+
+  if (!parsed) {
+    return null;
+  }
+
+  if (
+    parsed.type === "transplant_snapshot" &&
+    parsed.data &&
+    typeof parsed.data === "object" &&
+    !Array.isArray(parsed.data)
+  ) {
+    return parsed.data as Record<string, unknown>;
+  }
+
+  return null;
 }
 
 export async function GET() {
@@ -67,8 +86,13 @@ export async function GET() {
             ? Number(containerSnapshot.quantity)
             : 0;
 
-      const individualsVisible =
-        batch.units.length >= 2 || containerQuantity >= 2;
+      const batchSubsetCount = batch.units.filter(
+        (unit) => unit.unitKind === "BATCH_INDIVIDUAL"
+      ).length;
+
+     const transplantCount = batch.units.filter(
+        (unit) => unit.unitKind === "TRANSPLANT_INDIVIDUAL"
+      ).length;
 
       return {
         value: batch.code,
@@ -117,12 +141,12 @@ export async function GET() {
           typeof locationSnapshot?.description === "string"
             ? locationSnapshot.description
             : "",
-        individualsVisible,
-        batchIndividualsVisible: containerQuantity >= 2,
+        batchSubsetsVisible: containerQuantity >= 2 || batchSubsetCount >= 2,
+         hasTransplants: transplantCount > 0 || batch.quantityTransplanted > 0,
       };
     });;
 
-        const nurseryBatchPlants = batches.flatMap((batch) =>
+        const nurseryBatchSubsets = batches.flatMap((batch) =>
       batch.units
         .filter((unit) => unit.unitKind === "BATCH_INDIVIDUAL")
         .map((unit) => {
@@ -191,7 +215,7 @@ export async function GET() {
               typeof locationSnapshot?.description === "string"
                 ? locationSnapshot.description
                 : "",
-            hasTransplantedIndividuals: childTransplants.length > 0,
+            hasTransplants: childTransplants.length > 0,
           };
         })
     );
@@ -199,29 +223,76 @@ export async function GET() {
         const nurseryTransplantedIndividuals = batches.flatMap((batch) =>
       batch.units
         .filter((unit) => unit.unitKind === "TRANSPLANT_INDIVIDUAL")
-        .map((unit) => ({
-          value: unit.code,
-          id: unit.id,
-          code: unit.code,
-          batchCode: batch.code,
-          parentUnitId: unit.parentUnitId,
-          batchContainerSequence: unit.batchContainerSequence,
-          transplantContainerSequence: unit.transplantContainerSequence,
-          plantName: batch.plantType.displayName ?? batch.plantType.name,
-          conditionStatus: formatEnumLabel(unit.conditionStatus),
-          location: unit.location?.name ?? unit.location?.code ?? "",
-          labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
-          childCount:
-            typeof unit.transplantContainerSequence === "number"
-              ? unit.transplantContainerSequence
-              : unit.sequenceNumber,
-        }))
-    );
+        .map((unit) => {
+          const transplantSnapshot = parseTransplantSnapshot(unit.notes);
+
+          const parentUnit =
+            unit.parentUnitId
+              ? batch.units.find((candidate) => candidate.id === unit.parentUnitId) ?? null
+              : null;
+
+          return {
+            value: unit.code,
+            id: unit.id,
+            code: unit.code,
+            batchCode: batch.code,
+            parentUnitId: unit.parentUnitId,
+            parentBatchSubsetCode: parentUnit?.code ?? "",
+            batchContainerSequence: unit.batchContainerSequence,
+            transplantContainerSequence: unit.transplantContainerSequence,
+            plantName: batch.plantType.displayName ?? batch.plantType.name,
+            conditionStatus: formatEnumLabel(unit.conditionStatus),
+            location:
+              (typeof transplantSnapshot?.locationCode === "string"
+                ? transplantSnapshot.locationCode
+                : unit.location?.name ?? unit.location?.code) ?? "",
+            labelStatus: unit.labeledForSale ? "Labeled" : "Not labeled",
+            quantityInContainer:
+              typeof transplantSnapshot?.quantityInContainer === "number"
+                ? transplantSnapshot.quantityInContainer
+                : typeof transplantSnapshot?.quantityInContainer === "string"
+                  ? Number(transplantSnapshot.quantityInContainer)
+                  : "",
+            containerType:
+              typeof transplantSnapshot?.containerType === "string"
+                ? formatEnumLabel(transplantSnapshot.containerType)
+                : "",
+            containerDescription:
+              typeof transplantSnapshot?.containerDescription === "string"
+                ? transplantSnapshot.containerDescription
+                : "",
+            mediumName:
+              typeof transplantSnapshot?.mediumName === "string"
+                ? transplantSnapshot.mediumName
+                : "",
+            mediumQuality:
+              typeof transplantSnapshot?.mediumQuality === "string"
+                ? formatEnumLabel(transplantSnapshot.mediumQuality)
+                : "",
+            mediumDescription:
+              typeof transplantSnapshot?.mediumDescription === "string"
+                ? transplantSnapshot.mediumDescription
+                : "",
+            locationCode:
+              typeof transplantSnapshot?.locationCode === "string"
+                ? transplantSnapshot.locationCode
+                : "",
+            locationDescription:
+              typeof transplantSnapshot?.locationDescription === "string"
+                ? transplantSnapshot.locationDescription
+                : "",
+            childCount:
+              typeof unit.transplantContainerSequence === "number"
+                ? unit.transplantContainerSequence
+                : unit.sequenceNumber,
+          };
+        })
+      );
 
     return NextResponse.json({
       ok: true,
       nurseryBatches,
-      nurseryBatchPlants,
+      nurseryBatchSubsets,
       nurseryTransplantedIndividuals,
     });
   } catch (error) {

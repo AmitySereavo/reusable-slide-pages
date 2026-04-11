@@ -158,7 +158,21 @@ export function buildBatchProfileBlock(): DataBlockDefinition {
         ],
       },
     ],
-    actions: [
+    actions: [ 
+      {       
+        key: "view-batch-subsets",
+        label: "View Subsets",
+        kind: "goto",
+        target: "batch-subsets-list",
+        styleKey: "primary",
+        showIf: [
+          {
+            field: "batchSubsetsVisible",
+            operator: "eq",
+            value: "true",
+          },
+        ],
+      },
       {
         key: "record-transplant",
         label: "Record Transplant",
@@ -167,21 +181,21 @@ export function buildBatchProfileBlock(): DataBlockDefinition {
         styleKey: "c1",
         showIf: [
           {
-            field: "batchIndividualsVisible",
+            field: "batchSubsetsVisible",
             operator: "neq",
             value: "true",
           },
         ],
       },
       {
-        key: "view-individuals",
-        label: "View Individuals",
+        key: "view-transplants",
+        label: "View Transplants",
         kind: "goto",
-        target: "batch-individuals-list",
-        styleKey: "primary",
+        target: "batch-transplants-list",
+        styleKey: "accent",
         showIf: [
           {
-            field: "batchIndividualsVisible",
+            field: "hasTransplants",
             operator: "eq",
             value: "true",
           },
@@ -222,23 +236,23 @@ export function buildBatchProfileBlock(): DataBlockDefinition {
   };
 }
 
-export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
-  return {
-    key: "batchIndividualProfile",
-    sourceKey: "nurseryBatchPlants",
-       sections: [
+export function buildBatchSubsetProfileBlock(): DataBlockDefinition {
+   return {
+        key: "batchSubsetProfile",
+        sourceKey: "nurseryBatchSubsets",
+        sections: [
       {
-        key: "individual-identity",
-        title: "Identity",
+        key: "subset-identity",
+        title: "SubsetIdentity",
         action: {
-          key: "update-individual-identity",
+          key: "update-subset-identity",
           label: "Update",
           kind: "goto",
-          target: "update-batch-individual-identity",
+          target: "update-batch-subset-identity",
         },
         rows: [
           {
-            key: "individual-code",
+            key: "subset-code",
             label: "Container code",
             valueField: "code",
             emptyText: "—",
@@ -264,13 +278,13 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
         ],
       },
       {
-        key: "individual-condition-location",
+        key: "subset-condition-location",
         title: "Condition and Location",
         action: {
-          key: "update-individual-condition-location",
+          key: "update-subset-condition-location",
           label: "Update",
           kind: "goto",
-          target: "update-batch-individual-condition-location",
+          target: "update-batch-subset-condition-location",
         },
         rows: [
           {
@@ -294,7 +308,7 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
         ],
       },
       {
-        key: "individual-batch-context",
+        key: "subset-batch-context",
         title: "Batch Context",
         rows: [
           {
@@ -319,58 +333,56 @@ export function buildBatchIndividualProfileBlock(): DataBlockDefinition {
       },
     ],
     actions: [
+  {
+    key: "view-batch-subsets",
+    label: "View Subsets",
+    kind: "goto",
+    target: "batch-subsets-list",
+    styleKey: "primary",
+    showIf: [
       {
-        key: "record-individual-transplant",
-        label: "Record Transplant",
-        kind: "goto",
-        target: "transplant-details",
-        styleKey: "c1",
-      },
-      {
-        key: "view-transplanted",
-        label: "View Transplanted",
-        kind: "goto",
-        target: "transplanted-individuals-list",
-        styleKey: "primary",
-        showIf: [
-          {
-            field: "hasTransplantedIndividuals",
-            operator: "eq",
-            value: "true",
-          },
-        ],
-      },
-      {
-        key: "log-individual-activity",
-        label: "Log Individual Activity",
-        kind: "goto",
-        target: "activity-batch-select",
-        styleKey: "c2",
-      },
-      {
-        key: "delete-batch-individual",
-        label: "Delete Individual",
-        kind: "delete_record",
-        deleteEndpoint: "/api/questionnaires/nursery-ops/batches",
-        deleteIdField: "id",
-        deleteCodeField: "code",
-        deleteIdPayloadKey: "batchId",
-        deleteCodePayloadKey: "batchCode",
-        deleteConfirmationPayloadKey: "confirmation",
-        deleteSuccessGoto: "batch-individuals-list",
-        deleteRefreshSources: [
-          "nurseryBatches",
-          "nurseryBatchPlants",
-          "nurseryTransplantedIndividuals",
-        ],
-        deleteClearAnswerKeys: [
-          "opsSelectedPlantCode",
-          "opsSelectedTransplantedPlantCode",
-        ],
-        confirmationPhrase: "delete record",
-        styleKey: "c3",
+        field: "batchSubsetsVisible",
+        operator: "eq",
+        value: "true",
       },
     ],
+  },
+  {
+    key: "record-transplant",
+    label: "Record Transplant",
+    kind: "goto",
+    target: "transplant-details",
+    styleKey: "c1",
+    showIf: [
+      {
+        field: "batchSubsetsVisible",
+        operator: "neq",
+        value: "true",
+      },
+    ],
+  },
+  {
+    key: "view-transplants",
+    label: "View Transplants",
+    kind: "goto",
+    target: "batch-transplants-list",
+    styleKey: "accent",
+    showIf: [
+      {
+        field: "hasTransplants",
+        operator: "eq",
+        value: "true",
+      },
+    ],
+  },
+  {
+    key: "log-batch-activity",
+    label: "Log Batch Activity",
+    kind: "goto",
+    target: "activity-batch-select",
+    styleKey: "c2",
+  },
+],
   };
 }
 
@@ -380,11 +392,12 @@ export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
     sourceKey: "nurseryTransplantedIndividuals",
     sections: [
       {
-        key: "transplanted-summary",
+        key: "transplant-identity",
+        title: "Transplant Identity",
         rows: [
           {
             key: "transplanted-code",
-            label: "Transplanted code",
+            label: "Transplant code",
             valueField: "code",
             emptyText: "—",
           },
@@ -395,11 +408,83 @@ export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
             emptyText: "—",
           },
           {
+            key: "parent-batch-subset-code",
+            label: "Source subset",
+            valueField: "parentBatchSubsetCode",
+            emptyText: "—",
+          },
+          {
             key: "plant-name",
             label: "Plant",
             valueField: "plantName",
             emptyText: "—",
           },
+          {
+            key: "quantity-in-container",
+            label: "Quantity of plants in container",
+            valueField: "quantityInContainer",
+            emptyText: "—",
+          },
+        ],
+      },
+      {
+        key: "transplant-inherited-values",
+        title: "Inherited Values",
+        action: {
+          key: "update-transplant-inherited-values",
+          label: "Update",
+          kind: "goto",
+          target: "update-transplanted-inherited-values",
+        },
+        rows: [
+          {
+            key: "container-type",
+            label: "Container type",
+            valueField: "containerType",
+            emptyText: "—",
+          },
+          {
+            key: "container-description",
+            label: "Container description",
+            valueField: "containerDescription",
+            emptyText: "—",
+          },
+          {
+            key: "medium-name",
+            label: "Medium",
+            valueField: "mediumName",
+            emptyText: "—",
+          },
+          {
+            key: "medium-quality",
+            label: "Medium quality",
+            valueField: "mediumQuality",
+            emptyText: "—",
+          },
+          {
+            key: "medium-description",
+            label: "Medium description",
+            valueField: "mediumDescription",
+            emptyText: "—",
+          },
+          {
+            key: "location-code",
+            label: "Location code",
+            valueField: "locationCode",
+            emptyText: "—",
+          },
+          {
+            key: "location-description",
+            label: "Location description",
+            valueField: "locationDescription",
+            emptyText: "—",
+          },
+        ],
+      },
+      {
+        key: "transplant-condition-location",
+        title: "Condition and Location",
+        rows: [
           {
             key: "condition-status",
             label: "Condition status",
@@ -420,13 +505,13 @@ export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
           },
           {
             key: "batch-container-sequence",
-            label: "Batch container count",
+            label: "Batch subset count",
             valueField: "batchContainerSequence",
             emptyText: "—",
           },
           {
             key: "transplant-container-sequence",
-            label: "Transplant container count",
+            label: "Transplant count",
             valueField: "transplantContainerSequence",
             emptyText: "—",
           },
@@ -457,7 +542,7 @@ export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
           "nurseryBatchPlants",
           "nurseryTransplantedIndividuals",
         ],
-        deleteClearAnswerKeys: ["opsSelectedTransplantedPlantCode"],
+        deleteClearAnswerKeys: ["opsSelectedTransplantCode"],
         confirmationPhrase: "delete record",
         styleKey: "c3",
       },
@@ -468,7 +553,7 @@ export function buildTransplantedIndividualProfileBlock(): DataBlockDefinition {
 export function buildQuestionnaireBlocks(): Record<string, DataBlockDefinition> {
   return {
     batchProfile: buildBatchProfileBlock(),
-    batchIndividualProfile: buildBatchIndividualProfileBlock(),
+    batchSubsetProfile: buildBatchSubsetProfileBlock(),
     transplantedIndividualProfile: buildTransplantedIndividualProfileBlock(),
   };
 }

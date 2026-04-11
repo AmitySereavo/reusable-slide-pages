@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     const transplantQuantityPerContainer = asPositiveInt(
       answers.opsTransplantQuantityPerContainer
     );
-    const selectedPlantCode = asString(answers.opsSelectedPlantCode);
+    const selectedBatchSubsetCode = asString(answers.opsSelectedBatchSubsetCode);
     if (!batchCode) {
       return NextResponse.json(
         { ok: false, error: "Batch code is required." },
@@ -131,13 +131,13 @@ export async function POST(req: Request) {
     );
 
     const sourceUnit =
-      selectedPlantCode.length > 0
-        ? batchIndividualUnits.find((unit) => unit.code === selectedPlantCode) ?? null
-        : null;
+     selectedBatchSubsetCode.length > 0
+      ? batchIndividualUnits.find((unit) => unit.code === selectedBatchSubsetCode) ?? null
+         : null;
 
-    if (selectedPlantCode && !sourceUnit) {
-      return NextResponse.json(
-        { ok: false, error: "Selected batch individual was not found." },
+    if (selectedBatchSubsetCode && !sourceUnit) {
+       return NextResponse.json(
+        { ok: false, error: "Selected batch subset was not found." },
         { status: 404 }
       );
     }
@@ -167,6 +167,36 @@ export async function POST(req: Request) {
       return unit.parentUnitId === null;
     });
 
+    const transplantSnapshot = {
+      quantityInContainer: transplantQuantityPerContainer,
+      containerType: asString(answers.opsTransplantContainerType),
+      containerDescription: asOptionalString(
+        answers.opsTransplantContainerDescription
+      ),
+      containerLength: answers.opsTransplantContainerLength ?? null,
+      containerWidth: answers.opsTransplantContainerWidth ?? null,
+      containerDepth: answers.opsTransplantContainerDepth ?? null,
+      containerDimensionUnit: asOptionalString(
+        answers.opsTransplantContainerDimensionUnit
+      ),
+      containerCondition: asOptionalString(
+        answers.opsTransplantContainerCondition
+      ),
+      mediumName: asOptionalString(answers.opsTransplantMediumName),
+      mediumQuality: asOptionalString(answers.opsTransplantMediumQuality),
+      mediumDescription: asOptionalString(
+        answers.opsTransplantMediumDescription
+      ),
+      locationCode: asOptionalString(answers.opsTransplantLocationCode),
+      sunLevel: asOptionalString(answers.opsTransplantSun),
+      temperature: asOptionalString(answers.opsTransplantTemperature),
+      locationDescription: asOptionalString(
+        answers.opsTransplantLocationDescription
+      ),
+      labeledForSale: asBoolean(answers.opsTransplantLabeledForSale),
+      transplantNotes: asOptionalString(answers.opsTransplantNotes),
+    };
+
     const createdTransplantUnits = await prisma.$transaction(async (tx) => {
       const createdUnits = [];
 
@@ -195,9 +225,10 @@ export async function POST(req: Request) {
             locationId: batch.locationId,
             labeledForSale: asBoolean(answers.opsTransplantLabeledForSale),
             transplantDate,
-            notes:
-              asOptionalString(answers.opsTransplantNotes) ??
-              `Quantity in container: ${transplantQuantityPerContainer}`,
+            notes: JSON.stringify({
+              type: "transplant_snapshot",
+              data: transplantSnapshot,
+            }),
           },
         });
 
@@ -243,7 +274,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      ok: true,
+            ok: true,
       message: "Nursery transplant recorded.",
       batchCode: batch.code,
       sourceUnitCode: sourceUnit?.code ?? null,

@@ -576,24 +576,24 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [mergedVariables, answers.opsSelectedBatchCode]
   );
 
-  const selectedBatchIndividualRecord = useMemo(
+  const selectedBatchSubsetRecord = useMemo(
     () =>
       getSelectedRecordFromSource(
         mergedVariables,
-        "nurseryBatchPlants",
-        String(answers.opsSelectedPlantCode ?? "").trim()
+        "nurseryBatchSubsets",
+        String(answers.opsSelectedBatchSubsetCode ?? "").trim()
       ),
-    [mergedVariables, answers.opsSelectedPlantCode]
+    [mergedVariables, answers.opsSelectedBatchSubsetCode]
   );
 
-  const selectedTransplantedIndividualRecord = useMemo(
+  const selectedTransplantRecord = useMemo(
     () =>
       getSelectedRecordFromSource(
         mergedVariables,
         "nurseryTransplantedIndividuals",
-        String(answers.opsSelectedTransplantedPlantCode ?? "").trim()
+        String(answers.opsSelectedTransplantCode ?? "").trim()
       ),
-    [mergedVariables, answers.opsSelectedTransplantedPlantCode]
+    [mergedVariables, answers.opsSelectedTransplantCode]
   );
 
 
@@ -613,11 +613,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     for (const [blockKey, block] of Object.entries(registryBlocks)) {
       const resolvedSourceKey = block.sourceKey;
       const selectedValue =
-        resolvedSourceKey === "nurseryBatchPlants"
-          ? String(answers.opsSelectedPlantCode ?? "").trim()
-          : resolvedSourceKey === "nurseryBatches"
-            ? String(answers.opsSelectedBatchCode ?? "").trim()
-            : "";
+        resolvedSourceKey === "nurseryBatchSubsets"
+          ? String(answers.opsSelectedBatchSubsetCode ?? "").trim()
+          : resolvedSourceKey === "nurseryTransplantedIndividuals"
+              ? String(answers.opsSelectedTransplantCode ?? "").trim()
+             : "";
 
       const blockSourceRecord = resolvedSourceKey
         ? getSelectedRecordFromSource(
@@ -671,7 +671,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     config.blocks,
     mergedVariables,
     answers.opsSelectedBatchCode,
-    answers.opsSelectedPlantCode,
+    answers.opsSelectedBatchSubsetCode,
+    answers.opsSelectedTransplantCode,
     evaluationContext,
   ]);
 
@@ -729,23 +730,41 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       return [];
     }
 
-    if (currentSlide.id === "batch-individuals-list") {
+    if (currentSlide.id === "batch-subsets-list") {
       const selectedBatchCode = String(answers.opsSelectedBatchCode ?? "").trim();
 
       return getRecordListItems(
         {
           ...mergedVariables,
-          nurseryBatchPlants: getRecordArray(
+          nurseryBatchSubsets: getRecordArray(
             mergedVariables,
-            "nurseryBatchPlants"
+            "nurseryBatchSubsets"
           ).filter((record) => record.batchCode === selectedBatchCode),
         },
         currentSlide
       );
     }
 
-    if (currentSlide.id === "transplanted-individuals-list") {
-      const selectedPlantCode = String(answers.opsSelectedPlantCode ?? "").trim();
+      if (currentSlide.id === "batch-transplants-list") {
+      const selectedBatchCode = String(answers.opsSelectedBatchCode ?? "").trim();
+
+      return getRecordListItems(
+        {
+          ...mergedVariables,
+          nurseryTransplantedIndividuals: getRecordArray(
+            mergedVariables,
+            "nurseryTransplantedIndividuals"
+          ).filter((record) => record.batchCode === selectedBatchCode),
+        },
+        currentSlide
+      );
+    }
+
+    if (currentSlide.id === "subset-transplants-list") {
+      const selectedBatchSubsetId =
+        typeof selectedBatchSubsetRecord?.id === "string"
+          ? selectedBatchSubsetRecord.id
+          : "";
 
       return getRecordListItems(
         {
@@ -756,20 +775,9 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
           ).filter((record) => {
             const parentUnitId =
               typeof record.parentUnitId === "string" ? record.parentUnitId : "";
-            const selectedBatchIndividualId =
-              typeof selectedBatchIndividualRecord?.id === "string"
-                ? selectedBatchIndividualRecord.id
-                : "";
-
-            if (selectedBatchIndividualId) {
-              return parentUnitId === selectedBatchIndividualId;
-            }
-
-            const batchCode =
-              typeof record.batchCode === "string" ? record.batchCode : "";
-
-            return batchCode === String(answers.opsSelectedBatchCode ?? "").trim() &&
-              selectedPlantCode.length === 0;
+         return selectedBatchSubsetId
+              ? parentUnitId === selectedBatchSubsetId
+              : false;
           }),
         },
         currentSlide
@@ -781,8 +789,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     mergedVariables,
     currentSlide,
     answers.opsSelectedBatchCode,
-    answers.opsSelectedPlantCode,
-    selectedBatchIndividualRecord,
+    selectedBatchSubsetRecord,
   ]);
 
   const currentBlock = useMemo<DataBlockDefinition | null>(() => {
@@ -795,11 +802,11 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
     const selectedRecord = useMemo(() => {
     if (currentBlock?.sourceKey === "nurseryTransplantedIndividuals") {
-      return selectedTransplantedIndividualRecord;
+      return selectedTransplantRecord;
     }
 
-    if (currentBlock?.sourceKey === "nurseryBatchPlants") {
-      return selectedBatchIndividualRecord;
+    if (currentBlock?.sourceKey === "nurseryBatchSubsets") {
+      return selectedBatchSubsetRecord;
     }
 
     if (currentBlock?.sourceKey === "nurseryBatches") {
@@ -809,8 +816,8 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     return null;
   }, [
     currentBlock,
-    selectedTransplantedIndividualRecord,
-    selectedBatchIndividualRecord,
+    selectedTransplantRecord,
+    selectedBatchSubsetRecord,
     selectedBatchRecord,
   ]);
     const currentDeleteAction = useMemo<DataBlockAction | null>(() => {
@@ -1020,8 +1027,14 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                 ...(Array.isArray(data.nurseryBatches)
                   ? { nurseryBatches: data.nurseryBatches }
                   : {}),
-                ...(Array.isArray(data.nurseryBatchPlants)
-                  ? { nurseryBatchPlants: data.nurseryBatchPlants }
+                ...(Array.isArray(data.nurseryBatchSubsets)
+                  ? { nurseryBatchSubsets: data.nurseryBatchSubsets }
+                  : {}),
+                ...(Array.isArray(data.nurseryTransplantedIndividuals)
+                  ? {
+                      nurseryTransplantedIndividuals:
+                        data.nurseryTransplantedIndividuals,
+                    }
                   : {}),
               };
 

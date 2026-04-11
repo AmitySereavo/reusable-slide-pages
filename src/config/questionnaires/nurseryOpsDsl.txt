@@ -51,38 +51,60 @@ BR
 @shownext: false
 
 ===
-@id: batch-individuals-list
+@id: batch-transplants-list
 @type: recordlist
-@store: opsSelectedPlantCode
-@source: nurseryBatchPlants
+@store: opsSelectedTransplantCode
+@source: nurseryTransplantedIndividuals
 @titlefield: code
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
-@emptytext: No individual containers available for this batch yet.
----
-BR
-# [c2] Batch
-# [c2] Individuals
-BR
-[c3] Select a container to open its profile.
-@back: Back
-@next: Open Individual
-@goto: batch-individual-profile
-
-===
-@id: batch-individual-profile
-@type: content
-@source: nurseryBatchPlants
-@block: batchIndividualProfile
+@emptytext: No transplants available for this batch yet.
 @showreturnhome: true
 @showcancel: true
-@back: Back to Individuals
+@back: Back to Batch
 ---
 BR
 # [c2] Batch
-# [c2] Individual Profile
+# [c2] Transplants
 BR
-## [c1] [opsSelectedPlantCode]
+[c3] Select a transplant to open its profile.
+@next: Open Transplant
+@goto: transplanted-individual-profile
+
+===
+@id: batch-subsets-list
+@type: recordlist
+@store: opsSelectedBatchSubsetCode
+@source: nurseryBatchSubsets
+@titlefield: code
+@subtitlefield: conditionStatus
+@metafields: location,labelStatus
+@emptytext: No batch subsets available for this batch yet.
+---
+BR
+# [c2] Batch
+# [c2] Subsets
+BR
+[c3] Select a subset to open its profile.
+@back: Back
+@next: Open Subset
+@goto: batch-subset-profile
+
+
+===
+@id: batch-subset-profile
+@type: content
+@source: nurseryBatchSubsets
+@block: batchSubsetProfile
+@showreturnhome: true
+@showcancel: true
+@back: Back to Subsets
+---
+BR
+# [c2] Batch
+# [c2] Subset Profile
+BR
+## [c1] [opsSelectedBatchSubsetCode]
 [c3] Summary appears below.
 @shownext: false
 
@@ -111,25 +133,25 @@ BR
 
 
 ===
-@id: transplanted-individuals-list
+@id: subset-transplants-list
 @type: recordlist
-@store: opsSelectedTransplantedPlantCode
+@store: opsSelectedTransplantCode
 @source: nurseryTransplantedIndividuals
 @titlefield: code
 @subtitlefield: conditionStatus
 @metafields: location,labelStatus
-@emptytext: No transplanted individuals available for this container yet.
+@emptytext: No transplants available for this subset yet.
 @showreturnhome: true
 @showcancel: true
-@back: Back to Individual
+@back: Back to Subset
 ---
 BR
-# [c2] Transplanted
-# [c2] Individuals
+# [c2] Subset
+# [c2] Transplants
 BR
-[c3] Select a transplanted container
+[c3] Select a transplant
 [c3] to open its profile.
-@next: Open Transplanted
+@next: Open Transplant
 @goto: transplanted-individual-profile
 
 ===
@@ -145,35 +167,50 @@ BR
 # [c2] Transplanted
 # [c2] Individual Profile
 BR
-## [c1] [opsSelectedTransplantedPlantCode]
+## [c1] [opsSelectedTransplantCode]
 [c3] Summary appears below.
 @shownext: false
 
 ===
-@id: update-batch-individual-identity
+@id: update-batch-subset-identity
 @type: content
 @showreturnhome: true
 @showcancel: true
-@back: Back to Individual
+@back: Back to Subset
 ---
 BR
 # [c2] Update
-# [c2] Individual Identity
+# [c2] Subset Identity
 BR
 [c3] This section update flow
 [c3] will be built next.
 @shownext: false
 
 ===
-@id: update-batch-individual-condition-location
+@id: update-batch-subset-condition-location
 @type: content
 @showreturnhome: true
 @showcancel: true
-@back: Back to Individual
+@back: Back to Subset
 ---
 BR
 # [c2] Update
 # [c2] Condition and Location
+BR
+[c3] This section update flow
+[c3] will be built next.
+@shownext: false
+
+===
+@id: update-transplanted-inherited-values
+@type: content
+@showreturnhome: true
+@showcancel: true
+@back: Back to Transplant
+---
+BR
+# [c2] Update
+# [c2] Inherited Values
 BR
 [c3] This section update flow
 [c3] will be built next.
