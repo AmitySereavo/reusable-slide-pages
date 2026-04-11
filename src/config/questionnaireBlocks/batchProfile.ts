@@ -332,57 +332,59 @@ export function buildBatchSubsetProfileBlock(): DataBlockDefinition {
         ],
       },
     ],
-    actions: [
-  {
-    key: "view-batch-subsets",
-    label: "View Subsets",
-    kind: "goto",
-    target: "batch-subsets-list",
-    styleKey: "primary",
-    showIf: [
+        actions: [
       {
-        field: "batchSubsetsVisible",
-        operator: "eq",
-        value: "true",
+        key: "record-subset-transplant",
+        label: "Record Transplant",
+        kind: "goto",
+        target: "transplant-details",
+        styleKey: "c1",
+      },
+      {
+        key: "view-transplants",
+        label: "View Transplants",
+        kind: "goto",
+        target: "subset-transplants-list",
+        styleKey: "primary",
+        showIf: [
+          {
+            field: "hasTransplants",
+            operator: "eq",
+            value: "true",
+          },
+        ],
+      },
+      {
+        key: "log-subset-activity",
+        label: "Log Subset Activity",
+        kind: "goto",
+        target: "activity-batch-select",
+        styleKey: "c2",
+      },
+      {
+        key: "delete-batch-subset",
+        label: "Delete Subset",
+        kind: "delete_record",
+        deleteEndpoint: "/api/questionnaires/nursery-ops/batches",
+        deleteIdField: "id",
+        deleteCodeField: "code",
+        deleteIdPayloadKey: "batchId",
+        deleteCodePayloadKey: "batchCode",
+        deleteConfirmationPayloadKey: "confirmation",
+        deleteSuccessGoto: "batch-subsets-list",
+        deleteRefreshSources: [
+          "nurseryBatches",
+          "nurseryBatchSubsets",
+          "nurseryTransplantedIndividuals",
+        ],
+        deleteClearAnswerKeys: [
+          "opsSelectedBatchSubsetCode",
+          "opsSelectedTransplantCode",
+        ],
+        confirmationPhrase: "delete record",
+        styleKey: "c3",
       },
     ],
-  },
-  {
-    key: "record-transplant",
-    label: "Record Transplant",
-    kind: "goto",
-    target: "transplant-details",
-    styleKey: "c1",
-    showIf: [
-      {
-        field: "batchSubsetsVisible",
-        operator: "neq",
-        value: "true",
-      },
-    ],
-  },
-  {
-    key: "view-transplants",
-    label: "View Transplants",
-    kind: "goto",
-    target: "batch-transplants-list",
-    styleKey: "accent",
-    showIf: [
-      {
-        field: "hasTransplants",
-        operator: "eq",
-        value: "true",
-      },
-    ],
-  },
-  {
-    key: "log-batch-activity",
-    label: "Log Batch Activity",
-    kind: "goto",
-    target: "activity-batch-select",
-    styleKey: "c2",
-  },
-],
   };
 }
 

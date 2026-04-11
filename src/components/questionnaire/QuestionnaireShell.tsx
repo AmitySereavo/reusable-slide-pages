@@ -612,12 +612,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     for (const [blockKey, block] of Object.entries(registryBlocks)) {
       const resolvedSourceKey = block.sourceKey;
-      const selectedValue =
-        resolvedSourceKey === "nurseryBatchSubsets"
-          ? String(answers.opsSelectedBatchSubsetCode ?? "").trim()
-          : resolvedSourceKey === "nurseryTransplantedIndividuals"
+            const selectedValue =
+        resolvedSourceKey === "nurseryBatches"
+          ? String(answers.opsSelectedBatchCode ?? "").trim()
+          : resolvedSourceKey === "nurseryBatchSubsets"
+            ? String(answers.opsSelectedBatchSubsetCode ?? "").trim()
+            : resolvedSourceKey === "nurseryTransplantedIndividuals"
               ? String(answers.opsSelectedTransplantCode ?? "").trim()
-             : "";
+              : "";
 
       const blockSourceRecord = resolvedSourceKey
         ? getSelectedRecordFromSource(
