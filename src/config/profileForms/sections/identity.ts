@@ -1,0 +1,77 @@
+import type { ProfileFormFieldDefinition } from "../schema/fieldTypes";
+
+export const identitySectionFields: ProfileFormFieldDefinition[] = [
+  {
+    name: "name",
+    label: "Name",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["all"],
+    required: true,
+  },
+  {
+    name: "commonName",
+    label: "Common name",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["plant", "substrate", "container", "tool", "sellable_item"],
+  },
+  {
+    name: "scientificOrTechnicalName",
+    label: "Scientific or technical name",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["plant", "pest_threat", "substrate", "tool"],
+  },
+  {
+    name: "category",
+    label: "Category",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["all"],
+    required: true,
+  },
+  {
+    name: "subCategory",
+    label: "Sub-category",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["all"],
+  },
+  {
+    name: "variantCultivarType",
+    label: "Variant / cultivar / type",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["plant", "substrate", "container", "tool", "sellable_item"],
+  },
+  {
+    name: "mainRoleFunction",
+    label: "Main role or function",
+    section: "identity",
+    inputType: "long_text",
+    appliesTo: ["all"],
+    required: true,
+  },
+  {
+    name: "relatedParentItem",
+    label: "Related parent item",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["plant_part", "environment", "container"],
+  },
+  {
+    name: "internalCode",
+    label: "Internal ID / code",
+    section: "identity",
+    inputType: "short_text",
+    appliesTo: ["all"],
+  },
+  {
+    name: "tagsKeywords",
+    label: "Tags / keywords",
+    section: "identity",
+    inputType: "tags",
+    appliesTo: ["all"],
+  },
+];

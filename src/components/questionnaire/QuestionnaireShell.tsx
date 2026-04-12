@@ -3445,6 +3445,18 @@ function FormFieldRenderer({
     variables
   );
 
+  const fieldFrameStyle = {
+    display: "grid",
+    gap: "8px",
+  } as const;
+
+  const fieldLabelStyle = {
+    fontSize: "14px",
+    fontWeight: 600,
+    lineHeight: 1.35,
+    color: theme.colors.text,
+  } as const;
+
   if (field.type === "checkbox") {
     return (
       <label className={styles.checkboxRow}>
@@ -3460,17 +3472,20 @@ function FormFieldRenderer({
 
   if (field.type === "textarea") {
     return (
-      <textarea
-        className={styles.input}
-        placeholder={resolvedPlaceholder}
-        value={String(answers[field.name] ?? "")}
-        onChange={(e) => setAnswer(field.name, e.target.value)}
-        style={{
-          borderColor: theme.colors.border,
-          minHeight: "120px",
-          resize: "vertical",
-        }}
-      />
+      <div style={fieldFrameStyle}>
+        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+        <textarea
+          className={styles.input}
+          placeholder={resolvedPlaceholder}
+          value={String(answers[field.name] ?? "")}
+          onChange={(e) => setAnswer(field.name, e.target.value)}
+          style={{
+            borderColor: theme.colors.border,
+            minHeight: "120px",
+            resize: "vertical",
+          }}
+        />
+      </div>
     );
   }
 
@@ -3482,57 +3497,99 @@ function FormFieldRenderer({
     const todayValue = `${yyyy}-${mm}-${dd}`;
 
     return (
-      <div style={{ display: "grid", gap: "10px" }}>
-        <input
-          className={styles.input}
-          type="date"
-          value={String(answers[field.name] ?? "")}
-          onChange={(e) => setAnswer(field.name, e.target.value)}
-          style={{ borderColor: theme.colors.border }}
-        />
-        <button
-          type="button"
-          className={styles.secondaryButton}
-          onClick={() => setAnswer(field.name, todayValue)}
-          style={{
-            borderColor: theme.colors.border,
-            background: "#FFFFFF",
-            color: theme.colors.text,
-          }}
-        >
-          Use today
-        </button>
+      <div style={fieldFrameStyle}>
+        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+        <div style={{ display: "grid", gap: "10px" }}>
+          <input
+            className={styles.input}
+            type="date"
+            value={String(answers[field.name] ?? "")}
+            onChange={(e) => setAnswer(field.name, e.target.value)}
+            style={{ borderColor: theme.colors.border }}
+          />
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => setAnswer(field.name, todayValue)}
+            style={{
+              borderColor: theme.colors.border,
+              background: "#FFFFFF",
+              color: theme.colors.text,
+            }}
+          >
+            Use today
+          </button>
+        </div>
       </div>
     );
   }
 
   if (field.type === "select") {
     return (
-      <select
-        className={styles.input}
-        value={String(answers[field.name] ?? "")}
-        onChange={(e) => setAnswer(field.name, e.target.value)}
-        style={{ borderColor: theme.colors.border }}
-      >
-        <option value="">{resolvedPlaceholder || `Select ${resolvedLabel}`}</option>
-        {(field.options ?? []).map((option) => (
-          <option key={`${field.name}-${option.value}`} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <div style={fieldFrameStyle}>
+        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+        <select
+          className={styles.input}
+          value={String(answers[field.name] ?? "")}
+          onChange={(e) => setAnswer(field.name, e.target.value)}
+          style={{ borderColor: theme.colors.border }}
+        >
+          <option value="">{resolvedPlaceholder || `Select ${resolvedLabel}`}</option>
+          {(field.options ?? []).map((option) => (
+            <option key={`${field.name}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (field.type === "number") {
+    return (
+      <div style={fieldFrameStyle}>
+        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+          <input
+          className={styles.input}
+          type="number"
+          min={0}
+          step="0.0001"
+          placeholder={resolvedPlaceholder}
+          value={String(answers[field.name] ?? "")}
+          onChange={(e) => {
+            const raw = e.target.value;
+
+            if (raw === "") {
+              setAnswer(field.name, "");
+              return;
+            }
+
+            const parsed = Number(raw);
+
+            if (Number.isNaN(parsed)) {
+              return;
+            }
+
+            setAnswer(field.name, Math.max(0, parsed));
+          }}
+          style={{ borderColor: theme.colors.border }}
+        />
+      </div>
     );
   }
 
   return (
-    <input
-      className={styles.input}
-      type={field.type}
-      placeholder={resolvedPlaceholder}
-      value={String(answers[field.name] ?? "")}
-      onChange={(e) => setAnswer(field.name, e.target.value)}
-      style={{ borderColor: theme.colors.border }}
-    />
+    <div style={fieldFrameStyle}>
+      <label style={fieldLabelStyle}>{resolvedLabel}</label>
+      <input
+        className={styles.input}
+        type={field.type}
+        placeholder={resolvedPlaceholder}
+        value={String(answers[field.name] ?? "")}
+        onChange={(e) => setAnswer(field.name, e.target.value)}
+        style={{ borderColor: theme.colors.border }}
+      />
+    </div>
   );
 }
 

@@ -1,0 +1,243 @@
+// GENERIC PROFILE FLOW
+// First testable draft
+// Refine after usage
+
+===
+@id: home
+@type: content
+@titleplacement: progress_overlay
+@title: Generic Profile Flow
+@subtitle: Home
+---
+BR
+# [c2] Generic
+# [c2] Profile Flow
+BR
+[c3] This is the first reusable profile form draft.
+[c3] Use it to test the flow before refinement.
+@choices:
+- start|Start profile|profile-scope-and-identity|c1
+@showback: false
+@shownext: false
+
+===
+@id: profile-scope-and-identity
+@type: form
+@titleplacement: progress_overlay
+@title: Profile Scope and Identity
+@subtitle: Define the item and its purpose
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+# [c2] Profile Scope
+# [c2] and Identity
+BR
+[c3] Define what is being described
+[c3] and what this profile is for.
+BR
+[c3] Main roles/functions and purpose are capped
+[c3] to three selections in this first draft.
+BR
+[c3] For now, choose the matching part option for the record type.
+[c3] We can make this field auto-filter later in shared logic.
+BR
+@fields:
+- profileRecordType|select|Profile record type|required|Select profile record type|item_profile=Item profile,plant_profile=Plant profile,plant_part_profile=Plant part profile,substrate_profile=Substrate profile,container_profile=Container profile,environment_profile=Environment profile,tool_profile=Tool profile,pest_threat_profile=Pest / threat profile
+- profileIntention|textarea|Profile intention|optional|Identification, cultivation, diagnostics, ad copy, planning, etc.
+- profileCompleteness|select|Profile completeness|required|Select profile completeness|full=Full,partial=Partial,quick=Quick,update_only=Update only
+- partBeingDescribed|select|Part being described|required|Select part|whole_item=Whole item,root=Root,stem_trunk=Stem / trunk,branch=Branch,leaf=Leaf,flower=Flower,fruit=Fruit,seed=Seed,bark=Bark,outer_skin=Outer skin,internal_flesh=Internal flesh,substrate=Substrate,container=Container,water=Water,environment_zone=Environment zone,neighboring_item=Neighboring item,neighboring_brand=Neighboring brand,other=Other
+- partBeingDescribedOther|text|Other part being described|optional|Enter if other
+- name|text|Name|required|Enter name
+- commonName|text|Common name|optional|Enter common name
+- scientificOrTechnicalName|text|Scientific or technical name|optional|Enter scientific or technical name
+- category|text|Category|required|Enter category
+- subCategory|text|Sub-category|optional|Enter sub-category
+- variantCultivarType|text|Variant / cultivar / type|optional|Enter variant or type
+- mainRoleFunctionPrimary|select|Main role or function 1|required|Select role|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- mainRoleFunctionSecondary|select|Main role or function 2|optional|Select second role|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- mainRoleFunctionTertiary|select|Main role or function 3|optional|Select third role|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- toServePrimary|select|To serve 1|required|Select who or what it serves|humans=Humans,terrains=Terrains,environment_soil=Environment - Soil,environment_water=Environment - Water,environment_air=Environment - Air,domestic_plants=Domestic plants,wild_plants=Wild plants,domestic_animals=Domestic animals,wild_animals=Wild animals
+- toServeSecondary|select|To serve 2|optional|Select second served target|humans=Humans,terrains=Terrains,environment_soil=Environment - Soil,environment_water=Environment - Water,environment_air=Environment - Air,domestic_plants=Domestic plants,wild_plants=Wild plants,domestic_animals=Domestic animals,wild_animals=Wild animals
+- toServeTertiary|select|To serve 3|optional|Select third served target|humans=Humans,terrains=Terrains,environment_soil=Environment - Soil,environment_water=Environment - Water,environment_air=Environment - Air,domestic_plants=Domestic plants,wild_plants=Wild plants,domestic_animals=Domestic animals,wild_animals=Wild animals
+- relatedParentItem|text|Related parent item|optional|Parent item, whole plant, source item, etc.
+- internalCode|text|Internal ID / code|optional|Enter internal code
+- tagsKeywords|textarea|Tags / keywords|optional|Comma-separated or freeform tags
+---
+@back: Back
+@next: Continue
+@goto: physical-form
+
+===
+@id: physical-form
+@type: form
+@titleplacement: progress_overlay
+@title: Physical Form
+@subtitle: Shape, dimensions, mass, and density
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+# [c2] Physical
+# [c2] Form
+BR
+[c3] For substrates, use mass, volume,
+[c3] and density fields only.
+BR
+@fields:
+- shape|text|Shape|optional|Describe the shape
+- widthValue|number|Width value|optional|Enter width
+- widthUnit|select|Width unit|optional|Select width unit|millimeters=Millimeters,centimeters=Centimeters,meters=Meters,inches=Inches,feet=Feet
+- lengthValue|number|Length value|optional|Enter length
+- lengthUnit|select|Length unit|optional|Select length unit|millimeters=Millimeters,centimeters=Centimeters,meters=Meters,inches=Inches,feet=Feet
+- heightValue|number|Height value|optional|Enter height
+- heightUnit|select|Height unit|optional|Select height unit|millimeters=Millimeters,centimeters=Centimeters,meters=Meters,inches=Inches,feet=Feet
+- depthValue|number|Depth value|optional|Enter depth
+- depthUnit|select|Depth unit|optional|Select depth unit|millimeters=Millimeters,centimeters=Centimeters,meters=Meters,inches=Inches,feet=Feet
+- weightValue|number|Mass / weight value|optional|Enter mass / weight
+- weightUnit|select|Mass / weight unit|optional|Select mass / weight unit|grams=Grams,kilograms=Kilograms,ounces=Ounces,pounds=Pounds
+- volumeValue|number|Volume value|optional|Enter volume
+- volumeUnit|select|Volume unit|optional|Select volume unit|milliliters=Milliliters,liters=Liters,cubic_centimeters=Cubic centimeters,cubic_meters=Cubic meters,gallons=Gallons
+- densityLevel|select|Density|optional|Select density level|very_loose=Very loose,loose=Loose,medium=Medium,dense=Dense,very_dense=Very dense
+- growthHabitStructuralForm|select|Growth habit / structural form|optional|Select growth habit / structural form|no_structure=No structure,spread_flat=Spread flat,upright=Upright,creeping=Creeping,trailing=Trailing,climbing=Climbing,bushy=Bushy,layered=Layered,other=Other
+- growthHabitOther|text|Other growth habit / structural form|optional|Enter other growth habit
+---
+@back: Back
+@next: Continue
+@goto: profile-conditions
+
+===
+@id: profile-conditions
+@type: form
+@titleplacement: progress_overlay
+@title: Profile Conditions
+@subtitle: Stored profile conditions for the item
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+# [c2] Profile
+# [c2] Conditions
+BR
+[c3] Enter the stored conditions
+[c3] that belong to this profile.
+BR
+[c3] Substrate and water fields are included here.
+[c3] Container pairings can be handled in container profiles later.
+BR
+@fields:
+- lightLevel|select|Light level|optional|Select light level|none=None,very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- lightType|select|Light type|optional|Select light type|none=None,full_sun=Full sun,partial_sun=Partial sun,bright_indirect=Bright indirect,shade=Shade,artificial=Artificial,mixed=Mixed,other=Other
+- lightTypeOther|text|Other light type|optional|Enter other light type
+- temperatureBand|select|Temperature band|optional|Select temperature band|below_0c=Below 0°C,0_to_5c=0 to 5°C,6_to_12c=6 to 12°C,13_to_18c=13 to 18°C,19_to_24c=19 to 24°C,25_to_30c=25 to 30°C,31_to_38c=31 to 38°C,39_to_50c=39 to 50°C,above_50c=Above 50°C
+- moistureLevel|select|Moisture level|optional|Select moisture level|none=None,very_dry=Very dry,dry=Dry,moderately_moist=Moderately moist,moist=Moist,wet=Wet,waterlogged=Waterlogged
+- humidityLevel|select|Humidity level|optional|Select humidity level|none=None,very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- airflowLevel|select|Airflow level|optional|Select airflow level|none=None,still=Still,low=Low,medium=Medium,high=High,very_high=Very high
+- exposureLevel|select|Isolation / exposure|optional|Select isolation / exposure|fully_isolated=Fully isolated,mostly_isolated=Mostly isolated,balanced=Balanced,mostly_exposed=Mostly exposed,fully_exposed=Fully exposed
+- pressureCrowdingLevel|select|Pressure / crowding|optional|Select pressure / crowding|none=None,low=Low,medium=Medium,high=High,very_high=Very high
+- neighboringItems|textarea|Neighboring items / organisms / brands|optional|Describe neighboring items, organisms, or brands
+- substrateTypeName|text|Substrate type / name|optional|Soil, coir, compost mix, clay, sand, etc.
+- substratePhLevel|text|Substrate pH level|optional|Enter substrate pH
+- substrateTightness|select|Substrate loose / tight|optional|Select substrate tightness|very_loose=Very loose,loose=Loose,medium=Medium,tight=Tight,very_tight=Very tight
+- substrateMoistureRetention|select|Substrate moisture retention|optional|Select moisture retention|very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- substrateDrainage|select|Substrate drainage|optional|Select drainage level|very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- substrateSaltLevel|select|Substrate salt level|optional|Select substrate salt level|very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- substratePurityLevel|select|Substrate purity level|optional|Select substrate purity level|very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+- waterTypeName|select|Water type / name|optional|Select water type|rainwater=Rainwater,tap_water=Tap water,spring_water=Spring water,well_water=Well water,river_water=River water,sea_water=Sea water,distilled_water=Distilled water,nutrient_solution=Nutrient solution,plant_food_solution=Plant food solution,other=Other
+- waterTypeOther|text|Other water type / name|optional|Enter other water type
+- waterPhLevel|text|Water pH level|optional|Enter water pH
+- waterSaltFresh|select|Water salt / fresh|optional|Select water type|fresh=Fresh,slightly_saline=Slightly saline,saline=Saline,very_saline=Very saline
+- waterPurityLevel|select|Water purity level|optional|Select water purity|very_low=Very low,low=Low,medium=Medium,high=High,very_high=Very high
+---
+@back: Back
+@next: Continue
+@goto: control-maintenance
+
+===
+@id: control-maintenance
+@type: form
+@titleplacement: progress_overlay
+@title: Control and Maintenance
+@subtitle: Resource changes and expected effects
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+# [c2] Control
+# [c2] and Maintenance
+BR
+[c3] Add or remove core conditions
+[c3] to guide outcome.
+BR
+@fields:
+- maintenanceActionType|select|Action type|required|Select action type|add=Add,remove=Remove
+- maintenanceResourceType|select|Resource type|required|Select resource type|isolation=Isolation,light=Light,moisture=Moisture,heat=Heat,some_of_itself=Some of itself,building_blocks=Building blocks
+- maintenanceResourceName|text|Resource name|optional|Example: phosphorus, water, sunlight, leaves, shade cloth
+- maintenanceQuantityValue|number|Quantity value|optional|Enter quantity value
+- maintenanceQuantityUnit|select|Quantity unit|optional|Select quantity unit|milliliters=Milliliters,liters=Liters,grams=Grams,kilograms=Kilograms,ounces=Ounces,pounds=Pounds,hours=Hours,days=Days,weeks=Weeks,months=Months,lux=Lux
+- maintenanceFrequencyValue|number|Frequency value|optional|Enter frequency value
+- maintenanceFrequencyUnit|select|Frequency unit|optional|Select frequency unit|minutes=Minutes,hours=Hours,days=Days,weeks=Weeks,fortnights=Fortnights,months=Months,years=Years
+- maintenancePerFrequencyValue|number|Per frequency value|optional|Enter per-frequency value
+- maintenancePerFrequencyUnit|select|Per frequency unit|optional|Select per-frequency unit|days=Days,weeks=Weeks,fortnights=Fortnights,months=Months,years=Years
+- maintenancePurposePrimary|select|Purpose 1|required|Select purpose|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- maintenancePurposeSecondary|select|Purpose 2|optional|Select second purpose|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- maintenancePurposeTertiary|select|Purpose 3|optional|Select third purpose|provide_education=Provide education,provide_direction=Provide direction,provide_guidance=Provide guidance,provide_food=Provide food,provide_growth=Provide growth,provide_shelter=Provide shelter,provide_protection=Provide protection,provide_transportation=Provide transportation,provide_mobility=Provide mobility,provide_creative_path=Provide creative path,provide_outlet=Provide outlet,provide_beautification=Provide beautification,good_for_cleaning=Good for cleaning,good_for_healing=Good for healing,good_for_repelling=Good for repelling,provide_entertainment=Provide entertainment,provide_comfort=Provide comfort,provide_leisure=Provide leisure
+- maintenanceTargetPart|text|Target part|optional|Enter target part
+- maintenanceExpectedIncrease|textarea|Increase in|optional|Length, width, thickness, mass, vibrance, information, clarity, etc.
+- maintenanceExpectedDecrease|textarea|Decrease in|optional|Length, width, thickness, mass, vibrance, information, clarity, etc.
+- maintenanceTooMuchIncrease|textarea|Too much can increase|optional|What can increase too much?
+- maintenanceTooMuchDecrease|textarea|Too much can decrease|optional|What can decrease too much?
+- maintenanceTooLittleIncrease|textarea|Too little can increase|optional|What can increase because too little was done?
+- maintenanceTooLittleDecrease|textarea|Too little can decrease|optional|What can decrease because too little was done?
+---
+@back: Back
+@next: Continue
+@goto: review
+
+===
+@id: review
+@type: content
+@titleplacement: progress_overlay
+@title: Review
+@subtitle: Generic profile flow draft
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+BR
+# [c2] Review
+BR
+[c3] First draft complete.
+[c3] Use this to decide what needs refinement.
+BR
+## [c1] [name]
+[c3] Type: [profileRecordType]
+[c3] Part: [partBeingDescribed]
+[c3] Category: [category]
+BR
+[c3] Continue to finish
+[c3] or go back and adjust.
+@back: Back
+@next: Finish
+@goto: complete
+
+===
+@id: complete
+@type: content
+@titleplacement: progress_overlay
+@title: Draft Complete
+@subtitle: Generic profile flow test finished
+@showreturnhome: true
+@showcancel: true
+@cancelgoto: home
+---
+BR
+# [c2] Draft Complete
+BR
+[c3] This generic profile flow
+[c3] is now ready for testing.
+@choices:
+- restart|Start again|profile-scope-and-identity|c1
+- home|Return home|home|c2
+@showback: false
+@shownext: false

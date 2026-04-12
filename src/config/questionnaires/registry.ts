@@ -119,6 +119,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     },
     dynamicVariablesEndpoint: "/api/questionnaires/nursery-ops/batches",
   },
+
+    "generic-profile-flow": {
+    slug: "generic-profile-flow",
+    name: "Generic Profile Flow",
+    themeKey: "genericProfileFlow",
+    theme: gardenHerbsTheme,
+    dslPath: "src/config/questionnaires/profileForms/genericProfileFlowDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
 } as const;
 
 export async function getQuestionnaireBySlug(slug: string) {
