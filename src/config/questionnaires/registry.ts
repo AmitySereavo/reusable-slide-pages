@@ -70,6 +70,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  invitation: {
+    slug: "invitation",
+    name: "Invitation",
+    themeKey: "invitation",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/invitationDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "nursery-ops": {
   slug: "nursery-ops",
   name: "Nursery Operations",
@@ -162,6 +174,17 @@ export async function getQuestionnaireBySlug(slug: string) {
       promotionClosed: promoEligibleItems.length === 0,
       promotionDiscountPercent: 100,
       promotionDiscountLabel: "Questionnaire promotion",
+    };
+  }
+
+  if (entry.slug === "invitation") {
+    const shopCatalog = await getPlantShopCatalog();
+
+    resolvedVariables = {
+      ...entry.variables,
+      shopCatalog,
+      deliveryConfig,
+      discountDefinitions,
     };
   }
 

@@ -11,6 +11,8 @@ import {
   SelectOption,
   Slide,
   SlideFeature,
+  SlideProgressMode,
+  VideoRoute,
   SlideRouteRule,
   SlideTitlePlacement,
   SlideType,
@@ -410,6 +412,36 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@progressmode:")) {
+        draft.progressMode = readValue(
+          line,
+          "@progressmode:"
+        ) as SlideProgressMode;
+        continue;
+      }
+
+      if (line.startsWith("@videogoto:")) {
+        const videoRoute = parseVideoRoute(readValue(line, "@videogoto:"));
+
+        if (videoRoute) {
+          draft.videoRoutes = [...(draft.videoRoutes ?? []), videoRoute];
+        }
+
+        continue;
+      }
+
+      if (line.startsWith("@videostart:")) {
+        const startAtSeconds = parseVideoTimecode(
+          readValue(line, "@videostart:")
+        );
+
+        if (Number.isFinite(startAtSeconds) && startAtSeconds >= 0) {
+          draft.videoStartAtSeconds = startAtSeconds;
+        }
+
+        continue;
+      }
+
       if (line.startsWith("@pagebgcolor:")) {
         draft.pageBackgroundColor = readValue(line, "@pagebgcolor:");
         continue;
@@ -562,7 +594,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     run: draft.run,
     sections: draft.sections,
     feature: draft.feature,
-        fields: draft.fields?.length ? draft.fields : undefined,
+    fields: draft.fields?.length ? draft.fields : undefined,
     choices: draft.choices?.length ? draft.choices : undefined,
     choicePlacement: draft.choicePlacement,
     routeRules: draft.routeRules?.length ? draft.routeRules : undefined,
@@ -577,7 +609,9 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     embedUrl: draft.embedUrl,
     mediaType: draft.mediaType,
     mediaAspect: draft.mediaAspect,
-    autoplay: draft.autoplay,
+    progressMode: draft.progressMode,
+    videoRoutes: draft.videoRoutes,
+    videoStartAtSeconds: draft.videoStartAtSeconds,
     pageBackgroundColor: draft.pageBackgroundColor,
     pageBackgroundImage: draft.pageBackgroundImage,
     pageBackgroundSize: draft.pageBackgroundSize,
@@ -601,7 +635,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     recordSubtitleField: draft.recordSubtitleField,
     recordMetaFields: draft.recordMetaFields,
     recordEmptyText: draft.recordEmptyText,
-        blockKey: draft.blockKey,
+    blockKey: draft.blockKey,
     blockSourceKey: draft.blockSourceKey,
   };
 
@@ -610,6 +644,52 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
   }
 
   return slide;
+}
+
+function parseVideoRoute(value: string): VideoRoute | null {
+  const [rawTime, rawGoto] = value.split("|").map((part) => part.trim());
+
+  if (!rawTime || !rawGoto) {
+    return null;
+  }
+
+  const atSeconds = parseVideoTimecode(rawTime);
+
+  if (!Number.isFinite(atSeconds) || atSeconds < 0) {
+    return null;
+  }
+
+  return {
+    atSeconds,
+    goto: rawGoto,
+  };
+}
+
+function parseVideoTimecode(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed.includes(":")) {
+    const seconds = Number(trimmed);
+    return Number.isFinite(seconds) ? seconds : Number.NaN;
+  }
+
+  const parts = trimmed.split(":").map((part) => Number(part.trim()));
+
+  if (parts.some((part) => !Number.isFinite(part))) {
+    return Number.NaN;
+  }
+
+  if (parts.length === 2) {
+    const [minutes, seconds] = parts;
+    return minutes * 60 + seconds;
+  }
+
+  if (parts.length === 3) {
+    const [hours, minutes, seconds] = parts;
+    return hours * 3600 + minutes * 60 + seconds;
+  }
+
+  return Number.NaN;
 }
 
 function parseFeature(value: string): SlideFeature | undefined {

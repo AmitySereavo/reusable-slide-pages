@@ -325,7 +325,12 @@ export type SlideSection =
 
 export type MediaType = "image" | "video";
 export type MediaAspect = "horizontal" | "vertical" | "square";
+export type SlideProgressMode = "slide" | "video";
 
+export type VideoRoute = {
+  atSeconds: number;
+  goto: string;
+};
 export type SlideType =
   | "score"
   | "content"
@@ -380,6 +385,9 @@ export type Slide = {
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;
+  progressMode?: SlideProgressMode;
+  videoRoutes?: VideoRoute[];
+  videoStartAtSeconds?: number;
   pageBackgroundColor?: string;
   pageBackgroundImage?: string;
   pageBackgroundSize?: string;
@@ -488,6 +496,9 @@ export type ParsedSlideDraft = {
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;
+  progressMode?: SlideProgressMode;
+  videoRoutes?: VideoRoute[];
+    videoStartAtSeconds?: number;
   pageBackgroundColor?: string;
   pageBackgroundImage?: string;
   pageBackgroundSize?: string;

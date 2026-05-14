@@ -69,6 +69,11 @@ type ResolvedButtonStyle = {
   borderColor: string;
 };
 
+type VideoSeekRequest = {
+  id: string;
+  percent: number;
+};
+
 function getRecordArray(
   variables: QuestionnaireVariableMap,
   key: string
@@ -472,7 +477,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [batchDataRefreshKey, setBatchDataRefreshKey] = useState(0);
   const [isCurrentVerticalVideoPlaying, setIsCurrentVerticalVideoPlaying] =
     useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [videoSeekRequest, setVideoSeekRequest] =
+    useState<VideoSeekRequest | null>(null);
 
+  const previousVideoTimeRef = useRef(0);
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const searchParams = useSearchParams();
 
@@ -878,6 +887,13 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   const isVerticalMediaSlide =
     isMediaSlide && currentSlide?.mediaAspect === "vertical";
 
+  const isVideoProgressMode =
+    isMediaSlide &&
+    currentSlide?.mediaType === "video" &&
+    currentSlide.progressMode === "video" &&
+    Boolean(currentSlide.mediaUrl) &&
+    !currentSlide.embedUrl;
+
   const countableVisibleSlides = useMemo(
     () => visibleSlides.filter((slide) => slide.countStep !== false),
     [visibleSlides]
@@ -1192,6 +1208,9 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
   useEffect(() => {
     setIsCurrentVerticalVideoPlaying(false);
+    setVideoProgress(0);
+    setVideoSeekRequest(null);
+    previousVideoTimeRef.current = 0;
 
     if (isMediaSlide) {
       window.scrollTo({
@@ -1282,6 +1301,60 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       setHistory((prev) => [...prev, currentIndex]);
       setCurrentIndex(targetIndex);
     }
+  }
+
+  function handleVideoProgressInput(value: string) {
+    if (!currentSlide) {
+      return;
+    }
+
+    const nextProgress = Number(value);
+
+    if (!Number.isFinite(nextProgress)) {
+      return;
+    }
+
+    const clampedProgress = Math.max(0, Math.min(100, nextProgress));
+
+    setVideoProgress(clampedProgress);
+    setVideoSeekRequest({
+      id: `${currentSlide.id}-${Date.now()}`,
+      percent: clampedProgress,
+    });
+  }
+
+  function handleVideoProgressChange(payload: {
+    currentTime: number;
+    duration: number;
+  }) {
+    if (!currentSlide) {
+      return;
+    }
+
+    const { currentTime, duration } = payload;
+
+    if (Number.isFinite(duration) && duration > 0) {
+      setVideoProgress((currentTime / duration) * 100);
+    } else {
+      setVideoProgress(0);
+    }
+
+    const previousTime = previousVideoTimeRef.current;
+
+    for (const route of currentSlide.videoRoutes ?? []) {
+      const crossedRoute =
+        previousTime < route.atSeconds && currentTime >= route.atSeconds;
+
+      if (!crossedRoute) {
+        continue;
+      }
+
+      previousVideoTimeRef.current = currentTime;
+      goToTarget(route.goto);
+      return;
+    }
+
+    previousVideoTimeRef.current = currentTime;
   }
 
 
@@ -1924,15 +1997,33 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                   </div>
                 ) : null}
 
-                <div className={styles.progressBar}>
-                  <div
-                    className={styles.progressFill}
+                {isVideoProgressMode ? (
+                  <input
+                    className={styles.videoProgressInput}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={videoProgress}
+                    aria-label="Video progress"
+                    onChange={(event) =>
+                      handleVideoProgressInput(event.target.value)
+                    }
                     style={{
-                      width: `${progress}%`,
-                      background: theme.colors.primary,
+                      accentColor: theme.colors.primary,
                     }}
                   />
-                </div>
+                ) : (
+                  <div className={styles.progressBar}>
+                    <div
+                      className={styles.progressFill}
+                      style={{
+                        width: `${progress}%`,
+                        background: theme.colors.primary,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1958,6 +2049,8 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                         onVerticalVideoPlayingChange={
                           setIsCurrentVerticalVideoPlaying
                         }
+                        onVideoProgressChange={handleVideoProgressChange}
+                        videoSeekRequest={videoSeekRequest}
                       />
 
                       {hasRenderableSections(currentSlide.sections) ? (
@@ -3596,6 +3689,8 @@ function FormFieldRenderer({
 function MediaRenderer({
   slide,
   onVerticalVideoPlayingChange,
+  onVideoProgressChange,
+  videoSeekRequest,
 }: {
   slide: {
     title: string;
@@ -3604,17 +3699,38 @@ function MediaRenderer({
     mediaType?: "image" | "video";
     mediaAspect?: "horizontal" | "vertical" | "square";
     autoplay?: boolean;
+    videoStartAtSeconds?: number;
   };
   onVerticalVideoPlayingChange?: (isPlaying: boolean) => void;
+  onVideoProgressChange?: (payload: {
+    currentTime: number;
+    duration: number;
+  }) => void;
+  videoSeekRequest?: VideoSeekRequest | null;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hasAppliedStartTimeRef = useRef(false);
   const [isMuted, setIsMuted] = useState(slide.autoplay === true);
   const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     setIsMuted(slide.autoplay === true);
     setIsPlaying(false);
-  }, [slide.mediaUrl, slide.embedUrl, slide.autoplay]);
+    hasAppliedStartTimeRef.current = false;
+  }, [slide.mediaUrl, slide.embedUrl, slide.autoplay, slide.videoStartAtSeconds]);
+  useEffect(() => {
+    if (!videoSeekRequest) {
+      return;
+    }
+
+    const video = videoRef.current;
+
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
+      return;
+    }
+
+    video.currentTime = (video.duration * videoSeekRequest.percent) / 100;
+  }, [videoSeekRequest]);
 
   const isVerticalVideo =
     slide.mediaAspect === "vertical" &&
@@ -3639,6 +3755,30 @@ function MediaRenderer({
     const nextMuted = !video.muted;
     video.muted = nextMuted;
     setIsMuted(nextMuted);
+  }
+
+  function applyVideoStartTime(video: HTMLVideoElement) {
+    if (hasAppliedStartTimeRef.current) {
+      return;
+    }
+
+    const startAtSeconds = slide.videoStartAtSeconds;
+
+    if (
+      typeof startAtSeconds !== "number" ||
+      !Number.isFinite(startAtSeconds) ||
+      startAtSeconds <= 0
+    ) {
+      hasAppliedStartTimeRef.current = true;
+      return;
+    }
+
+    if (!Number.isFinite(video.duration) || video.duration <= 0) {
+      return;
+    }
+
+    video.currentTime = Math.min(startAtSeconds, video.duration);
+    hasAppliedStartTimeRef.current = true;
   }
 
   if (slide.embedUrl) {
@@ -3728,6 +3868,22 @@ function MediaRenderer({
             onVolumeChange={(e) => {
               const video = e.currentTarget;
               setIsMuted(video.muted || video.volume === 0);
+            }}
+            onLoadedMetadata={(e) => {
+              const video = e.currentTarget;
+              applyVideoStartTime(video);
+
+              onVideoProgressChange?.({
+                currentTime: video.currentTime,
+                duration: video.duration,
+              });
+            }}
+            onTimeUpdate={(e) => {
+              const video = e.currentTarget;
+              onVideoProgressChange?.({
+                currentTime: video.currentTime,
+                duration: video.duration,
+              });
             }}
           />
 
