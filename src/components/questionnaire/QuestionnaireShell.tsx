@@ -37,6 +37,7 @@ import {
 
 import {
   applyDiscountToShopLines,
+  hasPhysicalFulfillmentItems,
   getDefaultPurchaseModeId,
   getDiscountDefinitionByCode,
   getShopCartTotalWeight,
@@ -466,6 +467,7 @@ function getRecordListItems(
 }
 
 export default function QuestionnaireShell({ config, theme }: Props) {
+    const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
@@ -1211,6 +1213,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     setVideoProgress(0);
     setVideoSeekRequest(null);
     previousVideoTimeRef.current = 0;
+    setDownloadNotice(null);
 
     if (isMediaSlide) {
       window.scrollTo({
@@ -1479,8 +1482,16 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
 
     if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
-      if (currentSlide.deliveryGoto) {
+      if (
+        currentSlide.deliveryGoto &&
+        hasPhysicalFulfillmentItems(currentShopCatalog, currentShopCart)
+      ) {
         goToTarget(currentSlide.deliveryGoto);
+        return;
+      }
+
+      if (currentSlide.contactGoto) {
+        goToTarget(currentSlide.contactGoto);
         return;
       }
 
@@ -1797,6 +1808,16 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
   }
 
+  function triggerDownload(downloadKey: string, label?: string) {
+    const downloadUrl = `/api/downloads/${encodeURIComponent(downloadKey)}`;
+
+    window.open(downloadUrl, "_blank", "noopener,noreferrer");
+
+    setDownloadNotice(
+      `${label ?? "Download"} started. If the download did not appear, check your browser downloads or try again.`
+    );
+  }
+
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
 
@@ -1805,8 +1826,12 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       if (!ok) return;
     }
 
-    if (currentSlide.run) {
-      clearAllFormFieldAnswers();
+    if (currentSlide.downloadKey) {
+      window.location.href = `/api/downloads/${encodeURIComponent(
+        currentSlide.downloadKey
+      )}`;
+
+      return;
     }
 
     next();
@@ -1821,16 +1846,17 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
       : 0;
 
-    const showBackButton = currentSlide.showBack !== false;
+  const showBackButton = currentSlide.showBack !== false;
   const showNextButton = currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
   const inlineChoices =
     currentSlide.choicePlacement === "inline" ? currentSlide.choices : undefined;
   const pinnedChoices =
     currentSlide.choicePlacement === "inline" ? undefined : currentSlide.choices;
-    const showStepText =
-    config.showStepText !== false && currentSlide.showStepText !== false;
+  const showStepText =
+  config.showStepText !== false && currentSlide.showStepText !== false;
   const hasPinnedChoices = Boolean(pinnedChoices?.length);
+  const hasDownloadButtons = Boolean(currentSlide.downloadButtons?.length);
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -1909,7 +1935,16 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     const actionBarHidden =
       isCurrentVerticalVideoPlaying && isVerticalMediaSlide;
 
-    
+    const sharedOrderHasWeight = sharedOrderLines.some(
+      (line) => typeof line.lineWeight === "number" && line.lineWeight > 0
+    );
+
+    const sharedOrderHasDeliveryFee =
+      sharedOrderSummary.deliveryFee > 0 ||
+      sharedDeliverySelection.method === "delivery";
+
+    const sharedOrderHasDiscount =
+      sharedOrderSummary.discountTotal > 0;
 
   return (
     <main
@@ -2154,6 +2189,9 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                               : currentShopSubtotal
                           }
                           activeDiscountLabel={activeDiscountDefinition?.label}
+                          showDeliveryFee={sharedOrderHasDeliveryFee}
+                          showDiscountTotal={sharedOrderHasDiscount}
+                          showTotalWeight={sharedOrderHasWeight}
                           theme={theme}
                           answers={answers}
                           onToggleLine={(productId, sizeOptionId, selected) =>
@@ -2385,7 +2423,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
               </AnimatePresence>
             </div>
 
-            {hasPinnedChoices || hasVisibleNav ? (
+            {hasPinnedChoices || hasDownloadButtons || hasVisibleNav ? (
               <div
                 className={`${styles.actionBarOverlay} ${
                   actionBarHidden ? styles.actionBarShifted : ""
@@ -2441,7 +2479,49 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                     </div>
                   ) : null}
 
-                  {currentSlide.type === "shop" && currentSlide.shopMode === "review" ? (
+                  {hasDownloadButtons ? (
+                    <div className={styles.choiceStack}>
+                      {currentSlide.downloadButtons?.map((downloadButton) => {
+                        const buttonStyle = resolveButtonStyle(
+                          theme,
+                          downloadButton.styleKey ?? currentSlide.buttonStyleKey,
+                          "primary"
+                        );
+
+                        return (
+                          <button
+                            key={`${currentSlide.id}-${downloadButton.key}`}
+                            type="button"
+                            onClick={() =>
+                              triggerDownload(
+                                downloadButton.key,
+                                downloadButton.label
+                              )
+                            }
+                            className={`${styles.primaryButton} ${styles.actionButton}`}
+                            style={{
+                              background: buttonStyle.background,
+                              color: buttonStyle.color,
+                              borderColor: buttonStyle.borderColor,
+                              borderRadius: theme.radius?.button ?? "14px",
+                            }}
+                          >
+                            {downloadButton.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {downloadNotice ? (
+                    <div className={styles.downloadNotice}>
+                      {downloadNotice}
+                    </div>
+                  ) : null}
+
+                  {currentSlide.type === "shop" &&
+                  currentSlide.shopMode === "review" &&
+                  sharedOrderHasWeight ? (
                     <div className={styles.orderWeightSummary}>
                       Total order weight:{" "}
                       {formatWeight(
@@ -2460,8 +2540,14 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                       {formatCurrency(
                         sharedOrderSummary.subtotal,
                         sharedShopCatalog?.currencyCode ?? "JMD"
-                      )}{" "}
-                      · Delivery: {formatCurrency(currentDeliveryFee, "JMD")} · Total:{" "}
+                      )}
+                      {currentDeliveryFee > 0 ? (
+                        <>
+                          {" "}
+                          · Delivery: {formatCurrency(currentDeliveryFee, "JMD")}
+                        </>
+                      ) : null}{" "}
+                      · Total:{" "}
                       {formatCurrency(
                         sharedOrderSummary.subtotal + currentDeliveryFee,
                         sharedShopCatalog?.currencyCode ?? "JMD"
@@ -2892,6 +2978,9 @@ function ShopSlideRenderer({
   discountTotal,
   grandTotal,
   activeDiscountLabel,
+  showDeliveryFee,
+  showDiscountTotal,
+  showTotalWeight,
   theme,
   answers,
   onToggleLine,
@@ -2909,6 +2998,9 @@ function ShopSlideRenderer({
   discountTotal: number;
   grandTotal: number;
   activeDiscountLabel?: string;
+  showDeliveryFee?: boolean;
+  showDiscountTotal?: boolean;
+  showTotalWeight?: boolean;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
   onToggleLine: (
@@ -3237,7 +3329,8 @@ function ShopSlideRenderer({
                               <span>{resolvedLine.purchaseModeLabel}</span>
                             ) : null}
 
-                            {sizeOption.weight !== undefined ? (
+                            {typeof sizeOption.weight === "number" &&
+                            sizeOption.weight > 0 ? (
                               <span>
                                 Weight:{" "}
                                 {formatWeight(
@@ -3275,9 +3368,9 @@ function ShopSlideRenderer({
         );
       })}
 
-      {slideMode === "review" ? (
+            {slideMode === "review" ? (
         <div className={styles.reviewTotals}>
-          {activeDiscountLabel ? (
+          {activeDiscountLabel && showDiscountTotal ? (
             <div>
               Discount: {activeDiscountLabel}
               {String(activeDiscountLabel).toLowerCase().includes("questionnaire")
@@ -3285,16 +3378,26 @@ function ShopSlideRenderer({
                 : null}
             </div>
           ) : null}
-          <div>
-            Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
-          </div>
-          <div>
-            Discount total: -
-            {formatCurrency(discountTotal, catalog.currencyCode)}
-          </div>
-          <div>
-            Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
-          </div>
+
+          {showDeliveryFee ? (
+            <div>
+              Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
+            </div>
+          ) : null}
+
+          {showDiscountTotal ? (
+            <div>
+              Discount total: -
+              {formatCurrency(discountTotal, catalog.currencyCode)}
+            </div>
+          ) : null}
+
+          {showTotalWeight ? (
+            <div>
+              Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
+            </div>
+          ) : null}
+
           <div style={{ fontWeight: 700 }}>
             Total due: {formatCurrency(grandTotal, catalog.currencyCode)}
           </div>

@@ -13,10 +13,19 @@ export type QuestionnaireVariableValue =
   | QuestionnaireVariableMap
   | QuestionnaireVariableValue[];
 
+export type FulfillmentType = "physical" | "digital" | "ticket";
+
+export type DownloadButton = {
+  key: string;
+  label: string;
+  styleKey?: string;
+};
+
 export type ShopPurchaseMode = {
   id: string;
   label: string;
   priceAdjustment: number;
+  requiresPhysicalFulfillment?: boolean;
 };
 
 export type ShopCatalogSizeOption = {
@@ -33,6 +42,7 @@ export type ShopCatalogProduct = {
   title: string;
   imageUrl?: string;
   description?: string;
+  fulfillmentType?: FulfillmentType;
   sizeOptions: ShopCatalogSizeOption[];
 };
 
@@ -96,6 +106,8 @@ export type ShopResolvedCartLine = {
   sizeOptionId: string;
   sizeLabel: string;
   quantity: number;
+  fulfillmentType?: FulfillmentType;
+  requiresPhysicalFulfillment?: boolean;
   purchaseModeId?: string;
   purchaseModeLabel?: string;
   unitPrice: number;
@@ -356,6 +368,7 @@ export type Slide = {
   options?: Option[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
+  downloadButtons?: DownloadButton[];
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -372,6 +385,7 @@ export type Slide = {
   showIfRules?: ConditionRule[];
   goto?: string;
   run?: string;
+  downloadKey?: string;
   feature?: SlideFeature;
   sections?: SlideSection[];
   fields?: FormField[];
@@ -396,6 +410,7 @@ export type Slide = {
   catalogKey?: string;
   shopMode?: ShopMode;
   deliveryGoto?: string;
+  contactGoto?: string;
   reviewGoto?: string;
   deliveryConfigKey?: string;
   completionCheck?: "contact";
@@ -482,6 +497,8 @@ export type ParsedSlideDraft = {
   cancelGoto?: string;
   goto?: string;
   run?: string;
+  downloadKey?: string;
+  downloadButtons?: DownloadButton[];
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
@@ -507,6 +524,7 @@ export type ParsedSlideDraft = {
   catalogKey?: string;
   shopMode?: ShopMode;
   deliveryGoto?: string;
+  contactGoto?: string;
   reviewGoto?: string;
   deliveryConfigKey?: string;
   completionCheck?: "contact";

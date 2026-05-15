@@ -2,6 +2,7 @@ import {
     ChoiceItem,
   ChoicePlacement,
   ConditionRule,
+  DownloadButton,
   FormField,
   MediaAspect,
   MediaType,
@@ -52,6 +53,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
   let inFieldsBlock = false;
   let inChoicesBlock = false;
+  let inDownloadButtonsBlock = false;
   let inWhenBlock = false;
   let inBackWhenBlock = false;
   let inShowIfBlock = false;
@@ -62,6 +64,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     if (isCommentLine(line)) {
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -71,6 +74,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     if (line === "---" || line === "BR") {
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -81,6 +85,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     if (line.startsWith("@fields:")) {
       inFieldsBlock = true;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -89,6 +94,17 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
     if (line.startsWith("@choices:")) {
       inChoicesBlock = true;
+      inFieldsBlock = false;
+      inDownloadButtonsBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      inShowIfBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@downloadbuttons:")) {
+      inDownloadButtonsBlock = true;
+      inChoicesBlock = false;
       inFieldsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
@@ -100,6 +116,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inWhenBlock = true;
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
       continue;
@@ -127,6 +144,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inBackWhenBlock = true;
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inShowIfBlock = false;
       continue;
@@ -136,6 +154,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inShowIfBlock = true;
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       continue;
@@ -150,6 +169,19 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     if (inChoicesBlock && line.startsWith("-")) {
       const choice = parseChoiceLine(line);
       if (choice) draft.choices?.push(choice);
+      continue;
+    }
+
+    if (inDownloadButtonsBlock && line.startsWith("-")) {
+      const downloadButton = parseDownloadButtonLine(line);
+
+      if (downloadButton) {
+        draft.downloadButtons = [
+          ...(draft.downloadButtons ?? []),
+          downloadButton,
+        ];
+      }
+
       continue;
     }
 
@@ -174,6 +206,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
     if (line.startsWith("@")) {
       inFieldsBlock = false;
       inChoicesBlock = false;
+      inDownloadButtonsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -223,6 +256,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
       if (line.startsWith("@deliverygoto:")) {
         draft.deliveryGoto = readValue(line, "@deliverygoto:");
+        continue;
+      }
+
+      if (line.startsWith("@contactgoto:")) {
+        draft.contactGoto = readValue(line, "@contactgoto:");
         continue;
       }
 
@@ -370,6 +408,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
       if (line.startsWith("@run:")) {
         draft.run = readValue(line, "@run:");
+        continue;
+      }
+
+      if (line.startsWith("@downloadkey:")) {
+        draft.downloadKey = readValue(line, "@downloadkey:");
         continue;
       }
 
@@ -592,6 +635,10 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     storeAs: draft.storeAs,
     goto: draft.goto,
     run: draft.run,
+    downloadKey: draft.downloadKey,
+        downloadButtons: draft.downloadButtons?.length
+      ? draft.downloadButtons
+      : undefined,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
@@ -620,6 +667,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     catalogKey: draft.catalogKey,
     shopMode: draft.shopMode,
     deliveryGoto: draft.deliveryGoto,
+    contactGoto: draft.contactGoto,
     reviewGoto: draft.reviewGoto,
     deliveryConfigKey: draft.deliveryConfigKey,
     completionCheck: draft.completionCheck,
@@ -779,6 +827,24 @@ function parseChoiceLine(line: string): ChoiceItem | null {
     value: parsedValue,
     label,
     goto: goto || undefined,
+    styleKey: styleKey || undefined,
+  };
+}
+
+function parseDownloadButtonLine(line: string): DownloadButton | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [key, label, styleKey] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (!key || !label) {
+    return null;
+  }
+
+  return {
+    key,
+    label,
     styleKey: styleKey || undefined,
   };
 }

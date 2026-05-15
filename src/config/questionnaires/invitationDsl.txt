@@ -12,7 +12,8 @@
 @countstep: false
 @showback: false
 @next: Get Tickets
-@goto: invitation-shop
+@goto: escape-album-download
+
 
 ===
 // PERFORMANCE RATING
@@ -103,6 +104,7 @@ BR
 @catalog: shopCatalog
 @shopmode: browse
 @deliverygoto: delivery-options
+@contactgoto: contact-details
 @reviewgoto: review-order
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
@@ -147,8 +149,8 @@ BR
 BR
 @fields:
 - fullName|text|Full name|required|Full name
-- email|email|Email address|optional|Email address
-- phone|tel|Phone number|required|Include country code and area code
+- email|email|Email address|required|Email address for ticket, invitation, or download access
+- phone|tel|Phone number|optional|Optional
 - whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
 ---
 @run: submitLead
@@ -187,6 +189,27 @@ BR
 @showback: false
 @shownext: false
 
+===
+// ESCAPE ALBUM DOWNLOAD
+@id: escape-album-download
+@type: content
+@countstep: false
+@showback: true
+@shownext: false
+@back: Back
+---
+BR
+# [c1] Escape Album
+# [c3] Digital Download
+BR
+[c2] Download the album in the format you want.
+[c2] MP3 and WAV access will stay available from this page after purchase.
+BR
+[c3] For testing now, the MP3 button downloads Good Morning.mp3.
+
+@downloadbuttons:
+- good-morning-mp3|Good Morning MP3|c1
+- escape-album-mp3|Escape Album MP3|c2
 ===
 // EXIT PAGE
 @id: exit-page

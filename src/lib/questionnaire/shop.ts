@@ -8,6 +8,7 @@ import {
   ShopCatalog,
   ShopCatalogProduct,
   ShopCatalogSizeOption,
+  FulfillmentType,
   ShopPurchaseMode,
   ShopResolvedCartLine,
 } from "@/types/questionnaire";
@@ -392,6 +393,36 @@ export function getShopCartTotalWeight(
   );
 }
 
+export function getProductFulfillmentType(
+  product: ShopCatalogProduct | undefined
+): FulfillmentType {
+  return product?.fulfillmentType ?? "physical";
+}
+
+export function hasPhysicalFulfillmentItems(
+  catalog: ShopCatalog | null,
+  cart: ShopCart
+) {
+  return resolveShopSelectedLines(catalog, cart).some(
+    (line) => line.requiresPhysicalFulfillment === true
+  );
+}
+
+export function hasTicketItems(catalog: ShopCatalog | null, cart: ShopCart) {
+  return resolveShopSelectedLines(catalog, cart).some(
+    (line) => line.fulfillmentType === "ticket"
+  );
+}
+
+export function isDigitalOnlyCart(catalog: ShopCatalog | null, cart: ShopCart) {
+  const lines = resolveShopSelectedLines(catalog, cart);
+
+  return (
+    lines.length > 0 &&
+    lines.every((line) => line.requiresPhysicalFulfillment !== true)
+  );
+}
+
 export function findShopProduct(
   catalog: ShopCatalog | null,
   productId: string
@@ -445,7 +476,11 @@ function resolveShopLine(
     lineKey,
     productId: product.id,
     productTitle: product.title,
-    productImageUrl: product.imageUrl,
+        productImageUrl: product.imageUrl,
+    fulfillmentType: getProductFulfillmentType(product),
+    requiresPhysicalFulfillment:
+      getProductFulfillmentType(product) === "physical" ||
+      purchaseMode?.requiresPhysicalFulfillment === true,
     sizeOptionId: sizeOption.id,
     sizeLabel: sizeOption.label,
     quantity,
@@ -554,6 +589,12 @@ function normalizeShopProduct(
     typeof record.imageUrl === "string" ? record.imageUrl : undefined;
   const description =
     typeof record.description === "string" ? record.description : undefined;
+  const fulfillmentType =
+    record.fulfillmentType === "physical" ||
+    record.fulfillmentType === "digital" ||
+    record.fulfillmentType === "ticket"
+      ? record.fulfillmentType
+      : undefined;
   const sizeOptionsValue = record.sizeOptions;
 
   if (!id || !title || !Array.isArray(sizeOptionsValue)) {
@@ -564,11 +605,12 @@ function normalizeShopProduct(
     .map(normalizeShopSizeOption)
     .filter(Boolean) as ShopCatalogSizeOption[];
 
-  return {
+    return {
     id,
     title,
     imageUrl,
     description,
+    fulfillmentType,
     sizeOptions,
   };
 }
@@ -628,14 +670,20 @@ function normalizeShopPurchaseMode(
       ? record.priceAdjustment
       : undefined;
 
+    const requiresPhysicalFulfillment =
+    typeof record.requiresPhysicalFulfillment === "boolean"
+      ? record.requiresPhysicalFulfillment
+      : undefined;
+
   if (!id || !label || priceAdjustment === undefined) {
     return null;
   }
 
-  return {
+    return {
     id,
     label,
     priceAdjustment,
+    requiresPhysicalFulfillment,
   };
 }
 

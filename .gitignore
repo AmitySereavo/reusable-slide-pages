@@ -45,3 +45,9 @@ coverage/
 
 # Local media files too large for GitHub
 public/media/invitation/*.mp4
+
+# Private downloadable files
+private-downloads/*
+
+private-downloads/*
+!private-downloads/.gitkeep

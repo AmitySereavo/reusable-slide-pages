@@ -7,6 +7,7 @@ import { seedTheme } from "@/config/themes/seedTheme";
 import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
+import { getInvitationShopCatalog } from "@/lib/invitation/getInvitationShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
@@ -178,7 +179,7 @@ export async function getQuestionnaireBySlug(slug: string) {
   }
 
   if (entry.slug === "invitation") {
-    const shopCatalog = await getPlantShopCatalog();
+    const shopCatalog = getInvitationShopCatalog();
 
     resolvedVariables = {
       ...entry.variables,
