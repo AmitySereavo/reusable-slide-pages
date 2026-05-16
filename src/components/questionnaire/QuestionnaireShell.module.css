@@ -779,6 +779,81 @@
   text-align: center;
 }
 
+.mealStack {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.mealTicketPanel {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 16px;
+}
+
+.mealTicketHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.mealTicketTitle {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.mealTicketMeta {
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.78;
+}
+
+.mealGroup {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.mealGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mealGroupTitle {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.mealGroupCount {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mealOptionStack {
+  display: grid;
+  gap: 8px;
+}
+
+.mealOptionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.mealOptionLabel {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .deliveryStack {
   display: grid;
   gap: 16px;

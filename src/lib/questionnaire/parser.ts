@@ -269,6 +269,16 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@mealgoto:")) {
+        draft.mealGoto = readValue(line, "@mealgoto:");
+        continue;
+      }
+
+      if (line.startsWith("@mealmenu:")) {
+        draft.mealMenuKey = readValue(line, "@mealmenu:");
+        continue;
+      }
+
       if (line.startsWith("@deliveryconfig:")) {
         draft.deliveryConfigKey = readValue(line, "@deliveryconfig:");
         continue;
@@ -669,6 +679,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     deliveryGoto: draft.deliveryGoto,
     contactGoto: draft.contactGoto,
     reviewGoto: draft.reviewGoto,
+    mealGoto: draft.mealGoto,
+    mealMenuKey: draft.mealMenuKey,
     deliveryConfigKey: draft.deliveryConfigKey,
     completionCheck: draft.completionCheck,
     gotoIfComplete: draft.gotoIfComplete,

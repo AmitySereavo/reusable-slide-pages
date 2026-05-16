@@ -106,12 +106,35 @@ BR
 @deliverygoto: delivery-options
 @contactgoto: contact-details
 @reviewgoto: review-order
+@mealgoto: meal-selection
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
 @actionbartextcolor: #1f1f1f
 @back: Back
 @next: Checkout
+
+===
+// MEAL SELECTION
+@id: meal-selection
+@type: meal
+@store: mealSelections
+@mealmenu: mealMenus
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+---
+BR
+# [c1] Select Meals
+BR
+[c2] Choose the meal quantities for the tickets that include meals.
+[c3] Each section must match the number of meal tickets.
 
 ===
 // DELIVERY OPTIONS

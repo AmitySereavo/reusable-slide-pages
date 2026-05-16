@@ -24,6 +24,8 @@ import {
   ShopCart,
   ShopCatalog,
   ShopResolvedCartLine,
+  MealMenu,
+  MealSelections,
   SlideRouteRule,
   SlideSection,
   ThemeConfig,
@@ -58,6 +60,16 @@ import {
   isDeliverySelectionComplete,
   normalizeDeliverySelection,
 } from "@/lib/questionnaire/delivery";
+
+import {
+  getMealGroupTotal,
+  getMealMenu,
+  getMealRequiredLines,
+  hasMealSelectionItems,
+  isMealSelectionComplete,
+  normalizeMealSelections,
+  setMealOptionQuantity,
+} from "@/lib/questionnaire/meals";
 
 type Props = {
   config: QuestionnaireConfig;
@@ -1008,6 +1020,26 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     [sharedOrderBaseLines, activeDiscountDefinition]
   );
 
+  const mealSelections = useMemo<MealSelections>(
+    () => normalizeMealSelections(answers.mealSelections),
+    [answers.mealSelections]
+  );
+
+   const currentMealMenu = useMemo<MealMenu | null>(() => {
+    if (currentSlide?.type !== "meal") {
+      return null;
+  }
+
+    const mealLines = getMealRequiredLines(sharedOrderLines);
+    const firstMenuId = mealLines[0]?.mealSelection?.menuId;
+
+    return getMealMenu(
+      mergedVariables,
+      currentSlide.mealMenuKey,
+      firstMenuId
+    );
+  }, [currentSlide, sharedOrderLines, mergedVariables]);
+
   const sharedDeliverySelection = useMemo<DeliverySelection>(
     () => normalizeDeliverySelection(answers.deliverySelection),
     [answers.deliverySelection]
@@ -1481,10 +1513,38 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       }
     }
 
-    if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
+        if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
+      if (
+        currentSlide.mealGoto &&
+        hasMealSelectionItems(currentShopSelectedLines)
+      ) {
+        goToTarget(currentSlide.mealGoto as unknown as string);
+        return;
+      }
+
       if (
         currentSlide.deliveryGoto &&
         hasPhysicalFulfillmentItems(currentShopCatalog, currentShopCart)
+      ) {
+        goToTarget(currentSlide.deliveryGoto);
+        return;
+      }
+
+      if (currentSlide.contactGoto) {
+        goToTarget(currentSlide.contactGoto);
+        return;
+      }
+
+      if (currentSlide.reviewGoto) {
+        goToTarget(currentSlide.reviewGoto);
+        return;
+      }
+    }
+
+      if (currentSlide.type === "meal") {
+      if (
+        currentSlide.deliveryGoto &&
+        hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
       ) {
         goToTarget(currentSlide.deliveryGoto);
         return;
@@ -1558,6 +1618,14 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
         currentDeliveryConfig,
         currentDeliverySelection
       );
+    }
+
+    if (currentSlide.type === "meal") {
+      return isMealSelectionComplete({
+        menu: currentMealMenu,
+        lines: sharedOrderLines,
+        selections: mealSelections,
+      });
     }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
@@ -2270,6 +2338,18 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                         />
                       ) : null}
 
+                      {currentSlide.type === "meal" ? (
+                        <MealSelectionRenderer
+                          menu={currentMealMenu}
+                          lines={sharedOrderLines}
+                          selections={mealSelections}
+                          theme={theme}
+                          onChange={(nextSelections) =>
+                            setAnswer("mealSelections", nextSelections)
+                          }
+                        />
+                      ) : null}
+
                       {currentSlide.type === "shop" &&
                       currentSlide.shopMode === "review" ? (
                         <ReviewSummaryRenderer
@@ -2281,6 +2361,22 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                           )}
                           onAdjustDelivery={() => goToTarget("delivery-options")}
                           onAdjustContact={() => goToTarget("contact-details")}
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "shop" &&
+                      currentSlide.shopMode === "review" &&
+                      hasMealSelectionItems(sharedOrderLines) ? (
+                        <MealSelectionSummaryRenderer
+                          menu={getMealMenu(
+                            mergedVariables,
+                            "mealMenus",
+                            getMealRequiredLines(sharedOrderLines)[0]
+                              ?.mealSelection?.menuId
+                          )}
+                          lines={sharedOrderLines}
+                          selections={mealSelections}
+                          onAdjustMeals={() => goToTarget("meal-selection")}
                         />
                       ) : null}
 
@@ -2607,6 +2703,203 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
         </div>
       </div>
     </main>
+  );
+}
+
+function MealSelectionRenderer({
+  menu,
+  lines,
+  selections,
+  theme,
+  onChange,
+}: {
+  menu: MealMenu | null;
+  lines: ShopResolvedCartLine[];
+  selections: MealSelections;
+  theme: ThemeConfig;
+  onChange: (nextSelections: MealSelections) => void;
+}) {
+  const mealLines = getMealRequiredLines(lines);
+
+  if (!menu || !mealLines.length) {
+    return (
+      <p className={styles.body}>
+        No meal selections are needed for this order.
+      </p>
+    );
+  }
+
+  return (
+    <div className={styles.mealStack}>
+      {mealLines.map((line) => (
+        <div key={line.lineKey} className={styles.mealTicketPanel}>
+          <div className={styles.mealTicketHeader}>
+            <div className={styles.mealTicketTitle}>
+              {line.sizeLabel}
+            </div>
+            <div className={styles.mealTicketMeta}>
+              Meal quantity needed: {line.quantity}
+            </div>
+          </div>
+
+          {menu.groups.map((group) => {
+            const groupTotal = getMealGroupTotal(
+              selections,
+              line.lineKey,
+              group.id
+            );
+            const isComplete = group.required === false || groupTotal === line.quantity;
+
+            return (
+              <div key={`${line.lineKey}-${group.id}`} className={styles.mealGroup}>
+                <div className={styles.mealGroupHeader}>
+                  <div className={styles.mealGroupTitle}>{group.label}</div>
+                  <div
+                    className={styles.mealGroupCount}
+                    style={{
+                      color: isComplete ? theme.colors.primary : theme.colors.text,
+                    }}
+                  >
+                    {groupTotal} / {line.quantity}
+                  </div>
+                </div>
+
+                <div className={styles.mealOptionStack}>
+                  {group.options.map((option) => {
+                    const currentQuantity =
+                      selections[line.lineKey]?.[group.id]?.[option.id] ?? 0;
+                    const remaining = Math.max(0, line.quantity - groupTotal);
+                    const canIncrease = remaining > 0;
+
+                    return (
+                      <div
+                        key={`${line.lineKey}-${group.id}-${option.id}`}
+                        className={styles.mealOptionRow}
+                      >
+                        <div className={styles.mealOptionLabel}>
+                          {option.label}
+                        </div>
+
+                        <div className={styles.quantityControl}>
+                          <button
+                            type="button"
+                            className={styles.quantityButton}
+                            onClick={() =>
+                              onChange(
+                                setMealOptionQuantity({
+                                  selections,
+                                  lineKey: line.lineKey,
+                                  groupId: group.id,
+                                  optionId: option.id,
+                                  quantity: currentQuantity - 1,
+                                })
+                              )
+                            }
+                            disabled={currentQuantity <= 0}
+                            style={{ borderColor: theme.colors.border }}
+                          >
+                            -
+                          </button>
+
+                          <span className={styles.quantityValue}>
+                            {currentQuantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            className={styles.quantityButton}
+                            onClick={() =>
+                              onChange(
+                                setMealOptionQuantity({
+                                  selections,
+                                  lineKey: line.lineKey,
+                                  groupId: group.id,
+                                  optionId: option.id,
+                                  quantity: currentQuantity + 1,
+                                })
+                              )
+                            }
+                            disabled={!canIncrease}
+                            style={{ borderColor: theme.colors.border }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MealSelectionSummaryRenderer({
+  menu,
+  lines,
+  selections,
+  onAdjustMeals,
+}: {
+  menu: MealMenu | null;
+  lines: ShopResolvedCartLine[];
+  selections: MealSelections;
+  onAdjustMeals: () => void;
+}) {
+  const mealLines = getMealRequiredLines(lines);
+
+  if (!menu || !mealLines.length) {
+    return null;
+  }
+
+  return (
+    <div className={styles.reviewSummaryStack}>
+      <div className={styles.reviewSummaryCard}>
+        <div className={styles.reviewSummaryHeader}>
+          <div className={styles.reviewSummaryTitle}>Meal selections</div>
+          <button
+            type="button"
+            className={styles.adjustLinkButton}
+            onClick={onAdjustMeals}
+          >
+            Adjust
+          </button>
+        </div>
+
+        <div className={styles.reviewSummaryBody}>
+          {mealLines.map((line) => (
+            <div key={line.lineKey}>
+              <strong>{line.sizeLabel}</strong>
+              {menu.groups.map((group) => {
+                const selectedOptions = group.options
+                  .map((option) => {
+                    const quantity =
+                      selections[line.lineKey]?.[group.id]?.[option.id] ?? 0;
+
+                    return quantity > 0
+                      ? `${option.label} × ${quantity}`
+                      : null;
+                  })
+                  .filter(Boolean);
+
+                if (!selectedOptions.length) {
+                  return null;
+                }
+
+                return (
+                  <div key={`${line.lineKey}-${group.id}`}>
+                    {group.label}: {selectedOptions.join(", ")}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

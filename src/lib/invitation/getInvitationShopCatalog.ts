@@ -27,10 +27,32 @@ export function getInvitationShopCatalog(): ShopCatalog {
                 requiresPhysicalFulfillment: false,
               },
               {
+                id: "email-with-meal",
+                label: "Email invitation + meal",
+                priceAdjustment: 0,
+                requiresPhysicalFulfillment: false,
+                mealSelection: {
+                  mode: "required",
+                  menuId: "vegan-event-menu",
+                  label: "Included vegan meal",
+                },
+              },
+              {
                 id: "email-plus-physical",
                 label: "Email invitation + physical invitation",
                 priceAdjustment: 8,
                 requiresPhysicalFulfillment: true,
+              },
+              {
+                id: "email-physical-with-meal",
+                label: "Email invitation + physical invitation + meal",
+                priceAdjustment: 8,
+                requiresPhysicalFulfillment: true,
+                mealSelection: {
+                  mode: "required",
+                  menuId: "vegan-event-menu",
+                  label: "Included vegan meal",
+                },
               },
             ],
           },
@@ -39,6 +61,11 @@ export function getInvitationShopCatalog(): ShopCatalog {
             label: "VIP Invitation",
             price: 50,
             weight: 0,
+            mealSelection: {
+              mode: "required",
+              menuId: "vegan-event-menu",
+              label: "Included vegan meal",
+            },
             purchaseModes: [
               {
                 id: "email-only",

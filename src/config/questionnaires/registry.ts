@@ -10,6 +10,7 @@ import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { getInvitationShopCatalog } from "@/lib/invitation/getInvitationShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
+import { mealMenus } from "@/config/meals/mealMenus";
 import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
 import type {
   QuestionnaireVariableMap,
@@ -181,11 +182,12 @@ export async function getQuestionnaireBySlug(slug: string) {
   if (entry.slug === "invitation") {
     const shopCatalog = getInvitationShopCatalog();
 
-    resolvedVariables = {
+      resolvedVariables = {
       ...entry.variables,
       shopCatalog,
       deliveryConfig,
       discountDefinitions,
+      mealMenus,
     };
   }
 

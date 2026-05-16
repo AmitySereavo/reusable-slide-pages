@@ -21,11 +21,18 @@ export type DownloadButton = {
   styleKey?: string;
 };
 
+export type ShopMealSelectionRequirement = {
+  mode: "required" | "optional";
+  menuId: string;
+  label?: string;
+};
+
 export type ShopPurchaseMode = {
   id: string;
   label: string;
   priceAdjustment: number;
   requiresPhysicalFulfillment?: boolean;
+  mealSelection?: ShopMealSelectionRequirement;
 };
 
 export type ShopCatalogSizeOption = {
@@ -33,6 +40,7 @@ export type ShopCatalogSizeOption = {
   label: string;
   price: number;
   weight?: number;
+  mealSelection?: ShopMealSelectionRequirement;
   purchaseModes?: ShopPurchaseMode[];
 };
 
@@ -51,6 +59,33 @@ export type ShopCatalog = {
   weightUnit?: string;
   products: ShopCatalogProduct[];
 };
+
+export type MealMenuOption = {
+  id: string;
+  label: string;
+};
+
+export type MealMenuGroup = {
+  id: string;
+  label: string;
+  required?: boolean;
+  options: MealMenuOption[];
+};
+
+export type MealMenu = {
+  id: string;
+  label: string;
+  groups: MealMenuGroup[];
+};
+
+export type MealMenuCatalog = {
+  menus: MealMenu[];
+};
+
+export type MealSelections = Record<
+  string,
+  Record<string, Record<string, number>>
+>;
 
 export type ShopMode = "browse" | "review";
 
@@ -110,6 +145,7 @@ export type ShopResolvedCartLine = {
   requiresPhysicalFulfillment?: boolean;
   purchaseModeId?: string;
   purchaseModeLabel?: string;
+  mealSelection?: ShopMealSelectionRequirement;
   unitPrice: number;
   lineTotal: number;
   unitWeight?: number;
@@ -354,10 +390,13 @@ export type SlideType =
   | "video"
   | "media"
   | "shop"
+  | "meal"
   | "delivery"
   | "recordlist";
 
 export type Slide = {
+  mealMenuKey(mergedVariables: QuestionnaireVariableMap, mealMenuKey: any, firstMenuId: string | undefined): MealMenu | null;
+  mealGoto: boolean;
   id: string;
   type: SlideType;
   title: string;
@@ -526,6 +565,8 @@ export type ParsedSlideDraft = {
   deliveryGoto?: string;
   contactGoto?: string;
   reviewGoto?: string;
+  mealGoto?: string;
+  mealMenuKey?: string;
   deliveryConfigKey?: string;
   completionCheck?: "contact";
   gotoIfComplete?: string;

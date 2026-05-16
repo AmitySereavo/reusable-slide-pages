@@ -9,6 +9,7 @@ import {
   ShopCatalogProduct,
   ShopCatalogSizeOption,
   FulfillmentType,
+  ShopMealSelectionRequirement,
   ShopPurchaseMode,
   ShopResolvedCartLine,
 } from "@/types/questionnaire";
@@ -465,6 +466,8 @@ function resolveShopLine(
   }
 
   const purchaseMode = resolvePurchaseMode(sizeOption, line.purchaseModeId);
+  const mealSelection =
+    purchaseMode?.mealSelection ?? sizeOption.mealSelection;
   const unitPrice = sizeOption.price + (purchaseMode?.priceAdjustment ?? 0);
   const quantity = normalizePositiveInteger(line.quantity, 1);
   const unitWeight =
@@ -486,6 +489,7 @@ function resolveShopLine(
     quantity,
     purchaseModeId: purchaseMode?.id,
     purchaseModeLabel: purchaseMode?.label,
+    mealSelection,
     unitPrice,
     lineTotal: unitPrice * quantity,
     unitWeight,
@@ -634,7 +638,7 @@ function normalizeShopSizeOption(
       ? record.weight
       : undefined;
   const purchaseModesValue = record.purchaseModes;
-
+  const mealSelection = normalizeShopMealSelection(record.mealSelection);
   if (!id || !label || price === undefined) {
     return null;
   }
@@ -645,12 +649,39 @@ function normalizeShopSizeOption(
         .filter(Boolean) as ShopPurchaseMode[]
     : undefined;
 
+    return {
+      id,
+      label,
+      price,
+      weight,
+      mealSelection,
+      purchaseModes: purchaseModes?.length ? purchaseModes : undefined,
+    };
+}
+
+function normalizeShopMealSelection(
+  input: QuestionnaireVariableValue | undefined
+): ShopMealSelectionRequirement | undefined {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return undefined;
+  }
+
+  const record = input as Record<string, QuestionnaireVariableValue>;
+  const mode =
+    record.mode === "required" || record.mode === "optional"
+      ? record.mode
+      : undefined;
+  const menuId = typeof record.menuId === "string" ? record.menuId : undefined;
+  const label = typeof record.label === "string" ? record.label : undefined;
+
+  if (!mode || !menuId) {
+    return undefined;
+  }
+
   return {
-    id,
+    mode,
+    menuId,
     label,
-    price,
-    weight,
-    purchaseModes: purchaseModes?.length ? purchaseModes : undefined,
   };
 }
 
@@ -679,11 +710,12 @@ function normalizeShopPurchaseMode(
     return null;
   }
 
-    return {
+  return {
     id,
     label,
     priceAdjustment,
     requiresPhysicalFulfillment,
+    mealSelection,
   };
 }
 
