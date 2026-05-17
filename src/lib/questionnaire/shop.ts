@@ -674,6 +674,10 @@ function normalizeShopMealSelection(
   const menuId = typeof record.menuId === "string" ? record.menuId : undefined;
   const label = typeof record.label === "string" ? record.label : undefined;
 
+  const price =
+    typeof record.price === "number" && Number.isFinite(record.price)
+      ? record.price
+      : undefined;
   if (!mode || !menuId) {
     return undefined;
   }
@@ -682,6 +686,7 @@ function normalizeShopMealSelection(
     mode,
     menuId,
     label,
+    price,
   };
 }
 
@@ -705,6 +710,8 @@ function normalizeShopPurchaseMode(
     typeof record.requiresPhysicalFulfillment === "boolean"
       ? record.requiresPhysicalFulfillment
       : undefined;
+
+      const mealSelection = normalizeShopMealSelection(record.mealSelection);
 
   if (!id || !label || priceAdjustment === undefined) {
     return null;

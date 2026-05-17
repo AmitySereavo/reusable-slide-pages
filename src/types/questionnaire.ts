@@ -25,6 +25,7 @@ export type ShopMealSelectionRequirement = {
   mode: "required" | "optional";
   menuId: string;
   label?: string;
+  price?: number;
 };
 
 export type ShopPurchaseMode = {
@@ -63,12 +64,14 @@ export type ShopCatalog = {
 export type MealMenuOption = {
   id: string;
   label: string;
+  price?: number;
 };
 
 export type MealMenuGroup = {
   id: string;
   label: string;
   required?: boolean;
+  includedServings?: number;
   options: MealMenuOption[];
 };
 
@@ -81,6 +84,33 @@ export type MealMenu = {
 export type MealMenuCatalog = {
   menus: MealMenu[];
 };
+
+export type TicketMealSelection = Record<string, Record<string, number>>;
+
+export type TicketAssignment = {
+  ticketCode: string;
+  lineKey: string;
+  productId: string;
+  sizeOptionId: string;
+  purchaseModeId?: string;
+  ticketIndex: number;
+  ticketLabel: string;
+  productTitle: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  mealMode?: "required" | "optional";
+  mealMenuId?: string;
+  mealLabel?: string;
+  mealAddOnPrice?: number;
+  mealEnabled?: boolean;
+  mealSelection?: TicketMealSelection;
+  wantsExtraFood?: boolean;
+  hasMealNotes?: boolean;
+  mealNotes?: string;
+};
+
+export type TicketAssignments = TicketAssignment[];
 
 export type MealSelections = Record<
   string,
@@ -390,13 +420,12 @@ export type SlideType =
   | "video"
   | "media"
   | "shop"
+  | "tickets"
   | "meal"
   | "delivery"
   | "recordlist";
 
 export type Slide = {
-  mealMenuKey(mergedVariables: QuestionnaireVariableMap, mealMenuKey: any, firstMenuId: string | undefined): MealMenu | null;
-  mealGoto: boolean;
   id: string;
   type: SlideType;
   title: string;
@@ -451,6 +480,9 @@ export type Slide = {
   deliveryGoto?: string;
   contactGoto?: string;
   reviewGoto?: string;
+  ticketGoto?: string;
+  mealGoto?: string;
+  mealMenuKey?: string;
   deliveryConfigKey?: string;
   completionCheck?: "contact";
   gotoIfComplete?: string;
@@ -565,6 +597,7 @@ export type ParsedSlideDraft = {
   deliveryGoto?: string;
   contactGoto?: string;
   reviewGoto?: string;
+  ticketGoto?: string;
   mealGoto?: string;
   mealMenuKey?: string;
   deliveryConfigKey?: string;

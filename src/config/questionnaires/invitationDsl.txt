@@ -12,7 +12,7 @@
 @countstep: false
 @showback: false
 @next: Get Tickets
-@goto: escape-album-download
+@goto: invitation-shop
 
 
 ===
@@ -106,6 +106,7 @@ BR
 @deliverygoto: delivery-options
 @contactgoto: contact-details
 @reviewgoto: review-order
+@ticketgoto: ticket-details
 @mealgoto: meal-selection
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
@@ -113,6 +114,28 @@ BR
 @actionbartextcolor: #1f1f1f
 @back: Back
 @next: Checkout
+
+===
+// TICKET DETAILS
+@id: ticket-details
+@type: tickets
+@store: ticketAssignments
+@mealgoto: meal-selection
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+---
+BR
+# [c1] Ticket Details
+BR
+[c2] Add the ticket owner's details if you want each person to receive their own ticket or meal link.
+[c3] Name, email, and WhatsApp are optional.
 
 ===
 // MEAL SELECTION

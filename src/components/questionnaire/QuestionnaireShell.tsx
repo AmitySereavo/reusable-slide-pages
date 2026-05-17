@@ -24,6 +24,8 @@ import {
   ShopCart,
   ShopCatalog,
   ShopResolvedCartLine,
+  TicketAssignment,
+  TicketAssignments,
   MealMenu,
   MealSelections,
   SlideRouteRule,
@@ -70,6 +72,19 @@ import {
   normalizeMealSelections,
   setMealOptionQuantity,
 } from "@/lib/questionnaire/meals";
+
+import {
+  areRequiredTicketMealsComplete,
+  buildTicketAssignmentsFromLines,
+  calculateTicketMealExtraTotal,
+  getTicketMealGroupTotal,
+  getTicketsNeedingMeal,
+  hasTicketsNeedingMeal,
+  normalizeTicketAssignments,
+  setTicketMealOptionQuantity,
+  updateTicketAssignmentBoolean,
+  updateTicketAssignmentField,
+} from "@/lib/questionnaire/tickets";
 
 type Props = {
   config: QuestionnaireConfig;
@@ -479,7 +494,7 @@ function getRecordListItems(
 }
 
 export default function QuestionnaireShell({ config, theme }: Props) {
-    const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
@@ -1020,25 +1035,29 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     [sharedOrderBaseLines, activeDiscountDefinition]
   );
 
-  const mealSelections = useMemo<MealSelections>(
-    () => normalizeMealSelections(answers.mealSelections),
-    [answers.mealSelections]
+  const currentTicketAssignments = useMemo<TicketAssignments>(
+    () =>
+      buildTicketAssignmentsFromLines({
+        lines: sharedOrderLines,
+        existingAssignments: normalizeTicketAssignments(
+          answers.ticketAssignments
+        ),
+      }),
+    [sharedOrderLines, answers.ticketAssignments]
   );
 
-   const currentMealMenu = useMemo<MealMenu | null>(() => {
-    if (currentSlide?.type !== "meal") {
-      return null;
-  }
-
-    const mealLines = getMealRequiredLines(sharedOrderLines);
-    const firstMenuId = mealLines[0]?.mealSelection?.menuId;
+    const currentMealMenu = useMemo<MealMenu | null>(() => {
+    const firstMenuId = getTicketsNeedingMeal(
+      currentTicketAssignments
+    )[0]?.mealMenuId;
 
     return getMealMenu(
       mergedVariables,
-      currentSlide.mealMenuKey,
+      currentSlide?.mealMenuKey ?? "mealMenus",
       firstMenuId
     );
-  }, [currentSlide, sharedOrderLines, mergedVariables]);
+  }, [currentSlide, currentTicketAssignments, mergedVariables]);
+
 
   const sharedDeliverySelection = useMemo<DeliverySelection>(
     () => normalizeDeliverySelection(answers.deliverySelection),
@@ -1513,18 +1532,59 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       }
     }
 
-        if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
-      if (
-        currentSlide.mealGoto &&
-        hasMealSelectionItems(currentShopSelectedLines)
-      ) {
-        goToTarget(currentSlide.mealGoto as unknown as string);
+    if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
+  
+      if (currentSlide.ticketGoto) {
+      setAnswer(
+        "ticketAssignments",
+        buildTicketAssignmentsFromLines({
+          lines: currentShopSelectedLines,
+          existingAssignments: normalizeTicketAssignments(
+            answers.ticketAssignments
+          ),
+        })
+      );
+      goToTarget(currentSlide.ticketGoto);
+      return;
+    }
+
+    if (
+      currentSlide.deliveryGoto &&
+      hasPhysicalFulfillmentItems(currentShopCatalog, currentShopCart)
+    ) {
+      goToTarget(currentSlide.deliveryGoto);
+      return;
+    }
+
+    if (currentSlide.contactGoto) {
+      goToTarget(currentSlide.contactGoto);
+      return;
+    }
+
+    if (currentSlide.reviewGoto) {
+      goToTarget(currentSlide.reviewGoto);
+      return;
+    }
+    }
+
+    if (currentSlide.type === "tickets") {
+      const nextAssignments = buildTicketAssignmentsFromLines({
+        lines: sharedOrderLines,
+        existingAssignments: normalizeTicketAssignments(
+          answers.ticketAssignments
+        ),
+      });
+
+      setAnswer("ticketAssignments", nextAssignments);
+
+      if (currentSlide.mealGoto && hasTicketsNeedingMeal(nextAssignments)) {
+        goToTarget(currentSlide.mealGoto);
         return;
       }
 
       if (
         currentSlide.deliveryGoto &&
-        hasPhysicalFulfillmentItems(currentShopCatalog, currentShopCart)
+        hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
       ) {
         goToTarget(currentSlide.deliveryGoto);
         return;
@@ -1541,7 +1601,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       }
     }
 
-      if (currentSlide.type === "meal") {
+    if (currentSlide.type === "meal") {
       if (
         currentSlide.deliveryGoto &&
         hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
@@ -1562,6 +1622,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
 
     const conditionalTarget = resolveRouteRuleTarget(currentSlide.routeRules);
+  
     if (conditionalTarget) {
       goToTarget(conditionalTarget);
       return;
@@ -1576,7 +1637,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       setHistory((prev) => [...prev, currentIndex]);
       setCurrentIndex((prev) => prev + 1);
     }
-  }
+  }// End of  next() function
 
   function back() {
     if (!currentSlide) return;
@@ -1621,10 +1682,9 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
 
     if (currentSlide.type === "meal") {
-      return isMealSelectionComplete({
+      return areRequiredTicketMealsComplete({
         menu: currentMealMenu,
-        lines: sharedOrderLines,
-        selections: mealSelections,
+        assignments: currentTicketAssignments,
       });
     }
 
@@ -1656,7 +1716,6 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
     return true;
   }
-
 
   function getLeadPayload() {
     return {
@@ -2338,14 +2397,23 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                         />
                       ) : null}
 
+                      {currentSlide.type === "tickets" ? (
+                        <TicketDetailsRenderer
+                          assignments={currentTicketAssignments}
+                          theme={theme}
+                          onChange={(nextAssignments) =>
+                            setAnswer("ticketAssignments", nextAssignments)
+                          }
+                        />
+                      ) : null}
+
                       {currentSlide.type === "meal" ? (
                         <MealSelectionRenderer
                           menu={currentMealMenu}
-                          lines={sharedOrderLines}
-                          selections={mealSelections}
+                          assignments={currentTicketAssignments}
                           theme={theme}
-                          onChange={(nextSelections) =>
-                            setAnswer("mealSelections", nextSelections)
+                          onChange={(nextAssignments) =>
+                            setAnswer("ticketAssignments", nextAssignments)
                           }
                         />
                       ) : null}
@@ -2366,16 +2434,24 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
                       {currentSlide.type === "shop" &&
                       currentSlide.shopMode === "review" &&
-                      hasMealSelectionItems(sharedOrderLines) ? (
+                      hasTicketsNeedingMeal(currentTicketAssignments) ? (
                         <MealSelectionSummaryRenderer
                           menu={getMealMenu(
                             mergedVariables,
                             "mealMenus",
-                            getMealRequiredLines(sharedOrderLines)[0]
-                              ?.mealSelection?.menuId
+                            getTicketsNeedingMeal(currentTicketAssignments)[0]
+                              ?.mealMenuId
                           )}
-                          lines={sharedOrderLines}
-                          selections={mealSelections}
+                          assignments={currentTicketAssignments}
+                          mealExtraTotal={calculateTicketMealExtraTotal({
+                            menu: getMealMenu(
+                              mergedVariables,
+                              "mealMenus",
+                              getTicketsNeedingMeal(currentTicketAssignments)[0]
+                                ?.mealMenuId
+                            ),
+                            assignments: currentTicketAssignments,
+                          })}
                           onAdjustMeals={() => goToTarget("meal-selection")}
                         />
                       ) : null}
@@ -2410,7 +2486,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                         />
                       ) : null}
 
-                                            {currentBlock ? (
+                      {currentBlock ? (
                         <DataBlockRenderer
                           block={currentBlock}
                           theme={theme}
@@ -2706,22 +2782,136 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   );
 }
 
+function TicketDetailsRenderer({
+  assignments,
+  theme,
+  onChange,
+}: {
+  assignments: TicketAssignments;
+  theme: ThemeConfig;
+  onChange: (nextAssignments: TicketAssignments) => void;
+}) {
+  if (!assignments.length) {
+    return <p className={styles.body}>No ticket details needed yet.</p>;
+  }
+
+  return (
+    <div className={styles.mealStack}>
+      {assignments.map((assignment) => (
+        <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
+          <div className={styles.mealTicketHeader}>
+            <div className={styles.mealTicketTitle}>
+              {assignment.ticketLabel}
+            </div>
+            <div className={styles.mealTicketMeta}>
+              Code: {assignment.ticketCode}
+            </div>
+            <div className={styles.mealTicketMeta}>
+              {assignment.productTitle}
+            </div>
+          </div>
+
+          <input
+            className={styles.input}
+            value={assignment.ownerName ?? ""}
+            onChange={(event) =>
+              onChange(
+                updateTicketAssignmentField({
+                  assignments,
+                  ticketCode: assignment.ticketCode,
+                  field: "ownerName",
+                  value: event.target.value,
+                })
+              )
+            }
+            placeholder="Ticket owner name (optional)"
+            style={{ borderColor: theme.colors.border }}
+          />
+
+          <input
+            className={styles.input}
+            value={assignment.ownerEmail ?? ""}
+            onChange={(event) =>
+              onChange(
+                updateTicketAssignmentField({
+                  assignments,
+                  ticketCode: assignment.ticketCode,
+                  field: "ownerEmail",
+                  value: event.target.value,
+                })
+              )
+            }
+            placeholder="Ticket owner email (optional)"
+            style={{ borderColor: theme.colors.border }}
+          />
+
+          <input
+            className={styles.input}
+            value={assignment.ownerPhone ?? ""}
+            onChange={(event) =>
+              onChange(
+                updateTicketAssignmentField({
+                  assignments,
+                  ticketCode: assignment.ticketCode,
+                  field: "ownerPhone",
+                  value: event.target.value,
+                })
+              )
+            }
+            placeholder="Ticket owner WhatsApp / phone (optional)"
+            style={{ borderColor: theme.colors.border }}
+          />
+
+          {assignment.mealMode === "required" ? (
+            <div className={styles.contactNote}>
+              Meal selection required for this ticket.
+            </div>
+          ) : null}
+
+          {assignment.mealMode === "optional" ? (
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={assignment.mealEnabled === true}
+                onChange={(event) =>
+                  onChange(
+                    updateTicketAssignmentBoolean({
+                      assignments,
+                      ticketCode: assignment.ticketCode,
+                      field: "mealEnabled",
+                      value: event.target.checked,
+                    })
+                  )
+                }
+              />
+              <span>
+                Add meal for this ticket
+                {assignment.mealAddOnPrice
+                  ? ` +${formatCurrency(assignment.mealAddOnPrice, "USD")}`
+                  : ""}
+              </span>
+            </label>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MealSelectionRenderer({
   menu,
-  lines,
-  selections,
+  assignments,
   theme,
   onChange,
 }: {
   menu: MealMenu | null;
-  lines: ShopResolvedCartLine[];
-  selections: MealSelections;
+  assignments: TicketAssignments;
   theme: ThemeConfig;
-  onChange: (nextSelections: MealSelections) => void;
+  onChange: (nextAssignments: TicketAssignments) => void;
 }) {
-  const mealLines = getMealRequiredLines(lines);
+  const mealAssignments = getTicketsNeedingMeal(assignments);
 
-  if (!menu || !mealLines.length) {
+  if (!menu || !mealAssignments.length) {
     return (
       <p className={styles.body}>
         No meal selections are needed for this order.
@@ -2731,53 +2921,52 @@ function MealSelectionRenderer({
 
   return (
     <div className={styles.mealStack}>
-      {mealLines.map((line) => (
-        <div key={line.lineKey} className={styles.mealTicketPanel}>
+      {mealAssignments.map((assignment) => (
+        <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
           <div className={styles.mealTicketHeader}>
             <div className={styles.mealTicketTitle}>
-              {line.sizeLabel}
+              {assignment.ownerName?.trim() || assignment.ticketLabel}
             </div>
             <div className={styles.mealTicketMeta}>
-              Meal quantity needed: {line.quantity}
+              Code: {assignment.ticketCode}
+            </div>
+            <div className={styles.mealTicketMeta}>
+              {assignment.mealLabel ?? "Meal selection"}
             </div>
           </div>
 
           {menu.groups.map((group) => {
-            const groupTotal = getMealGroupTotal(
-              selections,
-              line.lineKey,
-              group.id
-            );
-            const isComplete = group.required === false || groupTotal === line.quantity;
+            const groupTotal = getTicketMealGroupTotal(assignment, group.id);
+            const includedServings =
+              typeof group.includedServings === "number"
+                ? group.includedServings
+                : group.required === false
+                  ? 0
+                  : 1;
 
             return (
-              <div key={`${line.lineKey}-${group.id}`} className={styles.mealGroup}>
+              <div key={`${assignment.ticketCode}-${group.id}`} className={styles.mealGroup}>
                 <div className={styles.mealGroupHeader}>
                   <div className={styles.mealGroupTitle}>{group.label}</div>
-                  <div
-                    className={styles.mealGroupCount}
-                    style={{
-                      color: isComplete ? theme.colors.primary : theme.colors.text,
-                    }}
-                  >
-                    {groupTotal} / {line.quantity}
+                  <div className={styles.mealGroupCount}>
+                    {groupTotal} selected
+                    {includedServings > 0 ? ` · ${includedServings} included` : ""}
                   </div>
                 </div>
 
                 <div className={styles.mealOptionStack}>
                   {group.options.map((option) => {
                     const currentQuantity =
-                      selections[line.lineKey]?.[group.id]?.[option.id] ?? 0;
-                    const remaining = Math.max(0, line.quantity - groupTotal);
-                    const canIncrease = remaining > 0;
+                      assignment.mealSelection?.[group.id]?.[option.id] ?? 0;
 
                     return (
                       <div
-                        key={`${line.lineKey}-${group.id}-${option.id}`}
+                        key={`${assignment.ticketCode}-${group.id}-${option.id}`}
                         className={styles.mealOptionRow}
                       >
                         <div className={styles.mealOptionLabel}>
                           {option.label}
+                          {option.price ? ` · ${formatCurrency(option.price, "USD")} extra` : ""}
                         </div>
 
                         <div className={styles.quantityControl}>
@@ -2786,9 +2975,9 @@ function MealSelectionRenderer({
                             className={styles.quantityButton}
                             onClick={() =>
                               onChange(
-                                setMealOptionQuantity({
-                                  selections,
-                                  lineKey: line.lineKey,
+                                setTicketMealOptionQuantity({
+                                  assignments,
+                                  ticketCode: assignment.ticketCode,
                                   groupId: group.id,
                                   optionId: option.id,
                                   quantity: currentQuantity - 1,
@@ -2810,16 +2999,15 @@ function MealSelectionRenderer({
                             className={styles.quantityButton}
                             onClick={() =>
                               onChange(
-                                setMealOptionQuantity({
-                                  selections,
-                                  lineKey: line.lineKey,
+                                setTicketMealOptionQuantity({
+                                  assignments,
+                                  ticketCode: assignment.ticketCode,
                                   groupId: group.id,
                                   optionId: option.id,
                                   quantity: currentQuantity + 1,
                                 })
                               )
                             }
-                            disabled={!canIncrease}
                             style={{ borderColor: theme.colors.border }}
                           >
                             +
@@ -2832,6 +3020,62 @@ function MealSelectionRenderer({
               </div>
             );
           })}
+
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={assignment.wantsExtraFood === true}
+              onChange={(event) =>
+                onChange(
+                  updateTicketAssignmentBoolean({
+                    assignments,
+                    ticketCode: assignment.ticketCode,
+                    field: "wantsExtraFood",
+                    value: event.target.checked,
+                  })
+                )
+              }
+            />
+            <span>I may want to order extra food at the event.</span>
+          </label>
+
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={assignment.hasMealNotes === true}
+              onChange={(event) =>
+                onChange(
+                  updateTicketAssignmentBoolean({
+                    assignments,
+                    ticketCode: assignment.ticketCode,
+                    field: "hasMealNotes",
+                    value: event.target.checked,
+                  })
+                )
+              }
+            />
+            <span>I want to add notes for this person's meal.</span>
+          </label>
+
+          {assignment.hasMealNotes === true ? (
+            <textarea
+              className={styles.input}
+              value={assignment.mealNotes ?? ""}
+              onChange={(event) =>
+                onChange(
+                  updateTicketAssignmentField({
+                    assignments,
+                    ticketCode: assignment.ticketCode,
+                    field: "mealNotes",
+                    value: event.target.value,
+                  })
+                )
+              }
+              placeholder="Example: no bananas, all dumplings, extra gravy, half rice and peas if possible..."
+              rows={4}
+              style={{ borderColor: theme.colors.border }}
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -2840,18 +3084,18 @@ function MealSelectionRenderer({
 
 function MealSelectionSummaryRenderer({
   menu,
-  lines,
-  selections,
+  assignments,
+  mealExtraTotal,
   onAdjustMeals,
 }: {
   menu: MealMenu | null;
-  lines: ShopResolvedCartLine[];
-  selections: MealSelections;
+  assignments: TicketAssignments;
+  mealExtraTotal: number;
   onAdjustMeals: () => void;
 }) {
-  const mealLines = getMealRequiredLines(lines);
+  const mealAssignments = getTicketsNeedingMeal(assignments);
 
-  if (!menu || !mealLines.length) {
+  if (!menu || !mealAssignments.length) {
     return null;
   }
 
@@ -2859,7 +3103,7 @@ function MealSelectionSummaryRenderer({
     <div className={styles.reviewSummaryStack}>
       <div className={styles.reviewSummaryCard}>
         <div className={styles.reviewSummaryHeader}>
-          <div className={styles.reviewSummaryTitle}>Meal selections</div>
+          <div className={styles.reviewSummaryTitle}>Ticket meals</div>
           <button
             type="button"
             className={styles.adjustLinkButton}
@@ -2870,14 +3114,18 @@ function MealSelectionSummaryRenderer({
         </div>
 
         <div className={styles.reviewSummaryBody}>
-          {mealLines.map((line) => (
-            <div key={line.lineKey}>
-              <strong>{line.sizeLabel}</strong>
+          {mealAssignments.map((assignment) => (
+            <div key={assignment.ticketCode}>
+              <strong>
+                {assignment.ownerName?.trim() || assignment.ticketLabel}
+              </strong>
+              <div>Code: {assignment.ticketCode}</div>
+
               {menu.groups.map((group) => {
                 const selectedOptions = group.options
                   .map((option) => {
                     const quantity =
-                      selections[line.lineKey]?.[group.id]?.[option.id] ?? 0;
+                      assignment.mealSelection?.[group.id]?.[option.id] ?? 0;
 
                     return quantity > 0
                       ? `${option.label} × ${quantity}`
@@ -2890,13 +3138,31 @@ function MealSelectionSummaryRenderer({
                 }
 
                 return (
-                  <div key={`${line.lineKey}-${group.id}`}>
+                  <div key={`${assignment.ticketCode}-${group.id}`}>
                     {group.label}: {selectedOptions.join(", ")}
                   </div>
                 );
               })}
+
+              {assignment.wantsExtraFood === true ? (
+                <div>May order extra food at event.</div>
+              ) : null}
+
+              {assignment.hasMealNotes === true &&
+              String(assignment.mealNotes ?? "").trim().length > 0 ? (
+                <div>
+                  Notes: {String(assignment.mealNotes ?? "").trim()}
+                </div>
+              ) : null}
             </div>
           ))}
+
+          {mealExtraTotal > 0 ? (
+            <div>
+              Meal add-ons / extra servings:{" "}
+              {formatCurrency(mealExtraTotal, "USD")}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

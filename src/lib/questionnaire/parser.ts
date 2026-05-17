@@ -269,6 +269,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@ticketgoto:")) {
+        draft.ticketGoto = readValue(line, "@ticketgoto:");
+        continue;
+      }
+
       if (line.startsWith("@mealgoto:")) {
         draft.mealGoto = readValue(line, "@mealgoto:");
         continue;
@@ -296,7 +301,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-            if (line.startsWith("@block:")) {
+      if (line.startsWith("@block:")) {
         draft.blockKey = readValue(line, "@block:");
         continue;
       }
@@ -354,7 +359,7 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
-            if (line.startsWith("@showsteptext:")) {
+      if (line.startsWith("@showsteptext:")) {
         draft.showStepText = parseBooleanValue(
           readValue(line, "@showsteptext:"),
           true
@@ -679,6 +684,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     deliveryGoto: draft.deliveryGoto,
     contactGoto: draft.contactGoto,
     reviewGoto: draft.reviewGoto,
+    ticketGoto: draft.ticketGoto,
     mealGoto: draft.mealGoto,
     mealMenuKey: draft.mealMenuKey,
     deliveryConfigKey: draft.deliveryConfigKey,
