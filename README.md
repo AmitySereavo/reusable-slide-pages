@@ -2,7 +2,7 @@
 
 A reusable, registry-driven, DSL-powered slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
 
-The project renders interactive multi-slide experiences from plain-text DSL files instead of hardcoding every flow directly in React. It supports marketing funnels, questionnaires, media-rich video flows, storefront pages, delivery/pickup flows, contact capture, digital downloads, ticket/invitation flows, DB-backed nursery operations, record lists, and reusable profile blocks.
+The project renders interactive multi-slide experiences from plain-text DSL files instead of hardcoding every flow directly in React. It supports marketing funnels, questionnaires, media-rich video flows, storefront pages, delivery/pickup flows, contact capture, digital downloads, ticket/invitation flows, ticket-owner assignment, per-ticket meal selection, DB-backed nursery operations, record lists, and reusable profile blocks.
 
 ## Current stack
 
@@ -26,6 +26,8 @@ Each slide experience is configured by:
 - variables
 - optional dynamic variables
 - optional shop catalog data
+- optional delivery config
+- optional meal menu config
 - optional reusable block definitions
 - optional downloadable file catalog entries
 
@@ -73,7 +75,7 @@ Route:
 
 ### `invitation`
 
-A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, and future gated download access.
+A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
 
 Current capabilities:
 
@@ -85,6 +87,14 @@ Current capabilities:
 - WhatsApp subscription form
 - invitation/event shop
 - ticket/invitation purchase options
+- ticket-owner details page
+- generated temporary ticket codes per selected ticket
+- optional ticket owner name, email, and WhatsApp/phone
+- required and optional per-ticket meal support
+- per-ticket meal selection instead of aggregate meal totals
+- optional meal add-on pricing
+- extra serving pricing support
+- meal notes per ticket
 - digital album purchase options
 - physical-fulfillment-aware checkout routing
 - contact-only routing for digital/email-only orders
@@ -140,6 +150,15 @@ Each registry entry can define:
 
 The registry loads the DSL, injects variables, parses slides, injects reusable blocks, and returns the config and theme to the shared route.
 
+For invitation flows, the registry can inject:
+
+```txt
+shopCatalog
+deliveryConfig
+discountDefinitions
+mealMenus
+```
+
 ## DSL file format
 
 DSL files are plain text files.
@@ -173,6 +192,8 @@ Do not wrap DSL files in TypeScript exports.
 - `media`
 - `video`
 - `shop`
+- `tickets`
+- `meal`
 - `delivery`
 - `recordlist`
 
@@ -237,6 +258,9 @@ Current DSL directives include:
 @actionbartextcolor:
 @catalog:
 @shopmode:
+@ticketgoto:
+@mealgoto:
+@mealmenu:
 @deliverygoto:
 @contactgoto:
 @reviewgoto:
@@ -418,10 +442,11 @@ The catalog supports:
 - product fulfillment type
 - size/order options
 - optional purchase modes
+- optional meal requirements on size options or purchase modes
 - line quantities
 - review mode
 - discounts
-- conditional delivery/contact routing
+- conditional ticket/details, meal, delivery, contact, and review routing
 
 Basic shop slide:
 
@@ -432,17 +457,21 @@ Basic shop slide:
 @store: orderCart
 @catalog: shopCatalog
 @shopmode: browse
+@ticketgoto: ticket-details
+@mealgoto: meal-selection
 @deliverygoto: delivery-options
 @contactgoto: contact-details
 @reviewgoto: review-order
 @next: Checkout
 ```
 
-Shop browse routing:
+Shop browse routing for invitation-style flows:
 
-- if the selected cart requires physical fulfillment, the shop goes to `@deliverygoto`
-- if not, it goes to `@contactgoto`
-- if no contact target exists, it can fall back to `@reviewgoto`
+```txt
+Shop → Ticket Details
+```
+
+The ticket details slide then controls whether the user selects meals, continues to delivery, continues to contact details, or reaches review order.
 
 ## Fulfillment model
 
@@ -496,6 +525,174 @@ This lets the same reusable system support different event wording:
 - physical ticket
 - physical invitation
 
+## Ticket details system
+
+The reusable `tickets` slide creates one ticket assignment panel for every selected ticket/invitation quantity.
+
+Ticket assignment data is derived from selected shop lines and stored in:
+
+```txt
+ticketAssignments
+```
+
+Each generated ticket assignment supports:
+
+- temporary generated ticket code
+- product and ticket label
+- ticket owner name
+- ticket owner email
+- ticket owner WhatsApp/phone
+- required meal status
+- optional meal add-on status
+- selected meal data
+- per-ticket meal notes
+
+Current ticket code behavior:
+
+- generated in the frontend from selected cart line data
+- stable during the checkout session
+- intended to be replaced or persisted by database-backed ticket codes after order/payment submission
+
+Example ticket details slide:
+
+```txt
+===
+@id: ticket-details
+@type: tickets
+@store: ticketAssignments
+@mealgoto: meal-selection
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@back: Back
+@next: Continue
+---
+BR
+# [c1] Ticket Details
+BR
+[c2] Add the ticket owner's details if you want each person to receive their own ticket or meal link.
+[c3] Name, email, and WhatsApp are optional.
+```
+
+Current intended flow:
+
+```txt
+Shop
+→ Ticket Details
+→ Select meal for a specific ticket when needed
+→ Ticket Details
+→ Delivery / Contact / Review
+```
+
+Meal selection is entered from each ticket panel, not as one long aggregate meal page.
+
+Future ticket-owner access direction:
+
+- ticket purchaser can enter owner name/email/phone per ticket
+- system can later email each ticket owner their own meal-access link
+- owner can verify by code
+- owner sees only their own ticket details
+- owner can choose or update their meal before the meal cutoff date
+- after cutoff, meal editing should lock
+- additional meal charges can route to a payment step
+
+## Meal selection system
+
+Meal selection is per ticket, not aggregate across the whole order.
+
+This solves the serving/chef pairing problem.
+
+Instead of only knowing:
+
+```txt
+Plain rice × 2
+Rice and peas × 1
+Stew peas × 2
+Curry chickpeas × 1
+```
+
+the system can preserve:
+
+```txt
+Ticket 1 / John Brown
+Base: Plain rice
+Main: Curry chickpeas
+Side: Plantain
+
+Ticket 2 / Marsha Green
+Base: Rice and peas
+Main: Stew peas
+Side: Potato salad
+```
+
+Meal config lives in:
+
+```txt
+src/config/meals/mealMenus.ts
+```
+
+Reusable ticket helpers live in:
+
+```txt
+src/lib/questionnaire/tickets.ts
+```
+
+Meal menu options can include optional pricing:
+
+```ts
+{
+  id: "plain-rice",
+  label: "Plain rice",
+  price: 3,
+}
+```
+
+Meal groups can define included servings:
+
+```ts
+{
+  id: "base",
+  label: "Choose your base",
+  required: true,
+  includedServings: 1,
+  options: [
+    { id: "plain-rice", label: "Plain rice", price: 3 },
+    { id: "rice-and-peas", label: "Rice and peas", price: 4 },
+  ],
+}
+```
+
+Meal requirement can be attached to a size option or purchase mode:
+
+```ts
+mealSelection: {
+  mode: "required",
+  menuId: "vegan-event-menu",
+  label: "Included vegan meal",
+}
+```
+
+Optional paid meal add-on:
+
+```ts
+mealSelection: {
+  mode: "optional",
+  menuId: "vegan-event-menu",
+  label: "Add vegan meal",
+  price: 15,
+}
+```
+
+Current meal behavior:
+
+- required meal tickets always require meal selection
+- optional meal tickets can show an add-meal checkbox
+- meal selection edits the selected ticket only
+- per-ticket notes are supported
+- customer can indicate they may want extra food at the event
+- extra servings can be priced from the meal menu config
+- review can display ticket meals and meal add-on / extra serving totals
+
 ## Invitation shop catalog
 
 Invitation shop data lives in:
@@ -514,6 +711,8 @@ The invitation catalog can include:
 - physical invitation fulfillment
 - album-only products
 - album add-on options inside event products
+- ticket options with required meals
+- ticket options with optional paid meals
 
 Current intended product shape:
 
@@ -530,7 +729,29 @@ The album can also exist as a separate product so users can purchase it without 
 
 Every order should collect contact information.
 
-Digital or email-only orders:
+Invitation-style orders:
+
+```txt
+Shop → Ticket Details → Contact Details → Review Order
+```
+
+Invitation-style orders with physical fulfillment:
+
+```txt
+Shop → Ticket Details → Delivery Options → Contact Details if needed → Review Order
+```
+
+Invitation-style orders with meals:
+
+```txt
+Shop
+→ Ticket Details
+→ Select meal for ticket
+→ Ticket Details
+→ Delivery / Contact / Review
+```
+
+Digital or email-only orders without ticket details:
 
 ```txt
 Shop → Contact Details → Review Order
@@ -567,7 +788,11 @@ Current behavior:
 - total order weight only shows when at least one selected line has real weight
 - zero-weight physical items such as tickets/invitations do not display meaningless weight
 - order line weights are hidden when weight is `0`
+- ticket meals can be summarized per ticket
+- meal add-ons / extra servings can be displayed as an additional meal total
 - total due always shows
+
+Meal add-on total is currently calculated and displayed in the review meal summary. A later step should fully merge meal add-on totals into the main order grand total and payment amount.
 
 ## Download system
 
@@ -983,6 +1208,25 @@ Then reference those keys from the DSL using:
 - download-key|Button Label|styleKey
 ```
 
+If the questionnaire needs meal menus, add a meal menu config and inject it from the registry:
+
+```txt
+src/config/meals/mealMenus.ts
+```
+
+If the questionnaire needs ticket assignment behavior, use:
+
+```txt
+@type: tickets
+@store: ticketAssignments
+```
+
+and route to it from the shop with:
+
+```txt
+@ticketgoto: ticket-details
+```
+
 ## Important shared files
 
 ```txt
@@ -995,9 +1239,12 @@ src/lib/questionnaire/resolveDslTemplate.ts
 src/lib/questionnaire/loadDslText.ts
 src/lib/questionnaire/shop.ts
 src/lib/questionnaire/delivery.ts
+src/lib/questionnaire/tickets.ts
+src/lib/questionnaire/meals.ts
 src/config/questionnaires/registry.ts
 src/config/questionnaireBlocks.ts
 src/config/downloads/downloadCatalog.ts
+src/config/meals/mealMenus.ts
 src/app/api/downloads/[downloadKey]/route.ts
 ```
 
@@ -1053,6 +1300,9 @@ The project is moving toward a reusable platform for:
 - video-driven routing
 - performance rating flows
 - ticket/invitation sales
+- ticket-owner assignment
+- per-ticket meal selection
+- ticket-owner gated access
 - digital album downloads
 - secure download pages
 - reusable storefronts
@@ -1064,8 +1314,4 @@ The major rule remains:
 
 Reusable capability goes into shared parser, shell, route, type, or library layers.
 
-Project-specific wording, products, events, files, prices, and media paths belong in DSL/config/catalog files.
-
-```
-
-```
+Project-specific wording, products, events, files, prices, meals, and media paths belong in DSL/config/catalog files.

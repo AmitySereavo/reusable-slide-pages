@@ -1577,11 +1577,6 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
       setAnswer("ticketAssignments", nextAssignments);
 
-      if (currentSlide.mealGoto && hasTicketsNeedingMeal(nextAssignments)) {
-        goToTarget(currentSlide.mealGoto);
-        return;
-      }
-
       if (
         currentSlide.deliveryGoto &&
         hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
@@ -1589,6 +1584,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
         goToTarget(currentSlide.deliveryGoto);
         return;
       }
+
 
       if (currentSlide.contactGoto) {
         goToTarget(currentSlide.contactGoto);
@@ -1602,23 +1598,8 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
 
     if (currentSlide.type === "meal") {
-      if (
-        currentSlide.deliveryGoto &&
-        hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
-      ) {
-        goToTarget(currentSlide.deliveryGoto);
-        return;
-      }
-
-      if (currentSlide.contactGoto) {
-        goToTarget(currentSlide.contactGoto);
-        return;
-      }
-
-      if (currentSlide.reviewGoto) {
-        goToTarget(currentSlide.reviewGoto);
-        return;
-      }
+      goToTarget("ticket-details");
+      return;
     }
 
     const conditionalTarget = resolveRouteRuleTarget(currentSlide.routeRules);
@@ -2404,6 +2385,10 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                           onChange={(nextAssignments) =>
                             setAnswer("ticketAssignments", nextAssignments)
                           }
+                          onSelectMeal={(ticketCode) => {
+                            setAnswer("selectedMealTicketCode", ticketCode);
+                            goToTarget("meal-selection");
+                          }}
                         />
                       ) : null}
 
@@ -2411,10 +2396,16 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                         <MealSelectionRenderer
                           menu={currentMealMenu}
                           assignments={currentTicketAssignments}
+                          selectedTicketCode={
+                            typeof answers.selectedMealTicketCode === "string"
+                              ? answers.selectedMealTicketCode
+                              : ""
+                          }
                           theme={theme}
                           onChange={(nextAssignments) =>
                             setAnswer("ticketAssignments", nextAssignments)
                           }
+                          onBackToTickets={() => goToTarget("ticket-details")}
                         />
                       ) : null}
 
@@ -2786,10 +2777,12 @@ function TicketDetailsRenderer({
   assignments,
   theme,
   onChange,
+  onSelectMeal,
 }: {
   assignments: TicketAssignments;
   theme: ThemeConfig;
   onChange: (nextAssignments: TicketAssignments) => void;
+  onSelectMeal: (ticketCode: string) => void;
 }) {
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
@@ -2868,7 +2861,7 @@ function TicketDetailsRenderer({
             </div>
           ) : null}
 
-          {assignment.mealMode === "optional" ? (
+                    {assignment.mealMode === "optional" ? (
             <label className={styles.checkboxRow}>
               <input
                 type="checkbox"
@@ -2892,6 +2885,22 @@ function TicketDetailsRenderer({
               </span>
             </label>
           ) : null}
+
+          {(assignment.mealMode === "required" ||
+            assignment.mealEnabled === true) ? (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => onSelectMeal(assignment.ticketCode)}
+              style={{
+                borderColor: theme.colors.border,
+                background: "#FFFFFF",
+                color: theme.colors.text,
+              }}
+            >
+              Select meal for this ticket
+            </button>
+          ) : null}
         </div>
       ))}
     </div>
@@ -2899,28 +2908,46 @@ function TicketDetailsRenderer({
 }
 
 function MealSelectionRenderer({
-  menu,
-  assignments,
-  theme,
-  onChange,
-}: {
-  menu: MealMenu | null;
-  assignments: TicketAssignments;
-  theme: ThemeConfig;
-  onChange: (nextAssignments: TicketAssignments) => void;
-}) {
-  const mealAssignments = getTicketsNeedingMeal(assignments);
-
+    menu,
+    assignments,
+    selectedTicketCode,
+    theme,
+    onChange,
+    onBackToTickets,
+  }: {
+    menu: MealMenu | null;
+    assignments: TicketAssignments;
+    selectedTicketCode: string;
+    theme: ThemeConfig;
+    onChange: (nextAssignments: TicketAssignments) => void;
+    onBackToTickets: () => void;
+  }) {
+    const mealAssignments = getTicketsNeedingMeal(assignments).filter(
+      (assignment) => assignment.ticketCode === selectedTicketCode
+    );
   if (!menu || !mealAssignments.length) {
     return (
       <p className={styles.body}>
-        No meal selections are needed for this order.
+       Choose a ticket from the Ticket Details page to edit its meal.
       </p>
     );
   }
 
-  return (
+    return (
     <div className={styles.mealStack}>
+      <button
+        type="button"
+        className={styles.secondaryButton}
+        onClick={onBackToTickets}
+        style={{
+          borderColor: theme.colors.border,
+          background: "#FFFFFF",
+          color: theme.colors.text,
+        }}
+      >
+        Back to ticket details
+      </button>
+
       {mealAssignments.map((assignment) => (
         <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
           <div className={styles.mealTicketHeader}>
