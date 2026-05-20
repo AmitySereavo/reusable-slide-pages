@@ -6,34 +6,14 @@ import {
   downloadCatalog,
   getDownloadCatalogItem,
 } from "@/config/downloads/downloadCatalog";
-
+import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 
 function encodeDownloadFileName(fileName: string) {
   return encodeURIComponent(fileName).replace(/['()]/g, escape);
 }
 
-function getDownloadKeyFromRequest(
-  request: Request,
-  context?: {
-    params?: Promise<{ downloadKey?: string }> | { downloadKey?: string };
-  }
-) {
-  const paramsValue = context?.params;
-
-  if (paramsValue && typeof "then" in Object(paramsValue)) {
-    return "";
-  }
-
-  const paramKey =
-    paramsValue && "downloadKey" in paramsValue
-      ? paramsValue.downloadKey
-      : undefined;
-
-  if (paramKey) {
-    return paramKey;
-  }
-
+function getDownloadKeyFromRequest(request: Request) {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean);
 
@@ -42,15 +22,14 @@ function getDownloadKeyFromRequest(
 
 export async function GET(
   request: Request,
-  context?: {
-    params?: Promise<{ downloadKey?: string }> | { downloadKey?: string };
+  context: {
+    params: Promise<{ downloadkey: string }>;
   }
 ) {
-  const awaitedParams = context?.params ? await context.params : undefined;
+  const params = await context.params;
 
   const downloadKey =
-    awaitedParams?.downloadKey ?? getDownloadKeyFromRequest(request, context);
-
+    params.downloadkey || getDownloadKeyFromRequest(request);
   if (!downloadKey) {
     return new Response("Download key is missing.", { status: 400 });
   }
