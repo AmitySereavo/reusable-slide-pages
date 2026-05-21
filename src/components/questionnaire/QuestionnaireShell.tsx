@@ -1532,8 +1532,16 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     return match?.goto ?? null;
   }
 
-  function next() {
+async function next() {
     if (!currentSlide) return;
+
+    if (currentSlide.run) {
+      const ok = await runSlideAction(currentSlide.run);
+
+      if (!ok) {
+        return;
+      }
+    }
 
     if (currentSlide.completionCheck === "contact") {
       if (contactInfoComplete && currentSlide.gotoIfComplete) {
@@ -1734,7 +1742,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     return true;
   }
 
-    function getAuthSignupPayload() {
+  function getAuthSignupPayload() {
     const firstName = String(answers.firstName ?? "").trim();
     const lastName = String(answers.lastName ?? "").trim();
     const fullName =
@@ -1762,6 +1770,17 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       addressLine2: String(answers.addressLine2 ?? "").trim(),
       parishOrRegion: String(answers.parishOrRegion ?? "").trim(),
       postalCode: String(answers.postalCode ?? "").trim(),
+    };
+  }
+
+  function getAuthIdentifierPayload() {
+    const identifier =
+      String(answers.identifier ?? "").trim() ||
+      String(answers.email ?? "").trim() ||
+      String(answers.phone ?? "").trim();
+
+    return {
+      identifier,
     };
   }
 
@@ -1817,6 +1836,11 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       successGoto?: string;
     }
   > = {
+    checkSignupIdentifier: {
+      url: "/api/signup/check-identifier",
+      payload: getAuthIdentifierPayload,
+    },
+
     submitSignup: {
       url: "/api/signup",
       payload: getAuthSignupPayload,
@@ -1867,6 +1891,28 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
     if (!response.ok) {
       throw new Error(data?.error || data?.message || "Failed to run action.");
+    }
+
+        if (
+      runName === "checkSignupIdentifier" &&
+      data?.exists === true &&
+      data?.verified === true
+    ) {
+      throw new Error(
+        data?.message ||
+          "An account already exists with this email address or phone number. Please log in instead."
+      );
+    }
+
+    if (
+      runName === "checkSignupIdentifier" &&
+      data?.exists === true &&
+      data?.needsVerification === true
+    ) {
+      throw new Error(
+        data?.message ||
+          "This account already exists but still needs verification. Please go to verification or log in again."
+      );
     }
 
     if (action.successGoto) {
