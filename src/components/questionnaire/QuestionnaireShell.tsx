@@ -86,6 +86,11 @@ import {
   updateTicketAssignmentField,
 } from "@/lib/questionnaire/tickets";
 
+import {
+  getPasswordRequirementResults,
+  getPasswordStrength,
+} from "@/customerAccess/utils/passwordPolicy";
+
 type Props = {
   config: QuestionnaireConfig;
   theme: ThemeConfig;
@@ -494,6 +499,7 @@ function getRecordListItems(
 }
 
 export default function QuestionnaireShell({ config, theme }: Props) {
+
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -936,6 +942,10 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     [visibleSlides, currentIndex]
   );
 
+    const [visiblePasswordFields, setVisiblePasswordFields] = useState<
+    Record<string, boolean>
+  >({});
+
   const currentStepNumber =
     currentSlide?.countStep === false
       ? countedSlidesBeforeCurrent
@@ -1086,13 +1096,11 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
   useEffect(() => {
     const endpoint = config.dynamicVariablesEndpoint;
-
     if (!endpoint) {
       return;
     }
 
     const controller = new AbortController();
-
     async function loadDynamicVariables() {
       try {
         let requestUrl = endpoint;
@@ -1282,11 +1290,18 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     });
   }, [currentSlide?.id, isMediaSlide]);
 
+    function togglePasswordFieldVisibility(fieldName: string) {
+    setVisiblePasswordFields((prev) => ({
+      ...prev,
+      [fieldName]: !prev[fieldName],
+    }));
+  }
+
   function setAnswer(key: string, value: QuestionnaireVariableValue) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
-    function getAllFormFieldNames() {
+  function getAllFormFieldNames() {
     return Array.from(
       new Set(
         config.slides.flatMap((slide) =>
@@ -1681,7 +1696,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       (currentSlide.type === "form" || currentSlide.type === "contact") &&
       currentSlide.fields?.length
     ) {
-      return currentSlide.fields.every((field) => {
+            const requiredFieldsFilled = currentSlide.fields.every((field) => {
         if (!field.required) return true;
 
         const value = answers[field.name];
@@ -1689,6 +1704,27 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
         return String(value ?? "").trim().length > 0;
       });
+
+      if (!requiredFieldsFilled) {
+        return false;
+      }
+
+      const hasPasswordField = currentSlide.fields.some(
+        (field) => field.name === "password"
+      );
+      const hasConfirmPasswordField = currentSlide.fields.some(
+        (field) => field.name === "confirmPassword"
+      );
+
+      if (hasPasswordField && hasConfirmPasswordField) {
+        return (
+          String(answers.password ?? "").length > 0 &&
+          String(answers.password ?? "") ===
+            String(answers.confirmPassword ?? "")
+        );
+      }
+
+      return true;
     }
 
     if (currentSlide.type === "recordlist" && currentSlide.storeAs) {
@@ -1696,6 +1732,44 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     }
 
     return true;
+  }
+
+    function getAuthSignupPayload() {
+    const firstName = String(answers.firstName ?? "").trim();
+    const lastName = String(answers.lastName ?? "").trim();
+    const fullName =
+      String(answers.fullName ?? "").trim() ||
+      [firstName, lastName].filter(Boolean).join(" ");
+
+    const identifier =
+      String(answers.identifier ?? "").trim() ||
+      String(answers.email ?? "").trim() ||
+      String(answers.phone ?? "").trim();
+
+    return {
+      name: fullName,
+      fullName,
+      firstName,
+      lastName,
+      identifier,
+      email: String(answers.email ?? "").trim(),
+      phone: String(answers.phone ?? "").trim(),
+      password: String(answers.password ?? ""),
+      confirmPassword: String(answers.confirmPassword ?? ""),
+      country: String(answers.country ?? "").trim(),
+      city: String(answers.city ?? "").trim(),
+      addressLine1: String(answers.addressLine1 ?? "").trim(),
+      addressLine2: String(answers.addressLine2 ?? "").trim(),
+      parishOrRegion: String(answers.parishOrRegion ?? "").trim(),
+      postalCode: String(answers.postalCode ?? "").trim(),
+    };
+  }
+
+  function getAuthLoginPayload() {
+    return {
+      identifier: String(answers.identifier ?? "").trim(),
+      password: String(answers.password ?? ""),
+    };
   }
 
   function getLeadPayload() {
@@ -1735,10 +1809,24 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   }
 
  async function runSlideAction(runName: string) {
-  const actionMap: Record<
+    const actionMap: Record<
     string,
-    { url: string; payload: () => Record<string, unknown> }
+    {
+      url: string;
+      payload: () => Record<string, unknown>;
+      successGoto?: string;
+    }
   > = {
+    submitSignup: {
+      url: "/api/signup",
+      payload: getAuthSignupPayload,
+      successGoto: "signup-verify",
+    },
+    submitLogin: {
+      url: "/api/login",
+      payload: getAuthLoginPayload,
+      successGoto: "login-success",
+    },
     submitLead: {
       url: "/api/questionnaires/submit",
       payload: getLeadPayload,
@@ -1779,6 +1867,10 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
 
     if (!response.ok) {
       throw new Error(data?.error || data?.message || "Failed to run action.");
+    }
+
+    if (action.successGoto) {
+      goToTarget(action.successGoto);
     }
 
     if (
@@ -2570,6 +2662,12 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
                               answers={answers}
                               variables={mergedVariables}
                               setAnswer={setAnswer}
+                              isPasswordVisible={
+                                visiblePasswordFields[field.name] === true
+                              }
+                              onTogglePasswordVisibility={() =>
+                                togglePasswordFieldVisibility(field.name)
+                              }
                             />
                           ))}
                         </div>
@@ -4211,12 +4309,16 @@ function FormFieldRenderer({
   answers,
   variables,
   setAnswer,
+  isPasswordVisible,
+  onTogglePasswordVisibility,
 }: {
   field: FormField;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
   variables?: QuestionnaireVariableMap;
   setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  isPasswordVisible?: boolean;
+  onTogglePasswordVisibility?: () => void;
 }) {
   const resolvedLabel =
     replaceDynamicText(field.label, answers, variables) ?? field.label;
@@ -4316,7 +4418,9 @@ function FormFieldRenderer({
           onChange={(e) => setAnswer(field.name, e.target.value)}
           style={{ borderColor: theme.colors.border }}
         >
-          <option value="">{resolvedPlaceholder || `Select ${resolvedLabel}`}</option>
+          <option value="">
+            {resolvedPlaceholder || `Select ${resolvedLabel}`}
+          </option>
           {(field.options ?? []).map((option) => (
             <option key={`${field.name}-${option.value}`} value={option.value}>
               {option.label}
@@ -4331,7 +4435,7 @@ function FormFieldRenderer({
     return (
       <div style={fieldFrameStyle}>
         <label style={fieldLabelStyle}>{resolvedLabel}</label>
-          <input
+        <input
           className={styles.input}
           type="number"
           min={0}
@@ -4356,6 +4460,120 @@ function FormFieldRenderer({
           }}
           style={{ borderColor: theme.colors.border }}
         />
+      </div>
+    );
+  }
+
+  if (field.type === "password") {
+    const fieldValue = String(answers[field.name] ?? "");
+    const passwordValue = String(answers.password ?? "");
+    const confirmPasswordValue = String(answers.confirmPassword ?? "");
+    const isConfirmPassword = field.name === "confirmPassword";
+
+    const hasConfirmPasswordValue =
+      isConfirmPassword && confirmPasswordValue.length > 0;
+
+    const confirmPasswordMatches =
+      hasConfirmPasswordValue && confirmPasswordValue === passwordValue;
+
+    const passwordStrength =
+      field.name === "password" ? getPasswordStrength(fieldValue) : null;
+
+    const passwordRequirementResults =
+      field.name === "password"
+        ? getPasswordRequirementResults(fieldValue)
+        : [];
+
+    return (
+      <div style={fieldFrameStyle}>
+        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+
+        <div className={styles.passwordInputWrap}>
+          <input
+            className={styles.input}
+            type={isPasswordVisible ? "text" : "password"}
+            placeholder={resolvedPlaceholder}
+            value={fieldValue}
+            onChange={(e) => setAnswer(field.name, e.target.value)}
+            onPaste={
+              isConfirmPassword ? (event) => event.preventDefault() : undefined
+            }
+            onDrop={
+              isConfirmPassword ? (event) => event.preventDefault() : undefined
+            }
+            autoComplete="new-password"
+            style={{ borderColor: theme.colors.border }}
+          />
+
+          <button
+            type="button"
+            className={styles.passwordToggleButton}
+            onClick={onTogglePasswordVisibility}
+            style={{
+              borderColor: theme.colors.border,
+              color: theme.colors.text,
+            }}
+          >
+            {isPasswordVisible ? "Hide" : "Show"}
+          </button>
+        </div>
+
+        {field.name === "password" && passwordStrength ? (
+          <div className={styles.passwordFeedbackStack}>
+            <div
+              className={`${styles.passwordStrength} ${
+                passwordStrength.label === "Strong password"
+                  ? styles.passwordStrengthStrong
+                  : passwordStrength.label === "Medium password"
+                    ? styles.passwordStrengthMedium
+                    : styles.passwordStrengthWeak
+              }`}
+            >
+              {passwordStrength.label}
+            </div>
+
+            {passwordRequirementResults.length ? (
+              <ul className={styles.passwordRequirementList}>
+                {passwordRequirementResults.map(
+                  (item: { label: string; met: boolean }) => (
+                    <li
+                      key={item.label}
+                      className={
+                        item.met
+                          ? styles.passwordRequirementMet
+                          : styles.passwordRequirementMissing
+                      }
+                    >
+                      {item.met ? "✓" : "•"} {item.label}
+                    </li>
+                  )
+                )}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
+        {isConfirmPassword ? (
+          <div className={styles.passwordFeedbackStack}>
+            <div className={styles.authSlideHelpText}>
+              Please type the password again instead of pasting.
+            </div>
+
+            {hasConfirmPasswordValue ? (
+              <div
+                className={
+                  confirmPasswordMatches
+                    ? styles.passwordMatchSuccess
+                    : styles.passwordMatchError
+                }
+              >
+                {confirmPasswordMatches
+                  ? "✓ Passwords match."
+                  : "Passwords do not match yet."}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   }

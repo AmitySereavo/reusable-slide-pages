@@ -1019,11 +1019,18 @@ model Session {
   tokenHash String   @unique
   expiresAt DateTime
 
+  ipAddress  String?
+  userAgent  String?
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([lastUsedAt])
+  @@index([revokedAt])
 }
 
 model VerificationCode {
@@ -1123,15 +1130,18 @@ model PasswordResetToken {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
+  identifier String?
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([identifier])
   @@index([expiresAt])
+  @@index([consumedAt])
 }
 
 model PasswordResetChallenge {
@@ -1144,7 +1154,7 @@ model PasswordResetChallenge {
   codeHash   String
   attempts   Int       @default(0)
   expiresAt  DateTime
-  usedAt     DateTime?
+  consumedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1152,6 +1162,7 @@ model PasswordResetChallenge {
   @@index([userId])
   @@index([identifier])
   @@index([expiresAt])
+  @@index([consumedAt])
 }
 
 model PasswordResetAccessGrant {
@@ -1159,13 +1170,14 @@ model PasswordResetAccessGrant {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  grantHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
+  grantHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([consumedAt])
 }

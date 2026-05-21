@@ -1,0 +1,37 @@
+===
+@id: login
+@type: form
+@shownext: true
+@next: Log In
+@goto: login-submitting
+@run: submitLogin
+---
+BR
+# [c1] Log in
+BR
+[c3] Enter your email or phone number and password.
+@fields:
+- identifier|text|Email or phone|required|Email or phone number
+- password|password|Password|required|Password
+
+===
+@id: login-success
+@type: content
+@shownext: true
+@next: Go to dashboard
+@goto: /dashboard
+---
+BR
+# [c1] You are logged in
+BR
+[c3] Continue to your dashboard.
+
+===
+@id: login-submitting
+@type: content
+@shownext: false
+---
+BR
+# [c1] Logging you in
+BR
+[c3] Please wait.

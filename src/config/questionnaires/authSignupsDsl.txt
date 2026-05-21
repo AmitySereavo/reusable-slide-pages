@@ -1,0 +1,103 @@
+===
+@id: signup-name
+@type: form
+@shownext: true
+@next: Continue
+@goto: signup-contact
+---
+BR
+# [c1] Create your account
+BR
+[c3] First, tell us your name.
+@fields:
+- firstName|text|First name|required|First name
+- lastName|text|Last name|required|Last name
+
+===
+@id: signup-contact
+@type: form
+@shownext: true
+@next: Continue
+@goto: signup-password
+@back: Back
+---
+BR
+# [c1] Contact details
+BR
+[c3] Enter the email address for this account.
+@fields:
+- email|email|Email address|required|you@example.com
+- phone|tel|Phone number|optional|Optional
+
+===
+@id: signup-password
+@type: form
+@shownext: true
+@next: Continue
+@goto: signup-location
+@back: Back
+---
+BR
+# [c1] Create a password
+BR
+[c3] Type your password twice. For safety, confirm password cannot be pasted.
+@fields:
+- password|password|Password|required|Enter password
+- confirmPassword|password|Confirm password|required|Type password again
+
+===
+@id: signup-location
+@type: form
+@shownext: true
+@next: Continue
+@goto: signup-address
+@back: Back
+---
+BR
+# [c1] Location
+BR
+[c3] Add your country and city.
+@fields:
+- country|text|Country|required|Jamaica
+- city|text|City / town|required|Kingston
+
+===
+@id: signup-address
+@type: form
+@shownext: true
+@next: Create Account
+@goto: signup-submitting
+@back: Back
+@run: submitSignup
+---
+BR
+# [c1] Address
+BR
+[c3] Optional. You can add delivery details now or update them later.
+@fields:
+- addressLine1|text|Street address|optional|Street name and number
+- addressLine2|text|Apartment / landmark|optional|Optional
+- parishOrRegion|text|Parish / region|optional|Optional
+- postalCode|text|Postal code|optional|Optional
+
+===
+@id: signup-verify
+@type: content
+@shownext: true
+@next: Go to verification
+@goto: /verify
+---
+BR
+# [c1] Check your email
+BR
+[c3] We sent your verification code. Open the verification page and enter the code.
+
+===
+@id: signup-submitting
+@type: content
+@shownext: false
+---
+BR
+# [c1] Creating your account
+BR
+[c3] Please wait.

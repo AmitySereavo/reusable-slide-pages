@@ -31,6 +31,30 @@ type QuestionnaireRegistryEntry = {
 };
 
 export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> = {
+    "auth-signup": {
+    slug: "auth-signup",
+    name: "Sign Up",
+    themeKey: "authSignup",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authSignupDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "auth-login": {
+    slug: "auth-login",
+    name: "Log In",
+    themeKey: "authLogin",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authLoginDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+  
   "self-trust": {
     slug: "self-trust",
     name: "Self Trust",

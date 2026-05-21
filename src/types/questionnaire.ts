@@ -373,6 +373,7 @@ export type FieldType =
   | "text"
   | "email"
   | "tel"
+  | "password"
   | "number"
   | "date"
   | "checkbox"
