@@ -985,3 +985,187 @@ enum ReminderStatus {
   SKIPPED
   CANCELED
 }
+
+model User {
+  id       String  @id @default(cuid())
+  email    String? @unique
+  phone    String? @unique
+  password String
+  name     String?
+  country  String?
+  city     String?
+
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  adminLevel Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions                  Session[]
+  verificationCodes         VerificationCode[]
+  verificationTokens        VerificationToken[]
+  passwordResetTokens       PasswordResetToken[]
+  passwordResetChallenges   PasswordResetChallenge[]
+  passwordResetAccessGrants PasswordResetAccessGrant[]
+}
+
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model VerificationCode {
+  id         String   @id @default(cuid())
+  identifier String
+  code       String
+  target     String?
+  attempts   Int      @default(0)
+  expiresAt  DateTime
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String    @id @default(cuid())
+  identifier String
+  tokenHash  String    @unique
+  target     String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@index([userId])
+}
+
+model VerificationDeliveryAttempt {
+  id        String   @id @default(cuid())
+  channel   String
+  createdAt DateTime @default(now())
+
+  deliveryType String?
+  target       String?
+  destination  String?
+
+  errorCode    String?
+  errorMessage String?
+  errorType    String?
+
+  identifier String?
+  metadata   Json?
+
+  mode              String?
+  ok                Boolean @default(false)
+  originalTo        String?
+  provider          String?
+  providerMessageId String?
+  purpose           String?
+  rewritten         Boolean @default(false)
+  status            String?
+  to                String?
+
+  userId String?
+
+  @@index([channel])
+  @@index([identifier])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model Lead {
+  id         String    @id @default(cuid())
+  fullName   String?
+  email      String?
+  phone      String?
+  country    String?
+  city       String?
+  source     String?
+  target     String?
+  metadata   Json?
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([phone])
+  @@index([target])
+}
+
+model PasswordResetToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetChallenge {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  identifier String
+  channel    String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  usedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+model PasswordResetAccessGrant {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  grantHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
