@@ -1,0 +1,26 @@
+===
+@id: delete-account-warning
+@type: form
+@shownext: true
+@next: Delete My Account
+@run: submitDeleteAccount
+@goto: delete-account-confirmed
+---
+BR
+# [c1] Delete account
+BR
+[c3] Type DELETE to confirm. Depending on this business setup, your account may be removed immediately or scheduled for deletion.
+@fields:
+- deleteConfirmation|text|Type DELETE to confirm|required|DELETE
+
+===
+@id: delete-account-confirmed
+@type: content
+@shownext: true
+@next: Return Home
+@goto: /
+---
+BR
+# [c1] Deletion request received
+BR
+[c3] Your account deletion request has been received.

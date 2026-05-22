@@ -1864,6 +1864,12 @@ async function next() {
     };
   }
 
+  function getDeleteAccountPayload() {
+    return {
+      confirmation: String(answers.deleteConfirmation ?? "").trim(),
+    };
+  }
+
   function getLeadPayload() {
     return {
       questionnaireSlug: config.slug,
@@ -1873,6 +1879,26 @@ async function next() {
       whatsappOptIn:
         answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
       answers,
+    };
+  }
+
+  function getAuthForgotPasswordPayload() {
+    return {
+      identifier: String(answers.identifier ?? "").trim(),
+      phoneChannel:
+        typeof mergedVariables.authPasswordResetPhoneChannel === "string"
+          ? mergedVariables.authPasswordResetPhoneChannel
+          : undefined,
+    };
+  }
+
+  function getAuthResetPasswordPayload() {
+    return {
+      token:
+        searchParams.get("token") ||
+        String(answers.passwordResetToken ?? "").trim(),
+      password: String(answers.password ?? ""),
+      confirmPassword: String(answers.confirmPassword ?? ""),
     };
   }
 
@@ -1924,10 +1950,28 @@ async function next() {
       payload: getAuthLoginPayload,
       successGoto: "login-success",
     },
+    submitDeleteAccount: {
+      url: "/api/account/delete",
+      payload: getDeleteAccountPayload,
+      successGoto: "delete-account-confirmed",
+    },
     submitLead: {
       url: "/api/questionnaires/submit",
       payload: getLeadPayload,
     },
+
+    submitForgotPassword: {
+      url: "/api/password/forgot",
+      payload: getAuthForgotPasswordPayload,
+      successGoto: "forgot-password-sent",
+    },
+
+    submitResetPassword: {
+      url: "/api/password/reset",
+      payload: getAuthResetPasswordPayload,
+      successGoto: "reset-password-success",
+    },
+
     createNurseryBatch: {
       url: "/api/questionnaires/nursery-ops/create-batch",
       payload: getNurseryBatchPayload,

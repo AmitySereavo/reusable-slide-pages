@@ -27,6 +27,12 @@ export const AUTH_RULES = {
   passwordReset: {
     resendCooldownSeconds: 60,
   },
+  accountDeletion: {
+    mode: "delayed", // "immediate" or "delayed"
+    delayDays: 30,
+    allowCancelBeforeDeletion: true,
+    anonymizeInsteadOfDelete: false,
+  },
   rateLimit: {
     signup: {
       limit: 8,
@@ -57,4 +63,5 @@ export const AUTH_RULES = {
       windowSeconds: 15 * 60,
     },
   },
+  
 };

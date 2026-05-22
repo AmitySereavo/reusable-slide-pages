@@ -167,6 +167,33 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "auth-forgot-password": {
+    slug: "auth-forgot-password",
+    name: "Forgot Password",
+    themeKey: "authForgotPassword",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authForgotPasswordDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {
+      authPasswordResetMethod: "email-link",
+      authPasswordResetSuccessGoto: "forgot-password-sent",
+    },
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "auth-reset-password": {
+    slug: "auth-reset-password",
+    name: "Reset Password",
+    themeKey: "authResetPassword",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authResetPasswordDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "generic-profile-flow": {
     slug: "generic-profile-flow",
     name: "Generic Profile Flow",
