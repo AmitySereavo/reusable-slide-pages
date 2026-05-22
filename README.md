@@ -1,8 +1,31 @@
 # Reusable Slide Pages
 
-A reusable, registry-driven, DSL-powered slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, and PostgreSQL.
+A reusable, registry-driven, DSL-powered slide-funnel system built with Next.js App Router, React, TypeScript, Prisma, PostgreSQL, and reusable authentication.
 
-The project renders interactive multi-slide experiences from plain-text DSL files instead of hardcoding every flow directly in React. It supports marketing funnels, questionnaires, media-rich video flows, storefront pages, delivery/pickup flows, contact capture, digital downloads, ticket/invitation flows, ticket-owner assignment, per-ticket meal selection, DB-backed nursery operations, record lists, and reusable profile blocks.
+The project renders interactive multi-slide experiences from plain-text DSL files instead of hardcoding every flow directly in React.
+
+It supports:
+
+- marketing funnels
+- questionnaires
+- media-rich video flows
+- storefront pages
+- delivery and pickup flows
+- contact capture
+- digital downloads
+- ticket/invitation flows
+- ticket-owner assignment
+- per-ticket meal selection
+- DB-backed nursery operations
+- record lists
+- reusable profile blocks
+- reusable authentication
+- slide-style signup and login
+- slide-style account verification
+- password reset
+- configurable account deletion
+
+---
 
 ## Current stack
 
@@ -14,7 +37,29 @@ The project renders interactive multi-slide experiences from plain-text DSL file
 - Framer Motion
 - Zod
 - React Hook Form
+- Nodemailer
+- Resend
+- Twilio package installed but SMS is paused for now
+- bcrypt
 - Git LFS for large media when needed
+
+---
+
+## Source of truth
+
+Current reusable-slide-pages source of truth:
+
+```txt
+84982038219b0129011f3d359de2622a5dd75105
+```
+
+Reusable auth source merged into this project:
+
+```txt
+2aa462dfcfa090eefa0a3b38d08000d722c43419
+```
+
+---
 
 ## Core concept
 
@@ -30,8 +75,9 @@ Each slide experience is configured by:
 - optional meal menu config
 - optional reusable block definitions
 - optional downloadable file catalog entries
+- optional auth behavior config
 
-Shared route:
+Shared questionnaire route:
 
 ```txt
 /questionnaire/[slug]
@@ -41,7 +87,9 @@ The shared shell stays generic. Project-specific wording belongs in DSL files, c
 
 Reusable behavior belongs in the shared parser, shell, types, route handlers, or shared library helpers.
 
-## Active questionnaires
+---
+
+## Active questionnaires and flows
 
 ### `self-trust`
 
@@ -53,6 +101,8 @@ Route:
 /questionnaire/self-trust
 ```
 
+---
+
 ### `garden-herbs`
 
 A content questionnaire for garden herbs.
@@ -63,6 +113,8 @@ Route:
 /questionnaire/garden-herbs
 ```
 
+---
+
 ### `seed`
 
 A plant/seed funnel with DB-backed shop catalog, delivery selection, contact capture, review order, discounts, and promotion item logic.
@@ -72,6 +124,8 @@ Route:
 ```txt
 /questionnaire/seed
 ```
+
+---
 
 ### `invitation`
 
@@ -108,6 +162,8 @@ Route:
 /questionnaire/invitation
 ```
 
+---
+
 ### `nursery-ops`
 
 A DB-backed nursery operations flow for batches, batch subsets, transplanted individuals, record lists, and reusable block-driven profiles.
@@ -118,6 +174,8 @@ Route:
 /questionnaire/nursery-ops
 ```
 
+---
+
 ### `generic-profile-flow`
 
 A reusable profile-flow testbed.
@@ -127,6 +185,172 @@ Route:
 ```txt
 /questionnaire/generic-profile-flow
 ```
+
+---
+
+## Auth slide flows
+
+Reusable auth has been merged into reusable-slide-pages.
+
+The goal is to let the same slide system handle signup, login, verification, password reset, and future account management while still keeping the auth APIs reusable.
+
+### `auth-signup`
+
+Slide-style signup flow.
+
+Route:
+
+```txt
+/questionnaire/auth-signup
+```
+
+Current signup flow:
+
+```txt
+Name
+→ Contact
+→ Password
+→ Location
+→ Address
+→ Create account
+→ Verification code panel
+→ Account verified
+→ Login
+```
+
+Current behavior:
+
+- first name and last name slide
+- contact slide with email and optional phone
+- early existing-user check before password entry
+- blocks verified existing users from continuing signup
+- sends a fresh verification code for existing unverified users
+- password and confirm password slide
+- show/hide password toggle
+- weak/medium/strong password feedback
+- password requirement feedback
+- confirm password cannot be pasted
+- confirm password match signal
+- optional country/city support by DSL field config
+- optional address fields
+- signup submits to `/api/signup`
+- verification starts through `/api/verify/start`
+- six-box code verification appears inside the slide flow
+- code auto-verifies after the final digit
+- resend code button with cooldown
+- successful verification moves to the `signup-verified` slide
+
+---
+
+### `auth-login`
+
+Slide-style login flow.
+
+Route:
+
+```txt
+/questionnaire/auth-login
+```
+
+Current login flow:
+
+```txt
+Email or phone
+→ Password
+→ Log in
+→ Login success
+→ Dashboard
+```
+
+Current behavior:
+
+- identifier field
+- password field
+- slide-style login submission
+- successful login creates a session
+- dashboard is accessible after login
+
+---
+
+### `auth-forgot-password`
+
+Slide-style forgot-password flow.
+
+Route:
+
+```txt
+/questionnaire/auth-forgot-password
+```
+
+Current behavior:
+
+- user enters email or phone
+- email users receive a password reset link
+- phone reset code support exists in backend, but SMS is paused until later
+- neutral success messaging should be used so the UI does not reveal whether an account exists
+
+Backend route:
+
+```txt
+/api/password/forgot
+```
+
+---
+
+### `auth-reset-password`
+
+Slide-style password reset flow.
+
+Route:
+
+```txt
+/questionnaire/auth-reset-password?token=<reset-token>
+```
+
+Current behavior:
+
+- reads token from URL search params
+- user enters new password
+- user confirms new password
+- validates password policy
+- submits to `/api/password/reset`
+- old sessions are revoked after password reset
+
+Backend route:
+
+```txt
+/api/password/reset
+```
+
+---
+
+### `auth-delete-account`
+
+Slide-style delete account flow.
+
+Route:
+
+```txt
+/questionnaire/auth-delete-account
+```
+
+Current direction:
+
+- user must be logged in
+- user must confirm deletion
+- deletion behavior is controlled by config
+- deletion can be immediate or delayed
+- delayed deletion can be set to 7 days, 14 days, 30 days, or another configured period
+- cancellation endpoint exists for delayed deletion
+
+Backend routes:
+
+```txt
+/api/account/delete
+/api/account/delete/cancel
+```
+
+---
 
 ## Registry architecture
 
@@ -159,6 +383,234 @@ discountDefinitions
 mealMenus
 ```
 
+For auth flows, the registry can inject auth behavior variables such as:
+
+```txt
+authVerificationDelivery
+authVerificationMethod
+authVerificationExpiresInMinutes
+authVerificationExpiresInHours
+authVerificationTarget
+authVerificationSuccessRedirect
+authPasswordResetMethod
+authPasswordResetSuccessGoto
+```
+
+---
+
+## Auth verification config
+
+Signup verification is config-driven.
+
+This allows one project to use code verification while another uses link verification without changing shared component code.
+
+Example code verification config:
+
+```ts
+variables: {
+  authVerificationDelivery: "code",
+  authVerificationMethod: "email",
+  authVerificationExpiresInMinutes: 15,
+  authVerificationExpiresInHours: null,
+  authVerificationTarget: "account",
+  authVerificationSuccessRedirect: "/dashboard",
+}
+```
+
+Example link verification config:
+
+```ts
+variables: {
+  authVerificationDelivery: "link",
+  authVerificationMethod: "email",
+  authVerificationExpiresInMinutes: null,
+  authVerificationExpiresInHours: 24,
+  authVerificationTarget: "account",
+  authVerificationSuccessRedirect: "/dashboard",
+}
+```
+
+Use short expiry for verification codes.
+
+Use longer expiry for verification links when the business requires that behavior.
+
+For production setup, confirm that external provider expiry settings match app settings where relevant.
+
+---
+
+## Email delivery setup
+
+The project supports SMTP email delivery through Nodemailer.
+
+Required environment variables for SMTP:
+
+```env
+EMAIL_PROVIDER_MODE="smtp"
+
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
+SMTP_USER="your-sender-email@gmail.com"
+SMTP_PASS="your-google-app-password"
+SMTP_FROM_EMAIL="Business Name <your-sender-email@gmail.com>"
+
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+For Gmail SMTP:
+
+- use `smtp.gmail.com`
+- use a Google App Password
+- do not use `smtp@gmail.com`
+
+---
+
+## Dev email safety mode
+
+The auth system supports a dev-test email rewrite mode.
+
+Example:
+
+```env
+EMAIL_DEV_TEST_MODE="true"
+EMAIL_DEV_TEST_INBOX="paralifetrees@gmail.com"
+```
+
+When dev test mode is on:
+
+```txt
+real submitted email
+→ rewritten to EMAIL_DEV_TEST_INBOX
+```
+
+This is useful for testing without sending messages to real customers.
+
+For real-recipient testing:
+
+```env
+EMAIL_DEV_TEST_MODE="false"
+```
+
+Restart the dev server after changing `.env`.
+
+---
+
+## WhatsApp and SMS status
+
+Current production direction:
+
+```txt
+Email: active
+WhatsApp API: staged / pending business verification
+SMS: paused
+```
+
+SMS should remain visible but disabled where the UI requires that behavior.
+
+WhatsApp Cloud API credentials will be configured later after Meta business verification and message template permission are ready.
+
+For simple user-initiated WhatsApp contact, normal WhatsApp click-to-chat links may still be useful, but they are not a replacement for automatic verification-code delivery through the WhatsApp API.
+
+---
+
+## Password policy
+
+Password behavior is config-driven by reusable auth policy files.
+
+Current slide behavior includes:
+
+- password field type
+- show/hide password toggle
+- weak/medium/strong password strength feedback
+- password requirement list
+- confirm password match signal
+- paste blocked on confirm password
+- password policy validation on the backend
+
+Password fields are supported in DSL forms:
+
+```txt
+@fields:
+- password|password|Password|required|Enter password
+- confirmPassword|password|Confirm password|required|Type password again
+```
+
+---
+
+## Account deletion config
+
+Account deletion should be business-configurable.
+
+Config lives in:
+
+```txt
+src/customerAccess/config/authRules.js
+```
+
+Example delayed deletion:
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 30,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: false,
+}
+```
+
+Example immediate deletion:
+
+```js
+accountDeletion: {
+  mode: "immediate",
+  delayDays: 0,
+  allowCancelBeforeDeletion: false,
+  anonymizeInsteadOfDelete: false,
+}
+```
+
+Example anonymize instead of hard delete:
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 14,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: true,
+}
+```
+
+Supported intended options:
+
+```txt
+mode: "immediate" | "delayed"
+delayDays: number
+allowCancelBeforeDeletion: boolean
+anonymizeInsteadOfDelete: boolean
+```
+
+The `User` model should support deletion scheduling fields:
+
+```prisma
+deletionRequestedAt DateTime?
+deletionScheduledAt DateTime?
+deletedAt           DateTime?
+deletionStatus      String?
+```
+
+After schema changes, run:
+
+```bash
+npx prisma format
+npx prisma db push
+npx prisma generate
+npm run build
+```
+
+Do not run `prisma migrate reset` against a Supabase database unless data loss is acceptable.
+
+---
+
 ## DSL file format
 
 DSL files are plain text files.
@@ -172,6 +624,11 @@ src/config/questionnaires/seedDsl.txt
 src/config/questionnaires/seedDsl2.txt
 src/config/questionnaires/invitationDsl.txt
 src/config/questionnaires/nurseryOpsDsl.txt
+src/config/questionnaires/authSignupDsl.txt
+src/config/questionnaires/authLoginDsl.txt
+src/config/questionnaires/authForgotPasswordDsl.txt
+src/config/questionnaires/authResetPasswordDsl.txt
+src/config/questionnaires/authDeleteAccountDsl.txt
 ```
 
 Slides are separated with:
@@ -182,20 +639,47 @@ Slides are separated with:
 
 Do not wrap DSL files in TypeScript exports.
 
+---
+
 ## Supported slide types
 
-- `content`
-- `score`
-- `choice`
-- `form`
-- `contact`
-- `media`
-- `video`
-- `shop`
-- `tickets`
-- `meal`
-- `delivery`
-- `recordlist`
+Current slide types include:
+
+```txt
+content
+score
+choice
+form
+contact
+media
+video
+shop
+tickets
+meal
+delivery
+recordlist
+authverify
+```
+
+---
+
+## Supported form field types
+
+Current form field types include:
+
+```txt
+text
+email
+tel
+password
+number
+date
+checkbox
+textarea
+select
+```
+
+---
 
 ## Supported DSL directives
 
@@ -271,6 +755,8 @@ Current DSL directives include:
 @contactmode:
 ```
 
+---
+
 ## Basic DSL examples
 
 ### Content slide
@@ -286,6 +772,8 @@ BR
 @next: Continue
 @goto: next-slide
 ```
+
+---
 
 ### Score slide
 
@@ -303,6 +791,8 @@ BR
 @next: Continue
 ```
 
+---
+
 ### Choice slide
 
 ```txt
@@ -317,6 +807,8 @@ BR
 - continue|Continue Watching|subscribe|c1
 @shownext: false
 ```
+
+---
 
 ### Form slide
 
@@ -336,6 +828,46 @@ BR
 @goto: review-order
 ```
 
+---
+
+### Password form slide
+
+```txt
+===
+@id: signup-password
+@type: form
+@shownext: true
+@next: Continue
+@goto: signup-location
+@back: Back
+---
+BR
+# [c1] Create a password
+BR
+[c3] Type your password twice. For safety, confirm password cannot be pasted.
+@fields:
+- password|password|Password|required|Enter password
+- confirmPassword|password|Confirm password|required|Type password again
+```
+
+---
+
+### Auth verification slide
+
+```txt
+===
+@id: signup-verify
+@type: authverify
+@shownext: false
+---
+BR
+# [c1] Check your email
+BR
+[c3] Enter the verification code we sent to your email.
+```
+
+---
+
 ### Date field example
 
 ```txt
@@ -349,6 +881,8 @@ BR
 @next: Continue
 ```
 
+---
+
 ### Select field example
 
 ```txt
@@ -361,6 +895,79 @@ BR
 @back: Back
 @next: Continue
 ```
+
+---
+
+## Route targets
+
+DSL `@goto:` supports slide IDs and app routes.
+
+Slide ID example:
+
+```txt
+@goto: signup-password
+```
+
+App route example:
+
+```txt
+@goto: /questionnaire/auth-login
+```
+
+External URL example:
+
+```txt
+@goto: https://example.com
+```
+
+---
+
+## Slide action runs
+
+The shell supports action names through:
+
+```txt
+@run:
+```
+
+Current action names include:
+
+```txt
+submitLead
+createNurseryBatch
+logNurseryActivity
+recordNurseryTransplant
+checkSignupIdentifier
+submitSignup
+submitLogin
+submitForgotPassword
+submitResetPassword
+submitDeleteAccount
+```
+
+---
+
+## Auth API routes
+
+Current auth API routes include:
+
+```txt
+/api/signup
+/api/signup/check-identifier
+/api/login
+/api/logout
+/api/session
+/api/verify/start
+/api/verify/check
+/api/verify/consume-link
+/api/password/forgot
+/api/password/verify-code
+/api/password/reset
+/api/account/delete
+/api/account/delete/cancel
+```
+
+---
 
 ## Media and video slide system
 
@@ -419,16 +1026,7 @@ A video can route to another slide when it crosses a timestamp:
 
 The route can trigger again if the user returns to the video slide and the video crosses the timestamp again.
 
-### Video button routing
-
-The same video slide can still have a normal action button:
-
-```txt
-@next: Get Tickets
-@goto: invitation-shop
-```
-
-This means the video can automatically route to a rating slide at a timestamp while the button routes to the shop.
+---
 
 ## Shop system
 
@@ -473,6 +1071,8 @@ Shop → Ticket Details
 
 The ticket details slide then controls whether the user selects meals, continues to delivery, continues to contact details, or reaches review order.
 
+---
+
 ## Fulfillment model
 
 The shop catalog separates product category from fulfillment need.
@@ -498,32 +1098,7 @@ This supports:
 - physical products
 - mixed carts
 
-Example ticket/invitation purchase modes:
-
-```ts
-purchaseModes: [
-  {
-    id: "email-only",
-    label: "Email invitation only",
-    priceAdjustment: 0,
-    requiresPhysicalFulfillment: false,
-  },
-  {
-    id: "email-plus-physical",
-    label: "Email invitation + physical invitation",
-    priceAdjustment: 8,
-    requiresPhysicalFulfillment: true,
-  },
-];
-```
-
-This lets the same reusable system support different event wording:
-
-- ticket
-- invitation
-- request invitation
-- physical ticket
-- physical invitation
+---
 
 ## Ticket details system
 
@@ -547,33 +1122,6 @@ Each generated ticket assignment supports:
 - selected meal data
 - per-ticket meal notes
 
-Current ticket code behavior:
-
-- generated in the frontend from selected cart line data
-- stable during the checkout session
-- intended to be replaced or persisted by database-backed ticket codes after order/payment submission
-
-Example ticket details slide:
-
-```txt
-===
-@id: ticket-details
-@type: tickets
-@store: ticketAssignments
-@mealgoto: meal-selection
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@back: Back
-@next: Continue
----
-BR
-# [c1] Ticket Details
-BR
-[c2] Add the ticket owner's details if you want each person to receive their own ticket or meal link.
-[c3] Name, email, and WhatsApp are optional.
-```
-
 Current intended flow:
 
 ```txt
@@ -595,6 +1143,8 @@ Future ticket-owner access direction:
 - owner can choose or update their meal before the meal cutoff date
 - after cutoff, meal editing should lock
 - additional meal charges can route to a payment step
+
+---
 
 ## Meal selection system
 
@@ -619,385 +1169,83 @@ Base: Plain rice
 Main: Curry chickpeas
 Side: Plantain
 
-Ticket 2 / Marsha Green
+Ticket 2 / Mary Green
 Base: Rice and peas
 Main: Stew peas
-Side: Potato salad
+Side: Salad
 ```
 
-Meal config lives in:
+This is important for event kitchens, packaged meals, assigned servings, and individual owner access.
 
-```txt
-src/config/meals/mealMenus.ts
-```
-
-Reusable ticket helpers live in:
-
-```txt
-src/lib/questionnaire/tickets.ts
-```
-
-Meal menu options can include optional pricing:
-
-```ts
-{
-  id: "plain-rice",
-  label: "Plain rice",
-  price: 3,
-}
-```
-
-Meal groups can define included servings:
-
-```ts
-{
-  id: "base",
-  label: "Choose your base",
-  required: true,
-  includedServings: 1,
-  options: [
-    { id: "plain-rice", label: "Plain rice", price: 3 },
-    { id: "rice-and-peas", label: "Rice and peas", price: 4 },
-  ],
-}
-```
-
-Meal requirement can be attached to a size option or purchase mode:
-
-```ts
-mealSelection: {
-  mode: "required",
-  menuId: "vegan-event-menu",
-  label: "Included vegan meal",
-}
-```
-
-Optional paid meal add-on:
-
-```ts
-mealSelection: {
-  mode: "optional",
-  menuId: "vegan-event-menu",
-  label: "Add vegan meal",
-  price: 15,
-}
-```
-
-Current meal behavior:
-
-- required meal tickets always require meal selection
-- optional meal tickets can show an add-meal checkbox
-- meal selection edits the selected ticket only
-- per-ticket notes are supported
-- customer can indicate they may want extra food at the event
-- extra servings can be priced from the meal menu config
-- review can display ticket meals and meal add-on / extra serving totals
-
-## Invitation shop catalog
-
-Invitation shop data lives in:
-
-```txt
-src/lib/invitation/getInvitationShopCatalog.ts
-```
-
-The invitation catalog can include:
-
-- event products
-- ticket products
-- invitation products
-- album download options
-- email-only fulfillment
-- physical invitation fulfillment
-- album-only products
-- album add-on options inside event products
-- ticket options with required meals
-- ticket options with optional paid meals
-
-Current intended product shape:
-
-```txt
-Event product
-→ General Admission Invitation
-→ VIP Invitation
-→ Escape Album Digital Download
-```
-
-The album can also exist as a separate product so users can purchase it without buying an event ticket/invitation.
-
-## Contact and delivery behavior
-
-Every order should collect contact information.
-
-Invitation-style orders:
-
-```txt
-Shop → Ticket Details → Contact Details → Review Order
-```
-
-Invitation-style orders with physical fulfillment:
-
-```txt
-Shop → Ticket Details → Delivery Options → Contact Details if needed → Review Order
-```
-
-Invitation-style orders with meals:
-
-```txt
-Shop
-→ Ticket Details
-→ Select meal for ticket
-→ Ticket Details
-→ Delivery / Contact / Review
-```
-
-Digital or email-only orders without ticket details:
-
-```txt
-Shop → Contact Details → Review Order
-```
-
-Orders with physical fulfillment:
-
-```txt
-Shop → Delivery Options → Contact Details if needed → Review Order
-```
-
-The reusable delivery slide supports:
-
-- pickup at configured locations
-- pop-up/event pickup
-- delivery to address
-- country selection
-- region selection
-- address fields
-- computed delivery fee
-- conditional routing based on contact completeness
-
-Digital orders do not need address/phone unless the DSL requires it.
-
-## Review order behavior
-
-The review screen conditionally displays summary details.
-
-Current behavior:
-
-- contact information remains visible after submission
-- delivery fee only shows when delivery applies
-- discount total only shows when a discount exists
-- total order weight only shows when at least one selected line has real weight
-- zero-weight physical items such as tickets/invitations do not display meaningless weight
-- order line weights are hidden when weight is `0`
-- ticket meals can be summarized per ticket
-- meal add-ons / extra servings can be displayed as an additional meal total
-- total due always shows
-
-Meal add-on total is currently calculated and displayed in the review meal summary. A later step should fully merge meal add-on totals into the main order grand total and payment amount.
-
-## Download system
-
-The project supports reusable private downloads without third-party hosting.
-
-Files are stored outside `public`:
-
-```txt
-private-downloads/
-```
-
-Example:
-
-```txt
-private-downloads/Good Morning.mp3
-```
-
-The browser cannot directly access this folder. Downloads are served through:
-
-```txt
-src/app/api/downloads/[downloadKey]/route.ts
-```
-
-Download catalog:
-
-```txt
-src/config/downloads/downloadCatalog.ts
-```
-
-Example catalog item:
-
-```ts
-{
-  key: "escape-album-mp3",
-  filePath: "private-downloads/Good Morning.mp3",
-  fileName: "Good Morning.mp3",
-  contentType: "audio/mpeg",
-}
-```
-
-The API route serves:
-
-```txt
-/api/downloads/escape-album-mp3
-```
-
-The route is dynamic because the URL key selects the catalog item.
-
-### Download buttons in DSL
-
-A slide can show multiple download buttons in the action bar:
-
-```txt
-@downloadbuttons:
-- escape-album-mp3|Download MP3|c1
-- escape-album-wav|Download WAV|c3
-```
-
-The shell opens downloads in a new tab and shows a confirmation notice on the current slide.
-
-Example download slide:
-
-```txt
-===
-@id: escape-album-download
-@type: content
-@countstep: false
-@showback: true
-@shownext: false
-@back: Back
 ---
-BR
-# [c1] Escape Album
-# [c3] Digital Download
-BR
-[c2] Download the album in the format you want.
-[c2] MP3 and WAV access will stay available from this page after purchase.
 
+## Delivery system
+
+The delivery system supports:
+
+- pickup at stable locations
+- pickup at popup/event locations
+- delivery by country/region/parish
+- delivery fee calculation
+- physical-fulfillment-aware routing
+- mixed-cart delivery requirements
+
+Delivery config is injected through registry variables.
+
+---
+
+## Downloads
+
+The project supports private downloads through:
+
+```txt
+/api/downloads/[downloadkey]
+```
+
+Download buttons can be configured in DSL:
+
+```txt
 @downloadbuttons:
-- escape-album-mp3|Download MP3|c1
-- escape-album-wav|Download WAV|c3
+- album-mp3|Download MP3
+- album-wav|Download WAV
 ```
 
-### Download confirmation
+Download keys should map to a server-side download catalog. Do not expose private file paths directly in the DSL.
 
-After a user clicks a download button, the shell shows a notice such as:
-
-```txt
-Download MP3 started. If the download did not appear, check your browser downloads or try again.
-```
-
-The notice confirms that the download request was triggered. Browsers and security scanners may handle the actual file saving outside React’s control.
-
-### Download security direction
-
-The current system is a reusable direct-download foundation.
-
-Future secure purchase-gated downloads should add:
-
-- order token
-- email verification
-- purchase lookup
-- token expiration
-- download permission checks
-- per-song pages
-- album package downloads
-- individual MP3/WAV downloads
-
-Future secure URL shape:
-
-```txt
-/api/downloads/escape-album-mp3?token=securePurchaseToken
-```
-
-## Private downloads folder
-
-Private download files should live at the project root:
-
-```txt
-reusable-slide-pages/
-  private-downloads/
-    Good Morning.mp3
-  src/
-  public/
-  package.json
-```
-
-Recommended `.gitignore`:
-
-```gitignore
-private-downloads/*
-!private-downloads/.gitkeep
-```
-
-Keep a placeholder file:
-
-```txt
-private-downloads/.gitkeep
-```
-
-Do not commit real MP3/WAV/ZIP files unless intentionally using Git LFS.
-
-## Discounts
-
-The reusable discount system supports:
-
-- URL-based discounts
-- order-wide percentage discounts
-- order-wide fixed discounts
-- product-scoped discounts
-- size-option-scoped discounts
-- promotion-driven discounts
-- discount-aware line totals
-- discount-aware review totals
-
-Supported URL params:
-
-```txt
-?discount=CODE
-?promo=CODE
-?code=CODE
-```
-
-## Delivery config
-
-Delivery data source:
-
-```txt
-src/config/delivery/deliveryConfig.ts
-```
-
-It provides:
-
-- countries
-- region options
-- stable pickup locations
-- pop-up shop locations
-- delivery zone rates
+---
 
 ## Nursery operations
 
 The nursery operations flow supports:
 
-- DB-backed batch lists
-- DB-backed batch subset lists
-- DB-backed transplanted individual lists
-- batch profile blocks
-- batch subset profile blocks
-- transplanted individual profile blocks
-- batch creation
-- transplant logging
-- activity logging
-- delete actions configured through block metadata
-- progress overlay title/subtitle for profile context
-- cancel and return-home utility controls
-- hidden step text
-- opaque overlay mode
+- plant types
+- plants
+- batches
+- batch subsets
+- transplanted individuals
+- locations
+- containers
+- growing media
+- reminders
+- activities
+- media records
+- reusable profile blocks
+- dynamic DB-backed record lists
+- delete record actions with confirmation
 
-Nursery dynamic endpoint:
+Key route:
+
+```txt
+/questionnaire/nursery-ops
+```
+
+Dynamic data endpoint:
 
 ```txt
 /api/questionnaires/nursery-ops/batches
 ```
 
-Nursery action endpoints include:
+Nursery operation routes include:
 
 ```txt
 /api/questionnaires/nursery-ops/create-batch
@@ -1005,313 +1253,235 @@ Nursery action endpoints include:
 /api/questionnaires/nursery-ops/record-transplant
 ```
 
-## Record lists
+---
 
-The reusable `recordlist` slide supports:
+## Prisma and database
 
-- source-backed items
-- configured title field
-- configured subtitle field
-- configured meta fields
-- selected state
-- record opening
-- empty text
-
-Example:
+Prisma schema:
 
 ```txt
-===
-@id: batches-list
-@type: recordlist
-@store: opsSelectedBatchCode
-@source: nurseryBatches
-@titlefield: code
-@subtitlefield: plantName
-@metafields: startDate,quantityAlive,intendedUse
-@emptytext: No batches available yet.
-@next: Search
-@goto: batch-profile
+prisma/schema.prisma
 ```
 
-## Block-driven profiles
-
-Reusable blocks are built in:
+Prisma client helper:
 
 ```txt
-src/config/questionnaireBlocks.ts
+src/lib/prisma.ts
 ```
 
-A DSL slide can select a block:
-
-```txt
-@block: batchProfile
-```
-
-The shared shell renders the block without hardcoding profile content.
-
-Block capabilities:
-
-- section rows
-- row formatting
-- row visibility
-- section actions
-- delete actions
-- update buttons
-- selected record context
-
-## Styling and overlays
-
-The shell uses a full-card stage layout.
-
-Features:
-
-- progress overlay
-- action bar overlay
-- media slides with full-stage video/image rendering
-- per-slide page background
-- per-slide card opacity
-- slide-level overlay colors
-- questionnaire-level overlay mode
-- progress overlay title placement
-
-Example:
-
-```txt
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-```
-
-Questionnaire-level config:
-
-```ts
-showStepText: false;
-overlayMode: "opaque";
-```
-
-## Utility controls
-
-Slides can show persistent utility controls:
-
-```txt
-@showreturnhome: true
-@showcancel: true
-@cancelgoto: home
-```
-
-Behavior:
-
-- Return Home routes to the `home` slide
-- Cancel can route to `@cancelgoto`
-- both clear DSL-declared form fields before routing
-- useful for operational flows and nested profile flows
-
-## Form fields
-
-Supported fields:
-
-- text
-- email
-- tel
-- number
-- date
-- checkbox
-- textarea
-- select
-
-Example select:
-
-```txt
-@fields:
-- opsContainerType|select|Starting container|required|Select container|2.5 inch pot,4 inch pot,6 inch pot,8x16 tray,cup,grow bag,bucket,other
-```
-
-## Conditions and routing
-
-Conditional visibility:
-
-```txt
-@showif:
-- field|eq|true
-```
-
-Conditional next routing:
-
-```txt
-@when:
-- score|gte|3|next-slide
-```
-
-Conditional back routing:
-
-```txt
-@backwhen:
-- mode|eq|edit|profile-slide
-```
-
-Supported operators include:
-
-```txt
-eq
-neq
-gt
-gte
-lt
-lte
-between
-in
-```
-
-## External routing
-
-`@goto:` and `@backgoto:` can target either:
-
-- slide ids
-- external URLs
-
-External URLs open in a new tab.
-
-## Adding a new questionnaire
-
-Minimum files:
-
-```txt
-src/config/questionnaires/<projectDsl>.txt
-src/config/themes/<projectTheme>.ts
-```
-
-Then add a registry entry in:
-
-```txt
-src/config/questionnaires/registry.ts
-```
-
-If the questionnaire needs a shop catalog, create a project catalog helper and inject it from the registry.
-
-Example:
-
-```txt
-src/lib/invitation/getInvitationShopCatalog.ts
-```
-
-If the questionnaire needs downloads, add download catalog items in:
-
-```txt
-src/config/downloads/downloadCatalog.ts
-```
-
-Then reference those keys from the DSL using:
-
-```txt
-@downloadbuttons:
-- download-key|Button Label|styleKey
-```
-
-If the questionnaire needs meal menus, add a meal menu config and inject it from the registry:
-
-```txt
-src/config/meals/mealMenus.ts
-```
-
-If the questionnaire needs ticket assignment behavior, use:
-
-```txt
-@type: tickets
-@store: ticketAssignments
-```
-
-and route to it from the shop with:
-
-```txt
-@ticketgoto: ticket-details
-```
-
-## Important shared files
-
-```txt
-src/app/questionnaire/[slug]/page.tsx
-src/components/questionnaire/QuestionnaireShell.tsx
-src/components/questionnaire/QuestionnaireShell.module.css
-src/lib/questionnaire/parser.ts
-src/lib/questionnaire/engine.ts
-src/lib/questionnaire/resolveDslTemplate.ts
-src/lib/questionnaire/loadDslText.ts
-src/lib/questionnaire/shop.ts
-src/lib/questionnaire/delivery.ts
-src/lib/questionnaire/tickets.ts
-src/lib/questionnaire/meals.ts
-src/config/questionnaires/registry.ts
-src/config/questionnaireBlocks.ts
-src/config/downloads/downloadCatalog.ts
-src/config/meals/mealMenus.ts
-src/app/api/downloads/[downloadKey]/route.ts
-```
-
-## Development workflow with ChatGPT
-
-Preferred collaboration style:
-
-- user applies code locally in VS Code
-- ChatGPT gives path-first edits
-- ChatGPT does not push to GitHub unless explicitly asked
-- user commits and pushes locally
-- user shares the new SHA after push
-- ChatGPT treats the latest shared SHA as source of truth
-- if local files are ahead of GitHub, user can paste/upload the current file section
-
-## Git and media notes
-
-Large media files should not be committed as normal Git files.
-
-For video or audio:
-
-- use Git LFS intentionally, or
-- keep files local/private, or
-- host externally later if needed
-
-Recommended for private downloadable files:
-
-```gitignore
-private-downloads/*
-!private-downloads/.gitkeep
-```
-
-Recommended for local media too large for GitHub:
-
-```gitignore
-public/media/invitation/*.mp4
-```
-
-If using Git LFS:
+Common commands:
 
 ```bash
-git lfs install
-git lfs track "public/media/invitation/*.mp4"
-git add .gitattributes
+npx prisma format
+npx prisma db push
+npx prisma generate
+npm run build
 ```
+
+For this project, prefer `prisma db push` when syncing the current schema to the existing Supabase database.
+
+Do not run:
+
+```bash
+npx prisma migrate reset
+```
+
+against the shared Supabase database unless all data can be lost.
+
+---
+
+## Development commands
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run dev server:
+
+```bash
+npm run dev
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+Prisma sync:
+
+```bash
+npx prisma format
+npx prisma db push
+npx prisma generate
+```
+
+---
+
+## Current build note
+
+The build may show a Turbopack NFT warning related to:
+
+```txt
+./next.config.ts
+./src/app/api/downloads/[downloadkey]/route.ts
+```
+
+Current status:
+
+```txt
+Build passes.
+Warning is not blocking.
+```
+
+This warning should be cleaned up later by reducing dynamic file tracing or scoping filesystem operations more tightly.
+
+---
+
+## Testing URLs
+
+Core questionnaire routes:
+
+```txt
+http://localhost:3000/questionnaire/self-trust
+http://localhost:3000/questionnaire/garden-herbs
+http://localhost:3000/questionnaire/seed
+http://localhost:3000/questionnaire/invitation
+http://localhost:3000/questionnaire/nursery-ops
+http://localhost:3000/questionnaire/generic-profile-flow
+```
+
+Auth slide routes:
+
+```txt
+http://localhost:3000/questionnaire/auth-signup
+http://localhost:3000/questionnaire/auth-login
+http://localhost:3000/questionnaire/auth-forgot-password
+http://localhost:3000/questionnaire/auth-reset-password
+http://localhost:3000/questionnaire/auth-delete-account
+```
+
+Legacy auth page routes still exist:
+
+```txt
+http://localhost:3000/signup
+http://localhost:3000/login
+http://localhost:3000/verify
+http://localhost:3000/forgot-password
+http://localhost:3000/reset-password
+http://localhost:3000/dashboard
+```
+
+The slide-style auth routes are the preferred UX direction.
+
+---
+
+## Auth flow test order
+
+### Signup
+
+```txt
+/questionnaire/auth-signup
+→ enter name
+→ enter fresh email
+→ continue
+→ enter password
+→ confirm password
+→ optional location
+→ optional address
+→ create account
+→ code sends
+→ verification panel appears
+→ enter code
+→ auto-verifies
+→ account verified slide
+→ continue to login
+```
+
+### Existing verified user
+
+```txt
+/questionnaire/auth-signup
+→ enter existing verified email
+→ should stop on contact slide
+→ should show account already exists
+```
+
+### Existing unverified user
+
+```txt
+/questionnaire/auth-signup
+→ enter existing unverified email
+→ should send fresh verification code
+→ should move to verification panel
+```
+
+### Login
+
+```txt
+/questionnaire/auth-login
+→ enter identifier
+→ enter password
+→ submit
+→ login success
+```
+
+### Forgot password
+
+```txt
+/questionnaire/auth-forgot-password
+→ enter verified email
+→ reset link sends
+```
+
+### Reset password
+
+```txt
+/questionnaire/auth-reset-password?token=<token>
+→ enter new password
+→ confirm new password
+→ submit
+→ password changed
+→ login with new password
+```
+
+### Delete account
+
+Only test with a disposable account.
+
+```txt
+/questionnaire/auth-delete-account
+→ confirm deletion
+→ account is deleted or scheduled based on config
+```
+
+---
+
+## Git workflow notes
+
+Recommended workflow:
+
+```bash
+git status
+npm run build
+git add .
+git commit -m "your commit message"
+```
+
+Keep source-of-truth commit SHAs updated after clean build checkpoints.
+
+---
 
 ## Current direction
 
-The project is moving toward a reusable platform for:
+Near-term priorities:
 
-- branded slide funnels
-- media-first storytelling
-- video-driven routing
-- performance rating flows
-- ticket/invitation sales
-- ticket-owner assignment
-- per-ticket meal selection
-- ticket-owner gated access
-- digital album downloads
-- secure download pages
-- reusable storefronts
-- fulfillment-aware checkout
-- DB-backed operational tools
-- reusable profile and record systems
-
-The major rule remains:
-
-Reusable capability goes into shared parser, shell, route, type, or library layers.
-
-Project-specific wording, products, events, files, prices, meals, and media paths belong in DSL/config/catalog files.
+1. Stabilize slide-style auth flows.
+2. Ensure `/signup`, `/login`, `/forgot-password`, and `/reset-password` can route into the slide-style versions when ready.
+3. Finish account deletion flow UX.
+4. Add cancellation UI for delayed deletion.
+5. Document production email and WhatsApp setup.
+6. Clean up Turbopack NFT warning.
+7. Continue reusable-slide and reusable-auth development separately, then merge improvements carefully.
