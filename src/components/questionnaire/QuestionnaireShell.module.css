@@ -522,6 +522,34 @@
   color: #b91c1c;
 }
 
+.authVerificationPanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.slideVerificationCodeGroup {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.slideVerificationCodeBox {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  background: #ffffff;
+}
+
+.slideVerificationCodeBox:focus {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  border-color: #2563eb;
+}
+
 .input {
   width: 100%;
   padding: 15px 16px;

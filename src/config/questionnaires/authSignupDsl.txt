@@ -83,22 +83,22 @@ BR
 
 ===
 @id: signup-verify
-@type: content
-@shownext: true
-@next: Go to verification
-@goto: /verify
+@type: authverify
+@shownext: false
 ---
 BR
 # [c1] Check your email
 BR
-[c3] We sent your verification code. Open the verification page and enter the code.
+[c3] Enter the verification code we sent to your email.
 
 ===
-@id: signup-submitting
+@id: signup-verified
 @type: content
-@shownext: false
+@shownext: true
+@next: Continue
+@goto: /login
 ---
 BR
-# [c1] Creating your account
+# [c1] Account verified
 BR
-[c3] Please wait.
+[c3] Your account is verified. You can log in now.

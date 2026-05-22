@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
 import styles from "./QuestionnaireShell.module.css";
 import {
   DataBlockAction,
@@ -504,6 +505,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
+  const [authVerificationContext, setAuthVerificationContext] = useState<{
+    identifier: string;
+    delivery?: "code" | "link";
+    method?: string;
+    target?: string | null;
+    successRedirect?: string | null;
+    expiresInMinutes?: number;
+    expiresInHours?: number;
+    phoneChannel?: string | null;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
@@ -1533,15 +1544,22 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   }
 
 async function next() {
-    if (!currentSlide) return;
+  if (!currentSlide) return;
 
-    if (currentSlide.run) {
-      const ok = await runSlideAction(currentSlide.run);
+  if (currentSlide.run) {
+    const ok = await runSlideAction(currentSlide.run);
 
-      if (!ok) {
-        return;
-      }
+    if (!ok) {
+      return;
     }
+
+    if (
+      currentSlide.run === "submitSignup" ||
+      currentSlide.run === "submitLogin"
+    ) {
+      return;
+    }
+  }
 
     if (currentSlide.completionCheck === "contact") {
       if (contactInfoComplete && currentSlide.gotoIfComplete) {
@@ -1784,6 +1802,56 @@ async function next() {
     };
   }
 
+  function getAuthVerificationStartPayload() {
+    const identifier =
+      String(answers.identifier ?? "").trim() ||
+      String(answers.email ?? "").trim() ||
+      String(answers.phone ?? "").trim();
+
+    const delivery: "code" | "link" =
+      mergedVariables.authVerificationDelivery === "link" ? "link" : "code";
+
+    const method =
+      typeof mergedVariables.authVerificationMethod === "string"
+        ? mergedVariables.authVerificationMethod
+        : "email";
+
+    const target =
+      typeof mergedVariables.authVerificationTarget === "string"
+        ? mergedVariables.authVerificationTarget
+        : "account";
+
+    const successRedirect =
+      typeof mergedVariables.authVerificationSuccessRedirect === "string"
+        ? mergedVariables.authVerificationSuccessRedirect
+        : "/dashboard";
+
+    const expiresInMinutesRaw =
+      typeof mergedVariables.authVerificationExpiresInMinutes === "number"
+        ? mergedVariables.authVerificationExpiresInMinutes
+        : Number(mergedVariables.authVerificationExpiresInMinutes);
+
+    const expiresInHoursRaw =
+      typeof mergedVariables.authVerificationExpiresInHours === "number"
+        ? mergedVariables.authVerificationExpiresInHours
+        : Number(mergedVariables.authVerificationExpiresInHours);
+
+    return {
+      identifier,
+      method,
+      delivery,
+      target,
+      successRedirect,
+      phoneChannel: null,
+      ...(Number.isFinite(expiresInMinutesRaw) && expiresInMinutesRaw > 0
+        ? { expiresInMinutes: expiresInMinutesRaw }
+        : {}),
+      ...(Number.isFinite(expiresInHoursRaw) && expiresInHoursRaw > 0
+        ? { expiresInHours: expiresInHoursRaw }
+        : {}),
+    };
+  }
+
   function getAuthLoginPayload() {
     return {
       identifier: String(answers.identifier ?? "").trim(),
@@ -1893,7 +1961,37 @@ async function next() {
       throw new Error(data?.error || data?.message || "Failed to run action.");
     }
 
-        if (
+    if (runName === "submitSignup") {
+      const verificationResponse = await fetch("/api/verify/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(getAuthVerificationStartPayload()),
+      });
+
+      const verificationData = await verificationResponse
+        .json()
+        .catch(() => null);
+
+      if (!verificationResponse.ok) {
+        throw new Error(
+          verificationData?.error ||
+            verificationData?.details ||
+            "Account was created, but the verification message could not be sent."
+        );
+      }
+
+      if (verificationData?.deliveryResult?.ok === false) {
+        throw new Error(
+          verificationData.deliveryResult?.error?.message ||
+            "Account was created, but the verification message could not be delivered."
+        );
+      }
+      setAuthVerificationContext(getAuthVerificationStartPayload());
+    }
+
+    if (
       runName === "checkSignupIdentifier" &&
       data?.exists === true &&
       data?.verified === true
@@ -2691,6 +2789,34 @@ async function next() {
                             <p className={styles.formError}>{deleteBatchError}</p>
                           ) : null}
                         </div>
+                      ) : null}
+
+                      {currentSlide.type === "authverify" ? (
+                        <VerificationCodePanel
+                          pendingContext={authVerificationContext}
+                          routes={{ login: "/login" }}
+                          classNames={{
+                            form: styles.authVerificationPanel,
+                            helpText: styles.authSlideHelpText,
+                            codeGroup: styles.slideVerificationCodeGroup,
+                            codeBox: styles.slideVerificationCodeBox,
+                            primaryButton: `${styles.primaryButton} ${styles.actionButton}`,
+                            secondaryButton: `${styles.secondaryButton} ${styles.actionButton}`,
+                          }}
+                          onMessage={({
+                            message,
+                            type,
+                          }: {
+                            message: string;
+                            type: "error" | "info" | "success";
+                          }) => {
+                            setSubmitError(message);
+                          }}
+                          onVerified={() => {
+                            goToTarget("signup-verified");
+                          }}
+                          autoSend={false}
+                        />
                       ) : null}
 
                       {(currentSlide.type === "form" ||

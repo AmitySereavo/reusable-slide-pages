@@ -424,6 +424,7 @@ export type SlideType =
   | "tickets"
   | "meal"
   | "delivery"
+  | "authverify"
   | "recordlist";
 
 export type Slide = {

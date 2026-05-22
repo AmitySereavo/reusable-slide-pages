@@ -144,7 +144,14 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dslPath: "src/config/questionnaires/authSignupDsl.txt",
     showStepText: true,
     overlayMode: "opaque",
-    variables: {},
+    variables: {
+      authVerificationDelivery: "code",
+      authVerificationMethod: "email",
+      authVerificationExpiresInMinutes: 15,
+      authVerificationExpiresInHours: null,
+      authVerificationTarget: "account",
+      authVerificationSuccessRedirect: "/dashboard",
+    },
     dynamicVariablesEndpoint: undefined,
   },
 
