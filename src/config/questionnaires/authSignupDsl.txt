@@ -59,8 +59,8 @@ BR
 BR
 [c3] Add your country and city.
 @fields:
-- country|text|Country|required|Jamaica
-- city|text|City / town|required|Kingston
+- country|text|Country|optional|Jamaica
+- city|text|City / town|optional|Kingston
 
 ===
 @id: signup-address
@@ -96,7 +96,7 @@ BR
 @type: content
 @shownext: true
 @next: Continue
-@goto: /login
+@goto: /questionnaire/auth-login
 ---
 BR
 # [c1] Account verified

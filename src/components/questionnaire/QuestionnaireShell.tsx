@@ -1375,6 +1375,11 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       return;
     }
 
+    if (target.startsWith("/")) {
+      window.location.href = target;
+      return;
+    }
+
     const targetIndex = getSlideIndexById(visibleSlides, target);
 
     if (targetIndex !== -1 && targetIndex !== currentIndex) {
@@ -1991,7 +1996,7 @@ async function next() {
       setAuthVerificationContext(getAuthVerificationStartPayload());
     }
 
-    if (
+        if (
       runName === "checkSignupIdentifier" &&
       data?.exists === true &&
       data?.verified === true
@@ -2007,10 +2012,44 @@ async function next() {
       data?.exists === true &&
       data?.needsVerification === true
     ) {
-      throw new Error(
+      const verificationPayload = getAuthVerificationStartPayload();
+
+      const verificationResponse = await fetch("/api/verify/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(verificationPayload),
+      });
+
+      const verificationData = await verificationResponse
+        .json()
+        .catch(() => null);
+
+      if (!verificationResponse.ok) {
+        throw new Error(
+          verificationData?.error ||
+            verificationData?.details ||
+            "Account already exists but still needs verification, but the verification message could not be sent."
+        );
+      }
+
+      if (verificationData?.deliveryResult?.ok === false) {
+        throw new Error(
+          verificationData.deliveryResult?.error?.message ||
+            "Account already exists but still needs verification, but the verification message could not be delivered."
+        );
+      }
+
+      setAuthVerificationContext(verificationPayload);
+      setSubmitError(
         data?.message ||
-          "This account already exists but still needs verification. Please go to verification or log in again."
+          "Account already exists but still needs verification. We sent a new verification code."
       );
+
+      goToTarget("signup-verify");
+
+      return false;
     }
 
     if (action.successGoto) {
@@ -2794,7 +2833,7 @@ async function next() {
                       {currentSlide.type === "authverify" ? (
                         <VerificationCodePanel
                           pendingContext={authVerificationContext}
-                          routes={{ login: "/login" }}
+                          routes={{}}
                           classNames={{
                             form: styles.authVerificationPanel,
                             helpText: styles.authSlideHelpText,
