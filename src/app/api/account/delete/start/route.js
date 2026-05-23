@@ -30,11 +30,109 @@ async function anonymizeUser(userId) {
       name: "Deleted account",
       country: null,
       city: null,
+      addressLine1: null,
+      addressLine2: null,
+      parishOrRegion: null,
+      postalCode: null,
       password: `deleted-${suffix}`,
       deletedAt: new Date(),
       deletionStatus: "deleted",
     },
   });
+}
+
+async function verifyDeletionCode({ userId, deleteCode, maxCodeAttempts }) {
+  if (!deleteCode) {
+    return { ok: false, status: 400, error: "Enter the deletion verification code." };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+    },
+  });
+
+  if (!user?.email) {
+    return {
+      ok: false,
+      status: 400,
+      error: "No email is available for deletion verification.",
+    };
+  }
+
+  const latestRecord = await prisma.verificationCode.findFirst({
+    where: {
+      userId,
+      identifier: user.email,
+      target: "accountDeletion",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  if (!latestRecord) {
+    return {
+      ok: false,
+      status: 400,
+      error: "No deletion code found. Please request a new code.",
+    };
+  }
+
+  if (latestRecord.expiresAt < new Date()) {
+    await prisma.verificationCode.deleteMany({
+      where: {
+        userId,
+        target: "accountDeletion",
+      },
+    });
+
+    return {
+      ok: false,
+      status: 400,
+      error: "Deletion code expired. Please request a new code.",
+    };
+  }
+
+  if ((latestRecord.attempts ?? 0) >= maxCodeAttempts) {
+    return {
+      ok: false,
+      status: 429,
+      error: "Too many incorrect attempts. Please request a new deletion code.",
+    };
+  }
+
+  const codeMatches = await bcrypt.compare(String(deleteCode), latestRecord.code);
+
+  if (!codeMatches) {
+    await prisma.verificationCode.update({
+      where: {
+        id: latestRecord.id,
+      },
+      data: {
+        attempts: {
+          increment: 1,
+        },
+      },
+    });
+
+    return {
+      ok: false,
+      status: 400,
+      error: "Invalid deletion code.",
+    };
+  }
+
+  await prisma.verificationCode.deleteMany({
+    where: {
+      userId,
+      target: "accountDeletion",
+    },
+  });
+
+  return { ok: true };
 }
 
 export async function POST(request) {
@@ -45,104 +143,26 @@ export async function POST(request) {
       return Response.json({ error: "You must be logged in." }, { status: 401 });
     }
 
+    const body = await request.json().catch(() => ({}));
+    const deleteCode = String(body.deleteCode || "").trim();
+
     const userId = session.userId;
     const config = getDeletionConfig();
     const now = new Date();
 
-    const body = await request.json().catch(() => ({}));
-    const deleteCode = String(body.deleteCode || "").trim();
-
     if (config.requireVerificationCode) {
-      if (!deleteCode) {
-        return Response.json(
-          { error: "Enter the deletion verification code." },
-          { status: 400 }
-        );
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-        },
+      const verified = await verifyDeletionCode({
+        userId,
+        deleteCode,
+        maxCodeAttempts: config.maxCodeAttempts,
       });
 
-      if (!user?.email) {
+      if (!verified.ok) {
         return Response.json(
-          { error: "No email is available for deletion verification." },
-          { status: 400 }
+          { error: verified.error },
+          { status: verified.status || 400 }
         );
       }
-
-      const latestRecord = await prisma.verificationCode.findFirst({
-        where: {
-          userId,
-          identifier: user.email,
-          target: "accountDeletion",
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      if (!latestRecord) {
-        return Response.json(
-          { error: "No deletion code found. Please request a new code." },
-          { status: 400 }
-        );
-      }
-
-      if (latestRecord.expiresAt < new Date()) {
-        await prisma.verificationCode.deleteMany({
-          where: {
-            userId,
-            target: "accountDeletion",
-          },
-        });
-
-        return Response.json(
-          { error: "Deletion code expired. Please request a new code." },
-          { status: 400 }
-        );
-      }
-
-      if ((latestRecord.attempts ?? 0) >= config.maxCodeAttempts) {
-        return Response.json(
-          {
-            error:
-              "Too many incorrect attempts. Please request a new deletion code.",
-          },
-          { status: 429 }
-        );
-      }
-
-      const codeMatches = await bcrypt.compare(deleteCode, latestRecord.code);
-
-      if (!codeMatches) {
-        await prisma.verificationCode.update({
-          where: {
-            id: latestRecord.id,
-          },
-          data: {
-            attempts: {
-              increment: 1,
-            },
-          },
-        });
-
-        return Response.json(
-          { error: "Invalid deletion code." },
-          { status: 400 }
-        );
-      }
-
-      await prisma.verificationCode.deleteMany({
-        where: {
-          userId,
-          target: "accountDeletion",
-        },
-      });
     }
 
     if (config.mode === "immediate" || config.delayDays <= 0) {

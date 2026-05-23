@@ -2,19 +2,38 @@
 @id: delete-account-warning
 @type: form
 @shownext: true
-@next: Delete My Account
-@goto: delete-account-confirmed
+@next: Send Delete Code
+@goto: delete-account-code
 @showback: true
 @back: Back to Account
 @backgoto: /questionnaire/auth-account
-@run: submitDeleteAccount
+@run: startDeleteAccount
 ---
 BR
 # [c1] Delete account
 BR
-[c3] Type DELETE to confirm. Depending on this business setup, your account may be removed immediately or scheduled for deletion.
+[c3] Type DELETE to confirm. We will send a verification code before completing the deletion.
 @fields:
 - deleteConfirmation|text|Type DELETE to confirm|required|DELETE
+
+===
+@id: delete-account-code
+@type: form
+@shownext: true
+@next: Complete Deletion
+@goto: delete-account-confirmed
+@showback: true
+@back: Back
+@backgoto: delete-account-warning
+@run: submitDeleteAccount
+---
+BR
+# [c1] Enter delete code
+BR
+[c3] Enter the 6-digit code we sent to your account email.
+@fields:
+- deleteCode|text|Delete code|required|6-digit code
+
 ===
 @id: delete-account-confirmed
 @type: content

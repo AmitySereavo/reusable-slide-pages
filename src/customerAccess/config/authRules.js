@@ -32,6 +32,9 @@ export const AUTH_RULES = {
     delayDays: 0,
     allowCancelBeforeDeletion: false,
     anonymizeInsteadOfDelete: false,
+
+    requireVerificationCode: true,
+    verificationExpiresInMinutes: 10,
   },
   rateLimit: {
     signup: {

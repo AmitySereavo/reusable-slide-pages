@@ -1558,13 +1558,14 @@ async function next() {
       return;
     }
 
-    if (
-      currentSlide.run === "submitSignup" ||
-      currentSlide.run === "submitLogin" ||
-      currentSlide.run === "submitDeleteAccount"
-    ) {
-      return;
-    }
+  if (
+    currentSlide.run === "submitSignup" ||
+    currentSlide.run === "submitLogin" ||
+    currentSlide.run === "startDeleteAccount" ||
+    currentSlide.run === "submitDeleteAccount"
+  ) {
+    return;
+  }
   }
 
     if (currentSlide.completionCheck === "contact") {
@@ -1868,6 +1869,7 @@ async function next() {
   function getDeleteAccountPayload() {
     return {
       confirmation: String(answers.deleteConfirmation ?? "").trim(),
+      deleteCode: String(answers.deleteCode ?? "").trim(),
     };
   }
 
@@ -1948,9 +1950,14 @@ async function next() {
     };
   }
 
- async function runSlideAction(runName: string) {
- setSubmitError(null);
-  const actionMap: Record<
+  async function runSlideAction(runName: string) {
+    if (isSubmitting) {
+      return false;
+    }
+
+    setSubmitError(null);
+
+    const actionMap: Record<
     string,
     {
       url: string;
@@ -1977,6 +1984,11 @@ async function next() {
       url: "/api/account/update-info",
       payload: getAuthUpdateInfoPayload,
       successGoto: "account-saved",
+    },
+    startDeleteAccount: {
+      url: "/api/account/delete/start",
+      payload: getDeleteAccountPayload,
+      successGoto: "delete-account-code",
     },
     submitDeleteAccount: {
       url: "/api/account/delete",
