@@ -143,7 +143,44 @@ export const verificationContent = {
             `Use this link to reset your password: ${verifyUrl}`,
         },
       },
-    },//end of passwordReset
+        },//end of passwordReset
+
+    accountDeletion: {
+      code: {
+        email: {
+          subject: "Confirm account deletion",
+          getText: ({ code }) =>
+            `Use this account deletion code to confirm deleting your account: ${code}`,
+          getHtml: ({ code }) =>
+            `<p>Use this account deletion code to confirm deleting your account:</p><p><strong>${code}</strong></p><p>If you did not request this, do not share this code.</p>`,
+        },
+        sms: {
+          getText: ({ code }) =>
+            `Use this account deletion code to confirm deleting your account: ${code}`,
+        },
+        whatsapp: {
+          getText: ({ code }) =>
+            `Use this account deletion code to confirm deleting your account: ${code}`,
+        },
+      },
+      link: {
+        email: {
+          subject: "Confirm account deletion",
+          getText: ({ verifyUrl }) =>
+            `Use this link to confirm deleting your account: ${verifyUrl}`,
+          getHtml: ({ verifyUrl }) =>
+            `<p>Use this link to confirm deleting your account:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>If you did not request this, do not click this link.</p>`,
+        },
+        sms: {
+          getText: ({ verifyUrl }) =>
+            `Use this link to confirm deleting your account: ${verifyUrl}`,
+        },
+        whatsapp: {
+          getText: ({ verifyUrl }) =>
+            `Use this link to confirm deleting your account: ${verifyUrl}`,
+        },
+      },
+    },//end of accountDeletion
 
   },//end of targets
 

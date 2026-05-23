@@ -22,8 +22,16 @@ It supports:
 - reusable authentication
 - slide-style signup and login
 - slide-style account verification
+- reusable auth footer inside slide flows
 - password reset
+- account management
+- account summary cards
+- update account information
+- password updated timestamp tracking
 - configurable account deletion
+- account deletion verification codes
+- immediate or scheduled account deletion
+- dev-safe email delivery testing
 
 ---
 
@@ -50,7 +58,7 @@ It supports:
 Current reusable-slide-pages source of truth:
 
 ```txt
-84982038219b0129011f3d359de2622a5dd75105
+e929e589466699b00e8baf1353383b1d807538da
 ```
 
 Reusable auth source merged into this project:
@@ -58,6 +66,27 @@ Reusable auth source merged into this project:
 ```txt
 2aa462dfcfa090eefa0a3b38d08000d722c43419
 ```
+
+Post-source-of-truth local updates included in this README direction:
+
+```txt
+- corrected /api/account/delete/start to send deletion code only
+- added accountDeletion target wording in verificationContent.js
+- added duplicate-action protection for slide actions
+- added server-side delete-code cooldown
+- cleared stale submit errors on slide changes
+- hid stale submit errors on delete success slide
+- added immediate vs scheduled delete success wording
+- added accountsummary slide type
+- added account summary card renderer for /questionnaire/auth-account
+- added logged-out redirect behavior for account summary
+- added masked account information display
+- added reusableAuth AuthFooter component
+- rendered reusableAuth footer inside auth slide flows
+- updated siteConfig routes to point to slide-style auth routes
+```
+
+After committing these local fixes, update this README source-of-truth SHA.
 
 ---
 
@@ -76,6 +105,7 @@ Each slide experience is configured by:
 - optional reusable block definitions
 - optional downloadable file catalog entries
 - optional auth behavior config
+- optional reusable auth UI components
 
 Shared questionnaire route:
 
@@ -83,9 +113,9 @@ Shared questionnaire route:
 /questionnaire/[slug]
 ```
 
-The shared shell stays generic. Project-specific wording belongs in DSL files, config files, catalog helpers, registry variables, or isolated server helpers.
+The shared shell stays generic. Project-specific wording belongs in DSL files, config files, catalog helpers, registry variables, reusable auth components, or isolated server helpers.
 
-Reusable behavior belongs in the shared parser, shell, types, route handlers, or shared library helpers.
+Reusable behavior belongs in the shared parser, shell, types, route handlers, shared library helpers, or `src/customerAccess` components.
 
 ---
 
@@ -192,7 +222,9 @@ Route:
 
 Reusable auth has been merged into reusable-slide-pages.
 
-The goal is to let the same slide system handle signup, login, verification, password reset, and future account management while still keeping the auth APIs reusable.
+The goal is to let the same slide system handle signup, login, verification, password reset, account management, and account deletion while still keeping the auth APIs and reusable auth UI components reusable.
+
+---
 
 ### `auth-signup`
 
@@ -239,6 +271,7 @@ Current behavior:
 - code auto-verifies after the final digit
 - resend code button with cooldown
 - successful verification moves to the `signup-verified` slide
+- reusable auth footer appears inside the slide
 
 ---
 
@@ -269,6 +302,106 @@ Current behavior:
 - slide-style login submission
 - successful login creates a session
 - dashboard is accessible after login
+- footer links include forgot password and create account
+
+---
+
+### `auth-account`
+
+Slide-style account management hub.
+
+Route:
+
+```txt
+/questionnaire/auth-account
+```
+
+Current behavior:
+
+- requires logged-in session
+- logged-out users are redirected to slide-style login
+- shows account information in card sections
+- shows masked email and masked phone
+- shows name
+- shows location
+- shows mailing address
+- shows password placeholder only, never the password
+- shows password last updated timestamp when available
+- shows deletion status if pending/deleted
+- provides update buttons under each relevant section
+- update buttons route to focused account update slides
+- delete button routes to delete account flow
+- footer links include dashboard and policies
+
+Backend route:
+
+```txt
+/api/account/profile
+```
+
+Account profile endpoint returns:
+
+```txt
+id
+name
+email
+phone
+maskedEmail
+maskedPhone
+country
+city
+addressLine1
+addressLine2
+parishOrRegion
+postalCode
+emailVerifiedAt
+phoneVerifiedAt
+passwordUpdatedAt
+createdAt
+updatedAt
+deletionRequestedAt
+deletionScheduledAt
+deletedAt
+deletionStatus
+```
+
+---
+
+### `auth-update-info`
+
+Slide-style update info flow.
+
+Route:
+
+```txt
+/questionnaire/auth-update-info
+```
+
+Current direction:
+
+- can update name
+- can update country and city
+- can update address fields
+- does not change email or phone yet
+- email and phone changes should be handled later in a separate verified contact-change flow
+
+Backend route:
+
+```txt
+/api/account/update-info
+```
+
+Current updateable user fields:
+
+```txt
+name
+country
+city
+addressLine1
+addressLine2
+parishOrRegion
+postalCode
+```
 
 ---
 
@@ -288,6 +421,8 @@ Current behavior:
 - email users receive a password reset link
 - phone reset code support exists in backend, but SMS is paused until later
 - neutral success messaging should be used so the UI does not reveal whether an account exists
+- back button can return to the account hub when opened from account management
+- footer links include back to login and create account
 
 Backend route:
 
@@ -314,7 +449,9 @@ Current behavior:
 - user confirms new password
 - validates password policy
 - submits to `/api/password/reset`
+- updates `passwordUpdatedAt`
 - old sessions are revoked after password reset
+- footer links include back to login and create account
 
 Backend route:
 
@@ -334,21 +471,169 @@ Route:
 /questionnaire/auth-delete-account
 ```
 
-Current direction:
+Current delete-account flow when verification code is required:
+
+```txt
+Type DELETE
+→ Send Delete Code
+→ code email sends
+→ Enter delete code
+→ Complete Deletion
+→ success slide
+→ user is logged out
+```
+
+Current behavior:
 
 - user must be logged in
-- user must confirm deletion
-- deletion behavior is controlled by config
-- deletion can be immediate or delayed
-- delayed deletion can be set to 7 days, 14 days, 30 days, or another configured period
-- cancellation endpoint exists for delayed deletion
+- user must type `DELETE`
+- start route sends a deletion verification code
+- deletion code is stored as a bcrypt hash
+- deletion code uses `target: "accountDeletion"`
+- deletion code email wording is configured through `verificationContent.js`
+- duplicate send protection exists in the slide action flow
+- server-side cooldown prevents immediate duplicate deletion-code emails
+- final delete route checks the deletion code before deleting or scheduling
+- final delete route clears the session after successful deletion/scheduling
+- success slide wording changes based on immediate vs scheduled deletion
+- stale “You must be logged in” errors are hidden on successful deletion confirmation
+- footer links include back to account and policies
 
 Backend routes:
 
 ```txt
+/api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
 ```
+
+Route responsibilities:
+
+```txt
+/api/account/delete/start
+→ require logged-in user
+→ require DELETE confirmation
+→ create account-deletion verification code
+→ send email
+→ return success
+→ does not delete account
+→ does not clear session
+
+/api/account/delete
+→ require logged-in user
+→ verify deletion code when enabled
+→ delete immediately or schedule deletion
+→ clear session
+→ return status
+
+/api/account/delete/cancel
+→ cancels pending deletion when delayed deletion is enabled and cancellation is allowed
+```
+
+---
+
+## Reusable auth footer
+
+The reusable auth footer lives in:
+
+```txt
+src/customerAccess/components/AuthFooter.jsx
+src/customerAccess/components/AuthFooter.d.ts
+```
+
+The footer uses:
+
+```txt
+src/customerAccess/config/siteConfig.js
+src/customerAccess/config/siteConfig.d.ts
+```
+
+The slide shell imports and renders the reusable footer only for auth flows:
+
+```txt
+config.slug starts with "auth-"
+```
+
+The footer is intentionally part of `src/customerAccess` so the slide system builds on reusableAuth instead of creating a separate one-off footer inside `QuestionnaireShell`.
+
+Footer behavior by flow:
+
+```txt
+auth-login
+→ Forgot password?
+→ Create account
+
+auth-signup
+→ Already have an account? Log in
+
+auth-forgot-password
+→ Back to login
+→ Create account
+
+auth-reset-password
+→ Back to login
+→ Create account
+
+auth-account
+→ Dashboard
+
+auth-delete-account
+→ Back to account
+```
+
+All auth footers also show:
+
+```txt
+business name
+privacy policy link
+terms link
+contact link
+```
+
+Footer routes come from:
+
+```txt
+siteConfig.routes
+siteConfig.footerLinks
+```
+
+---
+
+## Site config
+
+Reusable auth site config:
+
+```txt
+src/customerAccess/config/siteConfig.js
+```
+
+Current structure:
+
+```js
+export const siteConfig = {
+  businessName: "Reusable Auth-Lead Capture system",
+  footerLinks: {
+    privacy: "/privacy-policy",
+    terms: "/terms",
+    contact: "/contact",
+  },
+  routes: {
+    login: "/questionnaire/auth-login",
+    signup: "/questionnaire/auth-signup",
+    verify: "/verify",
+    dashboard: "/dashboard",
+    verifiedLead: "/verify/verified-lead",
+    verifyLinkSent: "/verify/link-sent",
+    forgotPassword: "/questionnaire/auth-forgot-password",
+    forgotPasswordCode: "/forgot-password/code",
+    resetPassword: "/questionnaire/auth-reset-password",
+    account: "/questionnaire/auth-account",
+    deleteAccount: "/questionnaire/auth-delete-account",
+  },
+};
+```
+
+Legacy auth page routes still exist, but the preferred UX direction is now slide-style auth routes.
 
 ---
 
@@ -435,6 +720,52 @@ Use short expiry for verification codes.
 Use longer expiry for verification links when the business requires that behavior.
 
 For production setup, confirm that external provider expiry settings match app settings where relevant.
+
+---
+
+## Verification content config
+
+Verification message wording is configured in:
+
+```txt
+src/customerAccess/config/verificationContent.js
+```
+
+The delivery helper resolves content using:
+
+```txt
+target
+delivery
+channel
+```
+
+Example target paths:
+
+```txt
+verificationContent.targets.user.code.email
+verificationContent.targets.lead.code.email
+verificationContent.targets.passwordReset.link.email
+verificationContent.targets.accountDeletion.code.email
+```
+
+The account deletion code email should use:
+
+```txt
+target: "accountDeletion"
+delivery: "code"
+channel: "email"
+```
+
+Expected account deletion email wording:
+
+```txt
+Subject: Confirm account deletion
+
+Use this account deletion code to confirm deleting your account:
+123456
+
+If you did not request this, do not share this code.
+```
 
 ---
 
@@ -526,6 +857,7 @@ Current slide behavior includes:
 - confirm password match signal
 - paste blocked on confirm password
 - password policy validation on the backend
+- password update timestamp tracking through `passwordUpdatedAt`
 
 Password fields are supported in DSL forms:
 
@@ -537,9 +869,46 @@ Password fields are supported in DSL forms:
 
 ---
 
+## Password updated tracking
+
+The `User` model supports:
+
+```prisma
+passwordUpdatedAt DateTime?
+```
+
+This field should be set:
+
+```txt
+on signup
+on password reset
+on future logged-in password change
+```
+
+Signup route:
+
+```txt
+src/app/api/signup/route.js
+```
+
+Password reset route:
+
+```txt
+src/app/api/password/reset/route.js
+```
+
+Password display rule:
+
+```txt
+Never show the password.
+Only show last updated date/time.
+```
+
+---
+
 ## Account deletion config
 
-Account deletion should be business-configurable.
+Account deletion is business-configurable.
 
 Config lives in:
 
@@ -547,18 +916,7 @@ Config lives in:
 src/customerAccess/config/authRules.js
 ```
 
-Example delayed deletion:
-
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 30,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: false,
-}
-```
-
-Example immediate deletion:
+Example immediate deletion with code verification:
 
 ```js
 accountDeletion: {
@@ -566,6 +924,37 @@ accountDeletion: {
   delayDays: 0,
   allowCancelBeforeDeletion: false,
   anonymizeInsteadOfDelete: false,
+
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Example delayed deletion with code verification:
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 30,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: false,
+
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Example delayed deletion without code verification:
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 14,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: false,
+
+  requireVerificationCode: false,
+  verificationExpiresInMinutes: 10,
 }
 ```
 
@@ -577,6 +966,9 @@ accountDeletion: {
   delayDays: 14,
   allowCancelBeforeDeletion: true,
   anonymizeInsteadOfDelete: true,
+
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
 }
 ```
 
@@ -587,9 +979,11 @@ mode: "immediate" | "delayed"
 delayDays: number
 allowCancelBeforeDeletion: boolean
 anonymizeInsteadOfDelete: boolean
+requireVerificationCode: boolean
+verificationExpiresInMinutes: number
 ```
 
-The `User` model should support deletion scheduling fields:
+The `User` model supports deletion scheduling fields:
 
 ```prisma
 deletionRequestedAt DateTime?
@@ -611,6 +1005,34 @@ Do not run `prisma migrate reset` against a Supabase database unless data loss i
 
 ---
 
+## User model account fields
+
+The `User` model supports account profile fields:
+
+```prisma
+name              String?
+country           String?
+city              String?
+addressLine1      String?
+addressLine2      String?
+parishOrRegion    String?
+postalCode        String?
+emailVerifiedAt   DateTime?
+phoneVerifiedAt   DateTime?
+passwordUpdatedAt DateTime?
+```
+
+Deletion-related fields:
+
+```prisma
+deletionRequestedAt DateTime?
+deletionScheduledAt DateTime?
+deletedAt           DateTime?
+deletionStatus      String?
+```
+
+---
+
 ## DSL file format
 
 DSL files are plain text files.
@@ -626,6 +1048,8 @@ src/config/questionnaires/invitationDsl.txt
 src/config/questionnaires/nurseryOpsDsl.txt
 src/config/questionnaires/authSignupDsl.txt
 src/config/questionnaires/authLoginDsl.txt
+src/config/questionnaires/authAccountDsl.txt
+src/config/questionnaires/authUpdateInfoDsl.txt
 src/config/questionnaires/authForgotPasswordDsl.txt
 src/config/questionnaires/authResetPasswordDsl.txt
 src/config/questionnaires/authDeleteAccountDsl.txt
@@ -659,6 +1083,7 @@ meal
 delivery
 recordlist
 authverify
+accountsummary
 ```
 
 ---
@@ -868,6 +1293,81 @@ BR
 
 ---
 
+### Account summary slide
+
+```txt
+===
+@id: account-home
+@type: accountsummary
+@shownext: false
+@countstep: false
+---
+BR
+# [c1] Account
+BR
+[c3] Manage your account information.
+```
+
+The `accountsummary` renderer handles the displayed account cards, masked account values, update buttons, logged-out redirect, and delete account link.
+
+---
+
+### Delete account flow
+
+```txt
+===
+@id: delete-account-warning
+@type: form
+@shownext: true
+@next: Send Delete Code
+@goto: delete-account-code
+@showback: true
+@back: Back to Account
+@backgoto: /questionnaire/auth-account
+@run: startDeleteAccount
+---
+BR
+# [c1] Delete account
+BR
+[c3] Type DELETE to confirm. We will send a verification code before completing the deletion.
+@fields:
+- deleteConfirmation|text|Type DELETE to confirm|required|DELETE
+
+===
+@id: delete-account-code
+@type: form
+@shownext: true
+@next: Complete Deletion
+@goto: delete-account-confirmed
+@showback: true
+@back: Back
+@backgoto: delete-account-warning
+@run: submitDeleteAccount
+---
+BR
+# [c1] Enter delete code
+BR
+[c3] Enter the 6-digit code we sent to your account email.
+@fields:
+- deleteCode|text|Delete code|required|6-digit code
+
+===
+@id: delete-account-confirmed
+@type: content
+@shownext: true
+@next: Return Home
+@goto: /
+---
+BR
+# [c1] [choose:deleteAccountStatus|deleted=Account deleted|pending=Deletion scheduled|default=Deletion request received]
+BR
+[c3] [choose:deleteAccountStatus|deleted=Your account has been deleted and you have been logged out.|pending=Your account is scheduled for deletion. You have been logged out.|default=Your account deletion request has been received.]
+BR
+[c3] [deleteAccountMessage]
+```
+
+---
+
 ### Date field example
 
 ```txt
@@ -940,8 +1440,10 @@ recordNurseryTransplant
 checkSignupIdentifier
 submitSignup
 submitLogin
+submitUpdateInfo
 submitForgotPassword
 submitResetPassword
+startDeleteAccount
 submitDeleteAccount
 ```
 
@@ -963,6 +1465,9 @@ Current auth API routes include:
 /api/password/forgot
 /api/password/verify-code
 /api/password/reset
+/api/account/profile
+/api/account/update-info
+/api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
 ```
@@ -1358,6 +1863,8 @@ Auth slide routes:
 ```txt
 http://localhost:3000/questionnaire/auth-signup
 http://localhost:3000/questionnaire/auth-login
+http://localhost:3000/questionnaire/auth-account
+http://localhost:3000/questionnaire/auth-update-info
 http://localhost:3000/questionnaire/auth-forgot-password
 http://localhost:3000/questionnaire/auth-reset-password
 http://localhost:3000/questionnaire/auth-delete-account
@@ -1428,6 +1935,29 @@ The slide-style auth routes are the preferred UX direction.
 → login success
 ```
 
+### Account hub
+
+```txt
+/questionnaire/auth-account
+→ logged-out user redirects to login
+→ logged-in user sees account summary cards
+→ update name
+→ update location
+→ update address
+→ update password
+→ delete account
+```
+
+### Update info
+
+```txt
+/questionnaire/auth-account
+→ Update Name / Update Location / Update Address
+→ save
+→ account-saved
+→ return to account hub
+```
+
 ### Forgot password
 
 ```txt
@@ -1444,17 +1974,116 @@ The slide-style auth routes are the preferred UX direction.
 → confirm new password
 → submit
 → password changed
+→ passwordUpdatedAt updates
 → login with new password
 ```
 
-### Delete account
+### Delete account with code
 
 Only test with a disposable account.
 
 ```txt
 /questionnaire/auth-delete-account
-→ confirm deletion
+→ type DELETE
+→ Send Delete Code
+→ one account deletion code email sends
+→ enter code
+→ Complete Deletion
 → account is deleted or scheduled based on config
+→ user is logged out
+→ success page shows immediate or scheduled wording
+```
+
+Immediate deletion expected success wording:
+
+```txt
+Account deleted
+Your account has been deleted and you have been logged out.
+```
+
+Scheduled deletion expected success wording:
+
+```txt
+Deletion scheduled
+Your account is scheduled for deletion. You have been logged out.
+```
+
+---
+
+## Account deletion duplicate-send protection
+
+The delete-code flow should not send two emails for one click.
+
+Current protection:
+
+```txt
+QuestionnaireShell actionInFlightRef
+→ blocks duplicate client-side action calls immediately
+
+/api/account/delete/start cooldown
+→ blocks immediate duplicate account deletion code emails server-side
+```
+
+The server-side cooldown uses:
+
+```txt
+AUTH_RULES.verification.resendCooldownSeconds
+```
+
+Default example:
+
+```js
+verification: {
+  resendCooldownSeconds: 60,
+}
+```
+
+---
+
+## Account summary UI
+
+The account hub uses a dedicated `accountsummary` slide type.
+
+Important behavior:
+
+```txt
+Logged out
+→ /api/account/profile returns 401
+→ accountsummary redirects to /questionnaire/auth-login
+
+Logged in
+→ accountsummary fetches /api/account/profile
+→ displays account cards
+→ hides sensitive values where needed
+→ routes update buttons to focused slides/routes
+```
+
+Displayed sections:
+
+```txt
+Signed in account
+Name
+Contact
+Location
+Mailing Address
+Password
+Deletion Status, when present
+Delete Account
+```
+
+Sensitive display rules:
+
+```txt
+Password
+→ never display real password
+→ show placeholder dots
+→ show passwordUpdatedAt if available
+
+Email
+→ use maskedEmail
+
+Phone
+→ use maskedPhone
 ```
 
 ---
@@ -1478,10 +2107,11 @@ Keep source-of-truth commit SHAs updated after clean build checkpoints.
 
 Near-term priorities:
 
-1. Stabilize slide-style auth flows.
-2. Ensure `/signup`, `/login`, `/forgot-password`, and `/reset-password` can route into the slide-style versions when ready.
-3. Finish account deletion flow UX.
-4. Add cancellation UI for delayed deletion.
-5. Document production email and WhatsApp setup.
-6. Clean up Turbopack NFT warning.
-7. Continue reusable-slide and reusable-auth development separately, then merge improvements carefully.
+1. Commit the final account management, delete-code, and reusable auth footer fixes.
+2. Update the source-of-truth SHA after the clean commit.
+3. Add cancellation UI for delayed account deletion.
+4. Add separate verified contact-change flows for email and phone.
+5. Ensure `/signup`, `/login`, `/forgot-password`, and `/reset-password` can route into the slide-style versions when ready.
+6. Document production email and WhatsApp setup.
+7. Clean up Turbopack NFT warning.
+8. Continue reusable-slide and reusable-auth development separately, then merge improvements carefully.

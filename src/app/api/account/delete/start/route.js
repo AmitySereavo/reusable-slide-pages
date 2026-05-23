@@ -1,138 +1,38 @@
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
+import { getSessionFromCookie } from "@/lib/auth/sessionServer";
+import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import {
-  getSessionFromCookie,
-  clearSessionCookie,
-} from "@/lib/auth/sessionServer";
-import { revokeAllUserSessions } from "@/lib/auth/passwordReset";
+  checkRateLimit,
+  getRateLimitKey,
+  rateLimitResponse,
+} from "@/lib/auth/rateLimit";
 
-function getDeletionConfig() {
-  return {
-    mode: AUTH_RULES?.accountDeletion?.mode || "delayed",
-    delayDays: Number(AUTH_RULES?.accountDeletion?.delayDays ?? 30),
-    anonymizeInsteadOfDelete:
-      AUTH_RULES?.accountDeletion?.anonymizeInsteadOfDelete === true,
-    requireVerificationCode:
-      AUTH_RULES?.accountDeletion?.requireVerificationCode === true,
-    maxCodeAttempts: Number(AUTH_RULES?.verification?.maxCodeAttempts) || 5,
-  };
+const RESEND_COOLDOWN_SECONDS =
+  Number(AUTH_RULES?.verification?.resendCooldownSeconds) || 60;
+
+function generateCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function anonymizeUser(userId) {
-  const suffix = `${userId}-${Date.now()}`;
+function getDeletionCodeExpiresAt() {
+  const expiresInMinutes =
+    Number(AUTH_RULES?.accountDeletion?.verificationExpiresInMinutes) ||
+    Number(AUTH_RULES?.verification?.defaultExpiryMinutes) ||
+    10;
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      email: null,
-      phone: null,
-      name: "Deleted account",
-      country: null,
-      city: null,
-      addressLine1: null,
-      addressLine2: null,
-      parishOrRegion: null,
-      postalCode: null,
-      password: `deleted-${suffix}`,
-      deletedAt: new Date(),
-      deletionStatus: "deleted",
-    },
-  });
+  return new Date(Date.now() + expiresInMinutes * 60 * 1000);
 }
 
-async function verifyDeletionCode({ userId, deleteCode, maxCodeAttempts }) {
-  if (!deleteCode) {
-    return { ok: false, status: 400, error: "Enter the deletion verification code." };
-  }
+function getCooldownSecondsRemaining(latestRecord) {
+  if (!latestRecord?.createdAt) return 0;
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-    },
-  });
+  const secondsSinceLastCode = Math.floor(
+    (Date.now() - new Date(latestRecord.createdAt).getTime()) / 1000
+  );
 
-  if (!user?.email) {
-    return {
-      ok: false,
-      status: 400,
-      error: "No email is available for deletion verification.",
-    };
-  }
-
-  const latestRecord = await prisma.verificationCode.findFirst({
-    where: {
-      userId,
-      identifier: user.email,
-      target: "accountDeletion",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (!latestRecord) {
-    return {
-      ok: false,
-      status: 400,
-      error: "No deletion code found. Please request a new code.",
-    };
-  }
-
-  if (latestRecord.expiresAt < new Date()) {
-    await prisma.verificationCode.deleteMany({
-      where: {
-        userId,
-        target: "accountDeletion",
-      },
-    });
-
-    return {
-      ok: false,
-      status: 400,
-      error: "Deletion code expired. Please request a new code.",
-    };
-  }
-
-  if ((latestRecord.attempts ?? 0) >= maxCodeAttempts) {
-    return {
-      ok: false,
-      status: 429,
-      error: "Too many incorrect attempts. Please request a new deletion code.",
-    };
-  }
-
-  const codeMatches = await bcrypt.compare(String(deleteCode), latestRecord.code);
-
-  if (!codeMatches) {
-    await prisma.verificationCode.update({
-      where: {
-        id: latestRecord.id,
-      },
-      data: {
-        attempts: {
-          increment: 1,
-        },
-      },
-    });
-
-    return {
-      ok: false,
-      status: 400,
-      error: "Invalid deletion code.",
-    };
-  }
-
-  await prisma.verificationCode.deleteMany({
-    where: {
-      userId,
-      target: "accountDeletion",
-    },
-  });
-
-  return { ok: true };
+  return Math.max(0, RESEND_COOLDOWN_SECONDS - secondsSinceLastCode);
 }
 
 export async function POST(request) {
@@ -144,69 +44,135 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const deleteCode = String(body.deleteCode || "").trim();
+    const confirmation = String(body.confirmation || "").trim();
 
-    const userId = session.userId;
-    const config = getDeletionConfig();
-    const now = new Date();
+    const rateLimit = checkRateLimit({
+      key: getRateLimitKey(request, "account-delete-start", session.userId),
+      ...AUTH_RULES.rateLimit.verificationStart,
+    });
 
-    if (config.requireVerificationCode) {
-      const verified = await verifyDeletionCode({
-        userId,
-        deleteCode,
-        maxCodeAttempts: config.maxCodeAttempts,
-      });
-
-      if (!verified.ok) {
-        return Response.json(
-          { error: verified.error },
-          { status: verified.status || 400 }
-        );
-      }
+    if (!rateLimit.ok) {
+      return rateLimitResponse(rateLimit);
     }
 
-    if (config.mode === "immediate" || config.delayDays <= 0) {
-      if (config.anonymizeInsteadOfDelete) {
-        await anonymizeUser(userId);
-      } else {
-        await prisma.user.delete({
-          where: { id: userId },
-        });
-      }
+    if (confirmation !== "DELETE") {
+      return Response.json(
+        { error: "Type DELETE to confirm account deletion." },
+        { status: 400 }
+      );
+    }
 
-      await clearSessionCookie();
+    const requireVerificationCode =
+      AUTH_RULES?.accountDeletion?.requireVerificationCode === true;
 
+    if (!requireVerificationCode) {
       return Response.json({
         ok: true,
-        status: "deleted",
-        message: "Your account has been deleted.",
+        verificationRequired: false,
+        message: "Delete confirmation accepted.",
       });
     }
 
-    const deletionScheduledAt = new Date(
-      now.getTime() + config.delayDays * 24 * 60 * 60 * 1000
-    );
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        deletionRequestedAt: now,
-        deletionScheduledAt,
-        deletionStatus: "pending",
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        email: true,
       },
     });
 
-    await revokeAllUserSessions(userId);
-    await clearSessionCookie();
+    if (!user?.email) {
+      return Response.json(
+        {
+          error:
+            "This account does not have an email address available for deletion verification.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const latestDeletionCode = await prisma.verificationCode.findFirst({
+      where: {
+        userId: user.id,
+        identifier: user.email,
+        target: "accountDeletion",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const cooldownSecondsRemaining =
+      getCooldownSecondsRemaining(latestDeletionCode);
+
+    if (cooldownSecondsRemaining > 0) {
+      return Response.json(
+        {
+          error: `Please wait ${cooldownSecondsRemaining} seconds before requesting a new deletion code.`,
+          retryAfterSeconds: cooldownSecondsRemaining,
+        },
+        { status: 429 }
+      );
+    }
+
+    const code = generateCode();
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = getDeletionCodeExpiresAt();
+
+    await prisma.verificationCode.deleteMany({
+      where: {
+        userId: user.id,
+        target: "accountDeletion",
+      },
+    });
+
+    const verificationCode = await prisma.verificationCode.create({
+      data: {
+        identifier: user.email,
+        code: codeHash,
+        target: "accountDeletion",
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    const deliveryResult = await sendVerificationDelivery({
+      identifier: user.email,
+      delivery: "code",
+      code,
+      target: "accountDeletion",
+      verificationCodeId: verificationCode.id,
+      contextMetadata: {
+        purpose: "account-deletion",
+        emailSubject: "Confirm account deletion",
+        codeLabel: "account deletion code",
+        introText:
+          "Use this code to confirm that you want to delete your account.",
+      },
+    });
+
+    if (!deliveryResult.ok) {
+      return Response.json(
+        {
+          error:
+            deliveryResult.error?.message ||
+            "Failed to send account deletion code.",
+          provider: deliveryResult.provider,
+          deliveryResult,
+        },
+        { status: 502 }
+      );
+    }
 
     return Response.json({
       ok: true,
-      status: "pending",
-      deletionScheduledAt,
-      message: `Your account is scheduled for deletion in ${config.delayDays} day(s).`,
+      verificationRequired: true,
+      message: "We sent a deletion confirmation code to your email.",
+      provider: deliveryResult.provider,
+      deliveryResult,
     });
   } catch (error) {
-    console.error("DELETE ACCOUNT ERROR:", error);
+    console.error("START DELETE ACCOUNT ERROR:", error);
 
     return Response.json(
       {

@@ -1,19 +1,13 @@
 ===
 @id: account-home
-@type: content
+@type: accountsummary
 @shownext: false
+@countstep: false
 ---
 BR
 # [c1] Account
 BR
 [c3] Manage your account information.
-
-@choices:
-- update-name|Update Name|account-update-name|c1
-- update-location|Update Location|account-update-location|c1
-- update-address|Update Address|account-update-address|c1
-- update-password|Update Password|/questionnaire/auth-forgot-password|c2
-- delete-account|Delete Account|/questionnaire/auth-delete-account|c4
 
 ===
 @id: account-update-name

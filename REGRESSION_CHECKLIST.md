@@ -1,19 +1,33 @@
 # Reusable Slide Pages Regression Checklist
 
-Use this checklist after auth, slide, shop, nursery, Prisma, or routing changes.
+Use this checklist after auth, slide, shop, nursery, Prisma, routing, email, or account-management changes.
 
 Current reusable-slide-pages source of truth:
 
 ```txt
-84982038219b0129011f3d359de2622a5dd75105
+e929e589466699b00e8baf1353383b1d807538da
 ```
+
+Post-source-of-truth local fixes to confirm before next commit:
+
+```txt
+- /api/account/delete/start sends deletion code only
+- accountDeletion email wording added in verificationContent.js
+- duplicate action protection added with actionInFlightRef
+- server-side deletion-code cooldown added
+- stale submitError cleared on slide changes
+- stale delete success error hidden
+- delete success wording changes for immediate vs scheduled deletion
+```
+
+After those fixes are committed, update the README and checklist source-of-truth SHA.
 
 ---
 
 ## 1. Setup / Environment
 
 - [ ] Confirm `.env` exists
-- [ ] Confirm database URL is correct
+- [ ] Confirm `DATABASE_URL` points to the intended database
 - [ ] Confirm `NEXT_PUBLIC_APP_URL` is correct
 
 Local example:
@@ -50,6 +64,19 @@ EMAIL_DEV_TEST_MODE="false"
 ```
 
 - [ ] Restart dev server after `.env` changes
+- [ ] Use the same host for login and testing
+
+Use:
+
+```txt
+http://localhost:3000
+```
+
+Do not mix with:
+
+```txt
+http://127.0.0.1:3000
+```
 
 ---
 
@@ -138,6 +165,8 @@ Check active entries:
 - [ ] `generic-profile-flow`
 - [ ] `auth-signup`
 - [ ] `auth-login`
+- [ ] `auth-account`
+- [ ] `auth-update-info`
 - [ ] `auth-forgot-password`
 - [ ] `auth-reset-password`
 - [ ] `auth-delete-account`
@@ -190,6 +219,7 @@ http://localhost:3000/questionnaire/auth-signup
 - [ ] Leave address blank if optional
 - [ ] Click Create Account
 - [ ] Account is created
+- [ ] `passwordUpdatedAt` is set
 - [ ] Verification code is sent
 - [ ] Verification panel appears inside slide flow
 - [ ] Six code boxes appear
@@ -296,7 +326,7 @@ File:
 src/config/questionnaires/registry.ts
 ```
 
-For `auth-signup`, check:
+For `auth-signup`, check code-mode variables:
 
 ```ts
 variables: {
@@ -325,7 +355,48 @@ Link mode, when enabled later:
 
 ---
 
-## 9. Auth Login Flow
+## 9. Verification Content
+
+File:
+
+```txt
+src/customerAccess/config/verificationContent.js
+```
+
+Confirm these targets exist:
+
+- [ ] `user`
+- [ ] `lead`
+- [ ] `passwordReset`
+- [ ] `accountDeletion`
+
+Confirm account deletion code content exists:
+
+```js
+accountDeletion: {
+  code: {
+    email: {
+      subject: "Confirm account deletion",
+      getText: ({ code }) =>
+        `Use this account deletion code to confirm deleting your account: ${code}`,
+      getHtml: ({ code }) =>
+        `<p>Use this account deletion code to confirm deleting your account:</p><p><strong>${code}</strong></p><p>If you did not request this, do not share this code.</p>`,
+    },
+  },
+}
+```
+
+Test:
+
+- [ ] Signup email says account verification wording
+- [ ] Lead email says confirm details wording
+- [ ] Password reset email says reset password wording
+- [ ] Account deletion email says account deletion wording
+- [ ] Account deletion email subject is `Confirm account deletion`
+
+---
+
+## 10. Auth Login Flow
 
 Route:
 
@@ -343,6 +414,8 @@ Test:
 - [ ] `/dashboard` opens after login
 - [ ] Refresh `/dashboard`
 - [ ] User stays logged in
+- [ ] Open `/api/session`
+- [ ] Confirm `authenticated: true`
 
 Invalid login:
 
@@ -352,7 +425,7 @@ Invalid login:
 
 ---
 
-## 10. Logout / Session
+## 11. Logout / Session
 
 Routes:
 
@@ -367,8 +440,12 @@ Test:
 - [ ] Log in
 - [ ] Open `/dashboard`
 - [ ] Confirm dashboard loads
+- [ ] Open `/api/session`
+- [ ] Confirm authenticated true
 - [ ] Trigger logout
 - [ ] Confirm session clears
+- [ ] Open `/api/session`
+- [ ] Confirm authenticated false
 - [ ] Open `/dashboard` again
 - [ ] Confirm access is blocked or redirected
 
@@ -382,7 +459,94 @@ Session table:
 
 ---
 
-## 11. Forgot Password Slide Flow
+## 12. Account Hub Flow
+
+Route:
+
+```txt
+http://localhost:3000/questionnaire/auth-account
+```
+
+Backend:
+
+```txt
+/api/account/profile
+```
+
+Test while logged in:
+
+- [ ] Account route loads
+- [ ] Current account info is available from `/api/account/profile`
+- [ ] Name option opens update name slide
+- [ ] Location option opens update location slide
+- [ ] Address option opens update address slide
+- [ ] Update password opens forgot-password/reset flow route
+- [ ] Delete account opens delete account route
+- [ ] Back buttons return to account hub
+- [ ] No 404 on any account links
+
+Test while logged out:
+
+- [ ] `/api/account/profile` returns logged-out/unauthorized state
+- [ ] Account route does not break
+- [ ] Future improvement: account-only routes should show login prompt or redirect
+
+---
+
+## 13. Update Info Flow
+
+Routes:
+
+```txt
+http://localhost:3000/questionnaire/auth-account
+http://localhost:3000/questionnaire/auth-update-info
+```
+
+Backend:
+
+```txt
+/api/account/update-info
+```
+
+Test:
+
+- [ ] Log in
+- [ ] Open account hub
+- [ ] Click Update Name
+- [ ] Enter new name
+- [ ] Save
+- [ ] Success slide appears
+- [ ] `/api/account/profile` shows updated name
+- [ ] Click Update Location
+- [ ] Update country/city
+- [ ] Save
+- [ ] `/api/account/profile` shows updated country/city
+- [ ] Click Update Address
+- [ ] Update address fields
+- [ ] Save
+- [ ] `/api/account/profile` shows updated address fields
+
+Current updateable fields:
+
+```txt
+name
+country
+city
+addressLine1
+addressLine2
+parishOrRegion
+postalCode
+```
+
+Confirm:
+
+- [ ] Email is not changed by update-info route
+- [ ] Phone is not changed by update-info route
+- [ ] Password is not changed by update-info route
+
+---
+
+## 14. Forgot Password Slide Flow
 
 Route:
 
@@ -406,6 +570,7 @@ Test email reset:
 - [ ] Link points to reset password route
 - [ ] Non-existing email still shows neutral success message
 - [ ] Rate limit/cooldown works
+- [ ] Back button can return to account hub when opened from account hub
 
 Phone reset, when enabled later:
 
@@ -415,7 +580,7 @@ Phone reset, when enabled later:
 
 ---
 
-## 12. Reset Password Slide Flow
+## 15. Reset Password Slide Flow
 
 Route example:
 
@@ -441,6 +606,7 @@ Test:
 - [ ] Enter matching confirm password
 - [ ] Submit
 - [ ] Password reset success slide appears
+- [ ] `passwordUpdatedAt` updates
 - [ ] Old sessions are revoked
 - [ ] Old password no longer works
 - [ ] New password works
@@ -454,7 +620,121 @@ Invalid token:
 
 ---
 
-## 13. Account Deletion Flow
+## 16. Account Deletion Config
+
+File:
+
+```txt
+src/customerAccess/config/authRules.js
+```
+
+Confirm config supports:
+
+```js
+accountDeletion: {
+  mode: "immediate", // "immediate" or "delayed"
+  delayDays: 0,
+  allowCancelBeforeDeletion: false,
+  anonymizeInsteadOfDelete: false,
+
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Test these config modes with disposable accounts only:
+
+### Immediate deletion with code
+
+```js
+accountDeletion: {
+  mode: "immediate",
+  delayDays: 0,
+  allowCancelBeforeDeletion: false,
+  anonymizeInsteadOfDelete: false,
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Expected:
+
+- [ ] Delete requires code
+- [ ] Correct code deletes account
+- [ ] Session clears
+- [ ] `/api/session` returns authenticated false
+- [ ] Success wording says account deleted
+
+### Delayed deletion with code
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 30,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: false,
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Expected:
+
+- [ ] Delete requires code
+- [ ] Correct code schedules deletion
+- [ ] `deletionRequestedAt` is set
+- [ ] `deletionScheduledAt` is set
+- [ ] `deletionStatus` is `pending`
+- [ ] Session clears
+- [ ] Success wording says deletion scheduled
+
+### Delayed deletion without code
+
+```js
+accountDeletion: {
+  mode: "delayed",
+  delayDays: 14,
+  allowCancelBeforeDeletion: true,
+  anonymizeInsteadOfDelete: false,
+  requireVerificationCode: false,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Expected:
+
+- [ ] Flow can skip code requirement when route/DSL supports it
+- [ ] Account is scheduled
+- [ ] Session clears
+- [ ] Success wording says deletion scheduled
+
+### Anonymize deletion
+
+```js
+accountDeletion: {
+  mode: "immediate",
+  delayDays: 0,
+  allowCancelBeforeDeletion: false,
+  anonymizeInsteadOfDelete: true,
+  requireVerificationCode: true,
+  verificationExpiresInMinutes: 10,
+}
+```
+
+Expected:
+
+- [ ] User record remains
+- [ ] Email is cleared
+- [ ] Phone is cleared
+- [ ] Name becomes deleted account marker
+- [ ] Address fields clear
+- [ ] `deletedAt` is set
+- [ ] `deletionStatus` is `deleted`
+- [ ] Session clears
+
+---
+
+## 17. Account Delete Code Flow
 
 Route:
 
@@ -465,120 +745,114 @@ http://localhost:3000/questionnaire/auth-delete-account
 Backend routes:
 
 ```txt
+/api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
 ```
 
-Use only a disposable test account.
+Use only a disposable account.
 
-Before testing:
-
-- [ ] Confirm Prisma schema has deletion fields on `User`
-
-```prisma
-deletionRequestedAt DateTime?
-deletionScheduledAt DateTime?
-deletedAt           DateTime?
-deletionStatus      String?
-```
-
-- [ ] Run Prisma sync
-
-```bash
-npx prisma format
-npx prisma db push
-npx prisma generate
-```
-
-Config file:
-
-```txt
-src/customerAccess/config/authRules.js
-```
-
-### Delayed deletion
-
-Example config:
-
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 30,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: false,
-}
-```
-
-Test:
+### Send delete code
 
 - [ ] Log in with disposable account
-- [ ] Open delete account slide
-- [ ] Try submitting without confirmation
-- [ ] Confirm submission is blocked
-- [ ] Type required confirmation
-- [ ] Submit
-- [ ] User `deletionRequestedAt` is set
-- [ ] User `deletionScheduledAt` is set
-- [ ] User `deletionStatus` is `pending`
-- [ ] Sessions are revoked
-- [ ] User is logged out
-- [ ] Message shows scheduled deletion
+- [ ] Open delete account route
+- [ ] Type anything other than `DELETE`
+- [ ] Confirm error appears
+- [ ] Type `DELETE`
+- [ ] Click Send Delete Code once
+- [ ] Exactly one email is sent
+- [ ] Slide moves to `delete-account-code`
+- [ ] Email subject says `Confirm account deletion`
+- [ ] Email body says account deletion code, not generic verification code
+- [ ] VerificationCode record has `target: accountDeletion`
+- [ ] VerificationCode record has `userId`
+- [ ] VerificationCode record has bcrypt-hashed code
+- [ ] VerificationCode expires according to config
 
-### Immediate deletion
+### Duplicate-send protection
 
-Example config:
+- [ ] Click Send Delete Code once
+- [ ] Confirm only one email arrives
+- [ ] Immediately try to request another code
+- [ ] Server cooldown blocks duplicate request
+- [ ] Error mentions wait time
+- [ ] No second email arrives inside cooldown window
 
-```js
-accountDeletion: {
-  mode: "immediate",
-  delayDays: 0,
-  allowCancelBeforeDeletion: false,
-  anonymizeInsteadOfDelete: false,
-}
+Current intended protections:
+
+```txt
+QuestionnaireShell actionInFlightRef
+/api/account/delete/start cooldown
+AUTH_RULES.verification.resendCooldownSeconds
 ```
 
-Test only with disposable account:
+### Complete deletion
 
-- [ ] Submit delete request
-- [ ] User record is deleted
-- [ ] Related cascade behavior is acceptable
+- [ ] Enter wrong code
+- [ ] Confirm invalid code error appears
+- [ ] Attempts increment
+- [ ] Enter correct code
+- [ ] Confirm account is deleted or scheduled based on config
+- [ ] Account deletion code records are cleared
 - [ ] Session clears
-- [ ] Login no longer works
+- [ ] `/api/session` returns authenticated false
+- [ ] Success slide appears
 
-### Anonymize deletion
+### Success slide wording
 
-Example config:
+Immediate deletion expected:
 
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 14,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: true,
-}
+```txt
+Account deleted
+Your account has been deleted and you have been logged out.
 ```
 
-Test:
+Scheduled deletion expected:
 
-- [ ] Submit delete request
-- [ ] User personal fields are cleared or scheduled to clear
-- [ ] Email is null or anonymized
-- [ ] Phone is null or anonymized
-- [ ] Name becomes deleted-account marker
-- [ ] Account cannot be used normally after deletion
+```txt
+Deletion scheduled
+Your account is scheduled for deletion. You have been logged out.
+```
 
-### Cancel deletion
+Confirm:
 
-- [ ] Log in before deletion deadline if cancellation is allowed
-- [ ] Call cancellation flow
+- [ ] No stale “You must be logged in” error appears on success slide
+- [ ] No stale error appears after account deletion success
+- [ ] `deleteAccountStatus` is stored in answers
+- [ ] `deleteAccountMessage` is stored in answers
+- [ ] `deleteAccountScheduledAt` is stored in answers when scheduled
+
+---
+
+## 18. Cancel Delete Flow
+
+Backend:
+
+```txt
+/api/account/delete/cancel
+```
+
+For delayed deletion only:
+
+- [ ] Create disposable account
+- [ ] Schedule deletion
+- [ ] Confirm `deletionStatus` is `pending`
+- [ ] Log back in if cancellation is allowed
+- [ ] Call cancellation route/flow
 - [ ] `deletionRequestedAt` clears
 - [ ] `deletionScheduledAt` clears
 - [ ] `deletionStatus` clears
 - [ ] Account remains usable
 
+Future UI:
+
+- [ ] Add cancellation button to account hub when `deletionStatus` is `pending`
+- [ ] Hide cancellation button when cancellation is not allowed
+- [ ] Show scheduled deletion date
+
 ---
 
-## 14. Legacy Auth Pages
+## 19. Legacy Auth Pages
 
 Legacy routes still exist:
 
@@ -608,13 +882,14 @@ Preferred UX direction:
 ```txt
 /questionnaire/auth-signup
 /questionnaire/auth-login
+/questionnaire/auth-account
 /questionnaire/auth-forgot-password
 /questionnaire/auth-reset-password
 ```
 
 ---
 
-## 15. Email Delivery Attempts
+## 20. Email Delivery Attempts
 
 Check delivery attempt records after email actions.
 
@@ -623,6 +898,7 @@ Expected actions that create delivery attempts:
 - [ ] Signup verification code
 - [ ] Resend verification code
 - [ ] Password reset link
+- [ ] Account deletion code
 - [ ] Future invoice email
 - [ ] Future marketing sequence email
 
@@ -658,9 +934,17 @@ originalTo: real user email
 to: EMAIL_DEV_TEST_INBOX
 ```
 
+Expected account deletion metadata:
+
+```txt
+target: accountDeletion
+purpose: account-deletion
+contentChannel: email
+```
+
 ---
 
-## 16. Shop / Invitation Flow
+## 21. Shop / Invitation Flow
 
 Route:
 
@@ -688,7 +972,7 @@ Test:
 
 ---
 
-## 17. Ticket Details Flow
+## 22. Ticket Details Flow
 
 Route:
 
@@ -714,7 +998,7 @@ Test:
 
 ---
 
-## 18. Meal Selection Flow
+## 23. Meal Selection Flow
 
 Test:
 
@@ -729,7 +1013,7 @@ Test:
 
 ---
 
-## 19. Delivery Flow
+## 24. Delivery Flow
 
 Test:
 
@@ -744,7 +1028,7 @@ Test:
 
 ---
 
-## 20. Download API
+## 25. Download API
 
 Route:
 
@@ -768,7 +1052,7 @@ Known warning:
 
 ---
 
-## 21. Nursery Ops Flow
+## 26. Nursery Ops Flow
 
 Route:
 
@@ -796,7 +1080,7 @@ Test:
 
 ---
 
-## 22. Reusable Blocks / Record Lists
+## 27. Reusable Blocks / Record Lists
 
 Test:
 
@@ -812,7 +1096,7 @@ Test:
 
 ---
 
-## 23. Form Field Types
+## 28. Form Field Types
 
 Test every field type:
 
@@ -846,7 +1130,7 @@ Expected:
 
 ---
 
-## 24. Slide Navigation
+## 29. Slide Navigation
 
 Test:
 
@@ -862,10 +1146,13 @@ Test:
 - [ ] `@showreturnhome` works
 - [ ] `@showcancel` works
 - [ ] History stack works after routed slide navigation
+- [ ] Action slides do not fall through into duplicate navigation
+- [ ] `startDeleteAccount` does not run twice
+- [ ] `submitDeleteAccount` does not show stale errors after success
 
 ---
 
-## 25. UI / Responsive
+## 30. UI / Responsive
 
 Test desktop and mobile widths:
 
@@ -879,30 +1166,36 @@ Test desktop and mobile widths:
 - [ ] Meal selection fits mobile width
 - [ ] Delivery totals remain visible
 - [ ] Buttons are tappable
+- [ ] Disabled buttons visually appear disabled
 - [ ] Focus states are visible
 
 ---
 
-## 26. Security Checks
+## 31. Security Checks
 
 - [ ] Passwords are hashed with bcrypt
-- [ ] Verification codes are hashed
+- [ ] Verification codes are hashed with bcrypt
+- [ ] Account deletion codes are hashed with bcrypt
 - [ ] Reset tokens are hashed
 - [ ] Sessions use token hash
 - [ ] Password reset revokes old sessions
-- [ ] Account deletion revokes sessions
+- [ ] Account deletion clears or revokes sessions
 - [ ] Rate limits apply to signup
 - [ ] Rate limits apply to verification start
+- [ ] Rate limits apply to verification check
 - [ ] Rate limits apply to password forgot
 - [ ] Rate limits apply to password reset
+- [ ] Rate limits/cooldown apply to delete-code start
 - [ ] Errors do not leak sensitive information
 - [ ] Forgot password uses neutral messaging
 - [ ] Private downloads do not expose full private paths
 - [ ] Dev email rewrite is off before production
+- [ ] Delete account requires logged-in session
+- [ ] Delete account requires code when config requires it
 
 ---
 
-## 27. Production Readiness
+## 32. Production Readiness
 
 Before production:
 
@@ -916,16 +1209,18 @@ Before production:
 - [ ] Confirm SMTP sender works
 - [ ] Confirm verification expiry matches business rules
 - [ ] Confirm account deletion policy matches business rules
+- [ ] Confirm delete-code expiry matches business rules
 - [ ] Confirm WhatsApp/SMS settings are disabled or configured
 - [ ] Confirm database backups exist
 - [ ] Confirm Prisma schema is synced
 - [ ] Confirm test accounts are removed
 - [ ] Confirm no console-only verification mode is active
 - [ ] Confirm no secret values are committed
+- [ ] Confirm account-only flows have login guard or acceptable logged-out messaging
 
 ---
 
-## 28. Final Build / Commit
+## 33. Final Build / Commit
 
 Run:
 
@@ -946,10 +1241,12 @@ Then:
 ```bash
 git status
 git add .
-git commit -m "docs: update reusable slide auth regression checklist"
+git commit -m "docs: update reusable slide pages regression checklist"
 ```
 
 After commit:
 
 - [ ] Copy commit SHA
 - [ ] Share new SHA as source of truth
+- [ ] Update README source-of-truth section
+- [ ] Update regression checklist source-of-truth section

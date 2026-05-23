@@ -42,6 +42,8 @@ BR
 @goto: /
 ---
 BR
-# [c1] Deletion request received
+# [c1] [choose:deleteAccountStatus|deleted=Account deleted|pending=Deletion scheduled|default=Deletion request received]
 BR
-[c3] Your account deletion request has been received.
+[c3] [choose:deleteAccountStatus|deleted=Your account has been deleted and you have been logged out.|pending=Your account is scheduled for deletion. You have been logged out.|default=Your account deletion request has been received.]
+BR
+[c3] [deleteAccountMessage]

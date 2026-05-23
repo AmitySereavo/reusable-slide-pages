@@ -663,6 +663,54 @@
   line-height: 1.4;
 }
 
+.authFooter {
+  display: grid;
+  gap: 12px;
+  margin: 26px auto 0;
+  padding: 18px 8px 4px;
+  text-align: center;
+}
+
+.authFooterPrimaryLinks,
+.authFooterPolicyLinks {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.authFooterLink {
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.authFooterBusinessName {
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
+.authFooterPolicyLink {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.72;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.authFooterPolicyDivider {
+  color: inherit;
+  opacity: 0.45;
+  font-size: 12px;
+}
+
 .shopStack {
   display: grid;
   gap: 14px;
@@ -1055,6 +1103,97 @@
   gap: 4px;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.accountSummaryStack {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.accountHeroCard,
+.accountInfoCard,
+.accountDangerCard {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  display: grid;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.accountHeroCard {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 255, 255, 0.68)
+  );
+}
+
+.accountDangerCard {
+  border-color: rgba(180, 35, 24, 0.28);
+  background: rgba(255, 246, 244, 0.86);
+}
+
+.accountCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accountEyebrow {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.64;
+}
+
+.accountHeroName {
+  margin-top: 4px;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.accountHeroMeta {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.78;
+  word-break: break-word;
+}
+
+.accountCardTitle {
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.accountCardValue {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.accountMaskedValue {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  word-break: break-word;
+}
+
+.accountCardMeta {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.76;
 }
 
 .linkButton {

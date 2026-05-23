@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
+import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
   DataBlockAction,
@@ -300,6 +301,10 @@ function resolveButtonStyle(
   };
 }
 
+function shouldShowAuthFooter(slug: string) {
+  return slug.startsWith("auth-");
+}
+
 function isTransparentColor(value?: string) {
   if (!value) return false;
 
@@ -529,6 +534,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const previousVideoTimeRef = useRef(0);
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
+  const actionInFlightRef = useRef(false);
   const searchParams = useSearchParams();
 
   const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
@@ -1284,6 +1290,7 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     setVideoSeekRequest(null);
     previousVideoTimeRef.current = 0;
     setDownloadNotice(null);
+    setSubmitError(null);
 
     if (isMediaSlide) {
       window.scrollTo({
@@ -1951,10 +1958,11 @@ async function next() {
   }
 
   async function runSlideAction(runName: string) {
-    if (isSubmitting) {
+    if (actionInFlightRef.current) {
       return false;
     }
 
+    actionInFlightRef.current = true;
     setSubmitError(null);
 
     const actionMap: Record<
@@ -2139,6 +2147,22 @@ async function next() {
       return false;
     }
 
+    if (runName === "submitDeleteAccount") {
+      setAnswers((prev) => ({
+        ...prev,
+        deleteAccountStatus:
+          typeof data?.status === "string" ? data.status : "received",
+        deleteAccountMessage:
+          typeof data?.message === "string"
+            ? data.message
+            : "Your account deletion request has been received.",
+        deleteAccountScheduledAt:
+          typeof data?.deletionScheduledAt === "string"
+            ? data.deletionScheduledAt
+            : "",
+      }));
+    }
+
     if (action.successGoto) {
       setSubmitError(null);
       goToTarget(action.successGoto);
@@ -2161,9 +2185,10 @@ async function next() {
         error instanceof Error ? error.message : "Failed to run action."
       );
       return false;
-    } finally {
-      setIsSubmitting(false);
-    }
+      } finally {
+        actionInFlightRef.current = false;
+        setIsSubmitting(false);
+      }
   }
 
   async function handleDeleteRecord() {
@@ -2625,6 +2650,12 @@ async function next() {
                           })}
                         </div>
                       ) : null}
+                      {currentSlide.type === "accountsummary" ? (
+                        <AccountSummaryRenderer
+                          theme={theme}
+                          onGoto={goToTarget}
+                        />
+                      ) : null}
 
                       {currentSlide.type === "shop" ? (
                         <ShopSlideRenderer
@@ -2972,8 +3003,24 @@ async function next() {
                         </div>
                       ) : null}
 
-                      {submitError ? (
+                      {submitError &&
+                      currentSlide.id !== "delete-account-confirmed" ? (
                         <p className={styles.formError}>{submitError}</p>
+                      ) : null}
+
+                      {shouldShowAuthFooter(config.slug) ? (
+                        <AuthFooter
+                          variant={config.slug}
+                          classNames={{
+                            footer: styles.authFooter,
+                            primaryLinks: styles.authFooterPrimaryLinks,
+                            link: styles.authFooterLink,
+                            businessName: styles.authFooterBusinessName,
+                            policyLinks: styles.authFooterPolicyLinks,
+                            policyLink: styles.authFooterPolicyLink,
+                            policyDivider: styles.authFooterPolicyDivider,
+                          }}
+                        />
                       ) : null}
 
                       <div className={styles.scrollBottomSpacer} />
@@ -5357,6 +5404,340 @@ function formatCurrency(amount: number, currencyCode = "USD") {
   } catch {
     return `${currencyCode} ${amount.toLocaleString()}`;
   }
+}
+
+type AccountProfileUser = {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  maskedEmail?: string | null;
+  maskedPhone?: string | null;
+  country?: string | null;
+  city?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  parishOrRegion?: string | null;
+  postalCode?: string | null;
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
+  passwordUpdatedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  deletionRequestedAt?: string | null;
+  deletionScheduledAt?: string | null;
+  deletedAt?: string | null;
+  deletionStatus?: string | null;
+};
+
+function formatAccountDate(value?: string | null) {
+  if (!value) return "Not recorded";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Not recorded";
+  }
+
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function displayAccountValue(value?: string | null, fallback = "Not added yet") {
+  const text = String(value ?? "").trim();
+  return text.length ? text : fallback;
+}
+
+function buildAddressLines(user: AccountProfileUser) {
+  return [
+    user.addressLine1,
+    user.addressLine2,
+    user.parishOrRegion,
+    user.postalCode,
+  ]
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
+function AccountSummaryRenderer({
+  theme,
+  onGoto,
+}: {
+  theme: ThemeConfig;
+  onGoto: (target: string) => void;
+}) {
+  const [user, setUser] = useState<AccountProfileUser | null>(null);
+  const [isLoadingAccount, setIsLoadingAccount] = useState(true);
+  const [accountError, setAccountError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadAccountProfile() {
+      setIsLoadingAccount(true);
+      setAccountError(null);
+
+      try {
+        const response = await fetch("/api/account/profile", {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (response.status === 401) {
+          window.location.href = "/questionnaire/auth-login";
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error || data?.message || "Could not load account information."
+          );
+        }
+
+        if (isMounted) {
+          setUser(data?.user ?? null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setAccountError(
+            error instanceof Error
+              ? error.message
+              : "Could not load account information."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAccount(false);
+        }
+      }
+    }
+
+    void loadAccountProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const addressLines = user ? buildAddressLines(user) : [];
+  const maskedEmail = user?.maskedEmail || "No email added";
+  const maskedPhone = user?.maskedPhone || "No phone added";
+  const deletionStatus = String(user?.deletionStatus ?? "").trim();
+
+  if (isLoadingAccount) {
+    return (
+      <div className={styles.accountSummaryStack}>
+        <div className={styles.accountInfoCard}>
+          <div className={styles.accountCardTitle}>Loading account...</div>
+          <div className={styles.accountCardMeta}>
+            Checking your saved account information.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (accountError) {
+    return (
+      <div className={styles.accountSummaryStack}>
+        <div className={styles.accountInfoCard}>
+          <div className={styles.accountCardTitle}>Account unavailable</div>
+          <div className={styles.accountCardMeta}>{accountError}</div>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => onGoto("/questionnaire/auth-login")}
+            style={{
+              borderColor: theme.colors.border,
+              color: theme.colors.text,
+            }}
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.accountSummaryStack}>
+      <div className={styles.accountHeroCard}>
+        <div>
+          <div className={styles.accountEyebrow}>Signed in account</div>
+          <div className={styles.accountHeroName}>
+            {displayAccountValue(user?.name, "Name not added")}
+          </div>
+          <div className={styles.accountHeroMeta}>{maskedEmail}</div>
+        </div>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Name</div>
+            <div className={styles.accountCardValue}>
+              {displayAccountValue(user?.name, "Name not added")}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("account-update-name")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Name
+        </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Contact</div>
+            <div className={styles.accountMaskedValue}>Email: {maskedEmail}</div>
+            <div className={styles.accountMaskedValue}>Phone: {maskedPhone}</div>
+          </div>
+        </div>
+        <div className={styles.accountCardMeta}>
+          Email verified: {user?.emailVerifiedAt ? "Yes" : "No"}
+        </div>
+        <div className={styles.accountCardMeta}>
+          Phone verified: {user?.phoneVerifiedAt ? "Yes" : "No"}
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("account-update-location")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Location
+        </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Location</div>
+            <div className={styles.accountCardValue}>
+              {[
+                displayAccountValue(user?.city, ""),
+                displayAccountValue(user?.country, ""),
+              ]
+                .filter(Boolean)
+                .join(", ") || "Location not added"}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("account-update-location")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Location
+        </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Mailing Address</div>
+            {addressLines.length ? (
+              <div className={styles.accountCardValue}>
+                {addressLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.accountCardValue}>Address not added</div>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("account-update-address")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Address
+        </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Password</div>
+            <div className={styles.accountMaskedValue}>••••••••••••</div>
+            <div className={styles.accountCardMeta}>
+              Last updated: {formatAccountDate(user?.passwordUpdatedAt)}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("/questionnaire/auth-forgot-password")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Password
+        </button>
+      </div>
+
+      {deletionStatus ? (
+        <div className={styles.accountDangerCard}>
+          <div className={styles.accountCardTitle}>Deletion Status</div>
+          <div className={styles.accountCardValue}>{deletionStatus}</div>
+          <div className={styles.accountCardMeta}>
+            Scheduled for: {formatAccountDate(user?.deletionScheduledAt)}
+          </div>
+        </div>
+      ) : null}
+
+      <div className={styles.accountDangerCard}>
+        <div className={styles.accountCardTitle}>Delete Account</div>
+        <div className={styles.accountCardMeta}>
+          Deleting your account can remove or schedule removal of your saved
+          account data based on this business setup.
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("/questionnaire/auth-delete-account")}
+          style={{
+            borderColor: "#b42318",
+            color: "#b42318",
+          }}
+        >
+          Delete Account
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function formatWeight(weight: number, weightUnit = "lb") {
