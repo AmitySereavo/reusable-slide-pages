@@ -93,6 +93,7 @@ export async function POST(request) {
         email,
         phone,
         password: hashedPassword,
+        passwordUpdatedAt: new Date(),
         name: fullName || null,
         country: country || null,
         city: city || null,

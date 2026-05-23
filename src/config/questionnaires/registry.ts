@@ -194,6 +194,41 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "auth-account": {
+    slug: "auth-account",
+    name: "Account",
+    themeKey: "authAccount",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authAccountDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: "/api/account/profile",
+  },
+
+  "auth-update-info": {
+    slug: "auth-update-info",
+    name: "Update Account Info",
+    themeKey: "authUpdateInfo",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authUpdateInfoDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+  "auth-delete-account": {
+    slug: "auth-delete-account",
+    name: "Delete Account",
+    themeKey: "authDeleteAccount",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/authDeleteAccountDsl.txt",
+    showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "generic-profile-flow": {
     slug: "generic-profile-flow",
     name: "Generic Profile Flow",

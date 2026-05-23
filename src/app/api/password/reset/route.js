@@ -90,6 +90,7 @@ export async function POST(request) {
       where: { id: userId },
       data: {
         password: passwordHash,
+        passwordUpdatedAt: new Date(),
       },
     });
 

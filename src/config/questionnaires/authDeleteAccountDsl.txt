@@ -3,8 +3,11 @@
 @type: form
 @shownext: true
 @next: Delete My Account
-@run: submitDeleteAccount
 @goto: delete-account-confirmed
+@showback: true
+@back: Back to Account
+@backgoto: /questionnaire/auth-account
+@run: submitDeleteAccount
 ---
 BR
 # [c1] Delete account
@@ -12,7 +15,6 @@ BR
 [c3] Type DELETE to confirm. Depending on this business setup, your account may be removed immediately or scheduled for deletion.
 @fields:
 - deleteConfirmation|text|Type DELETE to confirm|required|DELETE
-
 ===
 @id: delete-account-confirmed
 @type: content

@@ -995,13 +995,21 @@ model User {
   country  String?
   city     String?
 
+  addressLine1   String?
+  addressLine2   String?
+  parishOrRegion String?
+  postalCode     String?
+
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
 
+  passwordUpdatedAt DateTime?
+
   adminLevel Int @default(0)
 
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   deletionRequestedAt DateTime?
   deletionScheduledAt DateTime?
   deletedAt           DateTime?

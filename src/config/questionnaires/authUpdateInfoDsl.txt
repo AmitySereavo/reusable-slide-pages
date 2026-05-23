@@ -1,0 +1,61 @@
+===
+@id: update-name
+@type: form
+@shownext: true
+@next: Continue
+@goto: update-location
+---
+BR
+# [c1] Update your name
+BR
+[c3] Change the name saved on your account.
+@fields:
+- firstName|text|First name|optional|First name
+- lastName|text|Last name|optional|Last name
+
+===
+@id: update-location
+@type: form
+@shownext: true
+@next: Continue
+@goto: update-address
+@back: Back
+---
+BR
+# [c1] Update your location
+BR
+[c3] Add or change your country and city.
+@fields:
+- country|text|Country|optional|Jamaica
+- city|text|City / town|optional|Kingston
+
+===
+@id: update-address
+@type: form
+@shownext: true
+@next: Save Changes
+@goto: update-info-success
+@back: Back
+@run: submitUpdateInfo
+---
+BR
+# [c1] Update your address
+BR
+[c3] Optional. Add delivery or contact address details.
+@fields:
+- addressLine1|text|Street address|optional|Street name and number
+- addressLine2|text|Apartment / landmark|optional|Optional
+- parishOrRegion|text|Parish / region|optional|Optional
+- postalCode|text|Postal code|optional|Optional
+
+===
+@id: update-info-success
+@type: content
+@shownext: true
+@next: Return to dashboard
+@goto: /dashboard
+---
+BR
+# [c1] Account updated
+BR
+[c3] Your account information was saved.

@@ -1560,7 +1560,8 @@ async function next() {
 
     if (
       currentSlide.run === "submitSignup" ||
-      currentSlide.run === "submitLogin"
+      currentSlide.run === "submitLogin" ||
+      currentSlide.run === "submitDeleteAccount"
     ) {
       return;
     }
@@ -1727,7 +1728,7 @@ async function next() {
       (currentSlide.type === "form" || currentSlide.type === "contact") &&
       currentSlide.fields?.length
     ) {
-            const requiredFieldsFilled = currentSlide.fields.every((field) => {
+        const requiredFieldsFilled = currentSlide.fields.every((field) => {
         if (!field.required) return true;
 
         const value = answers[field.name];
@@ -1902,6 +1903,27 @@ async function next() {
     };
   }
 
+  function getAuthUpdateInfoPayload() {
+    const firstName = String(answers.firstName ?? "").trim();
+    const lastName = String(answers.lastName ?? "").trim();
+
+    const name =
+      String(answers.fullName ?? "").trim() ||
+      [firstName, lastName].filter(Boolean).join(" ");
+
+    return {
+      name,
+      country: String(answers.country ?? "").trim(),
+      city: String(answers.city ?? "").trim(),
+      addressLine1: String(answers.addressLine1 ?? "").trim(),
+      addressLine2: String(answers.addressLine2 ?? "").trim(),
+      parishOrRegion: String(answers.parishOrRegion ?? "").trim(),
+      postalCode: String(answers.postalCode ?? "").trim(),
+    };
+  }
+
+
+
   function getNurseryBatchPayload() {
   return {
     questionnaireSlug: config.slug,
@@ -1927,7 +1949,8 @@ async function next() {
   }
 
  async function runSlideAction(runName: string) {
-    const actionMap: Record<
+ setSubmitError(null);
+  const actionMap: Record<
     string,
     {
       url: string;
@@ -1949,6 +1972,11 @@ async function next() {
       url: "/api/login",
       payload: getAuthLoginPayload,
       successGoto: "login-success",
+    },
+    submitUpdateInfo: {
+      url: "/api/account/update-info",
+      payload: getAuthUpdateInfoPayload,
+      successGoto: "account-saved",
     },
     submitDeleteAccount: {
       url: "/api/account/delete",
@@ -1998,6 +2026,7 @@ async function next() {
   try {
     const response = await fetch(action.url, {
       method: "POST",
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
       },
@@ -2009,6 +2038,8 @@ async function next() {
     if (!response.ok) {
       throw new Error(data?.error || data?.message || "Failed to run action.");
     }
+
+    setSubmitError(null);
 
     if (runName === "submitSignup") {
       const verificationResponse = await fetch("/api/verify/start", {
@@ -2097,6 +2128,7 @@ async function next() {
     }
 
     if (action.successGoto) {
+      setSubmitError(null);
       goToTarget(action.successGoto);
     }
 

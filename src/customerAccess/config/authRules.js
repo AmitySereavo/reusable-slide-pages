@@ -28,9 +28,9 @@ export const AUTH_RULES = {
     resendCooldownSeconds: 60,
   },
   accountDeletion: {
-    mode: "delayed", // "immediate" or "delayed"
-    delayDays: 30,
-    allowCancelBeforeDeletion: true,
+    mode: "immediate", // "immediate" or "delayed"
+    delayDays: 0,
+    allowCancelBeforeDeletion: false,
     anonymizeInsteadOfDelete: false,
   },
   rateLimit: {

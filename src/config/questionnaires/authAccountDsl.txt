@@ -1,0 +1,83 @@
+===
+@id: account-home
+@type: content
+@shownext: false
+---
+BR
+# [c1] Account
+BR
+[c3] Manage your account information.
+
+@choices:
+- update-name|Update Name|account-update-name|c1
+- update-location|Update Location|account-update-location|c1
+- update-address|Update Address|account-update-address|c1
+- update-password|Update Password|/questionnaire/auth-forgot-password|c2
+- delete-account|Delete Account|/questionnaire/auth-delete-account|c4
+
+===
+@id: account-update-name
+@type: form
+@shownext: true
+@next: Save Name
+@goto: account-saved
+@back: Back
+@backgoto: account-home
+@run: submitUpdateInfo
+---
+BR
+# [c1] Update your name
+BR
+[c3] Enter the name you want saved on your account.
+@fields:
+- fullName|text|Full name|required|Full name
+
+===
+@id: account-update-location
+@type: form
+@shownext: true
+@next: Save Location
+@goto: account-saved
+@back: Back
+@backgoto: account-home
+@run: submitUpdateInfo
+---
+BR
+# [c1] Update your location
+BR
+[c3] Add or update your country and city.
+@fields:
+- country|text|Country|optional|Jamaica
+- city|text|City / town|optional|Kingston
+
+===
+@id: account-update-address
+@type: form
+@shownext: true
+@next: Save Address
+@goto: account-saved
+@back: Back
+@backgoto: account-home
+@run: submitUpdateInfo
+---
+BR
+# [c1] Update your mailing address
+BR
+[c3] Add or update your delivery or mailing address.
+@fields:
+- addressLine1|text|Street address|optional|Street name and number
+- addressLine2|text|Apartment / landmark|optional|Optional
+- parishOrRegion|text|Parish / region|optional|Optional
+- postalCode|text|Postal code|optional|Optional
+
+===
+@id: account-saved
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+---
+BR
+# [c1] Saved
+BR
+[c3] Your account information was updated.
