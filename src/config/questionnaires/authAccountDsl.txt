@@ -3,11 +3,8 @@
 @type: accountsummary
 @shownext: false
 @countstep: false
----
-BR
-# [c1] Account
-BR
-[c3] Manage your account information.
+@showsteptext: false
+@showprogressbar: false
 
 ===
 @id: account-update-name
@@ -26,6 +23,35 @@ BR
 @fields:
 - fullName|text|Full name|required|Full name
 
+===
+@id: account-update-email
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+---
+BR
+# [c1] Update email
+BR
+[c3] Email update will use a verification flow so the new email can be confirmed before it replaces the current one.
+
+===
+@id: account-update-phone
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+---
+BR
+# [c1] Update phone
+BR
+[c3] Phone update will use a verification flow so the new phone number can be confirmed before it replaces the current one.
 ===
 @id: account-update-location
 @type: form

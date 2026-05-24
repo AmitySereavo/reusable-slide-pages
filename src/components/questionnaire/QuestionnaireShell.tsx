@@ -2351,6 +2351,8 @@ async function next() {
     currentSlide.choicePlacement === "inline" ? undefined : currentSlide.choices;
   const showStepText =
   config.showStepText !== false && currentSlide.showStepText !== false;
+
+  const showProgressBar = currentSlide.showProgressBar !== false;
   const hasPinnedChoices = Boolean(pinnedChoices?.length);
   const hasDownloadButtons = Boolean(currentSlide.downloadButtons?.length);
   const backButtonStyle = resolveButtonStyle(
@@ -2528,33 +2530,36 @@ async function next() {
                   </div>
                 ) : null}
 
-                {isVideoProgressMode ? (
-                  <input
-                    className={styles.videoProgressInput}
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    value={videoProgress}
-                    aria-label="Video progress"
-                    onChange={(event) =>
-                      handleVideoProgressInput(event.target.value)
-                    }
-                    style={{
-                      accentColor: theme.colors.primary,
-                    }}
-                  />
-                ) : (
-                  <div className={styles.progressBar}>
-                    <div
-                      className={styles.progressFill}
+                {showProgressBar ? (
+                  isVideoProgressMode ? (
+                    <input
+                      className={styles.videoProgressInput}
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      value={videoProgress}
+                      aria-label="Video progress"
+                      onChange={(event) =>
+                        handleVideoProgressInput(event.target.value)
+                      }
                       style={{
-                        width: `${progress}%`,
-                        background: theme.colors.primary,
+                        accentColor: theme.colors.primary,
                       }}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className={styles.progressBar}>
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${progress}%`,
+                          background: theme.colors.primary,
+                        }}
+                      />
+                    </div>
+                  )
+                ) : null}  
+            
               </div>
             </div>
 
@@ -5571,14 +5576,8 @@ function AccountSummaryRenderer({
 
   return (
     <div className={styles.accountSummaryStack}>
-      <div className={styles.accountHeroCard}>
-        <div>
-          <div className={styles.accountEyebrow}>Signed in account</div>
-          <div className={styles.accountHeroName}>
-            {displayAccountValue(user?.name, "Name not added")}
-          </div>
-          <div className={styles.accountHeroMeta}>{maskedEmail}</div>
-        </div>
+      <div className={styles.accountSummaryIntro}>
+        Manage your account information.
       </div>
 
       <div className={styles.accountInfoCard}>
@@ -5606,41 +5605,60 @@ function AccountSummaryRenderer({
       <div className={styles.accountInfoCard}>
         <div className={styles.accountCardHeader}>
           <div>
-            <div className={styles.accountCardTitle}>Contact</div>
-            <div className={styles.accountMaskedValue}>Email: {maskedEmail}</div>
-            <div className={styles.accountMaskedValue}>Phone: {maskedPhone}</div>
+            <div className={styles.accountCardTitle}>Email</div>
+            <div className={styles.accountCardValue}>{maskedEmail}</div>
           </div>
         </div>
         <div className={styles.accountCardMeta}>
-          Email verified: {user?.emailVerifiedAt ? "Yes" : "No"}
-        </div>
-        <div className={styles.accountCardMeta}>
-          Phone verified: {user?.phoneVerifiedAt ? "Yes" : "No"}
+          Verified: {user?.emailVerifiedAt ? "Yes" : "No"}
         </div>
         <button
           type="button"
           className={styles.secondaryButton}
-          onClick={() => onGoto("account-update-location")}
+          onClick={() => onGoto("account-update-email")}
           style={{
             borderColor: theme.colors.border,
             color: theme.colors.text,
           }}
         >
-          Update Location
+          Update Email
         </button>
       </div>
 
       <div className={styles.accountInfoCard}>
         <div className={styles.accountCardHeader}>
           <div>
-            <div className={styles.accountCardTitle}>Location</div>
+            <div className={styles.accountCardTitle}>Phone</div>
+            <div className={styles.accountCardValue}>{maskedPhone}</div>
+          </div>
+        </div>
+        <div className={styles.accountCardMeta}>
+          Verified: {user?.phoneVerifiedAt ? "Yes" : "No"}
+        </div>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={() => onGoto("account-update-phone")}
+          style={{
+            borderColor: theme.colors.border,
+            color: theme.colors.text,
+          }}
+        >
+          Update Phone
+        </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Country and City / Town</div>
             <div className={styles.accountCardValue}>
               {[
-                displayAccountValue(user?.city, ""),
                 displayAccountValue(user?.country, ""),
+                displayAccountValue(user?.city, ""),
               ]
                 .filter(Boolean)
-                .join(", ") || "Location not added"}
+                .join(", ") || "Country and city/town not added"}
             </div>
           </div>
         </div>
@@ -5653,7 +5671,7 @@ function AccountSummaryRenderer({
             color: theme.colors.text,
           }}
         >
-          Update Location
+          Update Country / City
         </button>
       </div>
 
@@ -5689,7 +5707,6 @@ function AccountSummaryRenderer({
         <div className={styles.accountCardHeader}>
           <div>
             <div className={styles.accountCardTitle}>Password</div>
-            <div className={styles.accountMaskedValue}>••••••••••••</div>
             <div className={styles.accountCardMeta}>
               Last updated: {formatAccountDate(user?.passwordUpdatedAt)}
             </div>

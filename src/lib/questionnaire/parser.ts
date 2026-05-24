@@ -367,6 +367,14 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@showprogressbar:")) {
+        draft.showProgressBar = parseBooleanValue(
+          readValue(line, "@showprogressbar:"),
+          true
+        );
+        continue;
+      }
+
       if (line.startsWith("@showreturnhome:")) {
         draft.showReturnHome = parseBooleanValue(
           readValue(line, "@showreturnhome:"),
@@ -642,6 +650,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     showNext: draft.showNext,
     countStep: draft.countStep,
     showStepText: draft.showStepText,
+    showProgressBar: draft.showProgressBar,
     showReturnHome: draft.showReturnHome,
     cancelGoto: draft.cancelGoto,
     showCancel: draft.showCancel,

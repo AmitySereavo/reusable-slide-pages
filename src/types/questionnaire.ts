@@ -447,6 +447,7 @@ export type Slide = {
   showNext?: boolean;
   countStep?: boolean;
   showStepText?: boolean;
+  showProgressBar?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
   titlePlacement?: SlideTitlePlacement;
@@ -565,6 +566,7 @@ export type ParsedSlideDraft = {
   nextLabel?: string;
   countStep?: boolean;
   showStepText?: boolean;
+  showProgressBar?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
   titlePlacement?: SlideTitlePlacement;

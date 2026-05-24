@@ -1152,6 +1152,15 @@
   opacity: 0.64;
 }
 
+.accountSummaryIntro {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.64;
+  text-align: center;
+}
 .accountHeroName {
   margin-top: 4px;
   font-size: 24px;
@@ -1169,9 +1178,12 @@
 }
 
 .accountCardTitle {
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1.35;
   font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.64;
 }
 
 .accountCardValue {
@@ -1185,8 +1197,8 @@
   margin-top: 6px;
   font-size: 15px;
   line-height: 1.5;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 400;
+  letter-spacing: 0;
   word-break: break-word;
 }
 
