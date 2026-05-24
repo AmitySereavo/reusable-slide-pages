@@ -5,6 +5,9 @@
 @next: Log In
 @goto: login-submitting
 @run: submitLogin
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
 ---
 BR
 # [c1] Log in
@@ -18,18 +21,24 @@ BR
 @id: login-success
 @type: content
 @shownext: true
-@next: Go to dashboard
-@goto: /dashboard
+@next: Go to account
+@goto: /questionnaire/auth-account
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
 ---
 BR
 # [c1] You are logged in
 BR
-[c3] Continue to your dashboard.
+[c3] Continue to your account information.
 
 ===
 @id: login-submitting
 @type: content
 @shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
 ---
 BR
 # [c1] Logging you in

@@ -8,6 +8,10 @@ import {
 } from "@/lib/auth/rateLimit";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -39,6 +43,63 @@ export async function POST(request) {
     }
 
     const { email, phone } = parsed;
+
+    if (email) {
+      const normalizedEmail = normalizeEmail(email);
+
+      const reservedEmail = await prisma.userEmailAddress.findUnique({
+        where: { normalizedEmail },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              emailVerifiedAt: true,
+              phoneVerifiedAt: true,
+            },
+          },
+        },
+      });
+
+      if (reservedEmail?.user) {
+        const submittedChannelIsVerified =
+          reservedEmail.isVerified || Boolean(reservedEmail.user.emailVerifiedAt);
+
+        if (!submittedChannelIsVerified) {
+          return Response.json({
+            exists: true,
+            verified: false,
+            needsVerification: true,
+            message:
+              AUTH_MESSAGES.signup.accountNeedsVerification ||
+              "This account already exists but still needs verification.",
+            user: {
+              id: reservedEmail.user.id,
+              name: reservedEmail.user.name,
+              email: reservedEmail.user.email,
+              phone: reservedEmail.user.phone,
+            },
+          });
+        }
+
+        return Response.json({
+          exists: true,
+          verified: true,
+          needsVerification: false,
+          message:
+            AUTH_MESSAGES.signup.userExists ||
+            "This email is already attached to an account.",
+          user: {
+            id: reservedEmail.user.id,
+            name: reservedEmail.user.name,
+            email: reservedEmail.user.email,
+            phone: reservedEmail.user.phone,
+          },
+        });
+      }
+    }
 
     const existingUser = await prisma.user.findFirst({
       where: email ? { email } : { phone },

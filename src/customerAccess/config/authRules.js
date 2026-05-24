@@ -3,7 +3,8 @@ export const AUTH_RULES = {
     minLength: 10,
     maxLength: 20,
   },
-    password: {
+
+  password: {
     minLength: 8,
     signupMinLength: 8,
     signupMaxLength: 128,
@@ -17,6 +18,7 @@ export const AUTH_RULES = {
       strongScore: 5,
     },
   },
+
   verification: {
     codeLength: 6,
     resendCooldownSeconds: 60,
@@ -24,9 +26,30 @@ export const AUTH_RULES = {
     maxCodeAttempts: 5,
     enabledPhoneChannels: ["whatsapp"],
   },
+
   passwordReset: {
     resendCooldownSeconds: 60,
   },
+
+  accountInfo: {
+    nameUpdate: {
+      enabled: true,
+
+      // Supported windows:
+      // "forever" | "calendarMonth" | "rollingDays" | "rollingMonths"
+      window: "forever",
+
+      // Default: user can update their name 2 times forever.
+      maxUpdates: 2,
+
+      // Used only when window is "rollingDays".
+      rollingDays: null,
+
+      // Used only when window is "rollingMonths".
+      rollingMonths: null,
+    },
+  },
+
   accountDeletion: {
     mode: "immediate", // "immediate" or "delayed"
     delayDays: 0,
@@ -36,6 +59,7 @@ export const AUTH_RULES = {
     requireVerificationCode: true,
     verificationExpiresInMinutes: 10,
   },
+
   rateLimit: {
     signup: {
       limit: 8,
@@ -66,5 +90,4 @@ export const AUTH_RULES = {
       windowSeconds: 15 * 60,
     },
   },
-  
 };

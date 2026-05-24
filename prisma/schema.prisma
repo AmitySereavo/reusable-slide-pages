@@ -992,8 +992,9 @@ model User {
   phone    String? @unique
   password String
   name     String?
-  country  String?
-  city     String?
+
+  country String?
+  city    String?
 
   addressLine1   String?
   addressLine2   String?
@@ -1021,6 +1022,41 @@ model User {
   passwordResetTokens       PasswordResetToken[]
   passwordResetChallenges   PasswordResetChallenge[]
   passwordResetAccessGrants PasswordResetAccessGrant[]
+  nameChanges               UserNameChange[]
+  emailAddresses            UserEmailAddress[]
+}
+
+model UserNameChange {
+  id           String   @id @default(cuid())
+  userId       String
+  previousName String?
+  newName      String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model UserEmailAddress {
+  id              String @id @default(cuid())
+  userId          String
+  email           String
+  normalizedEmail String @unique
+
+  isActive   Boolean   @default(false)
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+  reservedAt DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@index([userId, isVerified])
 }
 
 model Session {

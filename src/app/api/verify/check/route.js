@@ -106,6 +106,63 @@ export async function POST(request) {
       );
     }
 
+    const accountEmailAddress =
+      latestRecord.target === "accountEmailUpdate" && email
+        ? await prisma.userEmailAddress.findUnique({
+            where: {
+              normalizedEmail: normalizedIdentifier,
+            },
+          })
+        : null;
+
+    if (accountEmailAddress) {
+      const now = new Date();
+
+      await prisma.$transaction(async (tx) => {
+        await tx.userEmailAddress.updateMany({
+          where: {
+            userId: accountEmailAddress.userId,
+          },
+          data: {
+            isActive: false,
+          },
+        });
+
+        const verifiedEmailAddress = await tx.userEmailAddress.update({
+          where: {
+            id: accountEmailAddress.id,
+          },
+          data: {
+            isVerified: true,
+            verifiedAt: now,
+            isActive: true,
+          },
+        });
+
+        await tx.user.update({
+          where: {
+            id: accountEmailAddress.userId,
+          },
+          data: {
+            email: verifiedEmailAddress.email,
+            emailVerifiedAt: now,
+          },
+        });
+
+        await tx.verificationCode.deleteMany({
+          where: {
+            identifier: normalizedIdentifier,
+            target: "accountEmailUpdate",
+            userId: accountEmailAddress.userId,
+          },
+        });
+      });
+
+      return Response.json({
+        message: "Email verified and set as your active email.",
+      });
+    }
+
     const user = await prisma.user.findFirst({
       where: email ? { email } : { phone },
     });
@@ -133,10 +190,32 @@ export async function POST(request) {
         ? { emailVerifiedAt: now }
         : { phoneVerifiedAt: now };
 
-    if (user) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: verificationData,
+      if (user) {
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: verificationData,
+        });
+
+        if (type === "email" && email) {
+          const normalizedEmail = String(email).trim().toLowerCase();
+
+          await tx.userEmailAddress.upsert({
+            where: { normalizedEmail },
+            create: {
+              userId: user.id,
+              email,
+              normalizedEmail,
+              isActive: true,
+              isVerified: true,
+              verifiedAt: now,
+            },
+            update: {
+              isVerified: true,
+              verifiedAt: now,
+            },
+          });
+        }
       });
     }
 

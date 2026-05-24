@@ -25,19 +25,35 @@ BR
 
 ===
 @id: account-update-email
-@type: content
+@type: form
 @shownext: true
-@next: Back to Account
-@goto: account-home
+@next: Send Verification Code
+@goto: account-update-email-code
 @showback: true
 @back: Back
 @backgoto: account-home
+@run: requestAccountEmailUpdate
 ---
 BR
-# [c1] Update email
+# [c1] Add or update email
 BR
-[c3] Email update will use a verification flow so the new email can be confirmed before it replaces the current one.
+[c3] Enter the new email address. We will send a code before it becomes your active email.
+@fields:
+- accountEmailAddress|email|New email address|required|you@example.com
 
+===
+@id: account-update-email-code
+@type: authverify
+@shownext: false
+@showback: true
+@back: Back
+@backgoto: account-update-email
+@goto: account-saved
+---
+BR
+# [c1] Verify new email
+BR
+[c3] Enter the newest code we sent to your new email address.
 ===
 @id: account-update-phone
 @type: content

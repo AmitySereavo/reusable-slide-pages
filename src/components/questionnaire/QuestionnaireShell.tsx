@@ -1912,6 +1912,19 @@ async function next() {
     };
   }
 
+  function getAccountEmailRequestPayload() {
+    return {
+      email: String(answers.accountEmailAddress ?? "").trim(),
+    };
+  }
+
+  function getAccountEmailVerificationPayload() {
+    return {
+      email: String(answers.accountEmailAddress ?? "").trim(),
+      code: String(answers.accountEmailCode ?? "").trim(),
+    };
+  }
+
   function getAuthUpdateInfoPayload() {
     const firstName = String(answers.firstName ?? "").trim();
     const lastName = String(answers.lastName ?? "").trim();
@@ -1993,6 +2006,16 @@ async function next() {
       payload: getAuthUpdateInfoPayload,
       successGoto: "account-saved",
     },
+    requestAccountEmailUpdate: {
+      url: "/api/account/email-addresses/request",
+      payload: getAccountEmailRequestPayload,
+      successGoto: "account-update-email-code",
+    },
+    submitAccountEmailVerification: {
+      url: "/api/account/email-addresses/verify",
+      payload: getAccountEmailVerificationPayload,
+      successGoto: "account-saved",
+    },
     startDeleteAccount: {
       url: "/api/account/delete/start",
       payload: getDeleteAccountPayload,
@@ -2060,6 +2083,22 @@ async function next() {
     }
 
     setSubmitError(null);
+
+    if (runName === "requestAccountEmailUpdate") {
+      const requestedEmail =
+        typeof data?.emailAddress?.email === "string"
+          ? data.emailAddress.email
+          : String(answers.accountEmailAddress ?? "").trim();
+
+      setAuthVerificationContext({
+        identifier: requestedEmail,
+        delivery: "code",
+        method: "email",
+        target: "accountEmailUpdate",
+        successRedirect: null,
+        phoneChannel: null,
+      });
+    }
 
     if (runName === "submitSignup") {
       const verificationResponse = await fetch("/api/verify/start", {
@@ -2976,7 +3015,7 @@ async function next() {
                             setSubmitError(message);
                           }}
                           onVerified={() => {
-                            goToTarget("signup-verified");
+                            goToTarget(currentSlide.goto || "signup-verified");
                           }}
                           autoSend={false}
                         />
@@ -5418,6 +5457,15 @@ type AccountProfileUser = {
   phone?: string | null;
   maskedEmail?: string | null;
   maskedPhone?: string | null;
+    activeEmailAddress?: {
+    id: string;
+    email: string;
+    maskedEmail?: string | null;
+    isActive: boolean;
+    isVerified: boolean;
+    verifiedAt?: string | null;
+    createdAt?: string | null;
+  } | null;
   country?: string | null;
   city?: string | null;
   addressLine1?: string | null;
@@ -5433,6 +5481,17 @@ type AccountProfileUser = {
   deletionScheduledAt?: string | null;
   deletedAt?: string | null;
   deletionStatus?: string | null;
+};
+
+type NameUpdateStatus = {
+  enabled: boolean;
+  canUpdate: boolean;
+  used: number;
+  remaining: number | null;
+  maxUpdates: number | null;
+  ruleLabel: string;
+  window?: string;
+  windowStart?: string | null;
 };
 
 function formatAccountDate(value?: string | null) {
@@ -5479,7 +5538,8 @@ function AccountSummaryRenderer({
   const [user, setUser] = useState<AccountProfileUser | null>(null);
   const [isLoadingAccount, setIsLoadingAccount] = useState(true);
   const [accountError, setAccountError] = useState<string | null>(null);
-
+  const [nameUpdateStatus, setNameUpdateStatus] =
+    useState<NameUpdateStatus | null>(null);
   useEffect(() => {
     let isMounted = true;
 
@@ -5512,6 +5572,25 @@ function AccountSummaryRenderer({
         if (isMounted) {
           setUser(data?.user ?? null);
         }
+
+        const nameStatusResponse = await fetch(
+          "/api/account/name-update-status",
+          {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        );
+
+        const nameStatusData = await nameStatusResponse
+          .json()
+          .catch(() => null);
+
+        if (isMounted && nameStatusResponse.ok && nameStatusData) {
+          setNameUpdateStatus(nameStatusData);
+        }
       } catch (error) {
         if (isMounted) {
           setAccountError(
@@ -5538,6 +5617,17 @@ function AccountSummaryRenderer({
   const maskedEmail = user?.maskedEmail || "No email added";
   const maskedPhone = user?.maskedPhone || "No phone added";
   const deletionStatus = String(user?.deletionStatus ?? "").trim();
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } finally {
+      window.location.href = "/questionnaire/auth-login";
+    }
+  }
 
   if (isLoadingAccount) {
     return (
@@ -5580,7 +5670,19 @@ function AccountSummaryRenderer({
         Manage your account information.
       </div>
 
-      <div className={styles.accountInfoCard}>
+      <button
+        type="button"
+        className={styles.secondaryButton}
+        onClick={handleLogout}
+        style={{
+          borderColor: theme.colors.border,
+          color: theme.colors.text,
+        }}
+      >
+        Log Out
+      </button>
+
+            <div className={styles.accountInfoCard}>
         <div className={styles.accountCardHeader}>
           <div>
             <div className={styles.accountCardTitle}>Name</div>
@@ -5589,13 +5691,42 @@ function AccountSummaryRenderer({
             </div>
           </div>
         </div>
+
+        {nameUpdateStatus?.enabled ? (
+          <div className={styles.accountCardMeta}>
+            {nameUpdateStatus.remaining === 0 ? (
+              <>
+                You have no name updates remaining. Limit:{" "}
+                {nameUpdateStatus.ruleLabel}.
+              </>
+            ) : (
+              <>
+                You have {nameUpdateStatus.remaining}{" "}
+                {nameUpdateStatus.remaining === 1
+                  ? "name update"
+                  : "name updates"}{" "}
+                remaining. Limit: {nameUpdateStatus.ruleLabel}.
+              </>
+            )}
+          </div>
+        ) : null}
+
         <button
           type="button"
           className={styles.secondaryButton}
           onClick={() => onGoto("account-update-name")}
+          disabled={nameUpdateStatus?.enabled && !nameUpdateStatus.canUpdate}
           style={{
             borderColor: theme.colors.border,
             color: theme.colors.text,
+            opacity:
+              nameUpdateStatus?.enabled && !nameUpdateStatus.canUpdate
+                ? 0.55
+                : 1,
+            cursor:
+              nameUpdateStatus?.enabled && !nameUpdateStatus.canUpdate
+                ? "not-allowed"
+                : "pointer",
           }}
         >
           Update Name
@@ -5610,7 +5741,7 @@ function AccountSummaryRenderer({
           </div>
         </div>
         <div className={styles.accountCardMeta}>
-          Verified: {user?.emailVerifiedAt ? "Yes" : "No"}
+          Verified: {user?.activeEmailAddress?.isVerified ? "Yes" : "No"}
         </div>
         <button
           type="button"

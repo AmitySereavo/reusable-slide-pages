@@ -4,34 +4,122 @@ A reusable, registry-driven, DSL-powered slide-funnel system built with Next.js 
 
 The project renders interactive multi-slide experiences from plain-text DSL files instead of hardcoding every flow directly in React.
 
-It supports:
+It currently acts as a shared development ground for:
 
-- marketing funnels
-- questionnaires
-- media-rich video flows
-- storefront pages
-- delivery and pickup flows
-- contact capture
-- digital downloads
-- ticket/invitation flows
-- ticket-owner assignment
-- per-ticket meal selection
-- DB-backed nursery operations
-- record lists
-- reusable profile blocks
-- reusable authentication
-- slide-style signup and login
-- slide-style account verification
-- reusable auth footer inside slide flows
-- password reset
+- reusable slide pages
+- reusable auth
 - account management
-- account summary cards
-- update account information
-- password updated timestamp tracking
-- configurable account deletion
-- account deletion verification codes
-- immediate or scheduled account deletion
-- dev-safe email delivery testing
+- verified account contact updates
+- plant shop / seed shop flows
+- invitation / music / event flows
+- DB-backed nursery operations
+- reusable record lists
+- reusable profile blocks
+
+Long-term, these systems should remain separable so they can become dedicated projects or standalone reusable modules.
+
+---
+
+## Current source of truth
+
+Current reusable-slide-pages working checkpoint before latest local account/email/login fixes:
+
+```txt
+3bb431e4acc8d0ff21a16497b43afe7ba92bbe05
+```
+
+Reusable auth source merged into this project:
+
+```txt
+2aa462dfcfa090eefa0a3b38d08000d722c43419
+```
+
+Latest local updates after the checkpoint above:
+
+```txt
+- auth-account account hub hides slide count and progress bar
+- auth-login hides slide count and progress bar
+- login success routes to /questionnaire/auth-account instead of /dashboard
+- account hub includes logout button
+- login action explicitly uses same-origin credentials
+- configurable name-update limits added
+- UserNameChange history added
+- account card shows remaining name updates before the user submits
+- UserEmailAddress history model added
+- old emails remain reserved to the original account
+- signup checks historical reserved emails before allowing new account creation
+- account profile returns active email and email history
+- account email update flow added
+- account email update uses existing authverify / VerificationCodePanel behavior
+- email update code auto-verifies after final digit
+- email update resend-code cooldown and resend button use reusable auth verification behavior
+- successful email verification activates the new email
+- previous emails remain stored in UserEmailAddress
+```
+
+After committing these local fixes, update this README source-of-truth SHA.
+
+---
+
+## Future extraction direction
+
+This repository currently combines several systems in one development project, but the long-term direction is separation:
+
+```txt
+reusable-slide-pages
+→ shared development ground / proving ground
+
+nursery-ops
+→ later extracted as its own dedicated website/app
+
+plant shop / seed shop flows
+→ later extracted as their own plant commerce website/app
+
+invitation / music / event flows
+→ later extracted as their own website/app
+
+reusable auth
+→ extracted/refined back into a robust standalone reusable auth/account system
+```
+
+Because of this, shared systems should stay reusable:
+
+- `QuestionnaireShell`
+- parser
+- registry
+- reusable block definitions
+- data loaders
+- account/auth API helpers
+- `src/customerAccess`
+- auth rules/config
+- verification delivery layer
+- verification components
+- delivery attempt logging
+
+Avoid hardcoding nursery, plant shop, invitation, or business-specific wording into shared systems.
+
+Project-specific wording belongs in:
+
+```txt
+DSL files
+config files
+registry variables
+block definitions
+catalog helpers
+isolated server helpers
+```
+
+Reusable behavior belongs in:
+
+```txt
+shared parser
+shared shell
+types
+route handlers
+src/customerAccess
+src/lib/auth
+src/lib/verification
+```
 
 ---
 
@@ -53,40 +141,41 @@ It supports:
 
 ---
 
-## Source of truth
+## Supported capabilities
 
-Current reusable-slide-pages source of truth:
+The project supports:
 
-```txt
-e929e589466699b00e8baf1353383b1d807538da
-```
-
-Reusable auth source merged into this project:
-
-```txt
-2aa462dfcfa090eefa0a3b38d08000d722c43419
-```
-
-Post-source-of-truth local updates included in this README direction:
-
-```txt
-- corrected /api/account/delete/start to send deletion code only
-- added accountDeletion target wording in verificationContent.js
-- added duplicate-action protection for slide actions
-- added server-side delete-code cooldown
-- cleared stale submit errors on slide changes
-- hid stale submit errors on delete success slide
-- added immediate vs scheduled delete success wording
-- added accountsummary slide type
-- added account summary card renderer for /questionnaire/auth-account
-- added logged-out redirect behavior for account summary
-- added masked account information display
-- added reusableAuth AuthFooter component
-- rendered reusableAuth footer inside auth slide flows
-- updated siteConfig routes to point to slide-style auth routes
-```
-
-After committing these local fixes, update this README source-of-truth SHA.
+- marketing funnels
+- questionnaires
+- media-rich video flows
+- storefront pages
+- delivery and pickup flows
+- contact capture
+- digital downloads
+- ticket / invitation flows
+- ticket-owner assignment
+- per-ticket meal selection
+- DB-backed nursery operations
+- record lists
+- reusable profile blocks
+- reusable authentication
+- slide-style signup and login
+- slide-style account verification
+- reusable auth footer inside slide flows
+- password reset
+- account management
+- account summary cards
+- update account information
+- configurable name-update limits
+- name-change history
+- retained email history
+- verified active email switching
+- password updated timestamp tracking
+- configurable account deletion
+- account deletion verification codes
+- immediate or scheduled account deletion
+- dev-safe email delivery testing
+- real-recipient email testing
 
 ---
 
@@ -113,15 +202,13 @@ Shared questionnaire route:
 /questionnaire/[slug]
 ```
 
-The shared shell stays generic. Project-specific wording belongs in DSL files, config files, catalog helpers, registry variables, reusable auth components, or isolated server helpers.
-
-Reusable behavior belongs in the shared parser, shell, types, route handlers, shared library helpers, or `src/customerAccess` components.
+The shared shell stays generic.
 
 ---
 
 ## Active questionnaires and flows
 
-### `self-trust`
+## `self-trust`
 
 A score-based self-trust flow.
 
@@ -133,7 +220,7 @@ Route:
 
 ---
 
-### `garden-herbs`
+## `garden-herbs`
 
 A content questionnaire for garden herbs.
 
@@ -145,7 +232,7 @@ Route:
 
 ---
 
-### `seed`
+## `seed`
 
 A plant/seed funnel with DB-backed shop catalog, delivery selection, contact capture, review order, discounts, and promotion item logic.
 
@@ -157,7 +244,7 @@ Route:
 
 ---
 
-### `invitation`
+## `invitation`
 
 A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
 
@@ -194,7 +281,7 @@ Route:
 
 ---
 
-### `nursery-ops`
+## `nursery-ops`
 
 A DB-backed nursery operations flow for batches, batch subsets, transplanted individuals, record lists, and reusable block-driven profiles.
 
@@ -204,9 +291,21 @@ Route:
 /questionnaire/nursery-ops
 ```
 
+Current direction:
+
+- DB-backed batch creation
+- batch subsets
+- transplanted individuals
+- record lists
+- reusable profile blocks
+- dynamic data loading
+- reusable delete confirmation
+- update/cancel/return-home behavior
+- avoid hardcoding nursery wording into shared shell code
+
 ---
 
-### `generic-profile-flow`
+## `generic-profile-flow`
 
 A reusable profile-flow testbed.
 
@@ -222,11 +321,24 @@ Route:
 
 Reusable auth has been merged into reusable-slide-pages.
 
-The goal is to let the same slide system handle signup, login, verification, password reset, account management, and account deletion while still keeping the auth APIs and reusable auth UI components reusable.
+The goal is to let the same slide system handle signup, login, verification, password reset, account management, account deletion, and verified account-contact updates while still keeping the auth APIs and reusable auth UI components reusable.
+
+Preferred slide-style auth routes:
+
+```txt
+/questionnaire/auth-signup
+/questionnaire/auth-login
+/questionnaire/auth-account
+/questionnaire/auth-forgot-password
+/questionnaire/auth-reset-password
+/questionnaire/auth-delete-account
+```
+
+Legacy auth page routes may still exist, but slide-style auth routes are the preferred UX direction.
 
 ---
 
-### `auth-signup`
+## `auth-signup`
 
 Slide-style signup flow.
 
@@ -257,6 +369,8 @@ Current behavior:
 - early existing-user check before password entry
 - blocks verified existing users from continuing signup
 - sends a fresh verification code for existing unverified users
+- checks retained email history before allowing account creation
+- blocks account creation with an email ever reserved to another account
 - password and confirm password slide
 - show/hide password toggle
 - weak/medium/strong password feedback
@@ -273,9 +387,18 @@ Current behavior:
 - successful verification moves to the `signup-verified` slide
 - reusable auth footer appears inside the slide
 
+Backend routes:
+
+```txt
+/api/signup
+/api/signup/check-identifier
+/api/verify/start
+/api/verify/check
+```
+
 ---
 
-### `auth-login`
+## `auth-login`
 
 Slide-style login flow.
 
@@ -292,7 +415,7 @@ Email or phone
 → Password
 → Log in
 → Login success
-→ Dashboard
+→ Account hub
 ```
 
 Current behavior:
@@ -300,13 +423,47 @@ Current behavior:
 - identifier field
 - password field
 - slide-style login submission
-- successful login creates a session
-- dashboard is accessible after login
+- successful login creates a database-backed session
+- session token is stored in HTTP-only cookie
+- login success button routes to `/questionnaire/auth-account`
+- login page hides progress bar and slide count
 - footer links include forgot password and create account
+
+Backend route:
+
+```txt
+/api/login
+```
+
+Session helpers:
+
+```txt
+src/lib/auth/sessionServer.js
+src/lib/auth/sessionCookie.js
+src/lib/auth/sessionToken.js
+```
+
+Testing note:
+
+Use the same host for login and account testing.
+
+Use:
+
+```txt
+http://localhost:3000
+```
+
+Do not mix with:
+
+```txt
+http://127.0.0.1:3000
+```
+
+Cookies are host-specific.
 
 ---
 
-### `auth-account`
+## `auth-account`
 
 Slide-style account management hub.
 
@@ -320,17 +477,23 @@ Current behavior:
 
 - requires logged-in session
 - logged-out users are redirected to slide-style login
+- account page behaves as a hub/card page, not normal step-by-step slide
+- slide count hidden
+- progress bar hidden
 - shows account information in card sections
-- shows masked email and masked phone
+- shows masked active email
+- shows masked phone
 - shows name
 - shows location
 - shows mailing address
 - shows password placeholder only, never the password
 - shows password last updated timestamp when available
 - shows deletion status if pending/deleted
+- shows remaining name-update opportunities before user submits
 - provides update buttons under each relevant section
 - update buttons route to focused account update slides
 - delete button routes to delete account flow
+- logout button calls `/api/logout` and returns to login
 - footer links include dashboard and policies
 
 Backend route:
@@ -348,6 +511,8 @@ email
 phone
 maskedEmail
 maskedPhone
+activeEmailAddress
+emailAddresses
 country
 city
 addressLine1
@@ -367,45 +532,323 @@ deletionStatus
 
 ---
 
-### `auth-update-info`
+## Account name update limits
 
-Slide-style update info flow.
+Name update limits are configurable and backend-enforced.
 
-Route:
+Config lives in:
 
 ```txt
-/questionnaire/auth-update-info
+src/customerAccess/config/authRules.js
 ```
 
-Current direction:
+Example:
 
-- can update name
-- can update country and city
-- can update address fields
-- does not change email or phone yet
-- email and phone changes should be handled later in a separate verified contact-change flow
+```js
+accountInfo: {
+  nameUpdate: {
+    enabled: true,
+    window: "forever", // "forever" | "calendarMonth" | "rollingDays" | "rollingMonths"
+    maxUpdates: 2,
+    rollingDays: null,
+    rollingMonths: null,
+  },
+},
+```
 
-Backend route:
+Examples:
+
+```js
+// 2 times forever
+nameUpdate: {
+  enabled: true,
+  window: "forever",
+  maxUpdates: 2,
+  rollingDays: null,
+  rollingMonths: null,
+}
+```
+
+```js
+// once per month
+nameUpdate: {
+  enabled: true,
+  window: "calendarMonth",
+  maxUpdates: 1,
+  rollingDays: null,
+  rollingMonths: null,
+}
+```
+
+```js
+// twice every 6 months
+nameUpdate: {
+  enabled: true,
+  window: "rollingMonths",
+  maxUpdates: 2,
+  rollingDays: null,
+  rollingMonths: 6,
+}
+```
+
+Backend routes:
 
 ```txt
 /api/account/update-info
+/api/account/name-update-status
 ```
 
-Current updateable user fields:
+Prisma model:
+
+```prisma
+model UserNameChange {
+  id           String   @id @default(cuid())
+  userId       String
+  previousName String?
+  newName      String
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+```
+
+Rules:
 
 ```txt
-name
-country
-city
-addressLine1
-addressLine2
-parishOrRegion
-postalCode
+- frontend displays remaining update opportunities
+- backend still enforces the limit
+- only actual name changes create UserNameChange rows
+- non-name account updates should not consume name-update opportunities
 ```
 
 ---
 
-### `auth-forgot-password`
+## Account email history and active email model
+
+The account email system now supports retained email history.
+
+Core rules:
+
+```txt
+One account can have many email records.
+Only one email is active at a time.
+Every email ever attached to an account remains reserved.
+A reserved email cannot create another account.
+Only verified emails can become active.
+The active email is used for account updates, verification, receipts, downloads, tickets, invoices, marketing, and notifications.
+```
+
+Prisma model:
+
+```prisma
+model UserEmailAddress {
+  id              String    @id @default(cuid())
+  userId          String
+  email           String
+  normalizedEmail String    @unique
+
+  isActive        Boolean   @default(false)
+  isVerified      Boolean   @default(false)
+  verifiedAt      DateTime?
+  reservedAt      DateTime  @default(now())
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@index([userId, isVerified])
+}
+```
+
+Important:
+
+```txt
+User.email remains for compatibility.
+UserEmailAddress becomes the email ownership/history source of truth.
+```
+
+Existing accounts must be backfilled so their current `User.email` is also stored in `UserEmailAddress`.
+
+Backfill SQL:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+INSERT INTO "UserEmailAddress" (
+  "id",
+  "userId",
+  "email",
+  "normalizedEmail",
+  "isActive",
+  "isVerified",
+  "verifiedAt",
+  "reservedAt",
+  "createdAt",
+  "updatedAt"
+)
+SELECT
+  gen_random_uuid()::text,
+  "id",
+  "email",
+  lower(trim("email")),
+  true,
+  CASE WHEN "emailVerifiedAt" IS NOT NULL THEN true ELSE false END,
+  "emailVerifiedAt",
+  now(),
+  now(),
+  now()
+FROM "User"
+WHERE "email" IS NOT NULL
+ON CONFLICT ("normalizedEmail") DO NOTHING;
+```
+
+Inspect email history:
+
+```sql
+SELECT
+  "id",
+  "userId",
+  "email",
+  "normalizedEmail",
+  "isActive",
+  "isVerified",
+  "verifiedAt",
+  "reservedAt",
+  "createdAt"
+FROM "UserEmailAddress"
+ORDER BY "userId", "isActive" DESC, "createdAt" ASC;
+```
+
+---
+
+## Account email update flow
+
+Route in account hub:
+
+```txt
+/questionnaire/auth-account
+→ Update Email
+```
+
+Current flow:
+
+```txt
+Enter new email
+→ Send Verification Code
+→ authverify slide
+→ six code boxes
+→ final digit auto-verifies
+→ wrong code clears boxes
+→ resend button shows cooldown
+→ resend button activates after cooldown
+→ successful verification activates new email
+```
+
+Backend routes:
+
+```txt
+/api/account/email-addresses
+/api/account/email-addresses/request
+/api/account/email-addresses/activate
+/api/verify/start
+/api/verify/check
+```
+
+Important target:
+
+```txt
+accountEmailUpdate
+```
+
+Verification content target:
+
+```txt
+verificationContent.targets.accountEmailUpdate.code.email
+```
+
+Expected email wording:
+
+```txt
+Subject: Confirm your new email address
+
+Use this code to confirm your new email address:
+123456
+
+If you did not request this, do not share this code.
+```
+
+Rules:
+
+```txt
+- requesting a new email reserves it to the logged-in account
+- if the email belongs to another account, request is blocked
+- if the email already belongs to this account and is verified, it can be activated
+- if the email already belongs to this account and is not verified, another code can be sent
+- verification uses the reusable auth verification panel
+- successful verification sets the email record verified and active
+- all other email records on the same account become inactive
+- User.email updates to the active email for compatibility
+- old emails are never deleted
+```
+
+---
+
+## Active email for messaging
+
+Account messages should use the active verified email when available.
+
+Preferred lookup:
+
+```js
+const activeEmail = await prisma.userEmailAddress.findFirst({
+  where: {
+    userId,
+    isActive: true,
+    isVerified: true,
+  },
+});
+```
+
+Fallback for older accounts:
+
+```js
+const emailToUse = activeEmail?.email ?? user.email;
+```
+
+Long-term direction:
+
+```txt
+Auth:
+- users
+- verified emails
+- sessions
+- consent/opt-in status later
+
+Reusable-slide-pages:
+- products
+- tickets
+- invitations
+- meals
+- orders
+- invoices
+- downloads
+
+Shared messaging:
+- email sending
+- WhatsApp sending later
+- templates
+- delivery logs
+- marketing sequences
+```
+
+---
+
+## `auth-forgot-password`
 
 Slide-style forgot-password flow.
 
@@ -432,7 +875,7 @@ Backend route:
 
 ---
 
-### `auth-reset-password`
+## `auth-reset-password`
 
 Slide-style password reset flow.
 
@@ -461,7 +904,7 @@ Backend route:
 
 ---
 
-### `auth-delete-account`
+## `auth-delete-account`
 
 Slide-style delete account flow.
 
@@ -633,8 +1076,6 @@ export const siteConfig = {
 };
 ```
 
-Legacy auth page routes still exist, but the preferred UX direction is now slide-style auth routes.
-
 ---
 
 ## Registry architecture
@@ -719,8 +1160,6 @@ Use short expiry for verification codes.
 
 Use longer expiry for verification links when the business requires that behavior.
 
-For production setup, confirm that external provider expiry settings match app settings where relevant.
-
 ---
 
 ## Verification content config
@@ -746,25 +1185,7 @@ verificationContent.targets.user.code.email
 verificationContent.targets.lead.code.email
 verificationContent.targets.passwordReset.link.email
 verificationContent.targets.accountDeletion.code.email
-```
-
-The account deletion code email should use:
-
-```txt
-target: "accountDeletion"
-delivery: "code"
-channel: "email"
-```
-
-Expected account deletion email wording:
-
-```txt
-Subject: Confirm account deletion
-
-Use this account deletion code to confirm deleting your account:
-123456
-
-If you did not request this, do not share this code.
+verificationContent.targets.accountEmailUpdate.code.email
 ```
 
 ---
@@ -800,7 +1221,7 @@ For Gmail SMTP:
 
 The auth system supports a dev-test email rewrite mode.
 
-Example:
+Safe testing:
 
 ```env
 EMAIL_DEV_TEST_MODE="true"
@@ -814,8 +1235,6 @@ real submitted email
 → rewritten to EMAIL_DEV_TEST_INBOX
 ```
 
-This is useful for testing without sending messages to real customers.
-
 For real-recipient testing:
 
 ```env
@@ -823,6 +1242,28 @@ EMAIL_DEV_TEST_MODE="false"
 ```
 
 Restart the dev server after changing `.env`.
+
+Expected dev-safe delivery log:
+
+```txt
+provider: smtp
+mode: smtp
+ok: true
+rewritten: true
+to: EMAIL_DEV_TEST_INBOX
+originalTo: real-user@example.com
+```
+
+Expected real-recipient delivery log:
+
+```txt
+provider: smtp
+mode: smtp
+ok: true
+rewritten: false
+to: real-user@example.com
+originalTo: real-user@example.com
+```
 
 ---
 
@@ -839,8 +1280,6 @@ SMS: paused
 SMS should remain visible but disabled where the UI requires that behavior.
 
 WhatsApp Cloud API credentials will be configured later after Meta business verification and message template permission are ready.
-
-For simple user-initiated WhatsApp contact, normal WhatsApp click-to-chat links may still be useful, but they are not a replacement for automatic verification-code delivery through the WhatsApp API.
 
 ---
 
@@ -883,18 +1322,6 @@ This field should be set:
 on signup
 on password reset
 on future logged-in password change
-```
-
-Signup route:
-
-```txt
-src/app/api/signup/route.js
-```
-
-Password reset route:
-
-```txt
-src/app/api/password/reset/route.js
 ```
 
 Password display rule:
@@ -944,20 +1371,6 @@ accountDeletion: {
 }
 ```
 
-Example delayed deletion without code verification:
-
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 14,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: false,
-
-  requireVerificationCode: false,
-  verificationExpiresInMinutes: 10,
-}
-```
-
 Example anonymize instead of hard delete:
 
 ```js
@@ -983,26 +1396,6 @@ requireVerificationCode: boolean
 verificationExpiresInMinutes: number
 ```
 
-The `User` model supports deletion scheduling fields:
-
-```prisma
-deletionRequestedAt DateTime?
-deletionScheduledAt DateTime?
-deletedAt           DateTime?
-deletionStatus      String?
-```
-
-After schema changes, run:
-
-```bash
-npx prisma format
-npx prisma db push
-npx prisma generate
-npm run build
-```
-
-Do not run `prisma migrate reset` against a Supabase database unless data loss is acceptable.
-
 ---
 
 ## User model account fields
@@ -1017,6 +1410,8 @@ addressLine1      String?
 addressLine2      String?
 parishOrRegion    String?
 postalCode        String?
+email             String?
+phone             String?
 emailVerifiedAt   DateTime?
 phoneVerifiedAt   DateTime?
 passwordUpdatedAt DateTime?
@@ -1030,6 +1425,40 @@ deletionScheduledAt DateTime?
 deletedAt           DateTime?
 deletionStatus      String?
 ```
+
+Account relations include:
+
+```prisma
+sessions                  Session[]
+verificationCodes         VerificationCode[]
+verificationTokens        VerificationToken[]
+passwordResetTokens       PasswordResetToken[]
+passwordResetChallenges   PasswordResetChallenge[]
+passwordResetAccessGrants PasswordResetAccessGrant[]
+nameChanges               UserNameChange[]
+emailAddresses            UserEmailAddress[]
+```
+
+---
+
+## Prisma / database commands
+
+After schema changes, run:
+
+```bash
+npx prisma format
+npx prisma db push
+npx prisma generate
+npm run build
+```
+
+Do not run this against Supabase unless data loss is acceptable:
+
+```bash
+npx prisma migrate reset
+```
+
+If Prisma reports drift on Supabase, do not reset the public schema. Use careful `db push` for additive changes, or baseline migration history separately.
 
 ---
 
@@ -1140,6 +1569,7 @@ Current DSL directives include:
 @shownext:
 @countstep:
 @showsteptext:
+@showprogressbar:
 @showreturnhome:
 @showcancel:
 @cancelgoto:
@@ -1184,116 +1614,7 @@ Current DSL directives include:
 
 ## Basic DSL examples
 
-### Content slide
-
-```txt
-===
-@id: intro
-@type: content
----
-BR
-# [c1] Welcome
-[c3] This is a reusable slide.
-@next: Continue
-@goto: next-slide
-```
-
----
-
-### Score slide
-
-```txt
-===
-@id: performance-rating
-@type: score
----
-# [c1] How would you rate the performance?
-@feature: numberscale(1,2,[3],4,5)
-@store: performanceRating
-@when:
-- performanceRating|in|3,4,5|subscribe
-- performanceRating|in|1,2|low-rating-choice
-@next: Continue
-```
-
----
-
-### Choice slide
-
-```txt
-===
-@id: low-rating-choice
-@type: choice
----
-# [c2] What do you want to do then?
-@store: lowRatingDecision
-@choices:
-- exit|Exit|exit-page|c2
-- continue|Continue Watching|subscribe|c1
-@shownext: false
-```
-
----
-
-### Form slide
-
-```txt
-===
-@id: contact-details
-@type: form
-@contactmode: order
----
-# [c1] Contact Details
-@fields:
-- fullName|text|Full name|required|Full name
-- email|email|Email address|required|Email address
-- phone|tel|Phone number|optional|Optional
-@run: submitLead
-@next: Review Order
-@goto: review-order
-```
-
----
-
-### Password form slide
-
-```txt
-===
-@id: signup-password
-@type: form
-@shownext: true
-@next: Continue
-@goto: signup-location
-@back: Back
----
-BR
-# [c1] Create a password
-BR
-[c3] Type your password twice. For safety, confirm password cannot be pasted.
-@fields:
-- password|password|Password|required|Enter password
-- confirmPassword|password|Confirm password|required|Type password again
-```
-
----
-
-### Auth verification slide
-
-```txt
-===
-@id: signup-verify
-@type: authverify
-@shownext: false
----
-BR
-# [c1] Check your email
-BR
-[c3] Enter the verification code we sent to your email.
-```
-
----
-
-### Account summary slide
+## Account summary hub
 
 ```txt
 ===
@@ -1301,18 +1622,88 @@ BR
 @type: accountsummary
 @shownext: false
 @countstep: false
----
-BR
-# [c1] Account
-BR
-[c3] Manage your account information.
+@showsteptext: false
+@showprogressbar: false
 ```
 
-The `accountsummary` renderer handles the displayed account cards, masked account values, update buttons, logged-out redirect, and delete account link.
+The `accountsummary` renderer handles:
+
+```txt
+account cards
+masked values
+email history display
+update buttons
+logout button
+logged-out redirect
+delete account link
+```
 
 ---
 
-### Delete account flow
+## Login slide without progress UI
+
+```txt
+===
+@id: login
+@type: form
+@shownext: true
+@next: Log In
+@goto: login-submitting
+@run: submitLogin
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+---
+BR
+# [c1] Log in
+BR
+[c3] Enter your email or phone number and password.
+@fields:
+- identifier|text|Email or phone|required|Email or phone number
+- password|password|Password|required|Password
+```
+
+---
+
+## Account email update with authverify
+
+```txt
+===
+@id: account-update-email
+@type: form
+@shownext: true
+@next: Send Verification Code
+@goto: account-update-email-code
+@showback: true
+@back: Back
+@backgoto: account-home
+@run: requestAccountEmailUpdate
+---
+BR
+# [c1] Add or update email
+BR
+[c3] Enter the new email address. We will send a code before it becomes your active email.
+@fields:
+- accountEmailAddress|email|New email address|required|you@example.com
+
+===
+@id: account-update-email-code
+@type: authverify
+@shownext: false
+@showback: true
+@back: Back
+@backgoto: account-update-email
+@goto: account-saved
+---
+BR
+# [c1] Verify new email
+BR
+[c3] Enter the newest code we sent to your new email address.
+```
+
+---
+
+## Delete account flow
 
 ```txt
 ===
@@ -1332,92 +1723,6 @@ BR
 [c3] Type DELETE to confirm. We will send a verification code before completing the deletion.
 @fields:
 - deleteConfirmation|text|Type DELETE to confirm|required|DELETE
-
-===
-@id: delete-account-code
-@type: form
-@shownext: true
-@next: Complete Deletion
-@goto: delete-account-confirmed
-@showback: true
-@back: Back
-@backgoto: delete-account-warning
-@run: submitDeleteAccount
----
-BR
-# [c1] Enter delete code
-BR
-[c3] Enter the 6-digit code we sent to your account email.
-@fields:
-- deleteCode|text|Delete code|required|6-digit code
-
-===
-@id: delete-account-confirmed
-@type: content
-@shownext: true
-@next: Return Home
-@goto: /
----
-BR
-# [c1] [choose:deleteAccountStatus|deleted=Account deleted|pending=Deletion scheduled|default=Deletion request received]
-BR
-[c3] [choose:deleteAccountStatus|deleted=Your account has been deleted and you have been logged out.|pending=Your account is scheduled for deletion. You have been logged out.|default=Your account deletion request has been received.]
-BR
-[c3] [deleteAccountMessage]
-```
-
----
-
-### Date field example
-
-```txt
-===
-@id: activity-date
-@type: form
-# Choose the date
-@fields:
-- opsActivityDate|date|Activity date|required|Select date
-@back: Back
-@next: Continue
-```
-
----
-
-### Select field example
-
-```txt
-===
-@id: container-choice
-@type: form
-# Select the container
-@fields:
-- opsContainerType|select|Starting container|required|Select container|2.5 inch pot,4 inch pot,6 inch pot,8x16 tray,cup,grow bag,bucket,other
-@back: Back
-@next: Continue
-```
-
----
-
-## Route targets
-
-DSL `@goto:` supports slide IDs and app routes.
-
-Slide ID example:
-
-```txt
-@goto: signup-password
-```
-
-App route example:
-
-```txt
-@goto: /questionnaire/auth-login
-```
-
-External URL example:
-
-```txt
-@goto: https://example.com
 ```
 
 ---
@@ -1441,17 +1746,20 @@ checkSignupIdentifier
 submitSignup
 submitLogin
 submitUpdateInfo
+requestAccountEmailUpdate
 submitForgotPassword
 submitResetPassword
 startDeleteAccount
 submitDeleteAccount
 ```
 
+Email verification for account email update is handled by the reusable `authverify` slide and `/api/verify/check`.
+
 ---
 
 ## Auth API routes
 
-Current auth API routes include:
+Current auth/account API routes include:
 
 ```txt
 /api/signup
@@ -1467,6 +1775,10 @@ Current auth API routes include:
 /api/password/reset
 /api/account/profile
 /api/account/update-info
+/api/account/name-update-status
+/api/account/email-addresses
+/api/account/email-addresses/request
+/api/account/email-addresses/activate
 /api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
@@ -1494,42 +1806,23 @@ Basic video slide:
 @goto: invitation-shop
 ```
 
-### Video progress mode
-
-A video slide can replace the normal slide progress bar with a video-linked progress bar:
+Video progress mode:
 
 ```txt
 @progressmode: video
 ```
 
-This lets the progress control represent video progress and scrub the video position.
-
-### Video start timestamp
-
-A video can start at a configured timestamp:
+Video start timestamp:
 
 ```txt
 @videostart: 00:12
 ```
 
-Supported formats:
-
-```txt
-12
-00:12
-01:05
-01:02:30
-```
-
-### Video timestamp routing
-
-A video can route to another slide when it crosses a timestamp:
+Video timestamp routing:
 
 ```txt
 @videogoto: 00:45|performance-rating
 ```
-
-The route can trigger again if the user returns to the video slide and the video crosses the timestamp again.
 
 ---
 
@@ -1568,550 +1861,137 @@ Basic shop slide:
 @next: Checkout
 ```
 
-Shop browse routing for invitation-style flows:
-
-```txt
-Shop → Ticket Details
-```
-
-The ticket details slide then controls whether the user selects meals, continues to delivery, continues to contact details, or reaches review order.
-
 ---
 
-## Fulfillment model
+## Build and test
 
-The shop catalog separates product category from fulfillment need.
-
-Product fulfillment types:
-
-```ts
-"physical" | "digital" | "ticket";
-```
-
-Physical fulfillment is determined by:
-
-- physical product type
-- or a selected purchase mode with `requiresPhysicalFulfillment: true`
-
-This supports:
-
-- digital album only
-- email-only ticket
-- email-only invitation
-- ticket plus physical ticket
-- invitation plus physical invitation
-- physical products
-- mixed carts
-
----
-
-## Ticket details system
-
-The reusable `tickets` slide creates one ticket assignment panel for every selected ticket/invitation quantity.
-
-Ticket assignment data is derived from selected shop lines and stored in:
-
-```txt
-ticketAssignments
-```
-
-Each generated ticket assignment supports:
-
-- temporary generated ticket code
-- product and ticket label
-- ticket owner name
-- ticket owner email
-- ticket owner WhatsApp/phone
-- required meal status
-- optional meal add-on status
-- selected meal data
-- per-ticket meal notes
-
-Current intended flow:
-
-```txt
-Shop
-→ Ticket Details
-→ Select meal for a specific ticket when needed
-→ Ticket Details
-→ Delivery / Contact / Review
-```
-
-Meal selection is entered from each ticket panel, not as one long aggregate meal page.
-
-Future ticket-owner access direction:
-
-- ticket purchaser can enter owner name/email/phone per ticket
-- system can later email each ticket owner their own meal-access link
-- owner can verify by code
-- owner sees only their own ticket details
-- owner can choose or update their meal before the meal cutoff date
-- after cutoff, meal editing should lock
-- additional meal charges can route to a payment step
-
----
-
-## Meal selection system
-
-Meal selection is per ticket, not aggregate across the whole order.
-
-This solves the serving/chef pairing problem.
-
-Instead of only knowing:
-
-```txt
-Plain rice × 2
-Rice and peas × 1
-Stew peas × 2
-Curry chickpeas × 1
-```
-
-the system can preserve:
-
-```txt
-Ticket 1 / John Brown
-Base: Plain rice
-Main: Curry chickpeas
-Side: Plantain
-
-Ticket 2 / Mary Green
-Base: Rice and peas
-Main: Stew peas
-Side: Salad
-```
-
-This is important for event kitchens, packaged meals, assigned servings, and individual owner access.
-
----
-
-## Delivery system
-
-The delivery system supports:
-
-- pickup at stable locations
-- pickup at popup/event locations
-- delivery by country/region/parish
-- delivery fee calculation
-- physical-fulfillment-aware routing
-- mixed-cart delivery requirements
-
-Delivery config is injected through registry variables.
-
----
-
-## Downloads
-
-The project supports private downloads through:
-
-```txt
-/api/downloads/[downloadkey]
-```
-
-Download buttons can be configured in DSL:
-
-```txt
-@downloadbuttons:
-- album-mp3|Download MP3
-- album-wav|Download WAV
-```
-
-Download keys should map to a server-side download catalog. Do not expose private file paths directly in the DSL.
-
----
-
-## Nursery operations
-
-The nursery operations flow supports:
-
-- plant types
-- plants
-- batches
-- batch subsets
-- transplanted individuals
-- locations
-- containers
-- growing media
-- reminders
-- activities
-- media records
-- reusable profile blocks
-- dynamic DB-backed record lists
-- delete record actions with confirmation
-
-Key route:
-
-```txt
-/questionnaire/nursery-ops
-```
-
-Dynamic data endpoint:
-
-```txt
-/api/questionnaires/nursery-ops/batches
-```
-
-Nursery operation routes include:
-
-```txt
-/api/questionnaires/nursery-ops/create-batch
-/api/questionnaires/nursery-ops/log-activity
-/api/questionnaires/nursery-ops/record-transplant
-```
-
----
-
-## Prisma and database
-
-Prisma schema:
-
-```txt
-prisma/schema.prisma
-```
-
-Prisma client helper:
-
-```txt
-src/lib/prisma.ts
-```
-
-Common commands:
+Run:
 
 ```bash
+npm install
 npx prisma format
 npx prisma db push
 npx prisma generate
 npm run build
 ```
 
-For this project, prefer `prisma db push` when syncing the current schema to the existing Supabase database.
-
-Do not run:
-
-```bash
-npx prisma migrate reset
-```
-
-against the shared Supabase database unless all data can be lost.
-
----
-
-## Development commands
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run dev server:
+Then run dev server:
 
 ```bash
 npm run dev
 ```
 
-Build:
-
-```bash
-npm run build
-```
-
-Prisma sync:
-
-```bash
-npx prisma format
-npx prisma db push
-npx prisma generate
-```
-
----
-
-## Current build note
-
-The build may show a Turbopack NFT warning related to:
+Core routes to smoke test:
 
 ```txt
-./next.config.ts
-./src/app/api/downloads/[downloadkey]/route.ts
-```
-
-Current status:
-
-```txt
-Build passes.
-Warning is not blocking.
-```
-
-This warning should be cleaned up later by reducing dynamic file tracing or scoping filesystem operations more tightly.
-
----
-
-## Testing URLs
-
-Core questionnaire routes:
-
-```txt
+http://localhost:3000/
 http://localhost:3000/questionnaire/self-trust
 http://localhost:3000/questionnaire/garden-herbs
 http://localhost:3000/questionnaire/seed
 http://localhost:3000/questionnaire/invitation
 http://localhost:3000/questionnaire/nursery-ops
 http://localhost:3000/questionnaire/generic-profile-flow
-```
-
-Auth slide routes:
-
-```txt
 http://localhost:3000/questionnaire/auth-signup
 http://localhost:3000/questionnaire/auth-login
 http://localhost:3000/questionnaire/auth-account
-http://localhost:3000/questionnaire/auth-update-info
 http://localhost:3000/questionnaire/auth-forgot-password
 http://localhost:3000/questionnaire/auth-reset-password
 http://localhost:3000/questionnaire/auth-delete-account
 ```
 
-Legacy auth page routes still exist:
+Known non-blocking warning may appear:
 
 ```txt
-http://localhost:3000/signup
-http://localhost:3000/login
-http://localhost:3000/verify
-http://localhost:3000/forgot-password
-http://localhost:3000/reset-password
-http://localhost:3000/dashboard
+Turbopack build encountered 1 warnings:
+./next.config.ts
+Encountered unexpected file in NFT list
 ```
 
-The slide-style auth routes are the preferred UX direction.
+Confirm it does not block build.
 
 ---
 
-## Auth flow test order
+## Account/auth regression checklist
 
-### Signup
-
-```txt
-/questionnaire/auth-signup
-→ enter name
-→ enter fresh email
-→ continue
-→ enter password
-→ confirm password
-→ optional location
-→ optional address
-→ create account
-→ code sends
-→ verification panel appears
-→ enter code
-→ auto-verifies
-→ account verified slide
-→ continue to login
-```
-
-### Existing verified user
+After account/auth changes, test:
 
 ```txt
-/questionnaire/auth-signup
-→ enter existing verified email
-→ should stop on contact slide
-→ should show account already exists
-```
-
-### Existing unverified user
-
-```txt
-/questionnaire/auth-signup
-→ enter existing unverified email
-→ should send fresh verification code
-→ should move to verification panel
-```
-
-### Login
-
-```txt
-/questionnaire/auth-login
-→ enter identifier
-→ enter password
-→ submit
-→ login success
-```
-
-### Account hub
-
-```txt
-/questionnaire/auth-account
-→ logged-out user redirects to login
-→ logged-in user sees account summary cards
-→ update name
-→ update location
-→ update address
-→ update password
-→ delete account
-```
-
-### Update info
-
-```txt
-/questionnaire/auth-account
-→ Update Name / Update Location / Update Address
-→ save
-→ account-saved
-→ return to account hub
-```
-
-### Forgot password
-
-```txt
-/questionnaire/auth-forgot-password
-→ enter verified email
-→ reset link sends
-```
-
-### Reset password
-
-```txt
-/questionnaire/auth-reset-password?token=<token>
-→ enter new password
-→ confirm new password
-→ submit
-→ password changed
-→ passwordUpdatedAt updates
-→ login with new password
-```
-
-### Delete account with code
-
-Only test with a disposable account.
-
-```txt
-/questionnaire/auth-delete-account
-→ type DELETE
-→ Send Delete Code
-→ one account deletion code email sends
-→ enter code
-→ Complete Deletion
-→ account is deleted or scheduled based on config
-→ user is logged out
-→ success page shows immediate or scheduled wording
-```
-
-Immediate deletion expected success wording:
-
-```txt
-Account deleted
-Your account has been deleted and you have been logged out.
-```
-
-Scheduled deletion expected success wording:
-
-```txt
-Deletion scheduled
-Your account is scheduled for deletion. You have been logged out.
+- signup with fresh email
+- signup blocks historical reserved email
+- signup existing verified email shows already exists
+- signup existing unverified email starts verification
+- verification code auto-verifies after final digit
+- resend code cooldown works
+- login succeeds
+- login success routes to auth-account
+- auth-account loads after login
+- auth-account does not say user is logged out after login
+- logout button clears session
+- auth-account redirects logged-out user to login
+- name update remaining count appears
+- name update limit blocks backend update
+- old email is backfilled into UserEmailAddress
+- new email request reserves email
+- new email verification code sends
+- email verification uses six-box authverify panel
+- email verification activates new email
+- previous email remains in UserEmailAddress
+- old email cannot create a new account
+- active email changes when verified email is activated
+- password reset still works
+- account deletion code still works
 ```
 
 ---
 
-## Account deletion duplicate-send protection
+## Production readiness
 
-The delete-code flow should not send two emails for one click.
+Before production:
 
-Current protection:
-
-```txt
-QuestionnaireShell actionInFlightRef
-→ blocks duplicate client-side action calls immediately
-
-/api/account/delete/start cooldown
-→ blocks immediate duplicate account deletion code emails server-side
-```
-
-The server-side cooldown uses:
-
-```txt
-AUTH_RULES.verification.resendCooldownSeconds
-```
-
-Default example:
-
-```js
-verification: {
-  resendCooldownSeconds: 60,
-}
-```
+- set correct business name in config
+- set correct footer links
+- add Privacy Policy page
+- add Terms page
+- add Contact page
+- set production `NEXT_PUBLIC_APP_URL`
+- turn off dev-safe email rewrite if real recipients should receive email
+- confirm SMTP sender works
+- run real-recipient email delivery test
+- confirm active email is used for account messages
+- confirm historical emails are reserved
+- confirm verification expiry matches business rules
+- confirm account deletion policy matches business rules
+- confirm delete-code expiry matches business rules
+- confirm WhatsApp/SMS settings are disabled or configured
+- confirm database backups exist
+- confirm Prisma schema is synced
+- confirm test accounts are removed
+- confirm no console-only verification mode is active
+- confirm no secret values are committed
 
 ---
 
-## Account summary UI
+## Final commit workflow
 
-The account hub uses a dedicated `accountsummary` slide type.
+Before committing:
 
-Important behavior:
-
-```txt
-Logged out
-→ /api/account/profile returns 401
-→ accountsummary redirects to /questionnaire/auth-login
-
-Logged in
-→ accountsummary fetches /api/account/profile
-→ displays account cards
-→ hides sensitive values where needed
-→ routes update buttons to focused slides/routes
+```bash
+npm run build
 ```
 
-Displayed sections:
-
-```txt
-Signed in account
-Name
-Contact
-Location
-Mailing Address
-Password
-Deletion Status, when present
-Delete Account
-```
-
-Sensitive display rules:
-
-```txt
-Password
-→ never display real password
-→ show placeholder dots
-→ show passwordUpdatedAt if available
-
-Email
-→ use maskedEmail
-
-Phone
-→ use maskedPhone
-```
-
----
-
-## Git workflow notes
-
-Recommended workflow:
+Then:
 
 ```bash
 git status
-npm run build
 git add .
-git commit -m "your commit message"
+git commit -m "feat: add reusable account email history and account hub updates"
 ```
 
-Keep source-of-truth commit SHAs updated after clean build checkpoints.
+After commit:
 
----
-
-## Current direction
-
-Near-term priorities:
-
-1. Commit the final account management, delete-code, and reusable auth footer fixes.
-2. Update the source-of-truth SHA after the clean commit.
-3. Add cancellation UI for delayed account deletion.
-4. Add separate verified contact-change flows for email and phone.
-5. Ensure `/signup`, `/login`, `/forgot-password`, and `/reset-password` can route into the slide-style versions when ready.
-6. Document production email and WhatsApp setup.
-7. Clean up Turbopack NFT warning.
-8. Continue reusable-slide and reusable-auth development separately, then merge improvements carefully.
+```txt
+- copy commit SHA
+- share new SHA as source of truth
+- update README source-of-truth section
+- update REGRESSION_CHECKLIST.md source-of-truth section
+```

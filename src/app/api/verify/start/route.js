@@ -139,7 +139,7 @@ export async function POST(request) {
       );
     }
 
-    const user = await prisma.user.findFirst({
+        const user = await prisma.user.findFirst({
       where: email ? { email } : { phone },
     });
 
@@ -147,12 +147,21 @@ export async function POST(request) {
       where: email ? { email } : { phone },
     });
 
-    if (!user && !lead) {
+    const accountEmailAddress =
+      target === "accountEmailUpdate" && email
+        ? await prisma.userEmailAddress.findUnique({
+            where: {
+              normalizedEmail: normalizedIdentifier,
+            },
+          })
+        : null;
+
+    if (!user && !lead && !accountEmailAddress) {
       return Response.json(
         {
           error:
             AUTH_MESSAGES?.verification?.noMatchingRecord ||
-            "No matching user or lead found.",
+            "No matching user, lead, or saved account email found.",
         },
         { status: 404 }
       );
@@ -297,6 +306,8 @@ export async function POST(request) {
         identifier: normalizedIdentifier,
         code: codeHash,
         expiresAt,
+        target,
+        userId: accountEmailAddress?.userId ?? user?.id ?? null,
       },
     });
 

@@ -108,6 +108,19 @@ export const verificationContent = {
         },
       },
     },//end of lead
+
+    accountEmailUpdate: {
+      code: {
+        email: {
+          subject: "Confirm your new email address",
+          getText: ({ code }) =>
+            `Use this code to confirm your new email address: ${code}`,
+          getHtml: ({ code }) =>
+            `<p>Use this code to confirm your new email address:</p><p><strong>${code}</strong></p><p>If you did not request this, do not share this code.</p>`,
+        },
+      },
+    },
+    
     passwordReset: {
       code: {
         email: {

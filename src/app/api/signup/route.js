@@ -10,6 +10,10 @@ import {
 } from "@/lib/auth/rateLimit";
 import { validatePasswordPolicy } from "@/customerAccess/utils/passwordPolicy";
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -52,6 +56,47 @@ export async function POST(request) {
     }
 
     const { email, phone } = parsed;
+    const normalizedEmail = email ? normalizeEmail(email) : null;
+
+    if (normalizedEmail) {
+      const reservedEmail = await prisma.userEmailAddress.findUnique({
+        where: { normalizedEmail },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              emailVerifiedAt: true,
+            },
+          },
+        },
+      });
+
+      if (reservedEmail?.user) {
+        if (!reservedEmail.isVerified && !reservedEmail.user.emailVerifiedAt) {
+          return Response.json({
+            message:
+              AUTH_MESSAGES.signup.accountNeedsVerification ||
+              "Account already exists but still needs verification.",
+            user: {
+              id: reservedEmail.user.id,
+              name: reservedEmail.user.name,
+              email: reservedEmail.user.email,
+              phone: reservedEmail.user.phone,
+            },
+            shouldStartVerification: true,
+            needsVerification: true,
+          });
+        }
+
+        return Response.json(
+          { error: AUTH_MESSAGES.signup.userExists },
+          { status: 400 }
+        );
+      }
+    }
 
     const existingUser = await prisma.user.findFirst({
       where: email ? { email } : { phone },
@@ -88,17 +133,33 @@ export async function POST(request) {
     const userCount = await prisma.user.count();
     const adminLevel = userCount === 0 ? 1 : 0;
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        phone,
-        password: hashedPassword,
-        passwordUpdatedAt: new Date(),
-        name: fullName || null,
-        country: country || null,
-        city: city || null,
-        adminLevel,
-      },
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email,
+          phone,
+          password: hashedPassword,
+          passwordUpdatedAt: new Date(),
+          name: fullName || null,
+          country: country || null,
+          city: city || null,
+          adminLevel,
+        },
+      });
+
+      if (email && normalizedEmail) {
+        await tx.userEmailAddress.create({
+          data: {
+            userId: createdUser.id,
+            email,
+            normalizedEmail,
+            isActive: true,
+            isVerified: false,
+          },
+        });
+      }
+
+      return createdUser;
     });
 
     return Response.json({

@@ -20,6 +20,10 @@ function maskPhone(phone) {
   return `${"*".repeat(Math.max(digits.length - 4, 3))}${digits.slice(-4)}`;
 }
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 export async function GET() {
   try {
     const session = await getSessionFromCookie();
@@ -50,6 +54,20 @@ export async function GET() {
         deletionScheduledAt: true,
         deletedAt: true,
         deletionStatus: true,
+        emailAddresses: {
+          orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
+          select: {
+            id: true,
+            email: true,
+            normalizedEmail: true,
+            isActive: true,
+            isVerified: true,
+            verifiedAt: true,
+            reservedAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
       },
     });
 
@@ -57,10 +75,37 @@ export async function GET() {
       return Response.json({ error: "User not found." }, { status: 404 });
     }
 
+    const normalizedUserEmail = normalizeEmail(user.email);
+
+    const activeEmailAddress =
+      user.emailAddresses.find((item) => item.isActive) ||
+      user.emailAddresses.find(
+        (item) => item.normalizedEmail === normalizedUserEmail
+      ) ||
+      null;
+
     return Response.json({
       user: {
         ...user,
-        maskedEmail: maskEmail(user.email),
+
+        // Current display email should come from the active email record when it exists.
+        email: activeEmailAddress?.email ?? user.email,
+        maskedEmail: maskEmail(activeEmailAddress?.email ?? user.email),
+
+        // This is the important fix:
+        // the account card can now know whether the active email itself is verified.
+        activeEmailAddress: activeEmailAddress
+          ? {
+              ...activeEmailAddress,
+              maskedEmail: maskEmail(activeEmailAddress.email),
+            }
+          : null,
+
+        emailAddresses: user.emailAddresses.map((item) => ({
+          ...item,
+          maskedEmail: maskEmail(item.email),
+        })),
+
         maskedPhone: maskPhone(user.phone),
       },
     });
