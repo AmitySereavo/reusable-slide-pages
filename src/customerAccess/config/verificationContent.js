@@ -120,6 +120,26 @@ export const verificationContent = {
         },
       },
     },
+
+        gatedLeadAccess: {
+      link: {
+        email: {
+          subject: "Your private video link",
+          getText: ({ verifyUrl }) =>
+            `Use this private link to continue watching: ${verifyUrl}`,
+          getHtml: ({ verifyUrl }) =>
+            `<p>Use this private link to continue watching:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`,
+        },
+        sms: {
+          getText: ({ verifyUrl }) =>
+            `Use this private link to continue watching: ${verifyUrl}`,
+        },
+        whatsapp: {
+          getText: ({ verifyUrl }) =>
+            `Use this private link to continue watching: ${verifyUrl}`,
+        },
+      },
+    },
     
     passwordReset: {
       code: {

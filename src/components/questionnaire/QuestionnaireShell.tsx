@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
+import LeadCaptureForm from "@/customerAccess/components/LeadCaptureForm";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -504,6 +505,249 @@ function getRecordListItems(
     .filter(Boolean) as RecordListItem[];
 }
 
+function AuthFormSlideRenderer({
+  formKey,
+  title,
+  subtitle,
+  questionnaireSlug,
+  answers,
+  onSuccess,
+}: {
+  formKey?: string;
+  title?: string;
+  subtitle?: string;
+  questionnaireSlug: string;
+  answers: QuestionnaireAnswers;
+  onSuccess: () => void;
+}) {
+  const isGatedLeadCapture = formKey === "gatedLeadCapture";
+
+  if (formKey !== "leadCapture" && formKey !== "gatedLeadCapture") {
+    return (
+      <p className={styles.formError}>
+        Unsupported auth form: {formKey || "missing"}
+      </p>
+    );
+  }
+
+  return (
+    <div className={styles.authFormEmbedFullBleed}>
+      <LeadCaptureForm
+        title={title || "Stay connected"}
+        subtitle={
+          subtitle ||
+          (isGatedLeadCapture
+            ? "Sign up and check your email for the private link to continue watching."
+            : undefined)
+        }
+        config={{
+          mode: "lead-capture",
+          target: isGatedLeadCapture ? "gatedLeadAccess" : "lead",
+          fields: {
+            fullName: { visible: true, required: true },
+            identifier: {
+              visible: true,
+              required: true,
+              allow: isGatedLeadCapture ? ["email"] : ["email", "phone"],
+              helpText: isGatedLeadCapture
+                ? "Use your email so we can send the private video link."
+                : "Use your email or WhatsApp number. If using phone, include country code and area code.",
+            },
+            updatesOptIn: {
+              visible: true,
+              required: false,
+              defaultValue: true,
+            },
+          },
+          verification: {
+            required: false,
+            autoStart: false,
+            method: "email",
+            delivery: "link",
+            redirectToVerifyPage: false,
+            successRedirect: null,
+            verifiedContentRedirect: null,
+            expiresInMinutes: 15,
+            expiresInHours: 24,
+            promptForPhoneChannel: false,
+            defaultPhoneChannel: "whatsapp",
+            phoneChannelOptions: ["whatsapp", "sms"],
+            phoneChannelLabel: "Send verification by",
+          },
+          submit: {
+            endpoint: isGatedLeadCapture
+              ? "/api/auth/temporary-lead-account"
+              : "/api/questionnaires/submit",
+            method: "POST",
+            buttonLabel: isGatedLeadCapture
+              ? "Email My Private Link"
+              : "Stay Connected",
+            successMessage: isGatedLeadCapture
+              ? "Check your email for the private link to continue watching."
+              : "Your info was submitted.",
+            successRedirect: null,
+            redirectDelayMs: 0,
+          },
+        }}
+        onSubmit={async ({
+          formData,
+          setMessage,
+          setMessageType,
+        }: {
+          formData: Record<string, unknown>;
+          setMessage: (message: string) => void;
+          setMessageType: (type: "error" | "info" | "success") => void;
+        }) => {
+          const identifier = String(formData.identifier ?? "").trim();
+          const isEmail = identifier.includes("@");
+
+          const endpoint = isGatedLeadCapture
+            ? "/api/auth/temporary-lead-account"
+            : "/api/questionnaires/submit";
+
+          const payload = isGatedLeadCapture
+            ? {
+                questionnaireSlug,
+                source: "invitation-lead-gate",
+                goto: "second-video",
+                fullName: String(formData.fullName ?? "").trim(),
+                identifier,
+                updatesOptIn: formData.updatesOptIn === true,
+                answers: {
+                  ...answers,
+                  gatedLeadCapture: formData,
+                },
+              }
+            : {
+                questionnaireSlug,
+                fullName: String(formData.fullName ?? "").trim(),
+                email: isEmail ? identifier : "",
+                phone: isEmail ? "" : identifier,
+                whatsappOptIn: formData.updatesOptIn === true,
+                answers: {
+                  ...answers,
+                  leadCapture: formData,
+                },
+              };
+
+          const response = await fetch(endpoint, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            setMessage(
+              data?.details ||
+                data?.error ||
+                "Your information could not be submitted."
+            );
+            setMessageType("error");
+            return;
+          }
+
+          setMessage(
+            data?.message ||
+              (isGatedLeadCapture
+                ? "Check your email for the private link to continue watching."
+                : "Your info was submitted.")
+          );
+          setMessageType("success");
+
+          if (!isGatedLeadCapture) {
+            window.setTimeout(() => {
+              onSuccess();
+            }, 700);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+type GatedAccessConfig = {
+  gateSlideId?: string;
+  goto?: string;
+  resumePromptSlideId?: string;
+  startFromBeginningSlideId?: string;
+};
+
+type GatedAccessState = {
+  hasAccess: boolean;
+  goto?: string | null;
+  resumePromptSlideId?: string | null;
+  gateSlideId?: string | null;
+};
+
+function getGatedAccessConfig(
+  variables: QuestionnaireVariableMap
+): GatedAccessConfig | null {
+  const raw = variables.gatedAccess;
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+
+  return {
+    gateSlideId:
+      typeof record.gateSlideId === "string" ? record.gateSlideId : undefined,
+    goto: typeof record.goto === "string" ? record.goto : undefined,
+    resumePromptSlideId:
+      typeof record.resumePromptSlideId === "string"
+        ? record.resumePromptSlideId
+        : undefined,
+    startFromBeginningSlideId:
+      typeof record.startFromBeginningSlideId === "string"
+        ? record.startFromBeginningSlideId
+        : undefined,
+  };
+}
+
+function getVideoResumeStorageKey(questionnaireSlug: string, slideId: string) {
+  return `questionnaire-video-resume:${questionnaireSlug}:${slideId}`;
+}
+
+function readVideoResumeSeconds(questionnaireSlug: string, slideId: string) {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  const raw = window.localStorage.getItem(
+    getVideoResumeStorageKey(questionnaireSlug, slideId)
+  );
+
+  const parsed = Number(raw);
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function writeVideoResumeSeconds(
+  questionnaireSlug: string,
+  slideId: string,
+  seconds: number
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (!Number.isFinite(seconds) || seconds < 5) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    getVideoResumeStorageKey(questionnaireSlug, slideId),
+    String(Math.floor(seconds))
+  );
+}
+
+
 export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
@@ -536,6 +780,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
   const searchParams = useSearchParams();
+  const gatedAccessHandledRef = useRef(false);
+
+  const [gatedAccessState, setGatedAccessState] =
+    useState<GatedAccessState | null>(null);
+
+  const [videoResumeOverrides, setVideoResumeOverrides] = useState<
+    Record<string, number>
+  >({});
 
   const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
     {}
@@ -547,6 +799,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       ...dynamicVariables,
     }),
     [config.variables, dynamicVariables]
+  );
+
+  const gatedAccessConfig = useMemo(
+    () => getGatedAccessConfig(mergedVariables),
+    [mergedVariables]
   );
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
@@ -768,6 +1025,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     evaluationContext,
   ]);
 
+  
   const visibleSlides = useMemo(
     () =>
       getVisibleSlides(
@@ -816,7 +1074,82 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   const currentSlide = visibleSlides[currentIndex];
-    const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
+  const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
+
+  useEffect(() => {
+    if (gatedAccessHandledRef.current) {
+      return;
+    }
+
+    async function resolveGatedAccess() {
+      const leadAccess = searchParams.get("leadAccess");
+      const queryGoto = searchParams.get("goto");
+
+      if (leadAccess === "verified" && queryGoto) {
+        const targetIndex = getSlideIndexById(visibleSlides, queryGoto);
+
+        if (targetIndex >= 0) {
+          gatedAccessHandledRef.current = true;
+
+          setGatedAccessState({
+            hasAccess: true,
+            goto: queryGoto,
+            gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
+            resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
+          });
+
+          setHistory([]);
+          setCurrentIndex(targetIndex);
+        }
+
+        return;
+      }
+
+      const response = await fetch(
+        `/api/questionnaires/gated-access/status?questionnaireSlug=${encodeURIComponent(
+          config.slug
+        )}`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.hasAccess || !data?.access?.goto) {
+        return;
+      }
+
+      const targetGoto = String(data.access.goto);
+      const promptSlideId =
+        gatedAccessConfig?.resumePromptSlideId || targetGoto;
+
+      const targetIndex = getSlideIndexById(visibleSlides, promptSlideId);
+
+      if (targetIndex < 0) {
+        return;
+      }
+
+      gatedAccessHandledRef.current = true;
+
+      setGatedAccessState({
+        hasAccess: true,
+        goto: targetGoto,
+        gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
+        resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
+      });
+
+      setHistory([]);
+      setCurrentIndex(targetIndex);
+    }
+
+    void resolveGatedAccess().catch(() => null);
+  }, [config.slug, gatedAccessConfig, searchParams, visibleSlides]);
+
 
   const resolvedOverlayTitle = shouldShowOverlayTitle
     ? replaceDynamicText(currentSlide?.title, evaluationContext, mergedVariables)
@@ -826,7 +1159,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     ? replaceDynamicText(currentSlide?.subtitle, evaluationContext, mergedVariables)
     : undefined;
 
-const currentRecordListItems = useMemo<RecordListItem[]>(() => {
+  const currentRecordListItems = useMemo<RecordListItem[]>(() => {
     if (currentSlide?.type !== "recordlist") {
       return [];
     }
@@ -1387,7 +1720,28 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
       return;
     }
 
-    const targetIndex = getSlideIndexById(visibleSlides, target);
+    const gatedTarget =
+      gatedAccessState?.hasAccess &&
+      gatedAccessState.gateSlideId &&
+      target === gatedAccessState.gateSlideId
+        ? gatedAccessState.goto || gatedAccessConfig?.goto || target
+        : target;
+
+    if (
+      gatedAccessState?.hasAccess &&
+      gatedTarget === (gatedAccessState.goto || gatedAccessConfig?.goto)
+    ) {
+      const resumeSeconds = readVideoResumeSeconds(config.slug, gatedTarget);
+
+      if (resumeSeconds > 0) {
+        setVideoResumeOverrides((prev) => ({
+          ...prev,
+          [gatedTarget]: resumeSeconds,
+        }));
+      }
+    }
+
+    const targetIndex = getSlideIndexById(visibleSlides, gatedTarget);
 
     if (targetIndex !== -1 && targetIndex !== currentIndex) {
       setHistory((prev) => [...prev, currentIndex]);
@@ -1481,13 +1835,50 @@ const currentRecordListItems = useMemo<RecordListItem[]>(() => {
   }
 
   function handleChoiceClick(value: PrimitiveValue, goto?: string) {
+    const normalizedValue = String(value);
+
     if (currentSlide?.storeAs) {
       setAnswer(currentSlide.storeAs, value);
     }
 
+    if (
+      currentSlide?.id === gatedAccessConfig?.resumePromptSlideId &&
+      normalizedValue === "continue"
+    ) {
+      const target = gatedAccessState?.goto || gatedAccessConfig?.goto;
+
+      if (target) {
+        const resumeSeconds = readVideoResumeSeconds(config.slug, target);
+
+        if (resumeSeconds > 0) {
+          setVideoResumeOverrides((prev) => ({
+            ...prev,
+            [target]: resumeSeconds,
+          }));
+        }
+
+        goToTarget(target);
+        return;
+      }
+    }
+
+    if (
+      currentSlide?.id === gatedAccessConfig?.resumePromptSlideId &&
+      normalizedValue === "beginning"
+    ) {
+      const beginningTarget =
+        gatedAccessConfig?.startFromBeginningSlideId || goto || "home";
+
+      goToTarget(beginningTarget);
+      return;
+    }
+
     if (goto) {
       goToTarget(goto);
+      return;
     }
+
+    next();
   }
 
   function parseRulePrimitive(raw: string): PrimitiveValue {
@@ -2603,10 +2994,10 @@ async function next() {
             </div>
 
             <div
-              ref={slideBodyRef}
-              className={`${styles.slideBody} ${
-                isMediaSlide ? styles.slideBodyMedia : ""
-              }`}
+            ref={slideBodyRef}
+            className={`${styles.slideBody} ${
+              isMediaSlide ? styles.slideBodyMedia : ""
+            } ${currentSlide.type === "authform" ? styles.slideBodyAuthForm : ""}`}
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -2620,14 +3011,32 @@ async function next() {
                   {isMediaSlide ? (
                     <>
                       <MediaRenderer
-                        slide={currentSlide}
+                        slide={{
+                          ...currentSlide,
+                          videoStartAtSeconds:
+                            videoResumeOverrides[currentSlide.id] ??
+                            currentSlide.videoStartAtSeconds,
+                        }}
                         onVerticalVideoPlayingChange={
                           setIsCurrentVerticalVideoPlaying
                         }
-                        onVideoProgressChange={handleVideoProgressChange}
+                        onVideoProgressChange={(payload) => {
+                          handleVideoProgressChange(payload);
+
+                          if (
+                            currentSlide.mediaType === "video" &&
+                            (currentSlide.id === gatedAccessState?.goto ||
+                              currentSlide.id === gatedAccessConfig?.goto)
+                          ) {
+                            writeVideoResumeSeconds(
+                              config.slug,
+                              currentSlide.id,
+                              payload.currentTime
+                            );
+                          }
+                        }}
                         videoSeekRequest={videoSeekRequest}
                       />
-
                       {hasRenderableSections(currentSlide.sections) ? (
                         <div className={styles.mediaTextOverlay}>
                           {renderSections(
@@ -2991,6 +3400,19 @@ async function next() {
                             <p className={styles.formError}>{deleteBatchError}</p>
                           ) : null}
                         </div>
+                      ) : null}
+
+                      {currentSlide.type === "authform" ? (
+                        <AuthFormSlideRenderer
+                          formKey={currentSlide.authFormKey}
+                          title={currentSlide.title}
+                          subtitle={currentSlide.subtitle}
+                          questionnaireSlug={config.slug}
+                          answers={answers}
+                          onSuccess={() => {
+                            goToTarget(currentSlide.goto || "second-video");
+                          }}
+                        />
                       ) : null}
 
                       {currentSlide.type === "authverify" ? (

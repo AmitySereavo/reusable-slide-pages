@@ -294,6 +294,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@authform:")) {
+        draft.authFormKey = readValue(line, "@authform:");
+        continue;
+      }
+
       if (line.startsWith("@source:")) {
         const sourceKey = readValue(line, "@source:");
         draft.recordSourceKey = sourceKey;
@@ -701,6 +706,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     gotoIfComplete: draft.gotoIfComplete,
     gotoIfIncomplete: draft.gotoIfIncomplete,
     contactMode: draft.contactMode,
+    authFormKey: draft.authFormKey,
     progressOverlayBackgroundColor: draft.progressOverlayBackgroundColor,
     actionBarBackgroundColor: draft.actionBarBackgroundColor,
     progressOverlayTextColor: draft.progressOverlayTextColor,

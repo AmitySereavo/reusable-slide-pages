@@ -56,25 +56,44 @@ BR
 @shownext: false
 
 ===
-// WHATSAPP SUBSCRIPTION
+// RETURNING VERIFIED VIEWER
+@id: continue-watching-choice
+@type: choice
+@store: continueWatchingChoice
+@choiceplacement: inline
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+---
+BR
+# [c1] Continue watching?
+BR
+[c3] You already have private access. Would you like to continue from where you left off, or start from the beginning?
+@choices:
+- continue|Continue watching|second-video|primary
+- beginning|Start from the beginning|home|secondary
+
+===
+// GATED LEAD CAPTURE
 @id: whatsapp-subscription
-@type: form
-@contactmode: lead
+@type: authform
+@authform: gatedLeadCapture
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+@goto: second-video
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
 @actionbartextcolor: #1f1f1f
 ---
 BR
-# [c1] Subscribe on
-# [c3] WhatsApp
+# [c1] Continue watching
 BR
-[c2] Subscribe to continue watching.
-BR
-@fields:
-- fullName|text|Full name|required|Full name
-- phone|tel|WhatsApp number|required|Include country code and area code
-- whatsappOptIn|checkbox|Yes, subscribe me on WhatsApp|required
+[c3] Sign up and check your email for the private link to the next video.
+@back: Back
 ---
 @run: submitLead
 @back: Back

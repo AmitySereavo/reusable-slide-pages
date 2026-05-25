@@ -425,6 +425,7 @@ export type SlideType =
   | "meal"
   | "delivery"
   | "authverify"
+  | "authform"
   | "accountsummary"
   | "recordlist";
 
@@ -492,6 +493,7 @@ export type Slide = {
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
+  authFormKey?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;
@@ -591,7 +593,7 @@ export type ParsedSlideDraft = {
   autoplay?: boolean;
   progressMode?: SlideProgressMode;
   videoRoutes?: VideoRoute[];
-    videoStartAtSeconds?: number;
+  videoStartAtSeconds?: number;
   pageBackgroundColor?: string;
   pageBackgroundImage?: string;
   pageBackgroundSize?: string;
@@ -610,6 +612,7 @@ export type ParsedSlideDraft = {
   gotoIfComplete?: string;
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
+  authFormKey?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;

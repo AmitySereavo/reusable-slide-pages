@@ -1101,12 +1101,13 @@ model VerificationCode {
 }
 
 model VerificationToken {
-  id         String    @id @default(cuid())
-  identifier String
-  tokenHash  String    @unique
-  target     String?
-  expiresAt  DateTime
-  consumedAt DateTime?
+  id              String    @id @default(cuid())
+  identifier      String
+  tokenHash       String    @unique
+  target          String?
+  successRedirect String?
+  expiresAt       DateTime
+  consumedAt      DateTime?
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1117,6 +1118,7 @@ model VerificationToken {
   @@index([identifier])
   @@index([expiresAt])
   @@index([userId])
+  @@index([target])
 }
 
 model VerificationDeliveryAttempt {

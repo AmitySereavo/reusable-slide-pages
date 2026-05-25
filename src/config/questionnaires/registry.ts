@@ -82,7 +82,14 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dslPath: "src/config/questionnaires/invitationDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
-    variables: {},
+      variables: {
+        gatedAccess: {
+          gateSlideId: "whatsapp-subscription",
+          goto: "second-video",
+          resumePromptSlideId: "continue-watching-choice",
+          startFromBeginningSlideId: "home",
+        },
+      },
     dynamicVariablesEndpoint: undefined,
   },
 

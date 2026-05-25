@@ -10,6 +10,9 @@ It currently acts as a shared development ground for:
 - reusable auth
 - account management
 - verified account contact updates
+- retained email history
+- gated lead access
+- embedded reusable auth forms inside slides
 - plant shop / seed shop flows
 - invitation / music / event flows
 - DB-backed nursery operations
@@ -22,10 +25,10 @@ Long-term, these systems should remain separable so they can become dedicated pr
 
 ## Current source of truth
 
-Current reusable-slide-pages working checkpoint before latest local account/email/login fixes:
+Current reusable-slide-pages source of truth before latest local gated-access/resume-prompt updates:
 
 ```txt
-3bb431e4acc8d0ff21a16497b43afe7ba92bbe05
+aac40de69b14385179acd4e497c54b566eb18553
 ```
 
 Reusable auth source merged into this project:
@@ -37,24 +40,20 @@ Reusable auth source merged into this project:
 Latest local updates after the checkpoint above:
 
 ```txt
-- auth-account account hub hides slide count and progress bar
-- auth-login hides slide count and progress bar
-- login success routes to /questionnaire/auth-account instead of /dashboard
-- account hub includes logout button
-- login action explicitly uses same-origin credentials
-- configurable name-update limits added
-- UserNameChange history added
-- account card shows remaining name updates before the user submits
-- UserEmailAddress history model added
-- old emails remain reserved to the original account
-- signup checks historical reserved emails before allowing new account creation
-- account profile returns active email and email history
-- account email update flow added
-- account email update uses existing authverify / VerificationCodePanel behavior
-- email update code auto-verifies after final digit
-- email update resend-code cooldown and resend button use reusable auth verification behavior
-- successful email verification activates the new email
-- previous emails remain stored in UserEmailAddress
+- embedded authform slide type added
+- LeadCaptureForm can be embedded inside questionnaire slides
+- invitation lead capture now uses reusable auth/customerAccess form
+- gated lead capture creates/fetches a temporary auth-backed user
+- gated lead capture creates/updates Lead records
+- private access/verification link is emailed to the submitted email
+- gatedLeadAccess verification link verifies Lead/User/UserEmailAddress
+- long-lived signed gated-access cookie is set after verification
+- returning verified users can skip the lead form
+- returning verified users are shown a Continue Watching choice slide
+- Continue Watching resumes the second video from saved browser position when available
+- Start From Beginning returns to the first video
+- when the first video reaches its existing @videogoto point, verified users bypass the lead form and go directly to the second video
+- second video timestamp is controlled by existing @videostart, not new DSL directives
 ```
 
 After committing these local fixes, update this README source-of-truth SHA.
@@ -95,6 +94,8 @@ Because of this, shared systems should stay reusable:
 - verification delivery layer
 - verification components
 - delivery attempt logging
+- gated access helpers
+- embedded auth form renderer
 
 Avoid hardcoding nursery, plant shop, invitation, or business-specific wording into shared systems.
 
@@ -119,6 +120,7 @@ route handlers
 src/customerAccess
 src/lib/auth
 src/lib/verification
+src/lib/questionnaire
 ```
 
 ---
@@ -137,6 +139,7 @@ src/lib/verification
 - Resend
 - Twilio package installed but SMS is paused for now
 - bcrypt
+- crypto/HMAC signed gated access cookies
 - Git LFS for large media when needed
 
 ---
@@ -148,9 +151,14 @@ The project supports:
 - marketing funnels
 - questionnaires
 - media-rich video flows
+- gated video access
+- return-viewer resume prompts
 - storefront pages
 - delivery and pickup flows
 - contact capture
+- embedded reusable auth forms
+- gated lead capture
+- temporary auth-backed lead accounts
 - digital downloads
 - ticket / invitation flows
 - ticket-owner assignment
@@ -195,6 +203,7 @@ Each slide experience is configured by:
 - optional downloadable file catalog entries
 - optional auth behavior config
 - optional reusable auth UI components
+- optional gated access config in registry variables
 
 Shared questionnaire route:
 
@@ -246,16 +255,24 @@ Route:
 
 ## `invitation`
 
-A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
+A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, gated second-video access, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
 
 Current capabilities:
 
 - vertical video intro slides
 - video-linked progress bar
-- video start timestamp
-- video timestamp routing to another slide
+- video start timestamp through existing `@videostart`
+- video timestamp routing through existing `@videogoto`
 - performance rating slide
-- WhatsApp subscription form
+- embedded reusable gated lead capture form
+- temporary auth-backed user creation for gated leads
+- private video link emailed after lead signup
+- verification/access link verifies the lead/account email
+- signed long-lived gated-access cookie after verification
+- returning verified viewer prompt
+- continue watching from saved browser video position
+- start from beginning option
+- automatic lead-form bypass when access cookie exists
 - invitation/event shop
 - ticket/invitation purchase options
 - ticket-owner details page
@@ -771,17 +788,6 @@ Verification content target:
 verificationContent.targets.accountEmailUpdate.code.email
 ```
 
-Expected email wording:
-
-```txt
-Subject: Confirm your new email address
-
-Use this code to confirm your new email address:
-123456
-
-If you did not request this, do not share this code.
-```
-
 Rules:
 
 ```txt
@@ -794,6 +800,273 @@ Rules:
 - all other email records on the same account become inactive
 - User.email updates to the active email for compatibility
 - old emails are never deleted
+```
+
+---
+
+## Embedded reusable auth forms
+
+The slide system supports embedding reusable `customerAccess` auth forms inside a questionnaire slide.
+
+Slide type:
+
+```txt
+authform
+```
+
+Directive:
+
+```txt
+@authform:
+```
+
+Currently supported keys:
+
+```txt
+leadCapture
+gatedLeadCapture
+```
+
+Example:
+
+```txt
+===
+@id: invitation-lead-capture
+@type: authform
+@authform: gatedLeadCapture
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+@goto: second-video
+---
+BR
+# [c1] Continue watching
+BR
+[c3] Sign up and check your email for the private link to the next video.
+```
+
+Purpose:
+
+```txt
+- keep form behavior inside reusable auth/customerAccess components
+- avoid rebuilding auth and lead forms manually in DSL
+- allow slides to contain reusable auth forms while preserving slide routing
+```
+
+Future possible keys:
+
+```txt
+signup
+login
+forgotPassword
+resetPassword
+accountEmailUpdate
+phoneUpdate
+marketingOptIn
+downloadAccess
+ticketAccess
+```
+
+---
+
+## Gated lead access
+
+Gated lead access is used when a user should provide an email before accessing a private slide or video.
+
+Current invitation flow:
+
+```txt
+first video
+→ performance rating
+→ gatedLeadCapture form
+→ temporary auth-backed user created/found
+→ Lead created/updated
+→ private access link emailed
+→ user clicks link
+→ /verify consumes token
+→ User email verified
+→ UserEmailAddress verified
+→ Lead verified
+→ signed long-lived gated-access cookie set
+→ redirect to second-video
+```
+
+Backend routes:
+
+```txt
+/api/auth/temporary-lead-account
+/api/verify/consume-link
+/api/questionnaires/gated-access/status
+```
+
+Verification target:
+
+```txt
+gatedLeadAccess
+```
+
+Verification content target:
+
+```txt
+verificationContent.targets.gatedLeadAccess.link.email
+```
+
+Gated access cookie helper:
+
+```txt
+src/lib/questionnaire/gatedAccessCookie.js
+```
+
+Cookie name:
+
+```txt
+questionnaire_gated_access
+```
+
+Cookie behavior:
+
+```txt
+- signed with HMAC
+- HttpOnly
+- sameSite lax
+- secure in production
+- path /
+- long-lived expiry
+- stores access target, not raw identity
+```
+
+Cookie payload stores:
+
+```txt
+target
+questionnaireSlug
+goto
+identifierHash
+verifiedAt
+expiresAt
+```
+
+Cookie payload does not store:
+
+```txt
+raw email
+raw phone
+video timestamp
+```
+
+Environment secret:
+
+```env
+GATED_SLIDE_ACCESS_SECRET="make-this-a-long-random-string"
+```
+
+Use a strong random value before production.
+
+---
+
+## Returning verified viewer flow
+
+Returning verified users do not need to see the gated lead form again.
+
+The invitation registry config controls this through `variables.gatedAccess`.
+
+Example:
+
+```ts
+variables: {
+  gatedAccess: {
+    gateSlideId: "whatsapp-subscription",
+    goto: "second-video",
+    resumePromptSlideId: "continue-watching-choice",
+    startFromBeginningSlideId: "home",
+  },
+},
+```
+
+Behavior:
+
+```txt
+User opens /questionnaire/invitation with valid gated-access cookie
+→ shell checks /api/questionnaires/gated-access/status
+→ shell routes to continue-watching-choice
+→ user chooses Continue Watching or Start From Beginning
+```
+
+Continue Watching:
+
+```txt
+continue-watching-choice
+→ second-video
+→ resumes from saved browser timestamp if one exists
+→ otherwise uses existing @videostart on second-video
+```
+
+Start From Beginning:
+
+```txt
+continue-watching-choice
+→ home / first video
+→ first video plays normally
+→ when existing @videogoto points to the gate slide, shell bypasses the gate
+→ goes directly to second-video
+→ second-video uses existing @videostart
+```
+
+Important:
+
+```txt
+No new DSL timestamp directives are needed.
+Video timing stays in existing @videostart and @videogoto.
+```
+
+---
+
+## Video timestamp system
+
+The existing video timestamp system uses DSL directives already supported by the parser.
+
+Start a video at a configured timestamp:
+
+```txt
+@videostart: 14:18
+```
+
+Route to another slide at a video timestamp:
+
+```txt
+@videogoto: 00:45|performance-rating
+```
+
+Use video progress mode:
+
+```txt
+@progressmode: video
+```
+
+Example:
+
+```txt
+===
+@id: second-video
+@type: media
+@media: /media/invitation/example.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@progressmode: video
+@videostart: 14:18
+```
+
+The media renderer applies `videoStartAtSeconds` when video metadata loads.
+
+Resume behavior:
+
+```txt
+- saved browser timestamp is kept in localStorage
+- used only when the user chooses Continue Watching
+- not stored in the gated access cookie
+- if no saved timestamp exists, existing @videostart is used
 ```
 
 ---
@@ -827,6 +1100,7 @@ Auth:
 - users
 - verified emails
 - sessions
+- temporary/claimed accounts
 - consent/opt-in status later
 
 Reusable-slide-pages:
@@ -837,6 +1111,7 @@ Reusable-slide-pages:
 - orders
 - invoices
 - downloads
+- gated slide access
 
 Shared messaging:
 - email sending
@@ -948,29 +1223,6 @@ Backend routes:
 /api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
-```
-
-Route responsibilities:
-
-```txt
-/api/account/delete/start
-→ require logged-in user
-→ require DELETE confirmation
-→ create account-deletion verification code
-→ send email
-→ return success
-→ does not delete account
-→ does not clear session
-
-/api/account/delete
-→ require logged-in user
-→ verify deletion code when enabled
-→ delete immediately or schedule deletion
-→ clear session
-→ return status
-
-/api/account/delete/cancel
-→ cancels pending deletion when delayed deletion is enabled and cancellation is allowed
 ```
 
 ---
@@ -1107,6 +1359,7 @@ shopCatalog
 deliveryConfig
 discountDefinitions
 mealMenus
+gatedAccess
 ```
 
 For auth flows, the registry can inject auth behavior variables such as:
@@ -1186,6 +1439,7 @@ verificationContent.targets.lead.code.email
 verificationContent.targets.passwordReset.link.email
 verificationContent.targets.accountDeletion.code.email
 verificationContent.targets.accountEmailUpdate.code.email
+verificationContent.targets.gatedLeadAccess.link.email
 ```
 
 ---
@@ -1441,6 +1695,31 @@ emailAddresses            UserEmailAddress[]
 
 ---
 
+## Verification token model
+
+The `VerificationToken` model supports link verification and gated access redirect behavior.
+
+Required fields include:
+
+```prisma
+identifier
+tokenHash
+target
+successRedirect
+expiresAt
+consumedAt
+userId
+```
+
+`successRedirect` is needed for flows such as:
+
+```txt
+gatedLeadAccess
+→ /questionnaire/invitation?leadAccess=verified&goto=second-video
+```
+
+---
+
 ## Prisma / database commands
 
 After schema changes, run:
@@ -1512,6 +1791,7 @@ meal
 delivery
 recordlist
 authverify
+authform
 accountsummary
 ```
 
@@ -1608,6 +1888,7 @@ Current DSL directives include:
 @gotoifcomplete:
 @gotoifincomplete:
 @contactmode:
+@authform:
 ```
 
 ---
@@ -1703,6 +1984,51 @@ BR
 
 ---
 
+## Embedded gated lead form
+
+```txt
+===
+@id: whatsapp-subscription
+@type: authform
+@authform: gatedLeadCapture
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+@goto: second-video
+---
+BR
+# [c1] Continue watching
+BR
+[c3] Sign up and check your email for the private link to the next video.
+```
+
+---
+
+## Returning viewer choice slide
+
+```txt
+===
+@id: continue-watching-choice
+@type: choice
+@store: continueWatchingChoice
+@choiceplacement: inline
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+---
+BR
+# [c1] Continue watching?
+BR
+[c3] You already have private access. Would you like to continue from where you left off, or start from the beginning?
+@choices:
+- continue|Continue watching|second-video|primary
+- beginning|Start from the beginning|home|secondary
+```
+
+---
+
 ## Delete account flow
 
 ```txt
@@ -1755,11 +2081,13 @@ submitDeleteAccount
 
 Email verification for account email update is handled by the reusable `authverify` slide and `/api/verify/check`.
 
+Gated lead access uses embedded `authform` and `/api/auth/temporary-lead-account`.
+
 ---
 
 ## Auth API routes
 
-Current auth/account API routes include:
+Current auth/account/gated API routes include:
 
 ```txt
 /api/signup
@@ -1782,6 +2110,8 @@ Current auth/account API routes include:
 /api/account/delete/start
 /api/account/delete
 /api/account/delete/cancel
+/api/auth/temporary-lead-account
+/api/questionnaires/gated-access/status
 ```
 
 ---
@@ -1911,9 +2241,9 @@ Confirm it does not block build.
 
 ---
 
-## Account/auth regression checklist
+## Account/auth/gated regression checklist
 
-After account/auth changes, test:
+After account/auth/gated changes, test:
 
 ```txt
 - signup with fresh email
@@ -1940,6 +2270,15 @@ After account/auth changes, test:
 - active email changes when verified email is activated
 - password reset still works
 - account deletion code still works
+- invitation gated lead form appears for first-time viewer
+- private access link is emailed after gated lead signup
+- verification link verifies Lead/User/UserEmailAddress
+- signed gated access cookie is set
+- returning verified viewer sees continue-watching-choice
+- Continue Watching goes to second-video
+- Start From Beginning goes to home/first video
+- first video bypasses lead form when cookie exists
+- second-video uses existing @videostart
 ```
 
 ---
@@ -1954,12 +2293,15 @@ Before production:
 - add Terms page
 - add Contact page
 - set production `NEXT_PUBLIC_APP_URL`
+- set production `GATED_SLIDE_ACCESS_SECRET`
 - turn off dev-safe email rewrite if real recipients should receive email
 - confirm SMTP sender works
 - run real-recipient email delivery test
 - confirm active email is used for account messages
 - confirm historical emails are reserved
 - confirm verification expiry matches business rules
+- confirm name-update limit matches business rules
+- confirm gated access cookie expiry matches business rules
 - confirm account deletion policy matches business rules
 - confirm delete-code expiry matches business rules
 - confirm WhatsApp/SMS settings are disabled or configured
@@ -1968,6 +2310,31 @@ Before production:
 - confirm test accounts are removed
 - confirm no console-only verification mode is active
 - confirm no secret values are committed
+
+---
+
+## Security notes
+
+Confirm:
+
+```txt
+- passwords are hashed
+- verification codes are hashed
+- verification tokens are hashed
+- reset tokens are hashed
+- session tokens are hashed
+- gated access cookie is signed
+- gated access cookie is HttpOnly
+- gated access cookie does not contain raw email
+- gated access cookie does not contain raw phone
+- gated access cookie does not contain raw video timestamp
+- frontend warnings are convenience only
+- backend remains source of truth
+```
+
+Raw media files in `/public` are still directly accessible by URL.
+
+The current gated access protects the slide flow, not the raw video file. For true protected media, move gated videos behind an API/media route that checks the signed cookie or session before streaming.
 
 ---
 
@@ -1984,7 +2351,7 @@ Then:
 ```bash
 git status
 git add .
-git commit -m "feat: add reusable account email history and account hub updates"
+git commit -m "feat: add gated lead access and returning viewer resume flow"
 ```
 
 After commit:
@@ -1992,6 +2359,6 @@ After commit:
 ```txt
 - copy commit SHA
 - share new SHA as source of truth
-- update README source-of-truth section
+- update README.md source-of-truth section
 - update REGRESSION_CHECKLIST.md source-of-truth section
 ```
