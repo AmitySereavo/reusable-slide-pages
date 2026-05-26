@@ -99,6 +99,8 @@ export type TicketAssignment = {
   ownerName?: string;
   ownerEmail?: string;
   ownerPhone?: string;
+  isPurchaserTicket?: boolean;
+  emailTicketToOwner?: boolean;
   mealMode?: "required" | "optional";
   mealMenuId?: string;
   mealLabel?: string;
@@ -451,6 +453,7 @@ export type Slide = {
   showProgressBar?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
+  showAuthControls?: boolean;
   titlePlacement?: SlideTitlePlacement;
   cancelGoto?: string;
   storeAs?: string;
@@ -532,7 +535,6 @@ export type ThemeConfig = {
   };
 };
 
-
 export type QuestionnaireConfig = {
   slug: string;
   name: string;
@@ -571,6 +573,7 @@ export type ParsedSlideDraft = {
   showProgressBar?: boolean;
   showReturnHome?: boolean;
   showCancel?: boolean;
+  showAuthControls?: boolean;
   titlePlacement?: SlideTitlePlacement;
   cancelGoto?: string;
   goto?: string;

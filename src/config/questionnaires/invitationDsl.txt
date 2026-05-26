@@ -11,6 +11,7 @@
 @videogoto: 00:45|performance-rating
 @countstep: false
 @showback: false
+@showauthcontrols: true
 @next: Get Tickets
 @goto: invitation-shop
 
@@ -112,6 +113,7 @@ BR
 @videostart: 14:18
 @countstep: false
 @showback: false
+@showauthcontrols: true
 @next: Visit Shop
 @goto: invitation-shop
 
@@ -153,8 +155,8 @@ BR
 BR
 # [c1] Ticket Details
 BR
-[c2] Add the ticket owner's details if you want each person to receive their own ticket or meal link.
-[c3] Name, email, and WhatsApp are optional.
+[c2] The first ticket is filled from your contact details. Mark which ticket is yours.
+[c3] Add guest names and emails so their ticket and meal links can be sent after the order is completed.
 
 ===
 // MEAL SELECTION
@@ -210,7 +212,7 @@ BR
 BR
 # [c1] Contact Details
 BR
-[c2] Enter the best details for your order.
+[c2] Enter your contact details so we can process your tickets.
 BR
 @fields:
 - fullName|text|Full name|required|Full name
@@ -220,8 +222,8 @@ BR
 ---
 @run: submitLead
 @back: Back
-@next: Review Order
-@goto: review-order
+@next: Continue to Ticket Details
+@goto: ticket-details
 
 ===
 // REVIEW ORDER
@@ -234,6 +236,7 @@ BR
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
 @actionbartextcolor: #1f1f1f
+@run: submitInvitationOrder
 @back: Back
 @next: Complete
 @goto: confirmation-message
@@ -247,12 +250,9 @@ BR
 BR
 # [c1] Respect.
 BR
-[c2] Your details and order info were received.
+[c2] Your order info was received.
 BR
-[c3] We will follow up with you.
-
-@showback: false
-@shownext: false
+[c3] If guest ticket owners were added with email addresses, their private ticket links were sent.
 
 ===
 // ESCAPE ALBUM DOWNLOAD

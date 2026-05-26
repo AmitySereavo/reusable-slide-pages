@@ -56,6 +56,8 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
           typeof record.ownerEmail === "string" ? record.ownerEmail : "",
         ownerPhone:
           typeof record.ownerPhone === "string" ? record.ownerPhone : "",
+        isPurchaserTicket: record.isPurchaserTicket === true,
+        emailTicketToOwner: record.emailTicketToOwner !== false,
         mealMode:
           record.mealMode === "required" || record.mealMode === "optional"
             ? record.mealMode
@@ -107,6 +109,9 @@ export function buildTicketAssignmentsFromLines(params: {
         ownerName: existing?.ownerName ?? "",
         ownerEmail: existing?.ownerEmail ?? "",
         ownerPhone: existing?.ownerPhone ?? "",
+        isPurchaserTicket: existing?.isPurchaserTicket ?? index === 0,
+        emailTicketToOwner:
+          existing?.emailTicketToOwner ?? (existing?.isPurchaserTicket ? false : true),
         mealMode: line.mealSelection?.mode,
         mealMenuId: line.mealSelection?.menuId,
         mealLabel: line.mealSelection?.label,
@@ -189,7 +194,12 @@ export function updateTicketAssignmentField(params: {
 export function updateTicketAssignmentBoolean(params: {
   assignments: TicketAssignments;
   ticketCode: string;
-  field: "mealEnabled" | "wantsExtraFood" | "hasMealNotes";
+   field:
+    | "mealEnabled"
+    | "wantsExtraFood"
+    | "hasMealNotes"
+    | "isPurchaserTicket"
+    | "emailTicketToOwner";
   value: boolean;
 }) {
   return params.assignments.map((assignment) =>

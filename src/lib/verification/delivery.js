@@ -71,6 +71,7 @@ function getResolvedContent({
   code = null,
   verifyUrl = null,
   target = null,
+  contextMetadata = null,
 }) {
   const channel = resolveChannel({ identifier, phoneChannel });
   const config = resolveContentConfig({
@@ -79,11 +80,23 @@ function getResolvedContent({
     target,
   });
 
+  const contentContext = {
+    code,
+    verifyUrl,
+    target,
+    ...(contextMetadata && typeof contextMetadata === "object"
+      ? contextMetadata
+      : {}),
+  };
+
   return {
     channel,
-    subject: config.subject || null,
-    text: config.getText({ code, verifyUrl, target }),
-    html: config.getHtml ? config.getHtml({ code, verifyUrl, target }) : null,
+    subject:
+      typeof config.subject === "function"
+        ? config.subject(contentContext)
+        : config.subject || null,
+    text: config.getText(contentContext),
+    html: config.getHtml ? config.getHtml(contentContext) : null,
   };
 }
 
@@ -302,6 +315,7 @@ export async function sendVerificationDelivery({
     code,
     verifyUrl,
     target,
+    contextMetadata,
   });
 
   const provider = getProviderForChannel(content.channel);

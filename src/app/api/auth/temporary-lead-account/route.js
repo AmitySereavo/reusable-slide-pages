@@ -249,6 +249,7 @@ export async function POST(request) {
         goto,
         userId: result.user.id,
         leadId: result.lead.id,
+        recipientName: fullName,
       },
     });
 

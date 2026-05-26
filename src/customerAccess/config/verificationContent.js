@@ -1,3 +1,24 @@
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function greetingText(recipientName) {
+  const name = String(recipientName ?? "").trim();
+
+  return name ? `Hi ${name},\n\n` : "";
+}
+
+function greetingHtml(recipientName) {
+  const name = String(recipientName ?? "").trim();
+
+  return name ? `<p>Hi ${escapeHtml(name)},</p>` : "";
+}
+
 export const verificationContent = {
   defaults: {
     code: {
@@ -120,15 +141,48 @@ export const verificationContent = {
         },
       },
     },
-
-        gatedLeadAccess: {
+    ticketOwnerAccess: {
+      link: {
+        email: {
+          subject: ({ ticketCount }) =>
+            Number(ticketCount) > 1
+              ? "Your ticket access links"
+              : "Your ticket access link",
+          getText: ({
+            verifyUrl,
+            recipientName,
+            ticketSummary,
+            mealEditDeadlineLabel,
+          }) =>
+            `${greetingText(recipientName)}You have ticket access for the event.\n\n${ticketSummary || ""}\n\nUse this private link to view your ticket and meal details: ${verifyUrl}${
+              mealEditDeadlineLabel
+                ? `\n\nMeal edits are available until ${mealEditDeadlineLabel}.`
+                : ""
+            }\n\nIf you did not expect this ticket, you can ignore this email.`,
+          getHtml: ({
+            verifyUrl,
+            recipientName,
+            ticketSummaryHtml,
+            mealEditDeadlineLabel,
+          }) =>
+            `${greetingHtml(recipientName)}<p>You have ticket access for the event.</p>${
+              ticketSummaryHtml || ""
+            }<p>Use this private link to view your ticket and meal details:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>${
+              mealEditDeadlineLabel
+                ? `<p>Meal edits are available until ${escapeHtml(mealEditDeadlineLabel)}.</p>`
+                : ""
+            }<p>If you did not expect this ticket, you can ignore this email.</p>`,
+        },
+      },
+    },
+    gatedLeadAccess: {
       link: {
         email: {
           subject: "Your private video link",
-          getText: ({ verifyUrl }) =>
-            `Use this private link to continue watching: ${verifyUrl}`,
-          getHtml: ({ verifyUrl }) =>
-            `<p>Use this private link to continue watching:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`,
+          getText: ({ verifyUrl, recipientName }) =>
+            `${greetingText(recipientName)}Use this private link to continue watching: ${verifyUrl}`,
+          getHtml: ({ verifyUrl, recipientName }) =>
+            `${greetingHtml(recipientName)}<p>Use this private link to continue watching:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`,
         },
         sms: {
           getText: ({ verifyUrl }) =>

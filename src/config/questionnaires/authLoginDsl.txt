@@ -21,7 +21,7 @@ BR
 @id: login-success
 @type: content
 @shownext: true
-@next: Go to account
+@next: Continue
 @goto: /questionnaire/auth-account
 @countstep: false
 @showsteptext: false

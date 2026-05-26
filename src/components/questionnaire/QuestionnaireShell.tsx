@@ -75,7 +75,7 @@ import {
   normalizeMealSelections,
   setMealOptionQuantity,
 } from "@/lib/questionnaire/meals";
-
+import { applyAccountProfileAutofill } from "@/lib/questionnaire/accountProfileAutofill";
 import {
   areRequiredTicketMealsComplete,
   buildTicketAssignmentsFromLines,
@@ -419,7 +419,6 @@ function hasPhoneNote() {
   return " (applies after phone number is entered)";
 }
 
-
 function getRecordListItems(
   variables: QuestionnaireVariableMap,
   slide: {
@@ -670,6 +669,38 @@ function AuthFormSlideRenderer({
   );
 }
 
+type MarketingQuestionsConfig = {
+  skipWhenLoggedIn?: boolean;
+  skipSlideIds?: string[];
+  skipTarget?: string;
+  answeredQuestionsTarget?: string;
+};
+
+function getMarketingQuestionsConfig(
+  variables: QuestionnaireVariableMap
+): MarketingQuestionsConfig | null {
+  const raw = variables.marketingQuestions;
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+
+  return {
+    skipWhenLoggedIn: record.skipWhenLoggedIn === true,
+    skipSlideIds: Array.isArray(record.skipSlideIds)
+      ? record.skipSlideIds.filter((item): item is string => typeof item === "string")
+      : [],
+    skipTarget:
+      typeof record.skipTarget === "string" ? record.skipTarget : undefined,
+    answeredQuestionsTarget:
+      typeof record.answeredQuestionsTarget === "string"
+        ? record.answeredQuestionsTarget
+        : undefined,
+  };
+}
+
 type GatedAccessConfig = {
   gateSlideId?: string;
   goto?: string;
@@ -747,6 +778,40 @@ function writeVideoResumeSeconds(
   );
 }
 
+function prefillFirstTicketFromContact(
+  assignments: TicketAssignments,
+  answers: QuestionnaireAnswers
+): TicketAssignments {
+  if (!assignments.length) {
+    return assignments;
+  }
+
+  const purchaserName = String(answers.fullName ?? "").trim();
+  const purchaserEmail = String(answers.email ?? "").trim();
+  const purchaserPhone = String(answers.phone ?? "").trim();
+
+  if (!purchaserName && !purchaserEmail && !purchaserPhone) {
+    return assignments;
+  }
+
+  return assignments.map((assignment, index) => {
+    if (index !== 0) {
+      return assignment;
+    }
+
+    return {
+      ...assignment,
+      ownerName: assignment.ownerName?.trim() || purchaserName,
+      ownerEmail: assignment.ownerEmail?.trim() || purchaserEmail,
+      ownerPhone: assignment.ownerPhone?.trim() || purchaserPhone,
+      isPurchaserTicket: assignment.isPurchaserTicket ?? true,
+      emailTicketToOwner:
+        assignment.isPurchaserTicket === true
+          ? false
+          : assignment.emailTicketToOwner ?? true,
+    };
+  });
+}
 
 export default function QuestionnaireShell({ config, theme }: Props) {
 
@@ -766,6 +831,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [authSessionUser, setAuthSessionUser] = useState<{
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null>(null);
+  const [isAuthSessionLoaded, setIsAuthSessionLoaded] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
   const [deleteBatchError, setDeleteBatchError] = useState<string | null>(null);
   const [deleteBatchConfirmation, setDeleteBatchConfirmation] = useState("");
@@ -781,7 +854,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const actionInFlightRef = useRef(false);
   const searchParams = useSearchParams();
   const gatedAccessHandledRef = useRef(false);
-
+  const loginReturnHandledRef = useRef(false);
+  const accountProfileAutofillHandledRef = useRef(false);
   const [gatedAccessState, setGatedAccessState] =
     useState<GatedAccessState | null>(null);
 
@@ -805,6 +879,92 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => getGatedAccessConfig(mergedVariables),
     [mergedVariables]
   );
+
+  const marketingQuestionsConfig = useMemo(
+    () => getMarketingQuestionsConfig(mergedVariables),
+    [mergedVariables]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAuthSession() {
+      const response = await fetch("/api/session", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (response.ok && data?.authenticated === true && data?.user) {
+        setAuthSessionUser({
+          id: String(data.user.id ?? ""),
+          name:
+            typeof data.user.name === "string" ? data.user.name : null,
+          email:
+            typeof data.user.email === "string" ? data.user.email : null,
+          phone:
+            typeof data.user.phone === "string" ? data.user.phone : null,
+        });
+      } else {
+        setAuthSessionUser(null);
+      }
+
+      setIsAuthSessionLoaded(true);
+    }
+
+    void loadAuthSession().catch(() => {
+      if (!cancelled) {
+        setAuthSessionUser(null);
+        setIsAuthSessionLoaded(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  
+  useEffect(() => {
+    if (accountProfileAutofillHandledRef.current) {
+      return;
+    }
+
+    accountProfileAutofillHandledRef.current = true;
+
+    async function prefillFormsFromAccountProfile() {
+      const response = await fetch("/api/account/profile", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        return;
+      }
+
+      const profile = data?.user ?? data?.profile ?? null;
+
+      if (!profile || typeof profile !== "object") {
+        return;
+      }
+
+      setAnswers((prev) => applyAccountProfileAutofill(prev, profile));
+    }
+
+    void prefillFormsFromAccountProfile().catch(() => null);
+  }, []);
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
     () => normalizeDiscountDefinitions(mergedVariables, "discountDefinitions"),
@@ -884,7 +1044,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [urlDiscountDefinition, promotionDiscountDefinition]
   );
 
-    const selectedBatchRecord = useMemo(
+  const selectedBatchRecord = useMemo(
     () =>
       getSelectedRecordFromSource(
         mergedVariables,
@@ -915,7 +1075,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
 
-    const evaluationContext = useMemo<QuestionnaireAnswers>(
+  const evaluationContext = useMemo<QuestionnaireAnswers>(
     () => ({
       ...mergedVariables,
       ...answers,
@@ -1077,79 +1237,157 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
 
   useEffect(() => {
-    if (gatedAccessHandledRef.current) {
+    if (
+      loginReturnHandledRef.current ||
+      !isAuthSessionLoaded ||
+      !authSessionUser?.id
+    ) {
       return;
     }
 
-    async function resolveGatedAccess() {
-      const leadAccess = searchParams.get("leadAccess");
-      const queryGoto = searchParams.get("goto");
+    const returnSlideId = searchParams.get("loginReturnSlide");
 
-      if (leadAccess === "verified" && queryGoto) {
-        const targetIndex = getSlideIndexById(visibleSlides, queryGoto);
-
-        if (targetIndex >= 0) {
-          gatedAccessHandledRef.current = true;
-
-          setGatedAccessState({
-            hasAccess: true,
-            goto: queryGoto,
-            gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
-            resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
-          });
-
-          setHistory([]);
-          setCurrentIndex(targetIndex);
-        }
-
-        return;
-      }
-
-      const response = await fetch(
-        `/api/questionnaires/gated-access/status?questionnaireSlug=${encodeURIComponent(
-          config.slug
-        )}`,
-        {
-          method: "GET",
-          credentials: "same-origin",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.hasAccess || !data?.access?.goto) {
-        return;
-      }
-
-      const targetGoto = String(data.access.goto);
-      const promptSlideId =
-        gatedAccessConfig?.resumePromptSlideId || targetGoto;
-
-      const targetIndex = getSlideIndexById(visibleSlides, promptSlideId);
-
-      if (targetIndex < 0) {
-        return;
-      }
-
-      gatedAccessHandledRef.current = true;
-
-      setGatedAccessState({
-        hasAccess: true,
-        goto: targetGoto,
-        gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
-        resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
-      });
-
-      setHistory([]);
-      setCurrentIndex(targetIndex);
+    if (!returnSlideId) {
+      return;
     }
 
-    void resolveGatedAccess().catch(() => null);
-  }, [config.slug, gatedAccessConfig, searchParams, visibleSlides]);
+    loginReturnHandledRef.current = true;
 
+    const targetIndex = getSlideIndexById(visibleSlides, returnSlideId);
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("loginReturnSlide");
+    window.history.replaceState(null, "", `${nextUrl.pathname}${nextUrl.search}`);
+
+    if (targetIndex < 0 || targetIndex === currentIndex) {
+      return;
+    }
+
+    setHistory([]);
+    setCurrentIndex(targetIndex);
+  }, [
+    authSessionUser?.id,
+    currentIndex,
+    isAuthSessionLoaded,
+    searchParams,
+    visibleSlides,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthSessionLoaded || !authSessionUser?.id || !currentSlide) {
+      return;
+    }
+
+    const gateSlideId = gatedAccessConfig?.gateSlideId;
+    const gatedGoto = gatedAccessConfig?.goto;
+
+    if (!gateSlideId || !gatedGoto) {
+      return;
+    }
+
+    if (currentSlide.id !== gateSlideId) {
+      return;
+    }
+
+    const targetIndex = getSlideIndexById(visibleSlides, gatedGoto);
+
+    if (targetIndex >= 0 && targetIndex !== currentIndex) {
+      setHistory((prev) => [...prev, currentIndex]);
+      setCurrentIndex(targetIndex);
+    }
+  }, [
+    authSessionUser?.id,
+    currentIndex,
+    currentSlide,
+    gatedAccessConfig,
+    isAuthSessionLoaded,
+    visibleSlides,
+  ]);
+
+  useEffect(() => {
+    if (gatedAccessHandledRef.current || !isAuthSessionLoaded) {
+      return;
+  }
+
+  async function resolveGatedAccess() {
+    const leadAccess = searchParams.get("leadAccess");
+    const queryGoto = searchParams.get("goto");
+
+    if (leadAccess === "verified" && queryGoto) {
+      const targetIndex = getSlideIndexById(visibleSlides, queryGoto);
+
+      if (targetIndex >= 0) {
+        gatedAccessHandledRef.current = true;
+
+        setGatedAccessState({
+          hasAccess: true,
+          goto: queryGoto,
+          gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
+          resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
+        });
+
+        setHistory([]);
+        setCurrentIndex(targetIndex);
+      }
+
+      return;
+    }
+
+    if (authSessionUser?.id) {
+      return;
+    }
+
+    const response = await fetch(
+      `/api/questionnaires/gated-access/status?questionnaireSlug=${encodeURIComponent(
+        config.slug
+      )}`,
+      {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.hasAccess || !data?.access?.goto) {
+      return;
+    }
+
+    const targetGoto = String(data.access.goto);
+    const promptSlideId =
+      gatedAccessConfig?.resumePromptSlideId || targetGoto;
+
+    const targetIndex = getSlideIndexById(visibleSlides, promptSlideId);
+
+    if (targetIndex < 0) {
+      return;
+    }
+
+    gatedAccessHandledRef.current = true;
+
+    setGatedAccessState({
+      hasAccess: true,
+      goto: targetGoto,
+      gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
+      resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
+    });
+
+    setHistory([]);
+    setCurrentIndex(targetIndex);
+  }
+
+    void resolveGatedAccess().catch(() => null);
+  }, [
+    authSessionUser?.id,
+    config.slug,
+    gatedAccessConfig,
+    isAuthSessionLoaded,
+    searchParams,
+    visibleSlides,
+  ]);
 
   const resolvedOverlayTitle = shouldShowOverlayTitle
     ? replaceDynamicText(currentSlide?.title, evaluationContext, mergedVariables)
@@ -1397,13 +1635,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentTicketAssignments = useMemo<TicketAssignments>(
     () =>
-      buildTicketAssignmentsFromLines({
-        lines: sharedOrderLines,
-        existingAssignments: normalizeTicketAssignments(
-          answers.ticketAssignments
-        ),
-      }),
-    [sharedOrderLines, answers.ticketAssignments]
+      prefillFirstTicketFromContact(
+        buildTicketAssignmentsFromLines({
+          lines: sharedOrderLines,
+          existingAssignments: normalizeTicketAssignments(
+            answers.ticketAssignments
+          ),
+        }),
+        answers
+      ),
+    [
+      sharedOrderLines,
+      answers.ticketAssignments,
+      answers.fullName,
+      answers.email,
+      answers.phone,
+    ]
   );
 
     const currentMealMenu = useMemo<MealMenu | null>(() => {
@@ -1709,7 +1956,81 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     window.open(value, "_blank", "noopener,noreferrer");
   }
 
+  function getCurrentReturnToPath() {
+    const returnUrl = new URL(window.location.href);
+
+    if (currentSlide?.id) {
+      returnUrl.searchParams.set("loginReturnSlide", currentSlide.id);
+    }
+
+    return `${returnUrl.pathname}${returnUrl.search}`;
+  }
+
+  function handleAuthLoginClick() {
+    const returnTo = getCurrentReturnToPath();
+
+    window.location.href = `/questionnaire/auth-login?returnTo=${encodeURIComponent(
+      returnTo
+    )}`;
+  }
+
+  function getLoginReturnToTarget() {
+    const returnTo = searchParams.get("returnTo");
+
+    if (!returnTo) {
+      return null;
+    }
+
+    return returnTo;
+  }
+
+  function handleAnsweredQuestionsClick() {
+    const target = marketingQuestionsConfig?.answeredQuestionsTarget;
+
+    if (target) {
+      window.location.href = target;
+    }
+  }
+
+  async function handleAuthLogoutClick() {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const response = await fetch("/api/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || "Logout failed.");
+      }
+
+      setAuthSessionUser(null);
+      setIsAccountMenuOpen(false);
+
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Logout failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function goToTarget(target: string) {
+    const shouldSkipMarketingQuestion =
+      authSessionUser?.id &&
+      marketingQuestionsConfig?.skipWhenLoggedIn === true &&
+      marketingQuestionsConfig.skipSlideIds?.includes(target) &&
+      Boolean(marketingQuestionsConfig.skipTarget);
+
+    if (shouldSkipMarketingQuestion && marketingQuestionsConfig?.skipTarget) {
+      target = marketingQuestionsConfig.skipTarget;
+    }
+
     if (isExternalTarget(target)) {
       openExternalTarget(target);
       return;
@@ -1720,15 +2041,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return;
     }
 
-    const gatedTarget =
-      gatedAccessState?.hasAccess &&
-      gatedAccessState.gateSlideId &&
-      target === gatedAccessState.gateSlideId
-        ? gatedAccessState.goto || gatedAccessConfig?.goto || target
-        : target;
+    const shouldBypassGate =
+      target === gatedAccessConfig?.gateSlideId &&
+      (gatedAccessState?.hasAccess || authSessionUser?.id);
+
+    const gatedTarget = shouldBypassGate
+      ? gatedAccessState?.goto || gatedAccessConfig?.goto || target
+      : target;
 
     if (
       gatedAccessState?.hasAccess &&
+      !authSessionUser?.id &&
       gatedTarget === (gatedAccessState.goto || gatedAccessConfig?.goto)
     ) {
       const resumeSeconds = readVideoResumeSeconds(config.slug, gatedTarget);
@@ -1979,20 +2302,27 @@ async function next() {
     }
 
     if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
-  
+      if (currentSlide.contactGoto && !contactInfoComplete) {
+        goToTarget(currentSlide.contactGoto);
+        return;
+      }
+
       if (currentSlide.ticketGoto) {
-      setAnswer(
-        "ticketAssignments",
-        buildTicketAssignmentsFromLines({
-          lines: currentShopSelectedLines,
-          existingAssignments: normalizeTicketAssignments(
-            answers.ticketAssignments
-          ),
-        })
-      );
-      goToTarget(currentSlide.ticketGoto);
-      return;
-    }
+        setAnswer(
+          "ticketAssignments",
+          prefillFirstTicketFromContact(
+            buildTicketAssignmentsFromLines({
+              lines: currentShopSelectedLines,
+              existingAssignments: normalizeTicketAssignments(
+                answers.ticketAssignments
+              ),
+            }),
+            answers
+          )
+        );
+        goToTarget(currentSlide.ticketGoto);
+        return;
+      }
 
     if (
       currentSlide.deliveryGoto &&
@@ -2014,12 +2344,15 @@ async function next() {
     }
 
     if (currentSlide.type === "tickets") {
-      const nextAssignments = buildTicketAssignmentsFromLines({
-        lines: sharedOrderLines,
-        existingAssignments: normalizeTicketAssignments(
-          answers.ticketAssignments
-        ),
-      });
+      const nextAssignments = prefillFirstTicketFromContact(
+        buildTicketAssignmentsFromLines({
+          lines: sharedOrderLines,
+          existingAssignments: normalizeTicketAssignments(
+            answers.ticketAssignments
+          ),
+        }),
+        answers
+      );
 
       setAnswer("ticketAssignments", nextAssignments);
 
@@ -2031,8 +2364,7 @@ async function next() {
         return;
       }
 
-
-      if (currentSlide.contactGoto) {
+      if (currentSlide.contactGoto && !contactInfoComplete) {
         goToTarget(currentSlide.contactGoto);
         return;
       }
@@ -2283,6 +2615,24 @@ async function next() {
     };
   }
 
+  function getInvitationOrderPayload() {
+    return {
+      questionnaireSlug: config.slug,
+      fullName: String(answers.fullName ?? "").trim(),
+      email: String(answers.email ?? "").trim(),
+      phone: String(answers.phone ?? "").trim(),
+      whatsappOptIn:
+        answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
+      currencyCode: sharedShopCatalog?.currencyCode ?? "USD",
+      orderCart: sharedOrderCart,
+      resolvedLines: sharedOrderLines,
+      ticketAssignments: currentTicketAssignments,
+      deliverySelection: sharedDeliverySelection,
+      orderSummary: sharedOrderSummary,
+      answers,
+    };
+  }
+
   function getAuthForgotPasswordPayload() {
     return {
       identifier: String(answers.identifier ?? "").trim(),
@@ -2334,8 +2684,6 @@ async function next() {
       postalCode: String(answers.postalCode ?? "").trim(),
     };
   }
-
-
 
   function getNurseryBatchPayload() {
   return {
@@ -2420,6 +2768,11 @@ async function next() {
     submitLead: {
       url: "/api/questionnaires/submit",
       payload: getLeadPayload,
+    },
+
+    submitInvitationOrder: {
+      url: "/api/invitation/orders/create",
+      payload: getInvitationOrderPayload,
     },
 
     submitForgotPassword: {
@@ -2593,6 +2946,22 @@ async function next() {
       }));
     }
 
+    if (runName === "submitInvitationOrder") {
+      setAnswers((prev) => ({
+        ...prev,
+        invitationOrderId:
+          typeof data?.order?.id === "string" ? data.order.id : "",
+        invitationOrderCode:
+          typeof data?.order?.orderCode === "string"
+            ? data.order.orderCode
+            : "",
+        invitationGuestPortalLinksSent:
+          typeof data?.guestPortalLinksSent === "number"
+            ? data.guestPortalLinksSent
+            : 0,
+      }));
+    }
+
     if (action.successGoto) {
       setSubmitError(null);
       goToTarget(action.successGoto);
@@ -2746,6 +3115,15 @@ async function next() {
 
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
+
+    if (config.slug === "auth-login" && currentSlide.id === "login-success") {
+      const returnTo = getLoginReturnToTarget();
+
+      if (returnTo) {
+        window.location.href = returnTo;
+        return;
+      }
+    }
 
     if (currentSlide.run) {
       const ok = await runSlideAction(currentSlide.run);
@@ -2913,8 +3291,76 @@ async function next() {
               }}
             >
               <div className={styles.overlayFrame}>
-                                {currentSlide.showReturnHome || currentSlide.showCancel ? (
+                {currentSlide.showReturnHome ||
+                currentSlide.showCancel ||
+                currentSlide.showAuthControls ? (
                   <div className={styles.topUtilityRow}>
+                    {currentSlide.showAuthControls ? (
+                      <div className={styles.accountMenuWrap}>
+                        <button
+                          type="button"
+                          className={styles.menuButton}
+                          onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                          aria-label="Open account menu"
+                          aria-expanded={isAccountMenuOpen}
+                        >
+                          ☰
+                        </button>
+
+                        {isAccountMenuOpen ? (
+                          <div className={styles.accountMenuPanel}>
+                            {authSessionUser?.name ? (
+                              <div className={styles.accountMenuName}>
+                                {authSessionUser.name}
+                              </div>
+                            ) : null}
+
+                            {authSessionUser ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() => {
+                                    setIsAccountMenuOpen(false);
+                                    window.location.href =
+                                      "/questionnaire/auth-account";
+                                  }}
+                                >
+                                  Account
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={handleAnsweredQuestionsClick}
+                                >
+                                  Answered Questions
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={handleAuthLogoutClick}
+                                  disabled={isSubmitting}
+                                >
+                                  Logout
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className={styles.accountMenuItem}
+                                onClick={handleAuthLoginClick}
+                                disabled={!isAuthSessionLoaded || isSubmitting}
+                              >
+                                Login
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     {currentSlide.showReturnHome ? (
                       <button
                         type="button"
@@ -3229,8 +3675,22 @@ async function next() {
                         <TicketDetailsRenderer
                           assignments={currentTicketAssignments}
                           theme={theme}
+                          purchaserEmail={String(answers.email ?? "").trim()}
                           onChange={(nextAssignments) =>
                             setAnswer("ticketAssignments", nextAssignments)
+                          }
+                          onMarkAllForEmail={() =>
+                            setAnswer(
+                              "ticketAssignments",
+                              currentTicketAssignments.map((assignment) => ({
+                                ...assignment,
+                                emailTicketToOwner:
+                                  assignment.isPurchaserTicket === true
+                                    ? false
+                                    : String(assignment.ownerEmail ?? "").trim()
+                                        .length > 0,
+                              }))
+                            )
                           }
                           onSelectMeal={(ticketCode) => {
                             setAnswer("selectedMealTicketCode", ticketCode);
@@ -3403,16 +3863,24 @@ async function next() {
                       ) : null}
 
                       {currentSlide.type === "authform" ? (
-                        <AuthFormSlideRenderer
-                          formKey={currentSlide.authFormKey}
-                          title={currentSlide.title}
-                          subtitle={currentSlide.subtitle}
-                          questionnaireSlug={config.slug}
-                          answers={answers}
-                          onSuccess={() => {
-                            goToTarget(currentSlide.goto || "second-video");
-                          }}
-                        />
+                        authSessionUser?.id &&
+                        currentSlide.id === gatedAccessConfig?.gateSlideId ? (
+                          <div className={styles.contactNote}>
+                            You are already logged in. Continuing to your private
+                            video...
+                          </div>
+                        ) : (
+                          <AuthFormSlideRenderer
+                            formKey={currentSlide.authFormKey}
+                            title={currentSlide.title}
+                            subtitle={currentSlide.subtitle}
+                            questionnaireSlug={config.slug}
+                            answers={answers}
+                            onSuccess={() => {
+                              goToTarget(currentSlide.goto || "second-video");
+                            }}
+                          />
+                        )
                       ) : null}
 
                       {currentSlide.type === "authverify" ? (
@@ -3647,6 +4115,38 @@ async function next() {
                         </button>
                       ) : null}
 
+                      {currentSlide.showAuthControls ? (
+                        authSessionUser ? (
+                          <button
+                            type="button"
+                            onClick={handleAuthLogoutClick}
+                            disabled={isSubmitting}
+                            className={`${styles.secondaryButton} ${styles.actionButton}`}
+                            style={{
+                              borderColor: backButtonStyle.borderColor,
+                              background: "#FFFFFF",
+                              color: theme.colors.text,
+                            }}
+                          >
+                            Logout
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleAuthLoginClick}
+                            disabled={!isAuthSessionLoaded || isSubmitting}
+                            className={`${styles.secondaryButton} ${styles.actionButton}`}
+                            style={{
+                              borderColor: backButtonStyle.borderColor,
+                              background: "#FFFFFF",
+                              color: theme.colors.text,
+                            }}
+                          >
+                            Login
+                          </button>
+                        )
+                      ) : null}
+
                       {showBackButton ? (
                         <button
                           type="button"
@@ -3686,20 +4186,51 @@ async function next() {
 function TicketDetailsRenderer({
   assignments,
   theme,
+  purchaserEmail,
   onChange,
+  onMarkAllForEmail,
   onSelectMeal,
 }: {
   assignments: TicketAssignments;
   theme: ThemeConfig;
+  purchaserEmail: string;
   onChange: (nextAssignments: TicketAssignments) => void;
+  onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
 }) {
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
   }
 
+  const ticketsWithOwnerEmails = assignments.filter(
+    (assignment) =>
+      assignment.isPurchaserTicket !== true &&
+      String(assignment.ownerEmail ?? "").trim().length > 0
+  );
+
   return (
     <div className={styles.mealStack}>
+      <div className={styles.contactNote}>
+        The first ticket is prefilled from the purchaser contact details. Mark
+        “This is my ticket” for the purchaser’s own ticket. Guest tickets can be
+        emailed to their owners after the order is completed.
+      </div>
+
+      {ticketsWithOwnerEmails.length > 0 ? (
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={onMarkAllForEmail}
+          style={{
+            borderColor: theme.colors.border,
+            background: "#FFFFFF",
+            color: theme.colors.text,
+          }}
+        >
+          Email all tickets to owners
+        </button>
+      ) : null}
+
       {assignments.map((assignment) => (
         <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
           <div className={styles.mealTicketHeader}>
@@ -3713,6 +4244,34 @@ function TicketDetailsRenderer({
               {assignment.productTitle}
             </div>
           </div>
+
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={assignment.isPurchaserTicket === true}
+              onChange={(event) =>
+                onChange(
+                  updateTicketAssignmentBoolean({
+                    assignments,
+                    ticketCode: assignment.ticketCode,
+                    field: "isPurchaserTicket",
+                    value: event.target.checked,
+                  }).map((item) =>
+                    item.ticketCode === assignment.ticketCode &&
+                    event.target.checked
+                      ? {
+                          ...item,
+                          ownerEmail:
+                            item.ownerEmail?.trim() || purchaserEmail,
+                          emailTicketToOwner: false,
+                        }
+                      : item
+                  )
+                )
+              }
+            />
+            <span>This is my ticket</span>
+          </label>
 
           <input
             className={styles.input}
@@ -3730,6 +4289,34 @@ function TicketDetailsRenderer({
             placeholder="Ticket owner name (optional)"
             style={{ borderColor: theme.colors.border }}
           />
+
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={
+                assignment.isPurchaserTicket === true
+                  ? false
+                  : assignment.emailTicketToOwner !== false
+              }
+              disabled={assignment.isPurchaserTicket === true}
+              onChange={(event) =>
+                onChange(
+                  updateTicketAssignmentBoolean({
+                    assignments,
+                    ticketCode: assignment.ticketCode,
+                    field: "emailTicketToOwner",
+                    value: event.target.checked,
+                  })
+                )
+              }
+            />
+            <span>
+              Email this ticket to the owner
+              {assignment.ownerEmail?.trim()
+                ? ` (${assignment.ownerEmail.trim()})`
+                : ""}
+            </span>
+          </label>
 
           <input
             className={styles.input}

@@ -89,6 +89,12 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
           resumePromptSlideId: "continue-watching-choice",
           startFromBeginningSlideId: "home",
         },
+        marketingQuestions: {
+          skipWhenLoggedIn: true,
+          skipSlideIds: ["performance-rating"],
+          skipTarget: "second-video",
+          answeredQuestionsTarget: "/questionnaire/auth-account?section=answered-questions",
+        },
       },
     dynamicVariablesEndpoint: undefined,
   },

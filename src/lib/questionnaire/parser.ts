@@ -396,6 +396,14 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@showauthcontrols:")) {
+        draft.showAuthControls = parseBooleanValue(
+          readValue(line, "@showauthcontrols:"),
+          true
+        );
+        continue;
+      }
+
       if (line.startsWith("@cancelgoto:")) {
         draft.cancelGoto = readValue(line, "@cancelgoto:");
         continue;
@@ -659,6 +667,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     showReturnHome: draft.showReturnHome,
     cancelGoto: draft.cancelGoto,
     showCancel: draft.showCancel,
+    showAuthControls: draft.showAuthControls,
     titlePlacement: draft.titlePlacement,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,
