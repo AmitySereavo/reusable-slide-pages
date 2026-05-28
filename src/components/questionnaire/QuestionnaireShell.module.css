@@ -673,6 +673,20 @@
   border-color: #2563eb;
 }
 
+.authFormSecondaryAction {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 0.92rem;
+  color: inherit;
+}
+
+.authFormInlineLink {
+  font-weight: 800;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .input {
   width: 100%;
   padding: 15px 16px;

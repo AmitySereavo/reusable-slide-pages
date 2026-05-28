@@ -99,7 +99,6 @@ import {
   clearLocalEngagementSnapshot,
   clearResumeDecision,
   readLocalEngagementSnapshot,
-  readResumeDecision,
   writeLocalQuestionAnswer,
   writeLocalVideoProgress,
   writeResumeDecision,
@@ -118,7 +117,8 @@ type ResolvedButtonStyle = {
 
 type VideoSeekRequest = {
   id: string;
-  percent: number;
+  percent?: number;
+  seconds?: number;
 };
 
 function getRecordArray(
@@ -521,6 +521,7 @@ function AuthFormSlideRenderer({
   subtitle,
   questionnaireSlug,
   answers,
+  loginHref,
   onSuccess,
 }: {
   formKey?: string;
@@ -528,6 +529,7 @@ function AuthFormSlideRenderer({
   subtitle?: string;
   questionnaireSlug: string;
   answers: QuestionnaireAnswers;
+  loginHref?: string;
   onSuccess: () => void;
 }) {
   const isGatedLeadCapture = formKey === "gatedLeadCapture";
@@ -544,6 +546,7 @@ function AuthFormSlideRenderer({
     <div className={styles.authFormEmbedFullBleed}>
       <LeadCaptureForm
         title={title || "Stay connected"}
+        routes={loginHref ? { login: loginHref } : {}}
         subtitle={
           subtitle ||
           (isGatedLeadCapture
@@ -670,13 +673,19 @@ function AuthFormSlideRenderer({
           );
           setMessageType("success");
 
-          if (!isGatedLeadCapture) {
-            window.setTimeout(() => {
-              onSuccess();
-            }, 700);
-          }
+          window.setTimeout(() => {
+            onSuccess();
+          }, 700);
         }}
       />
+      {isGatedLeadCapture && loginHref ? (
+        <div className={styles.authFormSecondaryAction}>
+          <span>Already have an account?</span>{" "}
+          <a href={loginHref} className={styles.authFormInlineLink}>
+            Log in instead
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -771,24 +780,6 @@ function readVideoResumeSeconds(questionnaireSlug: string, slideId: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-function writeVideoResumeSeconds(
-  questionnaireSlug: string,
-  slideId: string,
-  seconds: number
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!Number.isFinite(seconds) || seconds < 5) {
-    return;
-  }
-
-  window.localStorage.setItem(
-    getVideoResumeStorageKey(questionnaireSlug, slideId),
-    String(Math.floor(seconds))
-  );
-}
 
 function prefillFirstTicketFromContact(
   assignments: TicketAssignments,
@@ -858,9 +849,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     Record<string, number>
   >({});
 
-  const [videoResumeDecision, setVideoResumeDecision] = useState<
-    "continue" | "beginning" | null
-  >(null);
+  const [videoResumeDecisionBySlideId, setVideoResumeDecisionBySlideId] =
+  useState<Record<string, "continue" | "beginning">>({});
 
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
   const [deleteBatchError, setDeleteBatchError] = useState<string | null>(null);
@@ -886,6 +876,66 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [videoResumeOverrides, setVideoResumeOverrides] = useState<
     Record<string, number>
   >({});
+
+  function getSavedVideoResumeSeconds(slideId: string) {
+  const savedSeconds = dbVideoProgressBySlideId[slideId];
+
+  return typeof savedSeconds === "number" && savedSeconds > 0
+    ? savedSeconds
+    : 0;
+}
+
+function getVideoStartSecondsForSlide() {
+  if (!currentSlide || currentSlide.mediaType !== "video") {
+    return currentSlide?.videoStartAtSeconds;
+  }
+
+  const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
+  const resumeMode = currentSlide.videoResumeMode ?? "none";
+  const slideDecision = videoResumeDecisionBySlideId[currentSlide.id];
+
+  if (videoResumeOverrides[currentSlide.id] !== undefined) {
+    return videoResumeOverrides[currentSlide.id];
+  }
+
+  if (resumeMode === "auto" && savedSeconds > 0) {
+    return savedSeconds;
+  }
+
+  if (resumeMode === "prompt-once" && slideDecision === "continue") {
+    return savedSeconds || currentSlide.videoStartAtSeconds;
+  }
+
+  if (resumeMode === "prompt-once" && slideDecision === "beginning") {
+    return currentSlide.videoStartAtSeconds;
+  }
+
+  return currentSlide.videoStartAtSeconds;
+}
+
+function shouldShowVideoResumePrompt() {
+  if (!currentSlide || currentSlide.mediaType !== "video") {
+    return false;
+  }
+
+  const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
+
+  if (savedSeconds <= 0) {
+    return false;
+  }
+
+  const resumeMode = currentSlide.videoResumeMode ?? "none";
+
+  if (resumeMode === "prompt-every-time") {
+    return videoResumeOverrides[currentSlide.id] === undefined;
+  }
+
+  if (resumeMode === "prompt-once") {
+    return videoResumeDecisionBySlideId[currentSlide.id] === undefined;
+  }
+
+  return false;
+}
 
   const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
     {}
@@ -1057,9 +1107,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     void syncAndLoadEngagement().catch(() => null);
   }, [authSessionUser?.id, config.slug, isAuthSessionLoaded]);
 
-  useEffect(() => {
-    setVideoResumeDecision(readResumeDecision(config.slug));
-  }, [config.slug]);
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
     () => normalizeDiscountDefinitions(mergedVariables, "discountDefinitions"),
@@ -2125,12 +2172,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return `${returnUrl.pathname}${returnUrl.search}`;
   }
 
-  function handleAuthLoginClick() {
+  function getAuthLoginHref() {
     const returnTo = getCurrentReturnToPath();
 
-    window.location.href = `/questionnaire/auth-login?returnTo=${encodeURIComponent(
-      returnTo
-    )}`;
+    return `/questionnaire/auth-login?returnTo=${encodeURIComponent(returnTo)}`;
+  }
+
+  function handleAuthLoginClick() {
+    window.location.href = getAuthLoginHref();
   }
 
   function getLoginReturnToTarget() {
@@ -2201,7 +2250,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       setAnsweredQuestionSlideIds([]);
       setDbVideoProgressBySlideId({});
       setVideoResumeOverrides({});
-      setVideoResumeDecision(null);
+      setVideoResumeDecisionBySlideId({});
       setIsAccountMenuOpen(false);
 
       window.location.href = `/questionnaire/${encodeURIComponent(config.slug)}`;
@@ -2256,6 +2305,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     const targetIndex = getSlideIndexById(visibleSlides, gatedTarget);
 
+    if (targetIndex !== -1) {
+      const targetSlide = visibleSlides[targetIndex];
+      const nextUrl = new URL(window.location.href);
+
+      if (targetSlide?.syncUrl) {
+        nextUrl.searchParams.set("slide", targetSlide.id);
+      } else {
+        nextUrl.searchParams.delete("slide");
+      }
+
+      window.history.replaceState(
+        null,
+        "",
+        `${nextUrl.pathname}${nextUrl.search}`
+      );
+    }
+
     if (targetIndex !== -1 && targetIndex !== currentIndex) {
       setHistory((prev) => [...prev, currentIndex]);
       setCurrentIndex(targetIndex);
@@ -2276,6 +2342,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     const clampedProgress = Math.max(0, Math.min(100, nextProgress));
 
     setVideoProgress(clampedProgress);
+
     setVideoSeekRequest({
       id: `${currentSlide.id}-${Date.now()}`,
       percent: clampedProgress,
@@ -3667,12 +3734,7 @@ async function next() {
                       <MediaRenderer
                       slide={{
                         ...currentSlide,
-                        videoStartAtSeconds:
-                          videoResumeOverrides[currentSlide.id] ??
-                          (videoResumeDecision === "continue"
-                            ? dbVideoProgressBySlideId[currentSlide.id]
-                            : undefined) ??
-                          currentSlide.videoStartAtSeconds,
+                        videoStartAtSeconds: getVideoStartSecondsForSlide(),
                       }}
                         onVerticalVideoPlayingChange={
                           setIsCurrentVerticalVideoPlaying
@@ -3681,12 +3743,14 @@ async function next() {
                           handleVideoProgressChange(payload);
 
                           if (currentSlide.mediaType === "video") {
-                            writeLocalVideoProgress({
-                              questionnaireSlug: config.slug,
-                              slideId: currentSlide.id,
-                              currentTime: payload.currentTime,
-                              duration: payload.duration,
-                            });
+                            if (payload.currentTime >= 3) {
+                              writeLocalVideoProgress({
+                                questionnaireSlug: config.slug,
+                                slideId: currentSlide.id,
+                                currentTime: payload.currentTime,
+                                duration: payload.duration,
+                              });
+                            }
 
                             if (authSessionUser?.id && Math.floor(payload.currentTime) % 15 === 0) {
                               const snapshot = readLocalEngagementSnapshot(config.slug);
@@ -3708,35 +3772,43 @@ async function next() {
                         }}
                         videoSeekRequest={videoSeekRequest}
                       />
-                    {currentSlide.mediaType === "video" &&
-                    videoResumeDecision === null &&
-                    Object.values(dbVideoProgressBySlideId).some((seconds) => seconds > 0) ? (
+                        {shouldShowVideoResumePrompt() ? (
                         <div className={styles.videoResumePrompt}>
                           <div className={styles.videoResumePromptCard}>
                             <p className={styles.videoResumePromptTitle}>
                               Continue watching?
                             </p>
                             <p className={styles.videoResumePromptText}>
-                              You have watched part of this before. Continue each video from where you
-                              stopped last time, or start each video from its beginning?
+                          You were watching this video before. Continue where you stopped last time,
+                          or start from the beginning of this video?
                             </p>
                             <div className={styles.videoResumePromptActions}>
                               <button
                                 type="button"
                                 className={styles.primaryButton}
-                                onClick={() => {
-                                  writeResumeDecision(config.slug, "continue");
-                                  setVideoResumeDecision("continue");
+                                  onClick={() => {
+                                    const resumeMode = currentSlide.videoResumeMode ?? "none";
+                                    const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
 
-                                  const savedSeconds = dbVideoProgressBySlideId[currentSlide.id] ?? 0;
+                                    if (resumeMode === "prompt-once") {
+                                      setVideoResumeDecisionBySlideId((prev) => ({
+                                        ...prev,
+                                        [currentSlide.id]: "continue",
+                                      }));
+                                    }
 
-                                  if (savedSeconds > 0) {
-                                    setVideoResumeOverrides((prev) => ({
-                                      ...prev,
-                                      [currentSlide.id]: savedSeconds,
-                                    }));
-                                  }
-                                }}
+                                    if (savedSeconds > 0) {
+                                      setVideoResumeOverrides((prev) => ({
+                                        ...prev,
+                                        [currentSlide.id]: savedSeconds,
+                                      }));
+
+                                      setVideoSeekRequest({
+                                        id: `${currentSlide.id}-resume-${Date.now()}`,
+                                        seconds: savedSeconds,
+                                      });
+                                    }
+                                  }}
                               >
                               Continue from where I stopped
                               </button>
@@ -3744,12 +3816,23 @@ async function next() {
                                 type="button"
                                 className={styles.secondaryButton}
                                 onClick={() => {
-                                writeResumeDecision(config.slug, "beginning");
-                                setVideoResumeDecision("beginning");
-                                setVideoResumeOverrides({});
-                              }}
+                                  const resumeMode = currentSlide.videoResumeMode ?? "none";
+
+                                  if (resumeMode === "prompt-once") {
+                                    setVideoResumeDecisionBySlideId((prev) => ({
+                                      ...prev,
+                                      [currentSlide.id]: "beginning",
+                                    }));
+                                  }
+
+                                  setVideoResumeOverrides((prev) => {
+                                    const next = { ...prev };
+                                    delete next[currentSlide.id];
+                                    return next;
+                                  });
+                                }}
                               >
-                                Start videos from beginning
+                                Start video from beginning
                               </button>
                             </div>
                           </div>
@@ -4148,8 +4231,11 @@ async function next() {
                             subtitle={currentSlide.subtitle}
                             questionnaireSlug={config.slug}
                             answers={answers}
+                            loginHref={getAuthLoginHref()}
                             onSuccess={() => {
-                              goToTarget(currentSlide.goto || "second-video");
+                              if (currentSlide.goto) {
+                                goToTarget(currentSlide.goto);
+                              }
                             }}
                           />
                         )
@@ -6296,6 +6382,7 @@ function MediaRenderer({
     setIsPlaying(false);
     hasAppliedStartTimeRef.current = false;
   }, [slide.mediaUrl, slide.embedUrl, slide.autoplay, slide.videoStartAtSeconds]);
+
   useEffect(() => {
     if (!videoSeekRequest) {
       return;
@@ -6307,8 +6394,48 @@ function MediaRenderer({
       return;
     }
 
-    video.currentTime = (video.duration * videoSeekRequest.percent) / 100;
-  }, [videoSeekRequest]);
+    if (
+      typeof videoSeekRequest.seconds === "number" &&
+      Number.isFinite(videoSeekRequest.seconds)
+    ) {
+      video.currentTime = Math.min(
+        Math.max(0, videoSeekRequest.seconds),
+        video.duration
+      );
+
+      if (slide.autoplay === true) {
+        void video.play().catch(() => null);
+      }
+
+      return;
+    }
+
+    if (
+      typeof videoSeekRequest.percent === "number" &&
+      Number.isFinite(videoSeekRequest.percent)
+    ) {
+      video.currentTime = (video.duration * videoSeekRequest.percent) / 100;
+    }
+  }, [videoSeekRequest, slide.autoplay]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
+      return;
+    }
+
+    applyVideoStartTime(video);
+
+    onVideoProgressChange?.({
+      currentTime: video.currentTime,
+      duration: video.duration,
+    });
+
+    if (slide.autoplay === true) {
+      void video.play().catch(() => null);
+    }
+  }, [slide.videoStartAtSeconds, slide.autoplay]);
 
   const isVerticalVideo =
     slide.mediaAspect === "vertical" &&

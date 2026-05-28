@@ -9,6 +9,7 @@
 @progressmode: video
 @videostart: 00:00
 @videogoto: 00:45|performance-rating
+@videoresume: prompt-once
 @countstep: false
 @showback: false
 @showauthcontrols: true
@@ -99,9 +100,22 @@ BR
 @run: submitLead
 @back: Back
 @next: Continue Watching
-@goto: second-video
+@goto: private-link-sent
 
 ===
+@id: private-link-sent
+@type: content
+@title: Check your email
+@subtitle: Your private link is on the way.
+@body: We sent a private link to your email. Open that link to verify your access and continue watching.
+@showauthcontrols: true
+@showreturnhome: true
+@showback: false
+@countstep: false
+@next: Return Home
+@goto: home
+===
+
 // SECOND VIDEO
 @id: second-video
 @type: media
@@ -111,6 +125,10 @@ BR
 @autoplay: true
 @progressmode: video
 @videostart: 14:18
+@videoresume: auto
+@syncurl: true
+@showreturnhome: true
+@showauthcontrols: true
 @countstep: false
 @showback: false
 @showauthcontrols: true

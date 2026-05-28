@@ -1,11 +1,12 @@
 import {
-    ChoiceItem,
+  ChoiceItem,
   ChoicePlacement,
   ConditionRule,
   DownloadButton,
   FormField,
   MediaAspect,
   MediaType,
+  VideoResumeMode,
   Option,
   ParsedQuestionnaireDocument,
   ParsedSlideDraft,
@@ -526,6 +527,13 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@videoresume:")) {
+        draft.videoResumeMode = parseVideoResumeMode(
+          readValue(line, "@videoresume:")
+        );
+        continue;
+      }
+
       if (line.startsWith("@pagebgcolor:")) {
         draft.pageBackgroundColor = readValue(line, "@pagebgcolor:");
         continue;
@@ -703,6 +711,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     progressMode: draft.progressMode,
     videoRoutes: draft.videoRoutes,
     videoStartAtSeconds: draft.videoStartAtSeconds,
+    videoResumeMode: draft.videoResumeMode,
     pageBackgroundColor: draft.pageBackgroundColor,
     pageBackgroundImage: draft.pageBackgroundImage,
     pageBackgroundSize: draft.pageBackgroundSize,
@@ -786,6 +795,21 @@ function parseVideoTimecode(value: string) {
   }
 
   return Number.NaN;
+}
+
+function parseVideoResumeMode(value: string): VideoResumeMode {
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "auto" ||
+    normalized === "prompt-once" ||
+    normalized === "prompt-every-time" ||
+    normalized === "none"
+  ) {
+    return normalized;
+  }
+
+  return "none";
 }
 
 function parseFeature(value: string): SlideFeature | undefined {

@@ -8,13 +8,21 @@ It currently acts as a shared development ground for:
 
 - reusable slide pages
 - reusable auth
+- reusable lead capture
+- embedded reusable auth forms inside slides
 - account management
 - verified account contact updates
 - retained email history
+- active verified email switching
 - gated lead access
-- embedded reusable auth forms inside slides
-- plant shop / seed shop flows
+- temporary auth-backed lead accounts
+- DB-backed marketing-question answers
+- DB-backed video progress tracking
+- per-video resume behavior
+- URL-addressable slides
 - invitation / music / event flows
+- ticket and meal-selection flows
+- plant shop / seed shop flows
 - DB-backed nursery operations
 - reusable record lists
 - reusable profile blocks
@@ -25,10 +33,10 @@ Long-term, these systems should remain separable so they can become dedicated pr
 
 ## Current source of truth
 
-Current reusable-slide-pages source of truth before latest local gated-access/resume-prompt updates:
+Current reusable-slide-pages source of truth before the latest local README/update commit:
 
 ```txt
-aac40de69b14385179acd4e497c54b566eb18553
+656074b4461874d339ded93cccd5ead50be6a10e
 ```
 
 Reusable auth source merged into this project:
@@ -37,23 +45,32 @@ Reusable auth source merged into this project:
 2aa462dfcfa090eefa0a3b38d08000d722c43419
 ```
 
-Latest local updates after the checkpoint above:
+Latest local work after the source-of-truth SHA above includes:
 
 ```txt
-- embedded authform slide type added
-- LeadCaptureForm can be embedded inside questionnaire slides
-- invitation lead capture now uses reusable auth/customerAccess form
-- gated lead capture creates/fetches a temporary auth-backed user
-- gated lead capture creates/updates Lead records
-- private access/verification link is emailed to the submitted email
-- gatedLeadAccess verification link verifies Lead/User/UserEmailAddress
-- long-lived signed gated-access cookie is set after verification
-- returning verified users can skip the lead form
-- returning verified users are shown a Continue Watching choice slide
-- Continue Watching resumes the second video from saved browser position when available
-- Start From Beginning returns to the first video
-- when the first video reaches its existing @videogoto point, verified users bypass the lead form and go directly to the second video
-- second video timestamp is controlled by existing @videostart, not new DSL directives
+- hamburger menu auth controls in slide flows
+- login/logout moved into hamburger menu
+- action-bar login/logout support
+- login return-to-slide flow
+- auth-login success button returns to the slide where login was clicked
+- URL-addressable slides with @syncurl
+- Return Home remains generic and routes through goToTarget("home")
+- gated lead capture uses embedded reusable LeadCaptureForm
+- gated lead form receives reusable auth routes.login
+- reusable auth form shows "Already have an account? Log in" through routes.login
+- gated lead success advances to a DSL confirmation slide
+- duplicate gated-link clicks are reduced because form is no longer left visible after success
+- DB-backed UserMarketingQuestionAnswer model
+- DB-backed UserVideoProgress model
+- local engagement tracking syncs into DB when a user/lead becomes known
+- performance/rating slides bypass only when DB says the user already answered
+- gated-access cookie can identify the temporary/lead account
+- returning lead/temp account can become a normal session from signed gated cookie
+- video resume is controlled per video through @videoresume
+- @videoresume supports none, auto, prompt-once, prompt-every-time
+- @videoresume can combine with @videogoto
+- @syncurl supports refreshable deep slides such as second-video
+- Clear Visitor State option exists for development/testing
 ```
 
 After committing these local fixes, update this README source-of-truth SHA.
@@ -95,6 +112,7 @@ Because of this, shared systems should stay reusable:
 - verification components
 - delivery attempt logging
 - gated access helpers
+- engagement tracking helpers
 - embedded auth form renderer
 
 Avoid hardcoding nursery, plant shop, invitation, or business-specific wording into shared systems.
@@ -151,7 +169,9 @@ The project supports:
 - marketing funnels
 - questionnaires
 - media-rich video flows
+- URL-refreshable slides
 - gated video access
+- per-video resume behavior
 - return-viewer resume prompts
 - storefront pages
 - delivery and pickup flows
@@ -159,10 +179,13 @@ The project supports:
 - embedded reusable auth forms
 - gated lead capture
 - temporary auth-backed lead accounts
+- marketing-question answer storage
+- video progress storage
 - digital downloads
 - ticket / invitation flows
 - ticket-owner assignment
 - per-ticket meal selection
+- ticket owner email delivery direction
 - DB-backed nursery operations
 - record lists
 - reusable profile blocks
@@ -204,6 +227,7 @@ Each slide experience is configured by:
 - optional auth behavior config
 - optional reusable auth UI components
 - optional gated access config in registry variables
+- optional marketing-question config in registry variables
 
 Shared questionnaire route:
 
@@ -257,22 +281,34 @@ Route:
 
 A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, gated second-video access, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
 
+Route:
+
+```txt
+/questionnaire/invitation
+```
+
 Current capabilities:
 
 - vertical video intro slides
 - video-linked progress bar
-- video start timestamp through existing `@videostart`
-- video timestamp routing through existing `@videogoto`
+- video start timestamp through `@videostart`
+- video timestamp routing through `@videogoto`
+- per-video resume behavior through `@videoresume`
+- URL-addressable slides through `@syncurl`
+- hamburger auth menu on selected slides
+- action-bar login/logout on selected slides
+- login return-to-slide flow
 - performance rating slide
+- DB-backed marketing-question answer tracking
+- answered marketing-question bypass
 - embedded reusable gated lead capture form
 - temporary auth-backed user creation for gated leads
 - private video link emailed after lead signup
+- gated lead success confirmation slide
 - verification/access link verifies the lead/account email
 - signed long-lived gated-access cookie after verification
-- returning verified viewer prompt
-- continue watching from saved browser video position
-- start from beginning option
-- automatic lead-form bypass when access cookie exists
+- returning verified lead can become logged-in temporary account/session
+- automatic lead-form bypass when known user/session exists
 - invitation/event shop
 - ticket/invitation purchase options
 - ticket-owner details page
@@ -289,12 +325,6 @@ Current capabilities:
 - private file download API
 - reusable DSL download buttons
 - download started confirmation notice
-
-Route:
-
-```txt
-/questionnaire/invitation
-```
 
 ---
 
@@ -432,7 +462,7 @@ Email or phone
 → Password
 → Log in
 → Login success
-→ Account hub
+→ Continue
 ```
 
 Current behavior:
@@ -442,8 +472,10 @@ Current behavior:
 - slide-style login submission
 - successful login creates a database-backed session
 - session token is stored in HTTP-only cookie
-- login success button routes to `/questionnaire/auth-account`
 - login page hides progress bar and slide count
+- login success button says `Continue`
+- if login was opened from another questionnaire slide, the success button returns to that slide
+- if no return target exists, login can fall back to the account hub
 - footer links include forgot password and create account
 
 Backend route:
@@ -644,7 +676,7 @@ Rules:
 
 ## Account email history and active email model
 
-The account email system now supports retained email history.
+The account email system supports retained email history.
 
 Core rules:
 
@@ -827,18 +859,36 @@ leadCapture
 gatedLeadCapture
 ```
 
+Purpose:
+
+```txt
+- keep form behavior inside reusable auth/customerAccess components
+- avoid rebuilding auth and lead forms manually in DSL
+- allow slides to contain reusable auth forms while preserving slide routing
+- allow reusable auth form bottom links through routes.login/routes.signup
+```
+
+Important implementation note:
+
+```txt
+LeadCaptureForm accepts routes.
+LeadCaptureForm passes routes to AuthForm.
+AuthForm renders "Already have an account? Log in" when routes.login exists.
+QuestionnaireShell should pass loginHref through routes.login instead of manually adding a separate link under the embedded form.
+```
+
 Example:
 
 ```txt
 ===
-@id: invitation-lead-capture
+@id: whatsapp-subscription
 @type: authform
 @authform: gatedLeadCapture
 @shownext: false
 @countstep: false
 @showsteptext: false
 @showprogressbar: false
-@goto: second-video
+@goto: private-link-sent
 ---
 BR
 # [c1] Continue watching
@@ -846,12 +896,30 @@ BR
 [c3] Sign up and check your email for the private link to the next video.
 ```
 
-Purpose:
+Confirmation slide after gated lead signup:
 
 ```txt
-- keep form behavior inside reusable auth/customerAccess components
-- avoid rebuilding auth and lead forms manually in DSL
-- allow slides to contain reusable auth forms while preserving slide routing
+===
+@id: private-link-sent
+@type: content
+@title: Check your email
+@subtitle: Your private link is on the way.
+@body: We sent a private link to your email. Open that link to verify your access and continue watching.
+@showauthcontrols: true
+@showreturnhome: true
+@showback: false
+@countstep: false
+@next: Return Home
+@goto: home
+```
+
+Rules:
+
+```txt
+- gatedLeadCapture success should advance to the slide configured by @goto
+- do not leave the form visible after successful submit
+- this prevents repeated clicking and repeated private-link emails
+- already-account users should use the reusable AuthForm routes.login bottom link
 ```
 
 Future possible keys:
@@ -878,18 +946,20 @@ Current invitation flow:
 
 ```txt
 first video
-→ performance rating
-→ gatedLeadCapture form
+→ performance rating, if not already answered
+→ gatedLeadCapture form, if not already known/logged in
 → temporary auth-backed user created/found
 → Lead created/updated
+→ engagement snapshot synced to DB
 → private access link emailed
-→ user clicks link
+→ confirmation slide
+→ user clicks private link in email
 → /verify consumes token
 → User email verified
 → UserEmailAddress verified
 → Lead verified
 → signed long-lived gated-access cookie set
-→ redirect to second-video
+→ redirect to configured private slide
 ```
 
 Backend routes:
@@ -898,6 +968,8 @@ Backend routes:
 /api/auth/temporary-lead-account
 /api/verify/consume-link
 /api/questionnaires/gated-access/status
+/api/questionnaires/engagement/sync
+/api/questionnaires/engagement/status
 ```
 
 Verification target:
@@ -933,21 +1005,24 @@ Cookie behavior:
 - secure in production
 - path /
 - long-lived expiry
-- stores access target, not raw identity
+- stores gated access state
+- can include userId for temporary/lead account session bridge
+- does not store raw video timestamp
 ```
 
-Cookie payload stores:
+Cookie payload may store:
 
 ```txt
 target
 questionnaireSlug
 goto
+userId
 identifierHash
 verifiedAt
 expiresAt
 ```
 
-Cookie payload does not store:
+Cookie payload should not store:
 
 ```txt
 raw email
@@ -965,66 +1040,152 @@ Use a strong random value before production.
 
 ---
 
-## Returning verified viewer flow
+## Returning verified lead / temporary account flow
 
 Returning verified users do not need to see the gated lead form again.
 
-The invitation registry config controls this through `variables.gatedAccess`.
+The shell checks:
 
-Example:
-
-```ts
-variables: {
-  gatedAccess: {
-    gateSlideId: "whatsapp-subscription",
-    goto: "second-video",
-    resumePromptSlideId: "continue-watching-choice",
-    startFromBeginningSlideId: "home",
-  },
-},
+```txt
+/api/questionnaires/gated-access/status
 ```
 
 Behavior:
 
 ```txt
-User opens /questionnaire/invitation with valid gated-access cookie
-→ shell checks /api/questionnaires/gated-access/status
-→ shell routes to continue-watching-choice
-→ user chooses Continue Watching or Start From Beginning
+User opens /questionnaire/invitation with valid signed gated-access cookie
+→ shell checks gated-access status
+→ status can create/refresh a normal auth session for the temporary lead user
+→ shell loads DB engagement status
+→ answered marketing questions are skipped based on DB records
+→ gated lead form is bypassed based on known user/session access
 ```
 
-Continue Watching:
+Important correction:
 
 ```txt
-continue-watching-choice
-→ second-video
-→ resumes from saved browser timestamp if one exists
-→ otherwise uses existing @videostart on second-video
-```
-
-Start From Beginning:
-
-```txt
-continue-watching-choice
-→ home / first video
-→ first video plays normally
-→ when existing @videogoto points to the gate slide, shell bypasses the gate
-→ goes directly to second-video
-→ second-video uses existing @videostart
-```
-
-Important:
-
-```txt
-No new DSL timestamp directives are needed.
-Video timing stays in existing @videostart and @videogoto.
+The cookie should not decide whether a marketing question is skipped.
+Marketing question skip should come from UserMarketingQuestionAnswer.
 ```
 
 ---
 
-## Video timestamp system
+## Marketing-question answer tracking
 
-The existing video timestamp system uses DSL directives already supported by the parser.
+Marketing questions can be tracked per user.
+
+Purpose:
+
+```txt
+- do not show the same rating/marketing slide again after the user answered
+- let users later review or update answered questions
+- keep the rule DB-backed instead of cookie-backed
+```
+
+Prisma model:
+
+```prisma
+model UserMarketingQuestionAnswer {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionnaireSlug String
+  slideId           String
+  questionKey       String
+  answer            Json
+  source            String?
+  answeredAt        DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, questionnaireSlug, questionKey])
+  @@index([userId])
+  @@index([questionnaireSlug])
+  @@index([slideId])
+  @@index([answeredAt])
+}
+```
+
+Registry example:
+
+```ts
+variables: {
+  marketingQuestions: {
+    skipWhenLoggedIn: true,
+    skipSlideIds: ["performance-rating"],
+    skipTarget: "second-video",
+    answeredQuestionsTarget: "/questionnaire/auth-account?section=answered-questions",
+  },
+}
+```
+
+Behavior:
+
+```txt
+anonymous visitor answers marketing question
+→ answer is stored locally
+→ if user signs up as lead/temp account, local answer syncs to DB
+→ when user returns, shell loads DB answer status
+→ slide is skipped if its slideId is already answered
+```
+
+---
+
+## Video progress tracking
+
+Video progress is tracked locally first, then synced to DB when the user becomes known.
+
+Prisma model:
+
+```prisma
+model UserVideoProgress {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionnaireSlug   String
+  slideId             String
+  lastPositionSeconds Int      @default(0)
+  durationSeconds     Int?
+  watchedAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId, questionnaireSlug, slideId])
+  @@index([userId])
+  @@index([questionnaireSlug])
+  @@index([slideId])
+  @@index([watchedAt])
+}
+```
+
+Backend routes:
+
+```txt
+/api/questionnaires/engagement/sync
+/api/questionnaires/engagement/status
+```
+
+Local helper:
+
+```txt
+src/lib/questionnaire/engagementTracking.ts
+```
+
+Rules:
+
+```txt
+- anonymous video progress is saved locally first
+- local progress syncs to DB once user/lead/temp account exists
+- DB progress becomes source of truth for known users
+- gated cookie does not store timestamps
+- per-video resume behavior is controlled by the video slide's @videoresume directive
+```
+
+---
+
+## Video timestamp and resume system
+
+The video timestamp system uses DSL directives.
 
 Start a video at a configured timestamp:
 
@@ -1044,29 +1205,193 @@ Use video progress mode:
 @progressmode: video
 ```
 
+Control autoplay:
+
+```txt
+@autoplay: true
+```
+
+Control resume behavior:
+
+```txt
+@videoresume: none
+@videoresume: auto
+@videoresume: prompt-once
+@videoresume: prompt-every-time
+```
+
+Resume modes:
+
+```txt
+none
+→ no saved progress behavior; use @videostart only
+
+auto
+→ automatically start this video from its own saved DB timestamp if available
+
+prompt-once
+→ ask once per session for this specific video slide only
+
+prompt-every-time
+→ ask every time the user lands on this specific video slide
+```
+
+Important:
+
+```txt
+Resume mode is per video slide.
+A decision on video 1 should not control video 2.
+Each video uses its own saved UserVideoProgress row.
+```
+
+Example:
+
+```txt
+===
+@id: home
+@type: media
+@media: /media/invitation/intro.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@progressmode: video
+@videogoto: 00:45|performance-rating
+@videoresume: prompt-once
+@showauthcontrols: true
+@countstep: false
+@showsteptext: false
+@showprogressbar: true
+```
+
+Example second video:
+
+```txt
+===
+@id: second-video
+@type: media
+@media: /media/invitation/private-video.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@progressmode: video
+@videostart: 14:18
+@videoresume: auto
+@syncurl: true
+@showreturnhome: true
+@showauthcontrols: true
+@countstep: false
+@showsteptext: false
+@showprogressbar: true
+```
+
+Expected combined behavior:
+
+```txt
+first video has @videoresume: prompt-once and @videogoto
+→ returning user clicks Continue from where I stopped
+→ video seeks to its saved timestamp
+→ if playback reaches @videogoto, shell routes forward
+→ marketing slide is skipped if DB says answered
+→ gated lead form is skipped if user/session exists
+→ second video has @videoresume: auto
+→ second video starts from its own saved timestamp
+```
+
+---
+
+## URL-addressable slides
+
+Slides can opt into URL syncing.
+
+Directive:
+
+```txt
+@syncurl: true
+```
+
+Purpose:
+
+```txt
+- allow refresh to return to a deep slide instead of restarting at slide 1
+- support private/deep video slides
+- keep the behavior opt-in per slide
+```
+
 Example:
 
 ```txt
 ===
 @id: second-video
 @type: media
-@media: /media/invitation/example.mp4
 @mediatype: video
-@mediaaspect: vertical
-@autoplay: true
-@progressmode: video
-@videostart: 14:18
+@syncurl: true
+@showreturnhome: true
 ```
 
-The media renderer applies `videoStartAtSeconds` when video metadata loads.
-
-Resume behavior:
+Behavior:
 
 ```txt
-- saved browser timestamp is kept in localStorage
-- used only when the user chooses Continue Watching
-- not stored in the gated access cookie
-- if no saved timestamp exists, existing @videostart is used
+user reaches second-video
+→ URL becomes /questionnaire/invitation?slide=second-video
+
+user refreshes
+→ questionnaire opens second-video
+
+user clicks Return Home
+→ existing Return Home calls goToTarget("home")
+→ home does not have @syncurl
+→ shell clears ?slide=second-video
+```
+
+Important:
+
+```txt
+Do not hardcode slide IDs into QuestionnaireShell.
+Only the DSL decides which slides use @syncurl.
+```
+
+---
+
+## Hamburger auth menu and visitor reset
+
+Selected slides can show auth controls:
+
+```txt
+@showauthcontrols: true
+```
+
+The top utility auth control is a hamburger menu.
+
+Menu behavior:
+
+```txt
+logged out
+→ Login
+→ Clear Visitor State
+
+logged in
+→ Account
+→ Answered Questions
+→ Logout
+→ Clear Visitor State
+```
+
+Clear Visitor State is mostly for development/testing.
+
+It clears:
+
+```txt
+- session/logout state
+- gated access cookie
+- local engagement snapshot
+- local/session resume choices
+- relevant readable local cookies
+```
+
+Backend route:
+
+```txt
+/api/questionnaires/visitor-state/clear
 ```
 
 ---
@@ -1112,6 +1437,8 @@ Reusable-slide-pages:
 - invoices
 - downloads
 - gated slide access
+- video progress
+- marketing-question answers
 
 Shared messaging:
 - email sending
@@ -1349,6 +1676,7 @@ Each registry entry can define:
 - `overlayMode`
 - `variables`
 - `dynamicVariablesEndpoint`
+- `blocks`
 
 The registry loads the DSL, injects variables, parses slides, injects reusable blocks, and returns the config and theme to the shared route.
 
@@ -1360,6 +1688,7 @@ deliveryConfig
 discountDefinitions
 mealMenus
 gatedAccess
+marketingQuestions
 ```
 
 For auth flows, the registry can inject auth behavior variables such as:
@@ -1687,10 +2016,11 @@ sessions                  Session[]
 verificationCodes         VerificationCode[]
 verificationTokens        VerificationToken[]
 passwordResetTokens       PasswordResetToken[]
-passwordResetChallenges   PasswordResetChallenge[]
-passwordResetAccessGrants PasswordResetAccessGrant[]
+passwordResetChallenges   PasswordResetAccessGrant[]
 nameChanges               UserNameChange[]
 emailAddresses            UserEmailAddress[]
+marketingQuestionAnswers  UserMarketingQuestionAnswer[]
+videoProgressRecords      UserVideoProgress[]
 ```
 
 ---
@@ -1738,6 +2068,24 @@ npx prisma migrate reset
 ```
 
 If Prisma reports drift on Supabase, do not reset the public schema. Use careful `db push` for additive changes, or baseline migration history separately.
+
+After auth/session/schema changes during development, restart cleanly:
+
+```bash
+Ctrl + C
+rmdir /s /q .next
+npx prisma generate
+npm run dev
+```
+
+PowerShell:
+
+```powershell
+Ctrl + C
+Remove-Item -Recurse -Force .next
+npx prisma generate
+npm run dev
+```
 
 ---
 
@@ -1852,6 +2200,8 @@ Current DSL directives include:
 @showprogressbar:
 @showreturnhome:
 @showcancel:
+@showauthcontrols:
+@syncurl:
 @cancelgoto:
 @next:
 @goto:
@@ -1866,6 +2216,7 @@ Current DSL directives include:
 @progressmode:
 @videostart:
 @videogoto:
+@videoresume:
 @pagebgcolor:
 @pagebgimage:
 @pagebgsize:
@@ -1995,7 +2346,8 @@ BR
 @countstep: false
 @showsteptext: false
 @showprogressbar: false
-@goto: second-video
+@showauthcontrols: true
+@goto: private-link-sent
 ---
 BR
 # [c1] Continue watching
@@ -2005,26 +2357,43 @@ BR
 
 ---
 
-## Returning viewer choice slide
+## Gated lead confirmation slide
 
 ```txt
 ===
-@id: continue-watching-choice
-@type: choice
-@store: continueWatchingChoice
-@choiceplacement: inline
-@shownext: false
+@id: private-link-sent
+@type: content
+@title: Check your email
+@subtitle: Your private link is on the way.
+@body: We sent a private link to your email. Open that link to verify your access and continue watching.
+@showauthcontrols: true
+@showreturnhome: true
+@showback: false
+@countstep: false
+@next: Return Home
+@goto: home
+```
+
+---
+
+## Video slide with resume and URL sync
+
+```txt
+===
+@id: second-video
+@type: media
+@media: /media/invitation/private-video.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@progressmode: video
+@videostart: 14:18
+@videoresume: auto
+@syncurl: true
+@showreturnhome: true
+@showauthcontrols: true
 @countstep: false
 @showsteptext: false
-@showprogressbar: false
----
-BR
-# [c1] Continue watching?
-BR
-[c3] You already have private access. Would you like to continue from where you left off, or start from the beginning?
-@choices:
-- continue|Continue watching|second-video|primary
-- beginning|Start from the beginning|home|secondary
 ```
 
 ---
@@ -2053,312 +2422,397 @@ BR
 
 ---
 
-## Slide action runs
+## Dynamic variables
 
-The shell supports action names through:
+A registry entry can define:
 
-```txt
-@run:
+```ts
+dynamicVariablesEndpoint: "/api/questionnaires/nursery-ops/data";
 ```
 
-Current action names include:
+The shared route loads dynamic variables and merges them into questionnaire variables before rendering.
+
+Use this for DB-backed flows such as:
 
 ```txt
-submitLead
-createNurseryBatch
-logNurseryActivity
-recordNurseryTransplant
-checkSignupIdentifier
-submitSignup
-submitLogin
-submitUpdateInfo
-requestAccountEmailUpdate
-submitForgotPassword
-submitResetPassword
-startDeleteAccount
-submitDeleteAccount
-```
-
-Email verification for account email update is handled by the reusable `authverify` slide and `/api/verify/check`.
-
-Gated lead access uses embedded `authform` and `/api/auth/temporary-lead-account`.
-
----
-
-## Auth API routes
-
-Current auth/account/gated API routes include:
-
-```txt
-/api/signup
-/api/signup/check-identifier
-/api/login
-/api/logout
-/api/session
-/api/verify/start
-/api/verify/check
-/api/verify/consume-link
-/api/password/forgot
-/api/password/verify-code
-/api/password/reset
-/api/account/profile
-/api/account/update-info
-/api/account/name-update-status
-/api/account/email-addresses
-/api/account/email-addresses/request
-/api/account/email-addresses/activate
-/api/account/delete/start
-/api/account/delete
-/api/account/delete/cancel
-/api/auth/temporary-lead-account
-/api/questionnaires/gated-access/status
+nursery batches
+batch subsets
+transplanted individuals
+shop catalog data
+ticket data later
 ```
 
 ---
 
-## Media and video slide system
+## Reusable record lists
 
-Media slides support images, videos, and embeds.
+Record list slide type:
 
-Basic video slide:
+```txt
+recordlist
+```
+
+Supported directives:
+
+```txt
+@source:
+@titlefield:
+@subtitlefield:
+@metafields:
+@emptytext:
+@store:
+@goto:
+```
+
+Example:
 
 ```txt
 ===
-@id: home
-@type: media
-@media: /media/invitation/YYSSLYX.mp4
-@mediatype: video
-@mediaaspect: vertical
-@autoplay: true
-@countstep: false
-@showback: false
-@next: Get Tickets
-@goto: invitation-shop
+@id: existing-batches
+@type: recordlist
+@source: nurseryBatches
+@titlefield: plantName
+@subtitlefield: code
+@metafields: startDate,status
+@emptytext: No batches created yet.
+@store: opsSelectedBatchCode
+@goto: batch-profile
 ```
 
-Video progress mode:
+Behavior:
 
 ```txt
-@progressmode: video
-```
-
-Video start timestamp:
-
-```txt
-@videostart: 00:12
-```
-
-Video timestamp routing:
-
-```txt
-@videogoto: 00:45|performance-rating
+- list records from dynamic variables
+- store selected record id/code/value
+- go to target slide
+- profile blocks can use selected record context
 ```
 
 ---
 
-## Shop system
+## Reusable profile blocks
 
-The reusable `shop` slide renders a structured `shopCatalog`.
+Blocks are defined in registry/config, not hardcoded in the shell.
 
-The catalog supports:
+Block actions can route to other slides.
 
-- products
-- product images
-- product descriptions
-- product fulfillment type
-- size/order options
-- optional purchase modes
-- optional meal requirements on size options or purchase modes
-- line quantities
-- review mode
-- discounts
-- conditional ticket/details, meal, delivery, contact, and review routing
-
-Basic shop slide:
+Supported ideas:
 
 ```txt
-===
-@id: invitation-shop
-@type: shop
-@store: orderCart
-@catalog: shopCatalog
-@shopmode: browse
-@ticketgoto: ticket-details
-@mealgoto: meal-selection
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@next: Checkout
+rows
+sections
+section actions
+profile actions
+showIf rules
+selected source records
+```
+
+Use blocks for reusable profile screens such as:
+
+```txt
+batch profile
+batch subset profile
+transplanted individual profile
+ticket profile later
+order profile later
 ```
 
 ---
 
-## Build and test
+## Shop / ticket / meal flow
 
-Run:
+The invitation and plant shop flows share reusable commerce pieces.
+
+Supported concepts:
+
+```txt
+ShopCatalog
+ShopCart
+ShopResolvedCartLine
+DeliverySelection
+MealMenu
+TicketAssignment
+TicketAssignments
+TicketMealSelection
+MealSelections
+DiscountDefinition
+```
+
+Ticket flow supports:
+
+```txt
+- product purchase modes with fulfillment type
+- ticket product type
+- generated temporary ticket codes
+- owner name
+- owner email
+- owner phone
+- purchaser ticket marker
+- email this ticket to owner
+- meal mode required/optional
+- meal menu id
+- meal label
+- meal add-on price
+- wants extra food
+- meal notes
+- per-ticket meal selections
+```
+
+Current direction:
+
+```txt
+- original purchaser can see all tickets
+- original purchaser can pay for additions for invited guests
+- invited guests will later receive their own portal URL
+- invited guests can view/edit only their own ticket details
+- temporary accounts can be created for ticket owners
+- ticket-owner portal should build on reusable auth/session features
+```
+
+---
+
+## Downloads
+
+Private downloads use API routes rather than exposing raw private files directly.
+
+Current ideas:
+
+```txt
+- download buttons in DSL
+- catalog key maps to protected files
+- per-track MP3/WAV support
+- album purchase access later
+- persistent emailed access links later
+```
+
+DSL example:
+
+```txt
+@downloadbuttons:
+- escape-mp3|Download MP3|primary
+- escape-wav|Download WAV|secondary
+```
+
+---
+
+## Development workflow expectations
+
+Before making changes:
+
+```txt
+1. Read README.md.
+2. Read example_ChatGPT_workflow.txt.
+3. Read the relevant DSL file.
+4. Read the current component/API file before suggesting changes.
+5. Build on existing files and patterns.
+6. Do not create new one-off systems when reusable systems already exist.
+```
+
+Preferred response style for code help:
+
+```txt
+- path first
+- exact replacement blocks
+- one line of context above/below when possible
+- avoid vague "find the section" instructions
+- keep QuestionnaireShell generic
+- keep DSL-specific copy in DSL/config
+- prefer reusable helpers
+- avoid unnecessary new DSL directives when existing ones already solve it
+- avoid hardcoded invitation/nursery/shop slide IDs inside shared shell code
+```
+
+---
+
+## Build and test commands
+
+Install:
 
 ```bash
 npm install
-npx prisma format
-npx prisma db push
-npx prisma generate
-npm run build
 ```
 
-Then run dev server:
+Run dev:
 
 ```bash
 npm run dev
 ```
 
-Core routes to smoke test:
-
-```txt
-http://localhost:3000/
-http://localhost:3000/questionnaire/self-trust
-http://localhost:3000/questionnaire/garden-herbs
-http://localhost:3000/questionnaire/seed
-http://localhost:3000/questionnaire/invitation
-http://localhost:3000/questionnaire/nursery-ops
-http://localhost:3000/questionnaire/generic-profile-flow
-http://localhost:3000/questionnaire/auth-signup
-http://localhost:3000/questionnaire/auth-login
-http://localhost:3000/questionnaire/auth-account
-http://localhost:3000/questionnaire/auth-forgot-password
-http://localhost:3000/questionnaire/auth-reset-password
-http://localhost:3000/questionnaire/auth-delete-account
-```
-
-Known non-blocking warning may appear:
-
-```txt
-Turbopack build encountered 1 warnings:
-./next.config.ts
-Encountered unexpected file in NFT list
-```
-
-Confirm it does not block build.
-
----
-
-## Account/auth/gated regression checklist
-
-After account/auth/gated changes, test:
-
-```txt
-- signup with fresh email
-- signup blocks historical reserved email
-- signup existing verified email shows already exists
-- signup existing unverified email starts verification
-- verification code auto-verifies after final digit
-- resend code cooldown works
-- login succeeds
-- login success routes to auth-account
-- auth-account loads after login
-- auth-account does not say user is logged out after login
-- logout button clears session
-- auth-account redirects logged-out user to login
-- name update remaining count appears
-- name update limit blocks backend update
-- old email is backfilled into UserEmailAddress
-- new email request reserves email
-- new email verification code sends
-- email verification uses six-box authverify panel
-- email verification activates new email
-- previous email remains in UserEmailAddress
-- old email cannot create a new account
-- active email changes when verified email is activated
-- password reset still works
-- account deletion code still works
-- invitation gated lead form appears for first-time viewer
-- private access link is emailed after gated lead signup
-- verification link verifies Lead/User/UserEmailAddress
-- signed gated access cookie is set
-- returning verified viewer sees continue-watching-choice
-- Continue Watching goes to second-video
-- Start From Beginning goes to home/first video
-- first video bypasses lead form when cookie exists
-- second-video uses existing @videostart
-```
-
----
-
-## Production readiness
-
-Before production:
-
-- set correct business name in config
-- set correct footer links
-- add Privacy Policy page
-- add Terms page
-- add Contact page
-- set production `NEXT_PUBLIC_APP_URL`
-- set production `GATED_SLIDE_ACCESS_SECRET`
-- turn off dev-safe email rewrite if real recipients should receive email
-- confirm SMTP sender works
-- run real-recipient email delivery test
-- confirm active email is used for account messages
-- confirm historical emails are reserved
-- confirm verification expiry matches business rules
-- confirm name-update limit matches business rules
-- confirm gated access cookie expiry matches business rules
-- confirm account deletion policy matches business rules
-- confirm delete-code expiry matches business rules
-- confirm WhatsApp/SMS settings are disabled or configured
-- confirm database backups exist
-- confirm Prisma schema is synced
-- confirm test accounts are removed
-- confirm no console-only verification mode is active
-- confirm no secret values are committed
-
----
-
-## Security notes
-
-Confirm:
-
-```txt
-- passwords are hashed
-- verification codes are hashed
-- verification tokens are hashed
-- reset tokens are hashed
-- session tokens are hashed
-- gated access cookie is signed
-- gated access cookie is HttpOnly
-- gated access cookie does not contain raw email
-- gated access cookie does not contain raw phone
-- gated access cookie does not contain raw video timestamp
-- frontend warnings are convenience only
-- backend remains source of truth
-```
-
-Raw media files in `/public` are still directly accessible by URL.
-
-The current gated access protects the slide flow, not the raw video file. For true protected media, move gated videos behind an API/media route that checks the signed cookie or session before streaming.
-
----
-
-## Final commit workflow
-
-Before committing:
+Build:
 
 ```bash
 npm run build
 ```
 
-Then:
+Prisma format:
 
 ```bash
-git status
-git add .
-git commit -m "feat: add gated lead access and returning viewer resume flow"
+npx prisma format
 ```
 
-After commit:
+Push schema:
+
+```bash
+npx prisma db push
+```
+
+Generate Prisma client:
+
+```bash
+npx prisma generate
+```
+
+Common full cycle after schema changes:
+
+```bash
+npx prisma format
+npx prisma db push
+npx prisma generate
+npm run build
+npm run dev
+```
+
+---
+
+## Regression checklist
+
+After auth/account changes:
 
 ```txt
-- copy commit SHA
-- share new SHA as source of truth
-- update README.md source-of-truth section
-- update REGRESSION_CHECKLIST.md source-of-truth section
+- signup works
+- signup verification code sends
+- verification auto-checks after final code digit
+- wrong verification code clears the code boxes
+- resend verification code cooldown works
+- login works
+- login success button returns to returnTo slide when returnTo exists
+- auth-login has no progress bar or slide count
+- auth-account requires login
+- auth-account page does not show slide count or progress bar
+- auth-account summary cards load
+- logout works
+- account deletion code sends once
+- account deletion server cooldown prevents duplicate emails
+- account deletion completes or schedules based on config
+```
+
+After email-history changes:
+
+```txt
+- signup creates UserEmailAddress row
+- existing User.email can be backfilled into UserEmailAddress
+- new email update reserves email to same account
+- email already reserved to another account is blocked
+- verified email can become active
+- old emails remain stored
+- User.email updates to active email for compatibility
+```
+
+After gated lead/access changes:
+
+```txt
+- logged-out visitor reaches gatedLeadCapture form
+- reusable auth embedded form renders
+- "Already have an account? Log in" appears through routes.login
+- gated lead submit creates/fetches temporary auth-backed user
+- gated lead submit creates/updates Lead row
+- local engagement snapshot syncs after lead submit
+- private access link email sends
+- success advances to confirmation slide
+- form is not left visible after success
+- clicked private link verifies user/email/lead
+- gated access cookie is set
+- returning verified lead can bypass gate
+- returning verified lead can become session-backed temp user
+```
+
+After marketing-question tracking changes:
+
+```txt
+- anonymous marketing answer stores locally
+- lead signup syncs local answer to UserMarketingQuestionAnswer
+- returning user loads DB answered slide ids
+- answered marketing slide is skipped
+- skip is based on DB, not cookie
+```
+
+After video tracking/resume changes:
+
+```txt
+- anonymous video progress stores locally
+- known user video progress syncs to UserVideoProgress
+- @videoresume: none uses @videostart only
+- @videoresume: auto resumes from this video slide's saved timestamp
+- @videoresume: prompt-once asks once per session for this video only
+- @videoresume: prompt-every-time asks every time this video loads
+- prompt continue seeks immediately to saved timestamp
+- prompt start uses configured @videostart
+- @videoresume can combine with @videogoto
+- second video can use @videoresume: auto after first video routes forward
+```
+
+After URL-sync changes:
+
+```txt
+- slide with @syncurl updates URL to ?slide=<id>
+- refresh opens the synced slide
+- non-sync slides clear ?slide
+- Return Home remains generic and routes through goToTarget("home")
+- Return Home clears URL when home does not have @syncurl
+```
+
+After invitation ticket/meal changes:
+
+```txt
+- contact details come before ticket details
+- first ticket can autofill from contact/account details
+- ticket owner name/email/phone can be edited
+- purchaser ticket can be marked
+- email-this-ticket flags work per ticket
+- email-all-tickets direction remains compatible with future backend sending
+- required meal tickets require meal selection before checkout
+- optional meal tickets can skip or select meal
+- per-ticket meal add-on prices calculate correctly
+```
+
+---
+
+## Known development cautions
+
+```txt
+- Restart dev server after Prisma/schema/session/auth changes.
+- Clear .next after Prisma client/session shape changes.
+- Do not mix localhost and 127.0.0.1 when testing cookies.
+- Keep DSL-specific slide IDs out of shared shell code.
+- Keep reusable auth form behavior inside src/customerAccess when possible.
+- Use routes.login/routes.signup for reusable auth links.
+- Do not store raw email/phone in gated cookies.
+- Do not store video timestamps in gated cookies.
+- Use DB records for known-user progress and answered questions.
+- Use @videoresume per video instead of global resume assumptions.
+```
+
+---
+
+## Git notes
+
+Recommended commit style:
+
+```bash
+git add .
+git commit -m "feat: add reusable gated lead access and video engagement tracking"
+```
+
+For smaller commits, prefer:
+
+```bash
+git commit -m "feat: add per-video resume and URL synced slides"
+```
+
+```bash
+git commit -m "feat: sync lead engagement tracking to database"
+```
+
+```bash
+git commit -m "feat: add reusable auth login links to embedded lead forms"
 ```
