@@ -1024,9 +1024,11 @@ model User {
   passwordResetAccessGrants PasswordResetAccessGrant[]
   nameChanges               UserNameChange[]
   emailAddresses            UserEmailAddress[]
-  purchasedInvitationOrders InvitationOrder[]          @relation("InvitationOrderPurchaser")
-  ownedInvitationTickets    InvitationOrderTicket[]    @relation("InvitationTicketOwner")
-  invitationTicketPayments  InvitationTicketPayment[]  @relation("InvitationTicketPaymentUser")
+  purchasedInvitationOrders InvitationOrder[]             @relation("InvitationOrderPurchaser")
+  ownedInvitationTickets    InvitationOrderTicket[]       @relation("InvitationTicketOwner")
+  invitationTicketPayments  InvitationTicketPayment[]     @relation("InvitationTicketPaymentUser")
+  marketingQuestionAnswers  UserMarketingQuestionAnswer[]
+  videoProgressRecords      UserVideoProgress[]
 }
 
 model UserNameChange {
@@ -1300,6 +1302,45 @@ model InvitationTicketPayment {
   @@index([paidByUserId])
   @@index([purpose])
   @@index([status])
+}
+
+model UserMarketingQuestionAnswer {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionnaireSlug String
+  slideId           String
+  questionKey       String
+  answer            Json
+  source            String?
+  answeredAt        DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, questionnaireSlug, questionKey])
+  @@index([userId])
+  @@index([questionnaireSlug])
+  @@index([slideId])
+  @@index([answeredAt])
+}
+
+model UserVideoProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionnaireSlug   String
+  slideId             String
+  lastPositionSeconds Int      @default(0)
+  durationSeconds     Int?
+  watchedAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId, questionnaireSlug, slideId])
+  @@index([userId])
+  @@index([questionnaireSlug])
+  @@index([slideId])
+  @@index([watchedAt])
 }
 
 model PasswordResetToken {

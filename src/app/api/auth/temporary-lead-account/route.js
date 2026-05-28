@@ -5,6 +5,7 @@ import { parseIdentifier } from "@/customerAccess/utils/identifier";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
+import { syncEngagementForUser } from "@/app/api/questionnaires/engagement/sync/route";
 
 const TARGET = "gatedLeadAccess";
 
@@ -67,6 +68,10 @@ export async function POST(request) {
     const source = String(body.source || "embedded-authform").trim();
     const answers = body.answers && typeof body.answers === "object" ? body.answers : {};
     const updatesOptIn = body.updatesOptIn === true;
+    const engagementSnapshot =
+      body.engagementSnapshot && typeof body.engagementSnapshot === "object"
+        ? body.engagementSnapshot
+        : null;
 
     if (!identifier) {
       return Response.json(
@@ -206,6 +211,15 @@ export async function POST(request) {
         lead,
       };
     });
+
+    if (engagementSnapshot) {
+      await syncEngagementForUser({
+        userId: result.user.id,
+        questionnaireSlug,
+        snapshot: engagementSnapshot,
+        source: "lead-signup",
+      });
+    }
 
     const rawToken = generateRawToken();
     const tokenHash = hashToken(rawToken);

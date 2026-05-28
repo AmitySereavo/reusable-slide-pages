@@ -404,6 +404,11 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@syncurl:")) {
+        draft.syncUrl = parseBooleanValue(readValue(line, "@syncurl:"), true);
+        continue;
+      }
+
       if (line.startsWith("@cancelgoto:")) {
         draft.cancelGoto = readValue(line, "@cancelgoto:");
         continue;
@@ -668,6 +673,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     cancelGoto: draft.cancelGoto,
     showCancel: draft.showCancel,
     showAuthControls: draft.showAuthControls,
+    syncUrl: draft.syncUrl,
     titlePlacement: draft.titlePlacement,
     nextLabel: draft.nextLabel,
     storeAs: draft.storeAs,

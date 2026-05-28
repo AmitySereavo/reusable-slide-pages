@@ -454,6 +454,7 @@ export type Slide = {
   showReturnHome?: boolean;
   showCancel?: boolean;
   showAuthControls?: boolean;
+  syncUrl?: boolean;
   titlePlacement?: SlideTitlePlacement;
   cancelGoto?: string;
   storeAs?: string;
@@ -574,6 +575,7 @@ export type ParsedSlideDraft = {
   showReturnHome?: boolean;
   showCancel?: boolean;
   showAuthControls?: boolean;
+  syncUrl?: boolean;
   titlePlacement?: SlideTitlePlacement;
   cancelGoto?: string;
   goto?: string;

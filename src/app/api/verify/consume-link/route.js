@@ -140,6 +140,7 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
       target: "gatedLeadAccess",
       questionnaireSlug,
       goto,
+      userId: result.user?.id || null,
       identifierHash: crypto
         .createHash("sha256")
         .update(identifier)

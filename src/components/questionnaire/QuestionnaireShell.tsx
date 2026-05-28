@@ -94,6 +94,17 @@ import {
   getPasswordStrength,
 } from "@/customerAccess/utils/passwordPolicy";
 
+import {
+  clearAllReadableCookies,
+  clearLocalEngagementSnapshot,
+  clearResumeDecision,
+  readLocalEngagementSnapshot,
+  readResumeDecision,
+  writeLocalQuestionAnswer,
+  writeLocalVideoProgress,
+  writeResumeDecision,
+} from "@/lib/questionnaire/engagementTracking";
+
 type Props = {
   config: QuestionnaireConfig;
   theme: ThemeConfig;
@@ -616,6 +627,7 @@ function AuthFormSlideRenderer({
                   ...answers,
                   gatedLeadCapture: formData,
                 },
+                engagementSnapshot: readLocalEngagementSnapshot(questionnaireSlug),
               }
             : {
                 questionnaireSlug,
@@ -839,6 +851,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   } | null>(null);
   const [isAuthSessionLoaded, setIsAuthSessionLoaded] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [answeredQuestionSlideIds, setAnsweredQuestionSlideIds] = useState<
+    string[]
+  >([]);
+  const [dbVideoProgressBySlideId, setDbVideoProgressBySlideId] = useState<
+    Record<string, number>
+  >({});
+
+  const [videoResumeDecision, setVideoResumeDecision] = useState<
+    "continue" | "beginning" | null
+  >(null);
+
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
   const [deleteBatchError, setDeleteBatchError] = useState<string | null>(null);
   const [deleteBatchConfirmation, setDeleteBatchConfirmation] = useState("");
@@ -855,6 +878,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const searchParams = useSearchParams();
   const gatedAccessHandledRef = useRef(false);
   const loginReturnHandledRef = useRef(false);
+  const urlSlideHandledRef = useRef(false);
   const accountProfileAutofillHandledRef = useRef(false);
   const [gatedAccessState, setGatedAccessState] =
     useState<GatedAccessState | null>(null);
@@ -965,6 +989,77 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     void prefillFormsFromAccountProfile().catch(() => null);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthSessionLoaded || !authSessionUser?.id) {
+      return;
+    }
+
+    async function syncAndLoadEngagement() {
+      const snapshot = readLocalEngagementSnapshot(config.slug);
+
+      await fetch("/api/questionnaires/engagement/sync", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          questionnaireSlug: config.slug,
+          source: "client-session-sync",
+          snapshot,
+        }),
+      }).catch(() => null);
+
+      const response = await fetch(
+        `/api/questionnaires/engagement/status?questionnaireSlug=${encodeURIComponent(
+          config.slug
+        )}`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.hasUser) {
+        return;
+      }
+
+      setAnsweredQuestionSlideIds(
+        Array.isArray(data.answeredQuestionSlideIds)
+          ? data.answeredQuestionSlideIds.filter(
+              (item: unknown): item is string => typeof item === "string"
+            )
+          : []
+      );
+
+      const nextProgress: Record<string, number> = {};
+
+      if (Array.isArray(data.videoProgress)) {
+        for (const item of data.videoProgress) {
+          if (
+            typeof item?.slideId === "string" &&
+            typeof item?.lastPositionSeconds === "number"
+          ) {
+            nextProgress[item.slideId] = item.lastPositionSeconds;
+          }
+        }
+      }
+
+      setDbVideoProgressBySlideId(nextProgress);
+    }
+
+    void syncAndLoadEngagement().catch(() => null);
+  }, [authSessionUser?.id, config.slug, isAuthSessionLoaded]);
+
+  useEffect(() => {
+    setVideoResumeDecision(readResumeDecision(config.slug));
+  }, [config.slug]);
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
     () => normalizeDiscountDefinitions(mergedVariables, "discountDefinitions"),
@@ -1237,6 +1332,51 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
 
   useEffect(() => {
+    if (urlSlideHandledRef.current) {
+      return;
+    }
+
+    const slideId = searchParams.get("slide");
+
+    if (!slideId) {
+      return;
+    }
+
+    const targetIndex = getSlideIndexById(visibleSlides, slideId);
+
+    if (targetIndex < 0) {
+      return;
+    }
+
+    urlSlideHandledRef.current = true;
+
+    if (targetIndex !== currentIndex) {
+      setHistory([]);
+      setCurrentIndex(targetIndex);
+    }
+  }, [currentIndex, searchParams, visibleSlides]);
+
+  useEffect(() => {
+    if (!currentSlide?.syncUrl) {
+      return;
+    }
+
+    const currentUrl = new URL(window.location.href);
+
+    if (currentUrl.searchParams.get("slide") === currentSlide.id) {
+      return;
+    }
+
+    currentUrl.searchParams.set("slide", currentSlide.id);
+
+    window.history.replaceState(
+      null,
+      "",
+      `${currentUrl.pathname}${currentUrl.search}`
+    );
+  }, [currentSlide]);
+
+  useEffect(() => {
     if (
       loginReturnHandledRef.current ||
       !isAuthSessionLoaded ||
@@ -1356,27 +1496,34 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return;
     }
 
-    const targetGoto = String(data.access.goto);
-    const promptSlideId =
-      gatedAccessConfig?.resumePromptSlideId || targetGoto;
+      const targetGoto = String(data.access.goto);
 
-    const targetIndex = getSlideIndexById(visibleSlides, promptSlideId);
+      if (data?.authenticatedUser?.id) {
+        setAuthSessionUser({
+          id: String(data.authenticatedUser.id),
+          name:
+            typeof data.authenticatedUser.name === "string"
+              ? data.authenticatedUser.name
+              : null,
+          email:
+            typeof data.authenticatedUser.email === "string"
+              ? data.authenticatedUser.email
+              : null,
+          phone:
+            typeof data.authenticatedUser.phone === "string"
+              ? data.authenticatedUser.phone
+              : null,
+        });
+      }
 
-    if (targetIndex < 0) {
-      return;
-    }
+      gatedAccessHandledRef.current = true;
 
-    gatedAccessHandledRef.current = true;
-
-    setGatedAccessState({
-      hasAccess: true,
-      goto: targetGoto,
-      gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
-      resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
-    });
-
-    setHistory([]);
-    setCurrentIndex(targetIndex);
+      setGatedAccessState({
+        hasAccess: true,
+        goto: targetGoto,
+        gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
+        resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
+      });
   }
 
     void resolveGatedAccess().catch(() => null);
@@ -1896,6 +2043,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function setAnswer(key: string, value: QuestionnaireVariableValue) {
+    if (
+      currentSlide?.id &&
+      marketingQuestionsConfig?.skipSlideIds?.includes(currentSlide.id)
+    ) {
+      writeLocalQuestionAnswer({
+        questionnaireSlug: config.slug,
+        slideId: currentSlide.id,
+        questionKey: key,
+        answer: value as PrimitiveValue,
+      });
+    }
+
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -2020,11 +2179,42 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
   }
 
+  async function handleClearVisitorState() {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await fetch("/api/questionnaires/visitor-state/clear", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      }).catch(() => null);
+
+      clearLocalEngagementSnapshot(config.slug);
+      clearResumeDecision(config.slug);
+      clearAllReadableCookies();
+
+      setAuthSessionUser(null);
+      setGatedAccessState(null);
+      setAnsweredQuestionSlideIds([]);
+      setDbVideoProgressBySlideId({});
+      setVideoResumeOverrides({});
+      setVideoResumeDecision(null);
+      setIsAccountMenuOpen(false);
+
+      window.location.href = `/questionnaire/${encodeURIComponent(config.slug)}`;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function goToTarget(target: string) {
     const shouldSkipMarketingQuestion =
-      authSessionUser?.id &&
       marketingQuestionsConfig?.skipWhenLoggedIn === true &&
       marketingQuestionsConfig.skipSlideIds?.includes(target) &&
+      answeredQuestionSlideIds.includes(target) &&
       Boolean(marketingQuestionsConfig.skipTarget);
 
     if (shouldSkipMarketingQuestion && marketingQuestionsConfig?.skipTarget) {
@@ -2164,34 +2354,41 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       setAnswer(currentSlide.storeAs, value);
     }
 
-    if (
-      currentSlide?.id === gatedAccessConfig?.resumePromptSlideId &&
-      normalizedValue === "continue"
-    ) {
-      const target = gatedAccessState?.goto || gatedAccessConfig?.goto;
+      if (
+    currentSlide?.id === gatedAccessConfig?.resumePromptSlideId &&
+    normalizedValue === "continue"
+  ) {
+    const target = gatedAccessState?.goto || gatedAccessConfig?.goto;
 
-      if (target) {
-        const resumeSeconds = readVideoResumeSeconds(config.slug, target);
+    if (target) {
+      const dbResumeSeconds = dbVideoProgressBySlideId[target] ?? 0;
 
-        if (resumeSeconds > 0) {
-          setVideoResumeOverrides((prev) => ({
-            ...prev,
-            [target]: resumeSeconds,
-          }));
-        }
-
-        goToTarget(target);
-        return;
+      if (dbResumeSeconds > 0) {
+        setVideoResumeOverrides((prev) => ({
+          ...prev,
+          [target]: dbResumeSeconds,
+        }));
       }
-    }
 
-    if (
+      goToTarget(target);
+      return;
+    }
+  }
+
+  if (
       currentSlide?.id === gatedAccessConfig?.resumePromptSlideId &&
       normalizedValue === "beginning"
     ) {
       const beginningTarget =
-        gatedAccessConfig?.startFromBeginningSlideId || goto || "home";
+      gatedAccessConfig?.startFromBeginningSlideId || goto || "home";
 
+    if (gatedAccessConfig?.goto) {
+      setVideoResumeOverrides((prev) => {
+        const next = { ...prev };
+        delete next[gatedAccessConfig.goto as string];
+        return next;
+      });
+    }
       goToTarget(beginningTarget);
       return;
     }
@@ -3347,14 +3544,25 @@ async function next() {
                                 </button>
                               </>
                             ) : (
-                              <button
-                                type="button"
-                                className={styles.accountMenuItem}
-                                onClick={handleAuthLoginClick}
-                                disabled={!isAuthSessionLoaded || isSubmitting}
-                              >
-                                Login
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={handleAuthLoginClick}
+                                  disabled={!isAuthSessionLoaded || isSubmitting}
+                                >
+                                  Login
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={handleClearVisitorState}
+                                  disabled={isSubmitting}
+                                >
+                                  Clear Visitor State
+                                </button>
+                              </>
                             )}
                           </div>
                         ) : null}
@@ -3457,32 +3665,96 @@ async function next() {
                   {isMediaSlide ? (
                     <>
                       <MediaRenderer
-                        slide={{
-                          ...currentSlide,
-                          videoStartAtSeconds:
-                            videoResumeOverrides[currentSlide.id] ??
-                            currentSlide.videoStartAtSeconds,
-                        }}
+                      slide={{
+                        ...currentSlide,
+                        videoStartAtSeconds:
+                          videoResumeOverrides[currentSlide.id] ??
+                          (videoResumeDecision === "continue"
+                            ? dbVideoProgressBySlideId[currentSlide.id]
+                            : undefined) ??
+                          currentSlide.videoStartAtSeconds,
+                      }}
                         onVerticalVideoPlayingChange={
                           setIsCurrentVerticalVideoPlaying
                         }
                         onVideoProgressChange={(payload) => {
                           handleVideoProgressChange(payload);
 
-                          if (
-                            currentSlide.mediaType === "video" &&
-                            (currentSlide.id === gatedAccessState?.goto ||
-                              currentSlide.id === gatedAccessConfig?.goto)
-                          ) {
-                            writeVideoResumeSeconds(
-                              config.slug,
-                              currentSlide.id,
-                              payload.currentTime
-                            );
+                          if (currentSlide.mediaType === "video") {
+                            writeLocalVideoProgress({
+                              questionnaireSlug: config.slug,
+                              slideId: currentSlide.id,
+                              currentTime: payload.currentTime,
+                              duration: payload.duration,
+                            });
+
+                            if (authSessionUser?.id && Math.floor(payload.currentTime) % 15 === 0) {
+                              const snapshot = readLocalEngagementSnapshot(config.slug);
+
+                              fetch("/api/questionnaires/engagement/sync", {
+                                method: "POST",
+                                credentials: "same-origin",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                  questionnaireSlug: config.slug,
+                                  source: "video-progress",
+                                  snapshot,
+                                }),
+                              }).catch(() => null);
+                            }
                           }
                         }}
                         videoSeekRequest={videoSeekRequest}
                       />
+                    {currentSlide.mediaType === "video" &&
+                    videoResumeDecision === null &&
+                    Object.values(dbVideoProgressBySlideId).some((seconds) => seconds > 0) ? (
+                        <div className={styles.videoResumePrompt}>
+                          <div className={styles.videoResumePromptCard}>
+                            <p className={styles.videoResumePromptTitle}>
+                              Continue watching?
+                            </p>
+                            <p className={styles.videoResumePromptText}>
+                              You have watched part of this before. Continue each video from where you
+                              stopped last time, or start each video from its beginning?
+                            </p>
+                            <div className={styles.videoResumePromptActions}>
+                              <button
+                                type="button"
+                                className={styles.primaryButton}
+                                onClick={() => {
+                                  writeResumeDecision(config.slug, "continue");
+                                  setVideoResumeDecision("continue");
+
+                                  const savedSeconds = dbVideoProgressBySlideId[currentSlide.id] ?? 0;
+
+                                  if (savedSeconds > 0) {
+                                    setVideoResumeOverrides((prev) => ({
+                                      ...prev,
+                                      [currentSlide.id]: savedSeconds,
+                                    }));
+                                  }
+                                }}
+                              >
+                              Continue from where I stopped
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => {
+                                writeResumeDecision(config.slug, "beginning");
+                                setVideoResumeDecision("beginning");
+                                setVideoResumeOverrides({});
+                              }}
+                              >
+                                Start videos from beginning
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                       {hasRenderableSections(currentSlide.sections) ? (
                         <div className={styles.mediaTextOverlay}>
                           {renderSections(
