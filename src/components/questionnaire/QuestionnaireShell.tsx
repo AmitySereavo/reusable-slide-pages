@@ -36,6 +36,8 @@ import {
   ThemeConfig,
 } from "@/types/questionnaire";
 
+import { clearQuestionnaireVisitorState } from "@/lib/questionnaire/visitorState";
+
 import {
   evaluateConditionRule,
   getSlideIndexById,
@@ -75,7 +77,7 @@ import {
   normalizeMealSelections,
   setMealOptionQuantity,
 } from "@/lib/questionnaire/meals";
-import { applyAccountProfileAutofill } from "@/lib/questionnaire/accountProfileAutofill";
+
 import {
   areRequiredTicketMealsComplete,
   buildTicketAssignmentsFromLines,
@@ -104,7 +106,10 @@ import {
   type VideoResumeDecision,
 } from "@/lib/questionnaire/videoResume";
 
+import { useAuthSession } from "./hooks/useAuthSession";
 import { useUrlSyncedSlide } from "./hooks/useUrlSyncedSlide";
+import { useAccountProfileAutofill } from "./hooks/useAccountProfileAutofill";
+import { useQuestionnaireEngagement } from "./hooks/useQuestionnaireEngagement";
 
 import {
   getContrastTextColor,
@@ -148,13 +153,9 @@ import {
 } from "@/customerAccess/utils/passwordPolicy";
 
 import {
-  clearAllReadableCookies,
-  clearLocalEngagementSnapshot,
-  clearResumeDecision,
   readLocalEngagementSnapshot,
   writeLocalQuestionAnswer,
   writeLocalVideoProgress,
-  writeResumeDecision,
 } from "@/lib/questionnaire/engagementTracking";
 
 type Props = {
@@ -170,29 +171,12 @@ type VideoSeekRequest = {
 };
 
 
-function getVideoResumeStorageKey(questionnaireSlug: string, slideId: string) {
-  return `questionnaire-video-resume:${questionnaireSlug}:${slideId}`;
-}
-
-function readVideoResumeSeconds(questionnaireSlug: string, slideId: string) {
-  if (typeof window === "undefined") {
-    return 0;
-  }
-
-  const raw = window.localStorage.getItem(
-    getVideoResumeStorageKey(questionnaireSlug, slideId)
-  );
-
-  const parsed = Number(raw);
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
-
-
 export default function QuestionnaireShell({ config, theme }: Props) {
-
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
+
+  useAccountProfileAutofill({ setAnswers });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [authVerificationContext, setAuthVerificationContext] = useState<{
@@ -205,15 +189,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     expiresInHours?: number;
     phoneChannel?: string | null;
   } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [authSessionUser, setAuthSessionUser] = useState<{
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-  } | null>(null);
-  const [isAuthSessionLoaded, setIsAuthSessionLoaded] = useState(false);
+ 
+  const {
+    authSessionUser,
+    setAuthSessionUser,
+    isAuthSessionLoaded,
+    setIsAuthSessionLoaded,
+  } = useAuthSession();
+
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [answeredQuestionSlideIds, setAnsweredQuestionSlideIds] = useState<
     string[]
@@ -222,9 +208,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     Record<string, number>
   >({});
 
+  useQuestionnaireEngagement({
+    questionnaireSlug: config.slug,
+    authSessionUserId: authSessionUser?.id,
+    isAuthSessionLoaded,
+    setAnsweredQuestionSlideIds,
+    setDbVideoProgressBySlideId,
+  });
+
   const [videoResumeDecisionBySlideId, setVideoResumeDecisionBySlideId] =
   useState<Record<string, VideoResumeDecision>>({});
-  useState<Record<string, "continue" | "beginning">>({});
 
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
   const [deleteBatchError, setDeleteBatchError] = useState<string | null>(null);
@@ -243,7 +236,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const gatedAccessHandledRef = useRef(false);
   const loginReturnHandledRef = useRef(false);
 
-  const accountProfileAutofillHandledRef = useRef(false);
+  
   const [gatedAccessState, setGatedAccessState] =
     useState<GatedAccessState | null>(null);
 
@@ -276,154 +269,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => getMarketingQuestionsConfig(mergedVariables),
     [mergedVariables]
   );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAuthSession() {
-      const response = await fetch("/api/session", {
-        method: "GET",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (cancelled) {
-        return;
-      }
-
-      if (response.ok && data?.authenticated === true && data?.user) {
-        setAuthSessionUser({
-          id: String(data.user.id ?? ""),
-          name:
-            typeof data.user.name === "string" ? data.user.name : null,
-          email:
-            typeof data.user.email === "string" ? data.user.email : null,
-          phone:
-            typeof data.user.phone === "string" ? data.user.phone : null,
-        });
-      } else {
-        setAuthSessionUser(null);
-      }
-
-      setIsAuthSessionLoaded(true);
-    }
-
-    void loadAuthSession().catch(() => {
-      if (!cancelled) {
-        setAuthSessionUser(null);
-        setIsAuthSessionLoaded(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  
-  useEffect(() => {
-    if (accountProfileAutofillHandledRef.current) {
-      return;
-    }
-
-    accountProfileAutofillHandledRef.current = true;
-
-    async function prefillFormsFromAccountProfile() {
-      const response = await fetch("/api/account/profile", {
-        method: "GET",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        return;
-      }
-
-      const profile = data?.user ?? data?.profile ?? null;
-
-      if (!profile || typeof profile !== "object") {
-        return;
-      }
-
-      setAnswers((prev) => applyAccountProfileAutofill(prev, profile));
-    }
-
-    void prefillFormsFromAccountProfile().catch(() => null);
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthSessionLoaded || !authSessionUser?.id) {
-      return;
-    }
-
-    async function syncAndLoadEngagement() {
-      const snapshot = readLocalEngagementSnapshot(config.slug);
-
-      await fetch("/api/questionnaires/engagement/sync", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          questionnaireSlug: config.slug,
-          source: "client-session-sync",
-          snapshot,
-        }),
-      }).catch(() => null);
-
-      const response = await fetch(
-        `/api/questionnaires/engagement/status?questionnaireSlug=${encodeURIComponent(
-          config.slug
-        )}`,
-        {
-          method: "GET",
-          credentials: "same-origin",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.hasUser) {
-        return;
-      }
-
-      setAnsweredQuestionSlideIds(
-        Array.isArray(data.answeredQuestionSlideIds)
-          ? data.answeredQuestionSlideIds.filter(
-              (item: unknown): item is string => typeof item === "string"
-            )
-          : []
-      );
-
-      const nextProgress: Record<string, number> = {};
-
-      if (Array.isArray(data.videoProgress)) {
-        for (const item of data.videoProgress) {
-          if (
-            typeof item?.slideId === "string" &&
-            typeof item?.lastPositionSeconds === "number"
-          ) {
-            nextProgress[item.slideId] = item.lastPositionSeconds;
-          }
-        }
-      }
-
-      setDbVideoProgressBySlideId(nextProgress);
-    }
-
-    void syncAndLoadEngagement().catch(() => null);
-  }, [authSessionUser?.id, config.slug, isAuthSessionLoaded]);
 
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
@@ -1510,33 +1355,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   async function handleClearVisitorState() {
-    setIsSubmitting(true);
-    setSubmitError(null);
+    setIsAccountMenuOpen(false);
 
     try {
-      await fetch("/api/questionnaires/visitor-state/clear", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-        },
-      }).catch(() => null);
+      await clearQuestionnaireVisitorState({
+        questionnaireSlug: config.slug,
+      });
 
-      clearLocalEngagementSnapshot(config.slug);
-      clearResumeDecision(config.slug);
-      clearAllReadableCookies();
-
-      setAuthSessionUser(null);
       setGatedAccessState(null);
+      setAuthSessionUser(null);
+      setIsAuthSessionLoaded(true);
       setAnsweredQuestionSlideIds([]);
       setDbVideoProgressBySlideId({});
       setVideoResumeOverrides({});
       setVideoResumeDecisionBySlideId({});
-      setIsAccountMenuOpen(false);
-
-      window.location.href = `/questionnaire/${encodeURIComponent(config.slug)}`;
     } finally {
-      setIsSubmitting(false);
+      window.location.href = window.location.pathname;
     }
   }
 
@@ -1570,19 +1404,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       : target;
 
     if (
-      gatedAccessState?.hasAccess &&
-      !authSessionUser?.id &&
-      gatedTarget === (gatedAccessState.goto || gatedAccessConfig?.goto)
-    ) {
-      const resumeSeconds = readVideoResumeSeconds(config.slug, gatedTarget);
+        gatedAccessState?.hasAccess &&
+        !authSessionUser?.id &&
+        gatedTarget === (gatedAccessState.goto || gatedAccessConfig?.goto)
+      ) {
+        const resumeSeconds = getSavedVideoResumeSeconds(
+          dbVideoProgressBySlideId,
+          gatedTarget
+        );
 
-      if (resumeSeconds > 0) {
-        setVideoResumeOverrides((prev) => ({
-          ...prev,
-          [gatedTarget]: resumeSeconds,
-        }));
+        if (resumeSeconds > 0) {
+          setVideoResumeOverrides((prev) => ({
+            ...prev,
+            [gatedTarget]: resumeSeconds,
+          }));
+        }
       }
-    }
 
     const targetIndex = getSlideIndexById(visibleSlides, gatedTarget);
 
