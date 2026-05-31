@@ -45,11 +45,22 @@ export async function GET(
     );
   }
 
-  const projectRoot = process.cwd();
-  const allowedRoot = path.resolve(projectRoot, "private-downloads");
-  const absoluteFilePath = path.resolve(projectRoot, item.filePath);
+  const allowedRoot = path.resolve(
+    /* turbopackIgnore: true */ process.cwd(),
+    "private-downloads"
+  );
 
-  if (!absoluteFilePath.startsWith(allowedRoot)) {
+  const relativeFilePath = item.filePath
+    .replace(/\\/g, "/")
+    .replace(/^private-downloads\//, "");
+
+  const absoluteFilePath = path.resolve(allowedRoot, relativeFilePath);
+
+  const isInsideAllowedRoot =
+    absoluteFilePath === allowedRoot ||
+    absoluteFilePath.startsWith(`${allowedRoot}${path.sep}`);
+
+  if (!isInsideAllowedRoot) {
     return new Response("Invalid download path.", { status: 403 });
   }
 

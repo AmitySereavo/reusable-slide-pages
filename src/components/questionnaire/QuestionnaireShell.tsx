@@ -89,6 +89,8 @@ import {
   updateTicketAssignmentField,
 } from "@/lib/questionnaire/tickets";
 
+import { prefillFirstTicketFromContact } from "@/lib/questionnaire/ticketAutofill";
+
 import {
   getGatedAccessConfig,
   getMarketingQuestionsConfig,
@@ -186,41 +188,6 @@ function readVideoResumeSeconds(questionnaireSlug: string, slideId: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-
-function prefillFirstTicketFromContact(
-  assignments: TicketAssignments,
-  answers: QuestionnaireAnswers
-): TicketAssignments {
-  if (!assignments.length) {
-    return assignments;
-  }
-
-  const purchaserName = String(answers.fullName ?? "").trim();
-  const purchaserEmail = String(answers.email ?? "").trim();
-  const purchaserPhone = String(answers.phone ?? "").trim();
-
-  if (!purchaserName && !purchaserEmail && !purchaserPhone) {
-    return assignments;
-  }
-
-  return assignments.map((assignment, index) => {
-    if (index !== 0) {
-      return assignment;
-    }
-
-    return {
-      ...assignment,
-      ownerName: assignment.ownerName?.trim() || purchaserName,
-      ownerEmail: assignment.ownerEmail?.trim() || purchaserEmail,
-      ownerPhone: assignment.ownerPhone?.trim() || purchaserPhone,
-      isPurchaserTicket: assignment.isPurchaserTicket ?? true,
-      emailTicketToOwner:
-        assignment.isPurchaserTicket === true
-          ? false
-          : assignment.emailTicketToOwner ?? true,
-    };
-  });
-}
 
 export default function QuestionnaireShell({ config, theme }: Props) {
 
