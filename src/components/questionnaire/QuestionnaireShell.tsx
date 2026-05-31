@@ -4,26 +4,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
-import LeadCaptureForm from "@/customerAccess/components/LeadCaptureForm";
+import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
+  PrimitiveValue,
+  RecordListItem,
+  SlideRouteRule,
+
   DataBlockAction,
   DataBlockDefinition,
-  DataBlockRow,
   DataBlockSectionAction,
   DeliveryConfig,
   DeliverySelection,
   DiscountDefinition,
   DiscountedOrderSummary,
   FormField,
-  PrimitiveValue,
   PromotionEligibleItem,
   QuestionnaireAnswers,
   QuestionnaireConfig,
   QuestionnaireVariableMap,
   QuestionnaireVariableValue,
-  RecordListItem,
   ShopCart,
   ShopCatalog,
   ShopResolvedCartLine,
@@ -31,7 +32,6 @@ import {
   TicketAssignments,
   MealMenu,
   MealSelections,
-  SlideRouteRule,
   SlideSection,
   ThemeConfig,
 } from "@/types/questionnaire";
@@ -90,6 +90,57 @@ import {
 } from "@/lib/questionnaire/tickets";
 
 import {
+  getGatedAccessConfig,
+  getMarketingQuestionsConfig,
+  type GatedAccessState,
+} from "@/lib/questionnaire/accessConfig";
+
+import {
+  getSavedVideoResumeSeconds,
+  getVideoStartSecondsForSlide,
+  shouldShowVideoResumePrompt,
+  type VideoResumeDecision,
+} from "@/lib/questionnaire/videoResume";
+
+import { useUrlSyncedSlide } from "./hooks/useUrlSyncedSlide";
+
+import {
+  getContrastTextColor,
+  isTransparentColor,
+  resolveButtonStyle,
+  shouldShowAuthFooter,
+  withOpacity,
+} from "@/lib/questionnaire/display";
+
+import {
+  formatBlockRowValue,
+  getDisplayValueFromBlockRow,
+  getPrimitiveRecordValue,
+  getRecordArray,
+  getRecordListItems,
+  getSelectedRecordFromSource,
+  shouldShowBlockItem,
+} from "@/lib/questionnaire/records";
+
+import {
+  buildPromotionDiscountDefinition,
+  hasPhoneNote,
+  isContactInfoComplete,
+  normalizePromotionEligibleItems,
+  resolvePromotionItem,
+} from "@/lib/questionnaire/contactAndPromotion";
+
+import {
+  getQuestionnaireDownloadUrl,
+  openQuestionnaireDownload,
+} from "@/lib/questionnaire/downloads";
+
+import {
+  buildQuestionnaireLoginHref,
+  readLoginReturnToFromSearch,
+} from "@/lib/questionnaire/authNavigation";
+
+import {
   getPasswordRequirementResults,
   getPasswordStrength,
 } from "@/customerAccess/utils/passwordPolicy";
@@ -109,11 +160,6 @@ type Props = {
   theme: ThemeConfig;
 };
 
-type ResolvedButtonStyle = {
-  background: string;
-  color: string;
-  borderColor: string;
-};
 
 type VideoSeekRequest = {
   id: string;
@@ -121,646 +167,6 @@ type VideoSeekRequest = {
   seconds?: number;
 };
 
-function getRecordArray(
-  variables: QuestionnaireVariableMap,
-  key: string
-): Array<Record<string, QuestionnaireVariableValue>> {
-  const raw = variables[key];
-
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw.filter(
-    (item): item is Record<string, QuestionnaireVariableValue> =>
-      Boolean(item) && typeof item === "object" && !Array.isArray(item)
-  );
-}
-
-function getSelectedRecordFromSource(
-  variables: QuestionnaireVariableMap,
-  sourceKey: string | undefined,
-  selectedValue: string
-): Record<string, QuestionnaireVariableValue> | null {
-  if (!sourceKey || !selectedValue) {
-    return null;
-  }
-
-  const records = getRecordArray(variables, sourceKey);
-
-  return (
-    records.find((record) => {
-      const value =
-        typeof record.value === "string"
-          ? record.value
-          : typeof record.code === "string"
-            ? record.code
-            : typeof record.id === "string"
-              ? record.id
-              : "";
-
-      return value === selectedValue;
-    }) ?? null
-  );
-}
-
-function getDisplayValueFromBlockRow(row: DataBlockRow) {
-  if (
-    typeof row.value === "string" ||
-    typeof row.value === "number" ||
-    typeof row.value === "boolean"
-  ) {
-    return row.value;
-  }
-
-  return undefined;
-}
-
-function formatBlockRowValue(
-  row: DataBlockRow,
-  value: PrimitiveValue | undefined
-) {
-  if (value === undefined || value === null || value === "") {
-    return row.emptyText ?? "—";
-  }
-
-  if (row.format === "boolean_yes_no") {
-    return value === true ? "Yes" : "No";
-  }
-
-  return String(value);
-}
-
-function shouldShowBlockItem(
-  rules: { showIf?: { field: string; operator: SlideRouteRule["operator"]; value: string }[] },
-  context: QuestionnaireAnswers
-) {
-  if (!rules.showIf?.length) {
-    return true;
-  }
-
-  return rules.showIf.every((rule) => evaluateConditionRule(rule, context));
-}
-
-function getPrimitiveRecordValue(
-  record: Record<string, QuestionnaireVariableValue> | null,
-  key: string | undefined
-): PrimitiveValue | undefined {
-  if (!record || !key) {
-    return undefined;
-  }
-
-  const value = record[key];
-
-  return typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-    ? value
-    : undefined;
-}
-
-function hexToRgb(hex: string) {
-  const clean = hex.replace("#", "").trim();
-
-  if (clean.length !== 6) return null;
-
-  const num = Number.parseInt(clean, 16);
-  if (Number.isNaN(num)) return null;
-
-  return {
-    r: (num >> 16) & 255,
-    g: (num >> 8) & 255,
-    b: num & 255,
-  };
-}
-
-function getContrastTextColor(background: string) {
-  const rgb = hexToRgb(background);
-
-  if (!rgb) return "#FFFFFF";
-
-  const luminance =
-    (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-
-  return luminance > 0.62 ? "#111111" : "#FFFFFF";
-}
-
-function withOpacity(color: string, opacity?: number) {
-  if (opacity === undefined) return color;
-
-  const normalized = Math.max(0, Math.min(1, opacity));
-  const rgb = hexToRgb(color);
-
-  if (!rgb) return color;
-
-  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${normalized})`;
-}
-
-function resolveStyleColor(theme: ThemeConfig, styleKey?: string) {
-  if (!styleKey) return null;
-
-  if (styleKey === "primary") return theme.colors.primary;
-  if (styleKey === "accent") return theme.colors.accent ?? theme.colors.primary;
-  if (styleKey === "card") return theme.colors.card;
-  if (styleKey === "text") return theme.colors.text;
-
-  return theme.colors.lineColors?.[styleKey] ?? null;
-}
-
-function resolveButtonStyle(
-  theme: ThemeConfig,
-  styleKey: string | undefined,
-  fallback: "primary" | "secondary"
-): ResolvedButtonStyle {
-  if (styleKey === "secondary") {
-    return {
-      background: "#FFFFFF",
-      color: theme.colors.text,
-      borderColor: theme.colors.border,
-    };
-  }
-
-  if (styleKey === "ghost") {
-    return {
-      background: "transparent",
-      color: theme.colors.text,
-      borderColor: theme.colors.border,
-    };
-  }
-
-  const resolvedColor = resolveStyleColor(theme, styleKey);
-
-  if (resolvedColor) {
-    return {
-      background: resolvedColor,
-      color: getContrastTextColor(resolvedColor),
-      borderColor: resolvedColor,
-    };
-  }
-
-  if (fallback === "primary") {
-    return {
-      background: theme.colors.primary,
-      color: getContrastTextColor(theme.colors.primary),
-      borderColor: theme.colors.primary,
-    };
-  }
-
-  return {
-    background: "#FFFFFF",
-    color: theme.colors.text,
-    borderColor: theme.colors.border,
-  };
-}
-
-function shouldShowAuthFooter(slug: string) {
-  return slug.startsWith("auth-");
-}
-
-function isTransparentColor(value?: string) {
-  if (!value) return false;
-
-  const normalized = value.trim().toLowerCase();
-
-  return (
-    normalized === "transparent" ||
-    normalized === "none" ||
-    normalized === "rgba(0,0,0,0)" ||
-    normalized === "rgba(0, 0, 0, 0)"
-  );
-}
-
-function isContactInfoComplete(
-  answers: QuestionnaireAnswers,
-  deliverySelection?: DeliverySelection
-) {
-  const fullName = String(answers.fullName ?? "").trim();
-  const email = String(answers.email ?? "").trim();
-  const phone = String(answers.phone ?? "").trim();
-
-  if (!fullName) {
-    return false;
-  }
-
-  if (deliverySelection?.method === "delivery") {
-    return phone.length > 0;
-  }
-
-  return phone.length > 0 || email.length > 0;
-}
-
-function normalizePromotionEligibleItems(
-  value: QuestionnaireVariableValue | undefined
-): PromotionEligibleItem[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        return null;
-      }
-
-      const record = item as Record<string, QuestionnaireVariableValue>;
-
-      const productId =
-        typeof record.productId === "string" ? record.productId : undefined;
-      const slug =
-        typeof record.slug === "string" ? record.slug.trim().toLowerCase() : undefined;
-      const label =
-        typeof record.label === "string" ? record.label : undefined;
-
-      if (!productId || !slug || !label) {
-        return null;
-      }
-
-      return {
-        productId,
-        slug,
-        label,
-      };
-    })
-    .filter(Boolean) as PromotionEligibleItem[];
-}
-
-function resolvePromotionItem(
-  items: PromotionEligibleItem[],
-  requestedSlug: string
-) {
-  if (!items.length) {
-    return null;
-  }
-
-  if (!requestedSlug) {
-    return items[0];
-  }
-
-  return (
-    items.find((item) => item.slug === requestedSlug.trim().toLowerCase()) ??
-    items[0]
-  );
-}
-
-function buildPromotionDiscountDefinition(
-  productId: string | undefined,
-  label: string | undefined,
-  percent: number | undefined,
-  enabled: boolean
-): DiscountDefinition | null {
-  if (!enabled || !productId) {
-    return null;
-  }
-
-  const amount =
-    typeof percent === "number" && Number.isFinite(percent) ? percent : 100;
-
-  return {
-    code: "QUESTIONNAIRE_PROMO",
-    label: label?.trim() || "Questionnaire promotion",
-    active: true,
-    type: "percentage",
-    scope: "product",
-    amount,
-    productIds: [productId],
-  };
-}
-
-function hasPhoneNote() {
-  return " (applies after phone number is entered)";
-}
-
-function getRecordListItems(
-  variables: QuestionnaireVariableMap,
-  slide: {
-    recordSourceKey?: string;
-    recordTitleField?: string;
-    recordSubtitleField?: string;
-    recordMetaFields?: string[];
-  }
-): RecordListItem[] {
-  if (!slide.recordSourceKey) {
-    return [];
-  }
-
-  const raw = variables[slide.recordSourceKey];
-
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== "object" || Array.isArray(item)) {
-        return null;
-      }
-
-      const record = item as Record<string, QuestionnaireVariableValue>;
-
-      const value =
-        typeof record.value === "string"
-          ? record.value
-          : typeof record.code === "string"
-            ? record.code
-            : typeof record.id === "string"
-              ? record.id
-              : undefined;
-
-      if (!value) {
-        return null;
-      }
-
-      const titleField = slide.recordTitleField ?? "title";
-      const subtitleField = slide.recordSubtitleField ?? "subtitle";
-      const metaFields = slide.recordMetaFields ?? [];
-
-      const titleValue = record[titleField];
-      const subtitleValue = record[subtitleField];
-
-      const title =
-        typeof titleValue === "string" && titleValue.trim().length > 0
-          ? titleValue
-          : value;
-
-      const subtitle =
-        typeof subtitleValue === "string" && subtitleValue.trim().length > 0
-          ? subtitleValue
-          : undefined;
-
-      const meta = metaFields
-        .map((field) => {
-          const fieldValue = record[field];
-          if (
-            typeof fieldValue === "string" ||
-            typeof fieldValue === "number" ||
-            typeof fieldValue === "boolean"
-          ) {
-            return String(fieldValue);
-          }
-          return null;
-        })
-        .filter(Boolean) as string[];
-
-      const childCount =
-        typeof record.childCount === "number" ? record.childCount : undefined;
-
-      return {
-        value,
-        title,
-        subtitle,
-        meta: meta.length ? meta : undefined,
-        childCount,
-      };
-    })
-    .filter(Boolean) as RecordListItem[];
-}
-
-function AuthFormSlideRenderer({
-  formKey,
-  title,
-  subtitle,
-  questionnaireSlug,
-  answers,
-  loginHref,
-  onSuccess,
-}: {
-  formKey?: string;
-  title?: string;
-  subtitle?: string;
-  questionnaireSlug: string;
-  answers: QuestionnaireAnswers;
-  loginHref?: string;
-  onSuccess: () => void;
-}) {
-  const isGatedLeadCapture = formKey === "gatedLeadCapture";
-
-  if (formKey !== "leadCapture" && formKey !== "gatedLeadCapture") {
-    return (
-      <p className={styles.formError}>
-        Unsupported auth form: {formKey || "missing"}
-      </p>
-    );
-  }
-
-  return (
-    <div className={styles.authFormEmbedFullBleed}>
-      <LeadCaptureForm
-        title={title || "Stay connected"}
-        routes={loginHref ? { login: loginHref } : {}}
-        subtitle={
-          subtitle ||
-          (isGatedLeadCapture
-            ? "Sign up and check your email for the private link to continue watching."
-            : undefined)
-        }
-        config={{
-          mode: "lead-capture",
-          target: isGatedLeadCapture ? "gatedLeadAccess" : "lead",
-          fields: {
-            fullName: { visible: true, required: true },
-            identifier: {
-              visible: true,
-              required: true,
-              allow: isGatedLeadCapture ? ["email"] : ["email", "phone"],
-              helpText: isGatedLeadCapture
-                ? "Use your email so we can send the private video link."
-                : "Use your email or WhatsApp number. If using phone, include country code and area code.",
-            },
-            updatesOptIn: {
-              visible: true,
-              required: false,
-              defaultValue: true,
-            },
-          },
-          verification: {
-            required: false,
-            autoStart: false,
-            method: "email",
-            delivery: "link",
-            redirectToVerifyPage: false,
-            successRedirect: null,
-            verifiedContentRedirect: null,
-            expiresInMinutes: 15,
-            expiresInHours: 24,
-            promptForPhoneChannel: false,
-            defaultPhoneChannel: "whatsapp",
-            phoneChannelOptions: ["whatsapp", "sms"],
-            phoneChannelLabel: "Send verification by",
-          },
-          submit: {
-            endpoint: isGatedLeadCapture
-              ? "/api/auth/temporary-lead-account"
-              : "/api/questionnaires/submit",
-            method: "POST",
-            buttonLabel: isGatedLeadCapture
-              ? "Email My Private Link"
-              : "Stay Connected",
-            successMessage: isGatedLeadCapture
-              ? "Check your email for the private link to continue watching."
-              : "Your info was submitted.",
-            successRedirect: null,
-            redirectDelayMs: 0,
-          },
-        }}
-        onSubmit={async ({
-          formData,
-          setMessage,
-          setMessageType,
-        }: {
-          formData: Record<string, unknown>;
-          setMessage: (message: string) => void;
-          setMessageType: (type: "error" | "info" | "success") => void;
-        }) => {
-          const identifier = String(formData.identifier ?? "").trim();
-          const isEmail = identifier.includes("@");
-
-          const endpoint = isGatedLeadCapture
-            ? "/api/auth/temporary-lead-account"
-            : "/api/questionnaires/submit";
-
-          const payload = isGatedLeadCapture
-            ? {
-                questionnaireSlug,
-                source: "invitation-lead-gate",
-                goto: "second-video",
-                fullName: String(formData.fullName ?? "").trim(),
-                identifier,
-                updatesOptIn: formData.updatesOptIn === true,
-                answers: {
-                  ...answers,
-                  gatedLeadCapture: formData,
-                },
-                engagementSnapshot: readLocalEngagementSnapshot(questionnaireSlug),
-              }
-            : {
-                questionnaireSlug,
-                fullName: String(formData.fullName ?? "").trim(),
-                email: isEmail ? identifier : "",
-                phone: isEmail ? "" : identifier,
-                whatsappOptIn: formData.updatesOptIn === true,
-                answers: {
-                  ...answers,
-                  leadCapture: formData,
-                },
-              };
-
-          const response = await fetch(endpoint, {
-            method: "POST",
-            credentials: "same-origin",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-          });
-
-          const data = await response.json().catch(() => null);
-
-          if (!response.ok) {
-            setMessage(
-              data?.details ||
-                data?.error ||
-                "Your information could not be submitted."
-            );
-            setMessageType("error");
-            return;
-          }
-
-          setMessage(
-            data?.message ||
-              (isGatedLeadCapture
-                ? "Check your email for the private link to continue watching."
-                : "Your info was submitted.")
-          );
-          setMessageType("success");
-
-          window.setTimeout(() => {
-            onSuccess();
-          }, 700);
-        }}
-      />
-      {isGatedLeadCapture && loginHref ? (
-        <div className={styles.authFormSecondaryAction}>
-          <span>Already have an account?</span>{" "}
-          <a href={loginHref} className={styles.authFormInlineLink}>
-            Log in instead
-          </a>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-type MarketingQuestionsConfig = {
-  skipWhenLoggedIn?: boolean;
-  skipSlideIds?: string[];
-  skipTarget?: string;
-  answeredQuestionsTarget?: string;
-};
-
-function getMarketingQuestionsConfig(
-  variables: QuestionnaireVariableMap
-): MarketingQuestionsConfig | null {
-  const raw = variables.marketingQuestions;
-
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return null;
-  }
-
-  const record = raw as Record<string, unknown>;
-
-  return {
-    skipWhenLoggedIn: record.skipWhenLoggedIn === true,
-    skipSlideIds: Array.isArray(record.skipSlideIds)
-      ? record.skipSlideIds.filter((item): item is string => typeof item === "string")
-      : [],
-    skipTarget:
-      typeof record.skipTarget === "string" ? record.skipTarget : undefined,
-    answeredQuestionsTarget:
-      typeof record.answeredQuestionsTarget === "string"
-        ? record.answeredQuestionsTarget
-        : undefined,
-  };
-}
-
-type GatedAccessConfig = {
-  gateSlideId?: string;
-  goto?: string;
-  resumePromptSlideId?: string;
-  startFromBeginningSlideId?: string;
-};
-
-type GatedAccessState = {
-  hasAccess: boolean;
-  goto?: string | null;
-  resumePromptSlideId?: string | null;
-  gateSlideId?: string | null;
-};
-
-function getGatedAccessConfig(
-  variables: QuestionnaireVariableMap
-): GatedAccessConfig | null {
-  const raw = variables.gatedAccess;
-
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return null;
-  }
-
-  const record = raw as Record<string, unknown>;
-
-  return {
-    gateSlideId:
-      typeof record.gateSlideId === "string" ? record.gateSlideId : undefined,
-    goto: typeof record.goto === "string" ? record.goto : undefined,
-    resumePromptSlideId:
-      typeof record.resumePromptSlideId === "string"
-        ? record.resumePromptSlideId
-        : undefined,
-    startFromBeginningSlideId:
-      typeof record.startFromBeginningSlideId === "string"
-        ? record.startFromBeginningSlideId
-        : undefined,
-  };
-}
 
 function getVideoResumeStorageKey(questionnaireSlug: string, slideId: string) {
   return `questionnaire-video-resume:${questionnaireSlug}:${slideId}`;
@@ -850,6 +256,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   >({});
 
   const [videoResumeDecisionBySlideId, setVideoResumeDecisionBySlideId] =
+  useState<Record<string, VideoResumeDecision>>({});
   useState<Record<string, "continue" | "beginning">>({});
 
   const [isDeletingBatch, setIsDeletingBatch] = useState(false);
@@ -868,7 +275,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const searchParams = useSearchParams();
   const gatedAccessHandledRef = useRef(false);
   const loginReturnHandledRef = useRef(false);
-  const urlSlideHandledRef = useRef(false);
+
   const accountProfileAutofillHandledRef = useRef(false);
   const [gatedAccessState, setGatedAccessState] =
     useState<GatedAccessState | null>(null);
@@ -877,65 +284,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     Record<string, number>
   >({});
 
-  function getSavedVideoResumeSeconds(slideId: string) {
-  const savedSeconds = dbVideoProgressBySlideId[slideId];
 
-  return typeof savedSeconds === "number" && savedSeconds > 0
-    ? savedSeconds
-    : 0;
-}
 
-function getVideoStartSecondsForSlide() {
-  if (!currentSlide || currentSlide.mediaType !== "video") {
-    return currentSlide?.videoStartAtSeconds;
-  }
 
-  const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
-  const resumeMode = currentSlide.videoResumeMode ?? "none";
-  const slideDecision = videoResumeDecisionBySlideId[currentSlide.id];
-
-  if (videoResumeOverrides[currentSlide.id] !== undefined) {
-    return videoResumeOverrides[currentSlide.id];
-  }
-
-  if (resumeMode === "auto" && savedSeconds > 0) {
-    return savedSeconds;
-  }
-
-  if (resumeMode === "prompt-once" && slideDecision === "continue") {
-    return savedSeconds || currentSlide.videoStartAtSeconds;
-  }
-
-  if (resumeMode === "prompt-once" && slideDecision === "beginning") {
-    return currentSlide.videoStartAtSeconds;
-  }
-
-  return currentSlide.videoStartAtSeconds;
-}
-
-function shouldShowVideoResumePrompt() {
-  if (!currentSlide || currentSlide.mediaType !== "video") {
-    return false;
-  }
-
-  const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
-
-  if (savedSeconds <= 0) {
-    return false;
-  }
-
-  const resumeMode = currentSlide.videoResumeMode ?? "none";
-
-  if (resumeMode === "prompt-every-time") {
-    return videoResumeOverrides[currentSlide.id] === undefined;
-  }
-
-  if (resumeMode === "prompt-once") {
-    return videoResumeDecisionBySlideId[currentSlide.id] === undefined;
-  }
-
-  return false;
-}
 
   const [dynamicVariables, setDynamicVariables] = useState<QuestionnaireVariableMap>(
     {}
@@ -1376,52 +727,17 @@ function shouldShowVideoResumePrompt() {
   );
 
   const currentSlide = visibleSlides[currentIndex];
+  useUrlSyncedSlide({
+    currentIndex,
+    currentSlide,
+    visibleSlides,
+    searchParams,
+    setHistory,
+    setCurrentIndex,
+  });
+
   const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
 
-  useEffect(() => {
-    if (urlSlideHandledRef.current) {
-      return;
-    }
-
-    const slideId = searchParams.get("slide");
-
-    if (!slideId) {
-      return;
-    }
-
-    const targetIndex = getSlideIndexById(visibleSlides, slideId);
-
-    if (targetIndex < 0) {
-      return;
-    }
-
-    urlSlideHandledRef.current = true;
-
-    if (targetIndex !== currentIndex) {
-      setHistory([]);
-      setCurrentIndex(targetIndex);
-    }
-  }, [currentIndex, searchParams, visibleSlides]);
-
-  useEffect(() => {
-    if (!currentSlide?.syncUrl) {
-      return;
-    }
-
-    const currentUrl = new URL(window.location.href);
-
-    if (currentUrl.searchParams.get("slide") === currentSlide.id) {
-      return;
-    }
-
-    currentUrl.searchParams.set("slide", currentSlide.id);
-
-    window.history.replaceState(
-      null,
-      "",
-      `${currentUrl.pathname}${currentUrl.search}`
-    );
-  }, [currentSlide]);
 
   useEffect(() => {
     if (
@@ -2173,9 +1489,7 @@ function shouldShowVideoResumePrompt() {
   }
 
   function getAuthLoginHref() {
-    const returnTo = getCurrentReturnToPath();
-
-    return `/questionnaire/auth-login?returnTo=${encodeURIComponent(returnTo)}`;
+    return buildQuestionnaireLoginHref(getCurrentReturnToPath());
   }
 
   function handleAuthLoginClick() {
@@ -2183,7 +1497,7 @@ function shouldShowVideoResumePrompt() {
   }
 
   function getLoginReturnToTarget() {
-    const returnTo = searchParams.get("returnTo");
+    const returnTo = readLoginReturnToFromSearch(searchParams);
 
     if (!returnTo) {
       return null;
@@ -3367,15 +2681,9 @@ async function next() {
     }
   }
 
-  function triggerDownload(downloadKey: string, label?: string) {
-    const downloadUrl = `/api/downloads/${encodeURIComponent(downloadKey)}`;
-
-    window.open(downloadUrl, "_blank", "noopener,noreferrer");
-
-    setDownloadNotice(
-      `${label ?? "Download"} started. If the download did not appear, check your browser downloads or try again.`
-    );
-  }
+function triggerDownload(downloadKey: string, label?: string) {
+  setDownloadNotice(openQuestionnaireDownload(downloadKey, label));
+}
 
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
@@ -3395,9 +2703,7 @@ async function next() {
     }
 
     if (currentSlide.downloadKey) {
-      window.location.href = `/api/downloads/${encodeURIComponent(
-        currentSlide.downloadKey
-      )}`;
+      window.location.href = getQuestionnaireDownloadUrl(currentSlide.downloadKey);
 
       return;
     }
@@ -3734,7 +3040,12 @@ async function next() {
                       <MediaRenderer
                       slide={{
                         ...currentSlide,
-                        videoStartAtSeconds: getVideoStartSecondsForSlide(),
+                        videoStartAtSeconds: getVideoStartSecondsForSlide({
+                          currentSlide,
+                          dbVideoProgressBySlideId,
+                          videoResumeOverrides,
+                          videoResumeDecisionBySlideId,
+                        }),
                       }}
                         onVerticalVideoPlayingChange={
                           setIsCurrentVerticalVideoPlaying
@@ -3772,7 +3083,12 @@ async function next() {
                         }}
                         videoSeekRequest={videoSeekRequest}
                       />
-                        {shouldShowVideoResumePrompt() ? (
+                        {shouldShowVideoResumePrompt({
+                          currentSlide,
+                          dbVideoProgressBySlideId,
+                          videoResumeOverrides,
+                          videoResumeDecisionBySlideId,
+                        }) ? (
                         <div className={styles.videoResumePrompt}>
                           <div className={styles.videoResumePromptCard}>
                             <p className={styles.videoResumePromptTitle}>
@@ -3788,7 +3104,10 @@ async function next() {
                                 className={styles.primaryButton}
                                   onClick={() => {
                                     const resumeMode = currentSlide.videoResumeMode ?? "none";
-                                    const savedSeconds = getSavedVideoResumeSeconds(currentSlide.id);
+                                    const savedSeconds = getSavedVideoResumeSeconds(
+                                      dbVideoProgressBySlideId,
+                                      currentSlide.id
+                                    );
 
                                     if (resumeMode === "prompt-once") {
                                       setVideoResumeDecisionBySlideId((prev) => ({
