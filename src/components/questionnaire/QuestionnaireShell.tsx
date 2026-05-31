@@ -28,7 +28,6 @@ import {
   ShopCart,
   ShopCatalog,
   ShopResolvedCartLine,
-  TicketAssignment,
   TicketAssignments,
   MealMenu,
   MealSelections,
@@ -110,6 +109,9 @@ import { useAuthSession } from "./hooks/useAuthSession";
 import { useUrlSyncedSlide } from "./hooks/useUrlSyncedSlide";
 import { useAccountProfileAutofill } from "./hooks/useAccountProfileAutofill";
 import { useQuestionnaireEngagement } from "./hooks/useQuestionnaireEngagement";
+import { useGatedAccessStatus } from "./hooks/useGatedAccessStatus";
+import { useLoginReturnSlide } from "./hooks/useLoginReturnSlide";
+import { useLoggedInGateBypass } from "./hooks/useLoggedInGateBypass";
 
 import {
   getContrastTextColor,
@@ -233,8 +235,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
   const searchParams = useSearchParams();
-  const gatedAccessHandledRef = useRef(false);
-  const loginReturnHandledRef = useRef(false);
 
   
   const [gatedAccessState, setGatedAccessState] =
@@ -538,6 +538,19 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [config.slides, evaluationContext, mergedVariables]
   );
 
+  useGatedAccessStatus({
+    questionnaireSlug: config.slug,
+    gatedAccessConfig,
+    authSessionUserId: authSessionUser?.id,
+    isAuthSessionLoaded,
+    searchParams,
+    visibleSlides,
+    setAuthSessionUser,
+    setGatedAccessState,
+    setHistory,
+    setCurrentIndex,
+  });
+
   const currentSlide = visibleSlides[currentIndex];
   useUrlSyncedSlide({
     currentIndex,
@@ -548,168 +561,29 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setCurrentIndex,
   });
 
-  const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
-
-
-  useEffect(() => {
-    if (
-      loginReturnHandledRef.current ||
-      !isAuthSessionLoaded ||
-      !authSessionUser?.id
-    ) {
-      return;
-    }
-
-    const returnSlideId = searchParams.get("loginReturnSlide");
-
-    if (!returnSlideId) {
-      return;
-    }
-
-    loginReturnHandledRef.current = true;
-
-    const targetIndex = getSlideIndexById(visibleSlides, returnSlideId);
-
-    const nextUrl = new URL(window.location.href);
-    nextUrl.searchParams.delete("loginReturnSlide");
-    window.history.replaceState(null, "", `${nextUrl.pathname}${nextUrl.search}`);
-
-    if (targetIndex < 0 || targetIndex === currentIndex) {
-      return;
-    }
-
-    setHistory([]);
-    setCurrentIndex(targetIndex);
-  }, [
-    authSessionUser?.id,
+  useLoginReturnSlide({
+    authSessionUserId: authSessionUser?.id,
     currentIndex,
     isAuthSessionLoaded,
     searchParams,
     visibleSlides,
-  ]);
+    setHistory,
+    setCurrentIndex,
+  });
 
-  useEffect(() => {
-    if (!isAuthSessionLoaded || !authSessionUser?.id || !currentSlide) {
-      return;
-    }
-
-    const gateSlideId = gatedAccessConfig?.gateSlideId;
-    const gatedGoto = gatedAccessConfig?.goto;
-
-    if (!gateSlideId || !gatedGoto) {
-      return;
-    }
-
-    if (currentSlide.id !== gateSlideId) {
-      return;
-    }
-
-    const targetIndex = getSlideIndexById(visibleSlides, gatedGoto);
-
-    if (targetIndex >= 0 && targetIndex !== currentIndex) {
-      setHistory((prev) => [...prev, currentIndex]);
-      setCurrentIndex(targetIndex);
-    }
-  }, [
-    authSessionUser?.id,
+  useLoggedInGateBypass({
+    authSessionUserId: authSessionUser?.id,
     currentIndex,
     currentSlide,
     gatedAccessConfig,
     isAuthSessionLoaded,
     visibleSlides,
-  ]);
+    setHistory,
+    setCurrentIndex,
+  });
 
-  useEffect(() => {
-    if (gatedAccessHandledRef.current || !isAuthSessionLoaded) {
-      return;
-  }
+  const shouldShowOverlayTitle = currentSlide?.titlePlacement === "progress_overlay";
 
-  async function resolveGatedAccess() {
-    const leadAccess = searchParams.get("leadAccess");
-    const queryGoto = searchParams.get("goto");
-
-    if (leadAccess === "verified" && queryGoto) {
-      const targetIndex = getSlideIndexById(visibleSlides, queryGoto);
-
-      if (targetIndex >= 0) {
-        gatedAccessHandledRef.current = true;
-
-        setGatedAccessState({
-          hasAccess: true,
-          goto: queryGoto,
-          gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
-          resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
-        });
-
-        setHistory([]);
-        setCurrentIndex(targetIndex);
-      }
-
-      return;
-    }
-
-    if (authSessionUser?.id) {
-      return;
-    }
-
-    const response = await fetch(
-      `/api/questionnaires/gated-access/status?questionnaireSlug=${encodeURIComponent(
-        config.slug
-      )}`,
-      {
-        method: "GET",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok || !data?.hasAccess || !data?.access?.goto) {
-      return;
-    }
-
-      const targetGoto = String(data.access.goto);
-
-      if (data?.authenticatedUser?.id) {
-        setAuthSessionUser({
-          id: String(data.authenticatedUser.id),
-          name:
-            typeof data.authenticatedUser.name === "string"
-              ? data.authenticatedUser.name
-              : null,
-          email:
-            typeof data.authenticatedUser.email === "string"
-              ? data.authenticatedUser.email
-              : null,
-          phone:
-            typeof data.authenticatedUser.phone === "string"
-              ? data.authenticatedUser.phone
-              : null,
-        });
-      }
-
-      gatedAccessHandledRef.current = true;
-
-      setGatedAccessState({
-        hasAccess: true,
-        goto: targetGoto,
-        gateSlideId: gatedAccessConfig?.gateSlideId ?? null,
-        resumePromptSlideId: gatedAccessConfig?.resumePromptSlideId ?? null,
-      });
-  }
-
-    void resolveGatedAccess().catch(() => null);
-  }, [
-    authSessionUser?.id,
-    config.slug,
-    gatedAccessConfig,
-    isAuthSessionLoaded,
-    searchParams,
-    visibleSlides,
-  ]);
 
   const resolvedOverlayTitle = shouldShowOverlayTitle
     ? replaceDynamicText(currentSlide?.title, evaluationContext, mergedVariables)
