@@ -934,6 +934,32 @@
   flex-wrap: wrap;
 }
 
+.productDescription {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  opacity: 0.78;
+}
+
+.sizeText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sizeDescription {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+.ticketQuantityLocked {
+  font-size: 0.85rem;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
 .cartItemBadge {
   display: inline-flex;
   align-items: center;
@@ -1101,6 +1127,13 @@
   display: grid;
   gap: 14px;
   margin-top: 18px;
+}
+
+.mealOptionPrice,
+.mealOptionLineTotal {
+  display: block;
+  font-size: 0.84rem;
+  opacity: 0.72;
 }
 
 .mealTicketPanel {

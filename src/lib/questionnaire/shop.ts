@@ -298,7 +298,8 @@ export function toggleShopLineSelected(
     productId,
     sizeOptionId,
     selected,
-    quantity: normalizePositiveInteger(current?.quantity, 1),
+    quantity: nextQuantity,
+    lockedQuantity,
     purchaseModeId: current?.purchaseModeId ?? defaultPurchaseModeId,
   };
 
@@ -310,13 +311,20 @@ export function toggleShopLineSelected(
 
 export function setShopLineQuantity(
   cart: ShopCart,
+  catalog: ShopCatalog | null,
   productId: string,
   sizeOptionId: string,
   quantity: number
 ): ShopCart {
   const key = makeShopLineKey(productId, sizeOptionId);
   const current = cart[key];
+  const product = findShopProduct(catalog, productId);
+  const lockedQuantity =
+    product?.fulfillmentType === "ticket" || current?.lockedQuantity === true;
 
+  const nextQuantity = lockedQuantity
+    ? 1
+    : normalizePositiveInteger(quantity, 1);
   return {
     ...cart,
     [key]: {

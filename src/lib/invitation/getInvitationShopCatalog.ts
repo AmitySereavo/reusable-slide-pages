@@ -12,53 +12,55 @@ export function getInvitationShopCatalog(): ShopCatalog {
         title: "Amity Sereavo Live — Ranny Williams Entertainment Centre",
         imageUrl: "/media/invitation/ranny-williams-ticket.jpg",
         description:
-          "Kingston, Jamaica · July 1 · Select your invitation option. Email confirmation and access details will be sent after purchase.",
+        "Kingston, Jamaica · July 1 · Select your invitation type. Eligible invitations include meal selection. You will choose meal details for each ticket owner on the ticket details page.",
         sizeOptions: [
           {
-            id: "ranny-williams-general-invitation",
+            id: "ranny-williams-general-email-invitation",
             label: "General Admission Invitation",
+            description:
+              "Use sent email along with your email address and ID to enter the event.",
             price: 25,
             weight: 0,
+            mealSelection: {
+              mode: "required",
+              menuId: "vegan-event-menu",
+              label: "Included vegan meal",
+            },
             purchaseModes: [
               {
-                id: "email-only",
-                label: "Email invitation only",
+                id: "standard",
+                label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
-              },
-              {
-                id: "email-with-meal",
-                label: "Email invitation + meal",
-                priceAdjustment: 0,
-                requiresPhysicalFulfillment: false,
-                mealSelection: {
-                  mode: "required",
-                  menuId: "vegan-event-menu",
-                  label: "Included vegan meal",
-                },
-              },
-              {
-                id: "email-plus-physical",
-                label: "Email invitation + physical invitation",
-                priceAdjustment: 8,
-                requiresPhysicalFulfillment: true,
-              },
-              {
-                id: "email-physical-with-meal",
-                label: "Email invitation + physical invitation + meal",
-                priceAdjustment: 8,
-                requiresPhysicalFulfillment: true,
-                mealSelection: {
-                  mode: "required",
-                  menuId: "vegan-event-menu",
-                  label: "Included vegan meal",
-                },
               },
             ],
           },
           {
-            id: "ranny-williams-vip-invitation",
+            id: "ranny-williams-general-physical-invitation",
+            label: "Physical-General Admission Invitation",
+            description:
+              "Official printed and signed letter sent to your mailing address.",
+            price: 33,
+            weight: 0,
+            mealSelection: {
+              mode: "required",
+              menuId: "vegan-event-menu",
+              label: "Included vegan meal",
+            },
+            purchaseModes: [
+              {
+                id: "standard",
+                label: "Standard",
+                priceAdjustment: 0,
+                requiresPhysicalFulfillment: true,
+              },
+            ],
+          },
+          {
+            id: "ranny-williams-vip-email-invitation",
             label: "VIP Invitation",
+            description:
+              "Use sent email along with your email address and ID to enter the event.",
             price: 50,
             weight: 0,
             mealSelection: {
@@ -68,30 +70,31 @@ export function getInvitationShopCatalog(): ShopCatalog {
             },
             purchaseModes: [
               {
-                id: "email-only",
-                label: "Email invitation only",
+                id: "standard",
+                label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
-              },
-              {
-                id: "email-plus-physical",
-                label: "Email invitation + physical invitation",
-                priceAdjustment: 8,
-                requiresPhysicalFulfillment: true,
               },
             ],
           },
           {
-            id: "ranny-williams-escape-album-download",
-            label: "Escape Album Digital Download",
-            price: 12,
+            id: "ranny-williams-vip-physical-invitation",
+            label: "Physical-VIP Invitation",
+            description:
+              "Official printed and signed letter sent to your mailing address.",
+            price: 58,
             weight: 0,
+            mealSelection: {
+              mode: "required",
+              menuId: "vegan-event-menu",
+              label: "Included vegan meal",
+            },
             purchaseModes: [
               {
-                id: "download-access",
-                label: "Email secure download access",
+                id: "standard",
+                label: "Standard",
                 priceAdjustment: 0,
-                requiresPhysicalFulfillment: false,
+                requiresPhysicalFulfillment: true,
               },
             ],
           },

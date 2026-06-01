@@ -39,6 +39,7 @@ export type ShopPurchaseMode = {
 export type ShopCatalogSizeOption = {
   id: string;
   label: string;
+  description?: string;
   price: number;
   weight?: number;
   mealSelection?: ShopMealSelectionRequirement;

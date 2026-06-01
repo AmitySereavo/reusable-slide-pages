@@ -14,8 +14,8 @@
 @showback: false
 @showauthcontrols: true
 @next: Get Tickets
-@goto: escape-album-download
-//invitation-shop
+@goto: invitation-shop
+//escape-album-download
 
 
 ===

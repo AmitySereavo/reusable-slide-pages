@@ -175,6 +175,116 @@ export function getTicketMealGroupTotal(
   );
 }
 
+export function getTicketMealOptionExtraTotal(params: {
+  menu: MealMenu;
+  assignment: TicketAssignment;
+  groupId: string;
+  optionId: string;
+}) {
+  const { menu, assignment, groupId, optionId } = params;
+  const group = menu.groups.find((item) => item.id === groupId);
+  const option = group?.options.find((item) => item.id === optionId);
+
+  if (!group || !option) {
+    return 0;
+  }
+
+  const quantity = normalizeNonNegativeInteger(
+    assignment.mealSelection?.[group.id]?.[option.id] ?? 0
+  );
+
+  if (quantity <= 0) {
+    return 0;
+  }
+
+  const includedServings =
+    typeof group.includedServings === "number"
+      ? group.includedServings
+      : group.required === false
+        ? 0
+        : 1;
+
+  let selectedBeforeThisOption = 0;
+
+  for (const candidate of group.options) {
+    if (candidate.id === option.id) {
+      break;
+    }
+
+    selectedBeforeThisOption += normalizeNonNegativeInteger(
+      assignment.mealSelection?.[group.id]?.[candidate.id] ?? 0
+    );
+  }
+
+  const includedRemainingForThisOption = Math.max(
+    0,
+    includedServings - selectedBeforeThisOption
+  );
+
+  const chargedQuantity = Math.max(0, quantity - includedRemainingForThisOption);
+
+  return chargedQuantity * (option.price ?? 0);
+}
+
+export function calculateSingleTicketMealExtraTotal(params: {
+  menu: MealMenu | null;
+  assignment: TicketAssignment;
+}) {
+  const { menu, assignment } = params;
+
+  if (!menu) {
+    return 0;
+  }
+
+  return calculateTicketMealExtraTotal({
+    menu,
+    assignments: [assignment],
+  });
+}
+
+export function getTicketMealSelectionSummary(params: {
+  menu: MealMenu | null;
+  assignment: TicketAssignment;
+}) {
+  const { menu, assignment } = params;
+
+  if (!menu) {
+    return [];
+  }
+
+  return menu.groups.flatMap((group) =>
+    group.options
+      .map((option) => {
+        const quantity =
+          assignment.mealSelection?.[group.id]?.[option.id] ?? 0;
+
+        if (quantity <= 0) {
+          return null;
+        }
+
+        const extraTotal = getTicketMealOptionExtraTotal({
+          menu,
+          assignment,
+          groupId: group.id,
+          optionId: option.id,
+        });
+
+        return {
+          groupLabel: group.label,
+          optionLabel: option.label,
+          quantity,
+          extraTotal,
+        };
+      })
+      .filter(Boolean)
+  ) as Array<{
+    groupLabel: string;
+    optionLabel: string;
+    quantity: number;
+    extraTotal: number;
+  }>;
+}
+
 export function updateTicketAssignmentField(params: {
   assignments: TicketAssignments;
   ticketCode: string;
@@ -260,12 +370,8 @@ export function calculateTicketMealExtraTotal(params: {
   }
 
   return getTicketsNeedingMeal(assignments).reduce((sum, assignment) => {
-    const addOnPrice =
-      assignment.mealMode === "optional" && assignment.mealEnabled
-        ? assignment.mealAddOnPrice ?? 0
-        : 0;
-
     const servingExtraTotal = menu.groups.reduce((groupSum, group) => {
+      
       const includedServings =
         typeof group.includedServings === "number"
           ? group.includedServings
@@ -291,7 +397,7 @@ export function calculateTicketMealExtraTotal(params: {
       return groupSum + optionTotal;
     }, 0);
 
-    return sum + addOnPrice + servingExtraTotal;
+    return sum + servingExtraTotal;
   }, 0);
 }
 

@@ -33,6 +33,7 @@ import {
   MealSelections,
   SlideSection,
   ThemeConfig,
+  ShopCatalogSizeOption,
 } from "@/types/questionnaire";
 
 import { clearQuestionnaireVisitorState } from "@/lib/questionnaire/visitorState";
@@ -171,6 +172,16 @@ type VideoSeekRequest = {
   percent?: number;
   seconds?: number;
 };
+
+function isInternalOnlyPurchaseMode(
+  purchaseModes: NonNullable<ShopCatalogSizeOption["purchaseModes"]>
+) {
+  return (
+    purchaseModes.length === 1 &&
+    (purchaseModes[0]?.id === "standard" ||
+      purchaseModes[0]?.id === "default")
+  );
+}
 
 
 export default function QuestionnaireShell({ config, theme }: Props) {
@@ -2960,12 +2971,7 @@ function triggerDownload(downloadKey: string, label?: string) {
                           }
                           onSetQuantity={(productId, sizeOptionId, quantity) =>
                             updateCurrentShopCart((cart) =>
-                              setShopLineQuantity(
-                                cart,
-                                productId,
-                                sizeOptionId,
-                                quantity
-                              )
+                              setShopLineQuantity(currentShopCart, currentShopCatalog, productId, sizeOptionId, quantity)
                             )
                           }
                           onSetPurchaseMode={(
@@ -3026,6 +3032,8 @@ function triggerDownload(downloadKey: string, label?: string) {
                       {currentSlide.type === "tickets" ? (
                         <TicketDetailsRenderer
                           assignments={currentTicketAssignments}
+                          menu={currentMealMenu}
+                          ticketLines={sharedOrderLines.filter((line) => line.fulfillmentType === "ticket")}
                           theme={theme}
                           purchaserEmail={String(answers.email ?? "").trim()}
                           onChange={(nextAssignments) =>
@@ -3552,6 +3560,8 @@ function TicketDetailsRenderer({
   onChange: (nextAssignments: TicketAssignments) => void;
   onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
+  menu: MealMenu | null;
+  ticketLines: ShopResolvedCartLine[];
 }) {
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
@@ -3562,6 +3572,7 @@ function TicketDetailsRenderer({
       assignment.isPurchaserTicket !== true &&
       String(assignment.ownerEmail ?? "").trim().length > 0
   );
+  
 
   return (
     <div className={styles.mealStack}>
@@ -3844,8 +3855,33 @@ function MealSelectionRenderer({
                         className={styles.mealOptionRow}
                       >
                         <div className={styles.mealOptionLabel}>
-                          {option.label}
-                          {option.price ? ` · ${formatCurrency(option.price, "USD")} extra` : ""}
+                          <span>{option.label}</span>
+
+                          {option.price ? (
+                            <span className={styles.mealOptionPrice}>
+                              {formatCurrency(option.price, "USD")} per extra serving
+                            </span>
+                          ) : null}
+
+                          {getTicketMealOptionExtraTotal({
+                            menu,
+                            assignment,
+                            groupId: group.id,
+                            optionId: option.id,
+                          }) > 0 ? (
+                            <span className={styles.mealOptionLineTotal}>
+                              Extra:{" "}
+                              {formatCurrency(
+                                getTicketMealOptionExtraTotal({
+                                  menu,
+                                  assignment,
+                                  groupId: group.id,
+                                  optionId: option.id,
+                                }),
+                                "USD"
+                              )}
+                            </span>
+                          ) : null}
                         </div>
 
                         <div className={styles.quantityControl}>
@@ -4555,6 +4591,10 @@ function ShopSlideRenderer({
                   <div className={styles.productTitleRow}>
                     <div className={styles.productTitleGroup}>
                       <h3 className={styles.productTitle}>{product.title}</h3>
+                      {product.description ? (
+                        <p className={styles.productDescription}>{product.description}</p>
+                      ) : null}
+
                       {slideMode === "review" ? (
                         <span className={styles.cartItemBadge}>Cart item</span>
                       ) : null}
@@ -4679,9 +4719,17 @@ function ShopSlideRenderer({
                               Remove
                             </button>
                           )}
+                          
+                          <div className={styles.sizeText}>
+                            <div className={styles.sizeLabel}>{sizeOption.label}</div>
 
-                          <div className={styles.sizeLabel}>{sizeOption.label}</div>
-
+                            {sizeOption.description ? (
+                              <div className={styles.sizeDescription}>
+                                {sizeOption.description}
+                              </div>
+                            ) : null}
+                          </div>
+                          
                           <div className={styles.sizePrice}>
                             {resolvedLine?.baseUnitPrice !== undefined &&
                             resolvedLine.baseUnitPrice > unitPrice ? (
@@ -4706,27 +4754,34 @@ function ShopSlideRenderer({
                               formatCurrency(unitPrice, catalog.currencyCode)
                             )}
                           </div>
-
-                          <QuantityControl
-                            quantity={quantity}
-                            disabled={slideMode === "browse" ? !selected : false}
-                            onDecrease={() =>
-                              onSetQuantity(product.id, sizeOption.id, quantity - 1)
-                            }
-                            onIncrease={() =>
-                              onSetQuantity(product.id, sizeOption.id, quantity + 1)
-                            }
-                            theme={theme}
-                          />
+                              {isEventTicketLine ? (
+                                <div className={styles.ticketQuantityLocked}>
+                                  Qty 1 per ticket option
+                                </div>
+                              ) : (
+                                <QuantityControl
+                                  quantity={quantity}
+                                  disabled={slideMode === "browse" ? !selected : false}
+                                  onDecrease={() =>
+                                    onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                                  }
+                                  onIncrease={() =>
+                                    onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                                  }
+                                  theme={theme}
+                                />
+                              )}
                         </div>
 
-                        {slideMode === "browse" && sizeOption.purchaseModes?.length ? (
+                          {slideMode === "browse" &&
+                          sizeOption.purchaseModes?.length &&
+                          !isInternalOnlyPurchaseMode(sizeOption.purchaseModes) ? (
                           <div className={styles.purchaseModes}>
                             {sizeOption.purchaseModes.map((mode) => {
                               const checked =
                                 (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
                                 mode.id;
-
+                                const isEventTicketLine = product.fulfillmentType === "ticket";
                               return (
                                 <label
                                   key={mode.id}
