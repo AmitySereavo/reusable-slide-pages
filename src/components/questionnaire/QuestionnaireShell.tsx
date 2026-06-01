@@ -81,8 +81,11 @@ import {
 import {
   areRequiredTicketMealsComplete,
   buildTicketAssignmentsFromLines,
+  calculateSingleTicketMealExtraTotal,
   calculateTicketMealExtraTotal,
   getTicketMealGroupTotal,
+  getTicketMealOptionExtraTotal,
+  getTicketMealSelectionSummary,
   getTicketsNeedingMeal,
   hasTicketsNeedingMeal,
   normalizeTicketAssignments,
@@ -2971,7 +2974,13 @@ function triggerDownload(downloadKey: string, label?: string) {
                           }
                           onSetQuantity={(productId, sizeOptionId, quantity) =>
                             updateCurrentShopCart((cart) =>
-                              setShopLineQuantity(currentShopCart, currentShopCatalog, productId, sizeOptionId, quantity)
+                              setShopLineQuantity(
+                                cart,
+                                currentShopCatalog,
+                                productId,
+                                sizeOptionId,
+                                quantity
+                              )
                             )
                           }
                           onSetPurchaseMode={(
@@ -3548,6 +3557,8 @@ function triggerDownload(downloadKey: string, label?: string) {
 
 function TicketDetailsRenderer({
   assignments,
+  menu,
+  ticketLines,
   theme,
   purchaserEmail,
   onChange,
@@ -3555,13 +3566,13 @@ function TicketDetailsRenderer({
   onSelectMeal,
 }: {
   assignments: TicketAssignments;
+  menu: MealMenu | null;
+  ticketLines: ShopResolvedCartLine[];
   theme: ThemeConfig;
   purchaserEmail: string;
   onChange: (nextAssignments: TicketAssignments) => void;
   onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
-  menu: MealMenu | null;
-  ticketLines: ShopResolvedCartLine[];
 }) {
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
@@ -3597,7 +3608,24 @@ function TicketDetailsRenderer({
         </button>
       ) : null}
 
-      {assignments.map((assignment) => (
+            {assignments.map((assignment) => {
+        const ticketLine = ticketLines.find(
+          (line) =>
+            line.lineKey === assignment.lineKey ||
+            (line.productId === assignment.productId &&
+              line.sizeOptionId === assignment.sizeOptionId)
+        );
+
+        const ticketBasePrice = ticketLine?.unitPrice ?? 0;
+        const mealExtraTotal = calculateSingleTicketMealExtraTotal({
+          menu,
+          assignment,
+        });
+        const ticketTotal = ticketBasePrice + mealExtraTotal;
+        const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
+        const hasSelectedMealItems = mealSummary.length > 0;
+
+        return (
         <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
           <div className={styles.mealTicketHeader}>
             <div className={styles.mealTicketTitle}>
@@ -3740,12 +3768,7 @@ function TicketDetailsRenderer({
                   )
                 }
               />
-              <span>
-                Add meal for this ticket
-                {assignment.mealAddOnPrice
-                  ? ` +${formatCurrency(assignment.mealAddOnPrice, "USD")}`
-                  : ""}
-              </span>
+              <span>Add meal for this ticket</span>
             </label>
           ) : null}
 
@@ -3761,11 +3784,32 @@ function TicketDetailsRenderer({
                 color: theme.colors.text,
               }}
             >
-              Select meal for this ticket
+              {hasSelectedMealItems ? "Adjust meal" : "Select meal for this ticket"}
             </button>
           ) : null}
-        </div>
-      ))}
+
+          {hasSelectedMealItems ? (
+            <div className={styles.ticketMealSummary}>
+              {mealSummary.map((item) => (
+                <div
+                  key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
+                >
+                  {item.groupLabel}: {item.optionLabel} × {item.quantity}
+                  {item.extraTotal > 0
+                    ? ` · +${formatCurrency(item.extraTotal, "USD")}`
+                    : ""}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className={styles.ticketTotalRow}>
+            <span>Ticket total</span>
+            <strong>{formatCurrency(ticketTotal, "USD")}</strong>
+          </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -4672,7 +4716,7 @@ function ShopSlideRenderer({
                         ? resolvedLine?.unitPrice ??
                           sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
                         : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
-
+                    const isEventTicketLine = product.fulfillmentType === "ticket";
                     return (
                       <div
                         key={sizeOption.id}
@@ -4754,9 +4798,9 @@ function ShopSlideRenderer({
                               formatCurrency(unitPrice, catalog.currencyCode)
                             )}
                           </div>
-                              {isEventTicketLine ? (
+                              {isEventTicketLine && slideMode === "review" ? (
                                 <div className={styles.ticketQuantityLocked}>
-                                  Qty 1 per ticket option
+                                  Quantity locked before payment
                                 </div>
                               ) : (
                                 <QuantityControl
@@ -4781,7 +4825,7 @@ function ShopSlideRenderer({
                               const checked =
                                 (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
                                 mode.id;
-                                const isEventTicketLine = product.fulfillmentType === "ticket";
+                
                               return (
                                 <label
                                   key={mode.id}

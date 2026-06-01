@@ -1156,6 +1156,29 @@
   line-height: 1.35;
 }
 
+.ticketMealSummary {
+  margin-top: 8px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.88rem;
+  opacity: 0.82;
+}
+
+.ticketTotalRow {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+}
+
+.mealOptionPrice,
+.mealOptionLineTotal {
+  display: block;
+  font-size: 0.84rem;
+  opacity: 0.72;
+}
+
 .mealTicketMeta {
   font-size: 14px;
   line-height: 1.45;
