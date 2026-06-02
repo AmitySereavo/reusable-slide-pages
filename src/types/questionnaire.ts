@@ -100,6 +100,7 @@ export type TicketAssignment = {
   ownerName?: string;
   ownerEmail?: string;
   ownerPhone?: string;
+  purchaserContactPrefilled?: boolean;
   isPurchaserTicket?: boolean;
   emailTicketToOwner?: boolean;
   mealMode?: "required" | "optional";

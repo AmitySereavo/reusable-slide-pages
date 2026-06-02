@@ -896,6 +896,29 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedOrderLines, sharedDeliveryFee]
   );
 
+  const sharedMealMenu = useMemo<MealMenu | null>(() => {
+    const firstMenuId = getTicketsNeedingMeal(
+      currentTicketAssignments
+    )[0]?.mealMenuId;
+
+    return getMealMenu(mergedVariables, "mealMenus", firstMenuId);
+  }, [currentTicketAssignments, mergedVariables]);
+
+  const sharedMealExtraTotal = useMemo(
+    () =>
+      calculateTicketMealExtraTotal({
+        menu: sharedMealMenu,
+        assignments: currentTicketAssignments,
+      }),
+    [sharedMealMenu, currentTicketAssignments]
+  );
+
+  const sharedOrderSubtotalWithMeals =
+    sharedOrderSummary.subtotal + sharedMealExtraTotal;
+
+  const sharedOrderGrandTotalWithMeals =
+    sharedOrderSummary.grandTotal + sharedMealExtraTotal;
+
   const contactInfoComplete = useMemo(
     () => isContactInfoComplete(answers, sharedDeliverySelection),
     [answers, sharedDeliverySelection]
@@ -1711,10 +1734,7 @@ async function next() {
     }
 
     if (currentSlide.type === "meal") {
-      return areRequiredTicketMealsComplete({
-        menu: currentMealMenu,
-        assignments: currentTicketAssignments,
-      });
+      return true;
     }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
@@ -2437,14 +2457,30 @@ function triggerDownload(downloadKey: string, label?: string) {
     "primary"
   );
 
+  const selectedMealTicket =
+    currentSlide.type === "meal"
+      ? currentTicketAssignments.find(
+          (assignment) =>
+            assignment.ticketCode === String(answers.selectedMealTicketCode ?? "")
+        ) ?? null
+      : null;
+
+  const selectedMealExtraTotal =
+    currentSlide.type === "meal" && selectedMealTicket
+      ? calculateSingleTicketMealExtraTotal({
+          menu: currentMealMenu,
+          assignment: selectedMealTicket,
+        })
+      : 0;
+
   const nextLabel =
     currentSlide.type === "shop" && currentSlide.shopMode === "review"
       ? `${
-          sharedOrderSummary.grandTotal > 0
+          sharedOrderGrandTotalWithMeals > 0
             ? currentSlide.nextLabel ?? "Pay now"
             : currentSlide.nextLabel ?? "Continue"
         } · ${formatCurrency(
-          sharedOrderSummary.grandTotal,
+          sharedOrderGrandTotalWithMeals,
           sharedShopCatalog?.currencyCode ?? "JMD"
         )}`
       : currentSlide.type === "shop"
@@ -2454,12 +2490,17 @@ function triggerDownload(downloadKey: string, label?: string) {
           )}`
         : currentSlide.type === "delivery"
           ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
-              sharedOrderSummary.subtotal + currentDeliveryFee,
+              sharedOrderSubtotalWithMeals + currentDeliveryFee,
               sharedShopCatalog?.currencyCode ?? "JMD"
             )}`
-          : isSubmitting
-            ? "Submitting..."
-            : currentSlide.nextLabel ?? "Next";
+      : currentSlide.type === "meal"
+        ? `${currentSlide.nextLabel ?? "Back to ticket details"} · ${formatCurrency(
+            selectedMealExtraTotal,
+            sharedShopCatalog?.currencyCode ?? "USD"
+          )}`
+      : isSubmitting
+        ? "Submitting..."
+        : currentSlide.nextLabel ?? "Next";
 
     const stageBackgroundColor = isMediaSlide
       ? "#000000"
@@ -2952,7 +2993,7 @@ function triggerDownload(downloadKey: string, label?: string) {
                           }
                           grandTotal={
                             currentSlide.shopMode === "review"
-                              ? sharedOrderSummary.grandTotal
+                              ? sharedOrderGrandTotalWithMeals
                               : currentShopSubtotal
                           }
                           activeDiscountLabel={activeDiscountDefinition?.label}
@@ -3103,22 +3144,9 @@ function triggerDownload(downloadKey: string, label?: string) {
                       currentSlide.shopMode === "review" &&
                       hasTicketsNeedingMeal(currentTicketAssignments) ? (
                         <MealSelectionSummaryRenderer
-                          menu={getMealMenu(
-                            mergedVariables,
-                            "mealMenus",
-                            getTicketsNeedingMeal(currentTicketAssignments)[0]
-                              ?.mealMenuId
-                          )}
+                          menu={sharedMealMenu}
                           assignments={currentTicketAssignments}
-                          mealExtraTotal={calculateTicketMealExtraTotal({
-                            menu: getMealMenu(
-                              mergedVariables,
-                              "mealMenus",
-                              getTicketsNeedingMeal(currentTicketAssignments)[0]
-                                ?.mealMenuId
-                            ),
-                            assignments: currentTicketAssignments,
-                          })}
+                          mealExtraTotal={sharedMealExtraTotal}
                           onAdjustMeals={() => goToTarget("meal-selection")}
                         />
                       ) : null}
@@ -3451,7 +3479,7 @@ function triggerDownload(downloadKey: string, label?: string) {
                     <div className={styles.orderWeightSummary}>
                       Items:{" "}
                       {formatCurrency(
-                        sharedOrderSummary.subtotal,
+                        sharedOrderSubtotalWithMeals,
                         sharedShopCatalog?.currencyCode ?? "JMD"
                       )}
                       {currentDeliveryFee > 0 ? (
@@ -3462,7 +3490,7 @@ function triggerDownload(downloadKey: string, label?: string) {
                       ) : null}{" "}
                       · Total:{" "}
                       {formatCurrency(
-                        sharedOrderSummary.subtotal + currentDeliveryFee,
+                        sharedOrderSubtotalWithMeals + currentDeliveryFee,
                         sharedShopCatalog?.currencyCode ?? "JMD"
                       )}
                     </div>
@@ -3855,7 +3883,13 @@ function MealSelectionRenderer({
         Back to ticket details
       </button>
 
-      {mealAssignments.map((assignment) => (
+      {mealAssignments.map((assignment) => {
+        const mealExtraTotal = calculateSingleTicketMealExtraTotal({
+          menu,
+          assignment,
+        });
+
+        return (
         <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
           <div className={styles.mealTicketHeader}>
             <div className={styles.mealTicketTitle}>
@@ -3867,6 +3901,11 @@ function MealSelectionRenderer({
             <div className={styles.mealTicketMeta}>
               {assignment.mealLabel ?? "Meal selection"}
             </div>
+          </div>
+
+          <div className={styles.ticketTotalRow}>
+            <span>Meal extras for this ticket</span>
+            <strong>{formatCurrency(mealExtraTotal, "USD")}</strong>
           </div>
 
           {menu.groups.map((group) => {
@@ -4035,8 +4074,9 @@ function MealSelectionRenderer({
               style={{ borderColor: theme.colors.border }}
             />
           ) : null}
-        </div>
-      ))}
+                </div>
+        );
+      })}
     </div>
   );
 }

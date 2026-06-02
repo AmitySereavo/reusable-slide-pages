@@ -200,6 +200,11 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
         typeof groupRecord.required === "boolean"
           ? groupRecord.required
           : undefined;
+      const includedServings =
+        typeof groupRecord.includedServings === "number" &&
+        Number.isFinite(groupRecord.includedServings)
+          ? groupRecord.includedServings
+          : undefined;
       const optionsValue = groupRecord.options;
 
       if (!groupId || !groupLabel || !Array.isArray(optionsValue)) {
@@ -219,6 +224,11 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
             typeof optionRecord.label === "string"
               ? optionRecord.label
               : undefined;
+          const optionPrice =
+            typeof optionRecord.price === "number" &&
+            Number.isFinite(optionRecord.price)
+              ? optionRecord.price
+              : undefined;
 
           if (!optionId || !optionLabel) {
             return null;
@@ -227,6 +237,7 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
           return {
             id: optionId,
             label: optionLabel,
+            price: optionPrice,
           };
         })
         .filter(Boolean) as MealMenu["groups"][number]["options"];
@@ -235,6 +246,7 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
         id: groupId,
         label: groupLabel,
         required,
+        includedServings,
         options,
       };
     })

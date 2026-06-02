@@ -630,6 +630,8 @@ function normalizeShopSizeOption(
   const record = input as Record<string, QuestionnaireVariableValue>;
   const id = typeof record.id === "string" ? record.id : undefined;
   const label = typeof record.label === "string" ? record.label : undefined;
+  const description =
+    typeof record.description === "string" ? record.description : undefined;
   const price =
     typeof record.price === "number" && Number.isFinite(record.price)
       ? record.price
@@ -653,6 +655,7 @@ function normalizeShopSizeOption(
     return {
       id,
       label,
+      description,
       price,
       weight,
       mealSelection,

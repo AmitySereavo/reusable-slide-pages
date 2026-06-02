@@ -56,6 +56,7 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
           typeof record.ownerEmail === "string" ? record.ownerEmail : "",
         ownerPhone:
           typeof record.ownerPhone === "string" ? record.ownerPhone : "",
+        purchaserContactPrefilled: record.purchaserContactPrefilled === true,
         isPurchaserTicket: record.isPurchaserTicket === true,
         emailTicketToOwner: record.emailTicketToOwner !== false,
         mealMode:
@@ -109,6 +110,7 @@ export function buildTicketAssignmentsFromLines(params: {
         ownerName: existing?.ownerName ?? "",
         ownerEmail: existing?.ownerEmail ?? "",
         ownerPhone: existing?.ownerPhone ?? "",
+        purchaserContactPrefilled: existing?.purchaserContactPrefilled,
         isPurchaserTicket: existing?.isPurchaserTicket ?? index === 0,
         emailTicketToOwner:
           existing?.emailTicketToOwner ?? (existing?.isPurchaserTicket ? false : true),

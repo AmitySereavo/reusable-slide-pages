@@ -21,11 +21,16 @@ export function prefillFirstTicketFromContact(
       return assignment;
     }
 
+    if (assignment.purchaserContactPrefilled === true) {
+      return assignment;
+    }
+
     return {
       ...assignment,
-      ownerName: assignment.ownerName?.trim() || purchaserName,
-      ownerEmail: assignment.ownerEmail?.trim() || purchaserEmail,
-      ownerPhone: assignment.ownerPhone?.trim() || purchaserPhone,
+      ownerName: purchaserName,
+      ownerEmail: purchaserEmail,
+      ownerPhone: purchaserPhone,
+      purchaserContactPrefilled: true,
       isPurchaserTicket: assignment.isPurchaserTicket ?? true,
       emailTicketToOwner:
         assignment.isPurchaserTicket === true
