@@ -88,6 +88,12 @@ export type MealMenuCatalog = {
 
 export type TicketMealSelection = Record<string, Record<string, number>>;
 
+export type TicketOwnerPaymentMode =
+  | "purchaser_pays_ticket_and_addons"
+  | "owner_selects_sender_pays_addons"
+  | "owner_pays_addons"
+  | "owner_pays_ticket_and_addons";
+  
 export type TicketAssignment = {
   ticketCode: string;
   lineKey: string;
@@ -103,6 +109,7 @@ export type TicketAssignment = {
   purchaserContactPrefilled?: boolean;
   isPurchaserTicket?: boolean;
   emailTicketToOwner?: boolean;
+  ticketOwnerPaymentMode?: TicketOwnerPaymentMode;
   mealMode?: "required" | "optional";
   mealMenuId?: string;
   mealLabel?: string;

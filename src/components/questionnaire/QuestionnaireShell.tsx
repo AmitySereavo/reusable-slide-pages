@@ -92,6 +92,7 @@ import {
   setTicketMealOptionQuantity,
   updateTicketAssignmentBoolean,
   updateTicketAssignmentField,
+  updateTicketOwnerPaymentMode,
 } from "@/lib/questionnaire/tickets";
 
 import { prefillFirstTicketFromContact } from "@/lib/questionnaire/ticketAutofill";
@@ -3583,6 +3584,16 @@ function triggerDownload(downloadKey: string, label?: string) {
   );
 }
 
+function isValidTicketOwnerEmail(value: string | undefined) {
+  const email = String(value ?? "").trim();
+
+  if (!email) {
+    return false;
+  }
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function TicketDetailsRenderer({
   assignments,
   menu,
@@ -3602,6 +3613,10 @@ function TicketDetailsRenderer({
   onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
 }) {
+  const [expandedTicketCode, setExpandedTicketCode] = useState<string | null>(
+    null
+  );
+
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
   }
@@ -3609,16 +3624,15 @@ function TicketDetailsRenderer({
   const ticketsWithOwnerEmails = assignments.filter(
     (assignment) =>
       assignment.isPurchaserTicket !== true &&
-      String(assignment.ownerEmail ?? "").trim().length > 0
+      isValidTicketOwnerEmail(assignment.ownerEmail)
   );
-  
 
   return (
     <div className={styles.mealStack}>
       <div className={styles.contactNote}>
         The first ticket is prefilled from the purchaser contact details. Mark
-        “This is my ticket” for the purchaser’s own ticket. Guest tickets can be
-        emailed to their owners after the order is completed.
+        “This is my ticket” for the purchaser’s own ticket. Guest ticket details
+        can be added under each ticket.
       </div>
 
       {ticketsWithOwnerEmails.length > 0 ? (
@@ -3636,7 +3650,7 @@ function TicketDetailsRenderer({
         </button>
       ) : null}
 
-            {assignments.map((assignment) => {
+      {assignments.map((assignment) => {
         const ticketLine = ticketLines.find(
           (line) =>
             line.lineKey === assignment.lineKey ||
@@ -3653,188 +3667,400 @@ function TicketDetailsRenderer({
         const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
         const hasSelectedMealItems = mealSummary.length > 0;
 
+        const ticketOwnerName =
+          assignment.ownerName?.trim() || "this ticket owner";
+        const selectedPaymentMode =
+          assignment.ticketOwnerPaymentMode ??
+          "purchaser_pays_ticket_and_addons";
+
+        const ownerEmailIsValid = isValidTicketOwnerEmail(
+          assignment.ownerEmail
+        );
+        const shouldShowOwnerInputs =
+          assignment.isPurchaserTicket !== true &&
+          assignment.emailTicketToOwner === true;
+        const shouldShowOwnerAccess =
+          shouldShowOwnerInputs && ownerEmailIsValid;
+        const detailsAreExpanded =
+          expandedTicketCode === assignment.ticketCode;
+        const canSelectMealForThisTicket =
+          assignment.isPurchaserTicket === true ||
+          selectedPaymentMode === "purchaser_pays_ticket_and_addons";
+
         return (
-        <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
-          <div className={styles.mealTicketHeader}>
-            <div className={styles.mealTicketTitle}>
-              {assignment.ticketLabel}
+          <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
+            <div className={styles.mealTicketHeader}>
+              <div className={styles.mealTicketTitle}>
+                {assignment.ticketLabel}
+              </div>
+              <div className={styles.mealTicketMeta}>
+                Code: {assignment.ticketCode}
+              </div>
             </div>
-            <div className={styles.mealTicketMeta}>
-              Code: {assignment.ticketCode}
+
+            <div className={styles.ticketTopControls}>
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={assignment.isPurchaserTicket === true}
+                  onChange={(event) =>
+                    onChange(
+                      updateTicketAssignmentBoolean({
+                        assignments,
+                        ticketCode: assignment.ticketCode,
+                        field: "isPurchaserTicket",
+                        value: event.target.checked,
+                      }).map((item) =>
+                        item.ticketCode === assignment.ticketCode &&
+                        event.target.checked
+                          ? {
+                              ...item,
+                              ownerEmail:
+                                item.ownerEmail?.trim() || purchaserEmail,
+                              emailTicketToOwner: false,
+                              ticketOwnerPaymentMode:
+                                "purchaser_pays_ticket_and_addons",
+                            }
+                          : item
+                      )
+                    )
+                  }
+                />
+                <span>This is my ticket</span>
+              </label>
+
+              <label className={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={
+                    assignment.isPurchaserTicket === true
+                      ? false
+                      : assignment.emailTicketToOwner === true
+                  }
+                  disabled={assignment.isPurchaserTicket === true}
+                  onChange={(event) =>
+                    onChange(
+                      updateTicketAssignmentBoolean({
+                        assignments,
+                        ticketCode: assignment.ticketCode,
+                        field: "emailTicketToOwner",
+                        value: event.target.checked,
+                      })
+                    )
+                  }
+                />
+                <span>Email this ticket to the owner</span>
+              </label>
             </div>
-            <div className={styles.mealTicketMeta}>
-              {assignment.productTitle}
-            </div>
-          </div>
 
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={assignment.isPurchaserTicket === true}
-              onChange={(event) =>
-                onChange(
-                  updateTicketAssignmentBoolean({
-                    assignments,
-                    ticketCode: assignment.ticketCode,
-                    field: "isPurchaserTicket",
-                    value: event.target.checked,
-                  }).map((item) =>
-                    item.ticketCode === assignment.ticketCode &&
-                    event.target.checked
-                      ? {
-                          ...item,
-                          ownerEmail:
-                            item.ownerEmail?.trim() || purchaserEmail,
-                          emailTicketToOwner: false,
-                        }
-                      : item
-                  )
-                )
-              }
-            />
-            <span>This is my ticket</span>
-          </label>
+            {assignment.ownerName?.trim() || assignment.ownerEmail?.trim() ? (
+              <div className={styles.ticketOwnerSummary}>
+                {assignment.ownerName?.trim() ? (
+                  <div>{assignment.ownerName.trim()}</div>
+                ) : null}
+                {assignment.ownerEmail?.trim() ? (
+                  <div>{assignment.ownerEmail.trim()}</div>
+                ) : null}
+              </div>
+            ) : null}
 
-          <input
-            className={styles.input}
-            value={assignment.ownerName ?? ""}
-            onChange={(event) =>
-              onChange(
-                updateTicketAssignmentField({
-                  assignments,
-                  ticketCode: assignment.ticketCode,
-                  field: "ownerName",
-                  value: event.target.value,
-                })
-              )
-            }
-            placeholder="Ticket owner name (optional)"
-            style={{ borderColor: theme.colors.border }}
-          />
-
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={
-                assignment.isPurchaserTicket === true
-                  ? false
-                  : assignment.emailTicketToOwner !== false
-              }
-              disabled={assignment.isPurchaserTicket === true}
-              onChange={(event) =>
-                onChange(
-                  updateTicketAssignmentBoolean({
-                    assignments,
-                    ticketCode: assignment.ticketCode,
-                    field: "emailTicketToOwner",
-                    value: event.target.checked,
-                  })
-                )
-              }
-            />
-            <span>
-              Email this ticket to the owner
-              {assignment.ownerEmail?.trim()
-                ? ` (${assignment.ownerEmail.trim()})`
-                : ""}
-            </span>
-          </label>
-
-          <input
-            className={styles.input}
-            value={assignment.ownerEmail ?? ""}
-            onChange={(event) =>
-              onChange(
-                updateTicketAssignmentField({
-                  assignments,
-                  ticketCode: assignment.ticketCode,
-                  field: "ownerEmail",
-                  value: event.target.value,
-                })
-              )
-            }
-            placeholder="Ticket owner email (optional)"
-            style={{ borderColor: theme.colors.border }}
-          />
-
-          <input
-            className={styles.input}
-            value={assignment.ownerPhone ?? ""}
-            onChange={(event) =>
-              onChange(
-                updateTicketAssignmentField({
-                  assignments,
-                  ticketCode: assignment.ticketCode,
-                  field: "ownerPhone",
-                  value: event.target.value,
-                })
-              )
-            }
-            placeholder="Ticket owner WhatsApp / phone (optional)"
-            style={{ borderColor: theme.colors.border }}
-          />
-
-          {assignment.mealMode === "required" ? (
-            <div className={styles.contactNote}>
-              Meal selection required for this ticket.
-            </div>
-          ) : null}
-
-                    {assignment.mealMode === "optional" ? (
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                checked={assignment.mealEnabled === true}
-                onChange={(event) =>
-                  onChange(
-                    updateTicketAssignmentBoolean({
-                      assignments,
-                      ticketCode: assignment.ticketCode,
-                      field: "mealEnabled",
-                      value: event.target.checked,
-                    })
-                  )
-                }
-              />
-              <span>Add meal for this ticket</span>
-            </label>
-          ) : null}
-
-          {(assignment.mealMode === "required" ||
-            assignment.mealEnabled === true) ? (
             <button
               type="button"
               className={styles.secondaryButton}
-              onClick={() => onSelectMeal(assignment.ticketCode)}
+              onClick={() =>
+                setExpandedTicketCode((current) =>
+                  current === assignment.ticketCode
+                    ? null
+                    : assignment.ticketCode
+                )
+              }
               style={{
                 borderColor: theme.colors.border,
                 background: "#FFFFFF",
                 color: theme.colors.text,
               }}
             >
-              {hasSelectedMealItems ? "Adjust meal" : "Select meal for this ticket"}
+              {detailsAreExpanded ? "Hide details" : "See details"}
             </button>
-          ) : null}
 
-          {hasSelectedMealItems ? (
-            <div className={styles.ticketMealSummary}>
-              {mealSummary.map((item) => (
-                <div
-                  key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
-                >
-                  {item.groupLabel}: {item.optionLabel} × {item.quantity}
-                  {item.extraTotal > 0
-                    ? ` · +${formatCurrency(item.extraTotal, "USD")}`
-                    : ""}
+            {detailsAreExpanded ? (
+              <div className={styles.ticketDetailsReveal}>
+                {shouldShowOwnerInputs ? (
+                  <>
+                    <input
+                      className={styles.input}
+                      value={assignment.ownerName ?? ""}
+                      onChange={(event) =>
+                        onChange(
+                          updateTicketAssignmentField({
+                            assignments,
+                            ticketCode: assignment.ticketCode,
+                            field: "ownerName",
+                            value: event.target.value,
+                          })
+                        )
+                      }
+                      placeholder="Ticket owner name (optional)"
+                      style={{ borderColor: theme.colors.border }}
+                    />
+
+                    <input
+                      className={styles.input}
+                      value={assignment.ownerEmail ?? ""}
+                      onChange={(event) =>
+                        onChange(
+                          updateTicketAssignmentField({
+                            assignments,
+                            ticketCode: assignment.ticketCode,
+                            field: "ownerEmail",
+                            value: event.target.value,
+                          })
+                        )
+                      }
+                      placeholder="Ticket owner email (required)"
+                      style={{ borderColor: theme.colors.border }}
+                    />
+
+                    {!ownerEmailIsValid ? (
+                      <p className={styles.formError}>
+                        A valid ticket owner email is required before ticket
+                        owner access options can be selected.
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {shouldShowOwnerAccess ? (
+                  <div
+                    className={styles.ticketOwnerAccessPanel}
+                    style={{
+                      background: withOpacity(theme.colors.primary, 0.08),
+                      borderColor: withOpacity(theme.colors.primary, 0.28),
+                    }}
+                  >
+                    <div className={styles.reviewSummaryHeader}>
+                      <div className={styles.reviewSummaryTitle}>
+                        Ticket owner access
+                      </div>
+                    </div>
+
+                    <div className={styles.ticketOwnerAccessOptions}>
+                      <label
+                        className={styles.ticketOwnerAccessOption}
+                        style={{
+                          borderColor:
+                            selectedPaymentMode ===
+                            "purchaser_pays_ticket_and_addons"
+                              ? theme.colors.primary
+                              : theme.colors.border,
+                          background:
+                            selectedPaymentMode ===
+                            "purchaser_pays_ticket_and_addons"
+                              ? withOpacity(theme.colors.primary, 0.12)
+                              : "#FFFFFF",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`ticket-owner-payment-${assignment.ticketCode}`}
+                          checked={
+                            selectedPaymentMode ===
+                            "purchaser_pays_ticket_and_addons"
+                          }
+                          onChange={() =>
+                            onChange(
+                              updateTicketOwnerPaymentMode({
+                                assignments,
+                                ticketCode: assignment.ticketCode,
+                                value: "purchaser_pays_ticket_and_addons",
+                              })
+                            )
+                          }
+                        />
+                        <span>
+                          I&apos;ll pay for {ticketOwnerName}&apos;s ticket and
+                          add-ons.
+                        </span>
+                      </label>
+
+                      <label
+                        className={styles.ticketOwnerAccessOption}
+                        style={{
+                          borderColor:
+                            selectedPaymentMode ===
+                            "owner_selects_sender_pays_addons"
+                              ? theme.colors.primary
+                              : theme.colors.border,
+                          background:
+                            selectedPaymentMode ===
+                            "owner_selects_sender_pays_addons"
+                              ? withOpacity(theme.colors.primary, 0.12)
+                              : "#FFFFFF",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`ticket-owner-payment-${assignment.ticketCode}`}
+                          checked={
+                            selectedPaymentMode ===
+                            "owner_selects_sender_pays_addons"
+                          }
+                          onChange={() =>
+                            onChange(
+                              updateTicketOwnerPaymentMode({
+                                assignments,
+                                ticketCode: assignment.ticketCode,
+                                value: "owner_selects_sender_pays_addons",
+                              })
+                            )
+                          }
+                        />
+                        <span>
+                          Let {ticketOwnerName} select meal, then notify me and
+                          I&apos;ll pay.
+                        </span>
+                      </label>
+
+                      <label
+                        className={styles.ticketOwnerAccessOption}
+                        style={{
+                          borderColor:
+                            selectedPaymentMode === "owner_pays_addons"
+                              ? theme.colors.primary
+                              : theme.colors.border,
+                          background:
+                            selectedPaymentMode === "owner_pays_addons"
+                              ? withOpacity(theme.colors.primary, 0.12)
+                              : "#FFFFFF",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`ticket-owner-payment-${assignment.ticketCode}`}
+                          checked={selectedPaymentMode === "owner_pays_addons"}
+                          onChange={() =>
+                            onChange(
+                              updateTicketOwnerPaymentMode({
+                                assignments,
+                                ticketCode: assignment.ticketCode,
+                                value: "owner_pays_addons",
+                              })
+                            )
+                          }
+                        />
+                        <span>
+                          Let {ticketOwnerName} pay for own add-ons. I&apos;ll
+                          pay for ticket only.
+                        </span>
+                      </label>
+
+                      <label
+                        className={styles.ticketOwnerAccessOption}
+                        style={{
+                          borderColor:
+                            selectedPaymentMode ===
+                            "owner_pays_ticket_and_addons"
+                              ? theme.colors.primary
+                              : theme.colors.border,
+                          background:
+                            selectedPaymentMode ===
+                            "owner_pays_ticket_and_addons"
+                              ? withOpacity(theme.colors.primary, 0.12)
+                              : "#FFFFFF",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`ticket-owner-payment-${assignment.ticketCode}`}
+                          checked={
+                            selectedPaymentMode ===
+                            "owner_pays_ticket_and_addons"
+                          }
+                          onChange={() =>
+                            onChange(
+                              updateTicketOwnerPaymentMode({
+                                assignments,
+                                ticketCode: assignment.ticketCode,
+                                value: "owner_pays_ticket_and_addons",
+                              })
+                            )
+                          }
+                        />
+                        <span>
+                          Let {ticketOwnerName} pay for own ticket and own
+                          add-ons.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
+
+                {assignment.mealMode === "required" ? (
+                  <div className={styles.contactNote}>
+                    Meal selection required for this ticket.
+                  </div>
+                ) : null}
+
+                {assignment.mealMode === "optional" ? (
+                  <label className={styles.checkboxRow}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.mealEnabled === true}
+                      onChange={(event) =>
+                        onChange(
+                          updateTicketAssignmentBoolean({
+                            assignments,
+                            ticketCode: assignment.ticketCode,
+                            field: "mealEnabled",
+                            value: event.target.checked,
+                          })
+                        )
+                      }
+                    />
+                    <span>Add meal for this ticket</span>
+                  </label>
+                ) : null}
+
+                {canSelectMealForThisTicket &&
+                (assignment.mealMode === "required" ||
+                  assignment.mealEnabled === true) ? (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => onSelectMeal(assignment.ticketCode)}
+                    style={{
+                      borderColor: theme.colors.border,
+                      background: "#FFFFFF",
+                      color: theme.colors.text,
+                    }}
+                  >
+                    {hasSelectedMealItems
+                      ? "Adjust meal"
+                      : "Select meal for this ticket"}
+                  </button>
+                ) : null}
+
+                {hasSelectedMealItems ? (
+                  <div className={styles.ticketMealSummary}>
+                    {mealSummary.map((item) => (
+                      <div
+                        key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
+                      >
+                        {item.groupLabel}: {item.optionLabel} × {item.quantity}
+                        {item.extraTotal > 0
+                          ? ` · +${formatCurrency(item.extraTotal, "USD")}`
+                          : ""}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className={styles.ticketTotalRow}>
+                  <span>Ticket total</span>
+                  <strong>{formatCurrency(ticketTotal, "USD")}</strong>
                 </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div className={styles.ticketTotalRow}>
-            <span>Ticket total</span>
-            <strong>{formatCurrency(ticketTotal, "USD")}</strong>
-          </div>
+              </div>
+            ) : null}
           </div>
         );
       })}

@@ -3,7 +3,22 @@ import type {
   ShopResolvedCartLine,
   TicketAssignment,
   TicketAssignments,
+  TicketOwnerPaymentMode,
 } from "@/types/questionnaire";
+
+const DEFAULT_TICKET_OWNER_PAYMENT_MODE: TicketOwnerPaymentMode =
+  "purchaser_pays_ticket_and_addons";
+
+function normalizeTicketOwnerPaymentMode(
+  value: unknown
+): TicketOwnerPaymentMode {
+    return value === "purchaser_pays_ticket_and_addons" ||
+    value === "owner_selects_sender_pays_addons" ||
+    value === "owner_pays_addons" ||
+    value === "owner_pays_ticket_and_addons"
+    ? value
+    : DEFAULT_TICKET_OWNER_PAYMENT_MODE;
+}
 
 export function normalizeTicketAssignments(input: unknown): TicketAssignments {
   if (!Array.isArray(input)) {
@@ -59,6 +74,9 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
         purchaserContactPrefilled: record.purchaserContactPrefilled === true,
         isPurchaserTicket: record.isPurchaserTicket === true,
         emailTicketToOwner: record.emailTicketToOwner !== false,
+        ticketOwnerPaymentMode: normalizeTicketOwnerPaymentMode(
+          record.ticketOwnerPaymentMode
+        ),
         mealMode:
           record.mealMode === "required" || record.mealMode === "optional"
             ? record.mealMode
@@ -114,6 +132,8 @@ export function buildTicketAssignmentsFromLines(params: {
         isPurchaserTicket: existing?.isPurchaserTicket ?? index === 0,
         emailTicketToOwner:
           existing?.emailTicketToOwner ?? (existing?.isPurchaserTicket ? false : true),
+        ticketOwnerPaymentMode:
+          existing?.ticketOwnerPaymentMode ?? DEFAULT_TICKET_OWNER_PAYMENT_MODE,  
         mealMode: line.mealSelection?.mode,
         mealMenuId: line.mealSelection?.menuId,
         mealLabel: line.mealSelection?.label,
@@ -323,6 +343,21 @@ export function updateTicketAssignmentBoolean(params: {
             params.field === "mealEnabled"
               ? true
               : params.value,
+        }
+      : assignment
+  );
+}
+
+export function updateTicketOwnerPaymentMode(params: {
+  assignments: TicketAssignments;
+  ticketCode: string;
+  value: TicketOwnerPaymentMode;
+}) {
+  return params.assignments.map((assignment) =>
+    assignment.ticketCode === params.ticketCode
+      ? {
+          ...assignment,
+          ticketOwnerPaymentMode: params.value,
         }
       : assignment
   );
