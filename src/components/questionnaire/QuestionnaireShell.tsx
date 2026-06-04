@@ -1907,6 +1907,21 @@ async function next() {
   }
 
   function getInvitationOrderPayload() {
+        const normalizedTicketAssignments = currentTicketAssignments.map(
+      (assignment) => ({
+        ...assignment,
+        ownerName: String(assignment.ownerName ?? "").trim(),
+        ownerEmail: String(assignment.ownerEmail ?? "").trim(),
+        ownerPhone: "",
+        emailTicketToOwner:
+          assignment.isPurchaserTicket === true
+            ? false
+            : assignment.emailTicketToOwner === true,
+        ticketOwnerPaymentMode:
+          assignment.ticketOwnerPaymentMode ??
+          "purchaser_pays_ticket_and_addons",
+      })
+    );
     return {
       questionnaireSlug: config.slug,
       fullName: String(answers.fullName ?? "").trim(),
@@ -1917,7 +1932,7 @@ async function next() {
       currencyCode: sharedShopCatalog?.currencyCode ?? "USD",
       orderCart: sharedOrderCart,
       resolvedLines: sharedOrderLines,
-      ticketAssignments: currentTicketAssignments,
+      ticketAssignments: normalizedTicketAssignments,
       deliverySelection: sharedDeliverySelection,
       orderSummary: sharedOrderSummary,
       answers,

@@ -1246,6 +1246,8 @@ model InvitationOrderTicket {
   ownerEmail String?
   ownerPhone String?
 
+  ticketOwnerPaymentMode String @default("purchaser_pays_ticket_and_addons")
+
   status String @default("ACTIVE")
 
   mealMode       String?

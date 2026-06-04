@@ -24,6 +24,15 @@ function asMoney(value) {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
 }
 
+function normalizeTicketOwnerPaymentMode(value) {
+  return value === "purchaser_pays_ticket_and_addons" ||
+    value === "owner_selects_sender_pays_addons" ||
+    value === "owner_pays_addons" ||
+    value === "owner_pays_ticket_and_addons"
+    ? value
+    : "purchaser_pays_ticket_and_addons";
+}
+
 function generateRawToken() {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -388,6 +397,9 @@ export async function POST(request) {
             ownerName: ownerName || null,
             ownerEmail: ownerEmail || null,
             ownerPhone: ownerPhone || null,
+            ticketOwnerPaymentMode: normalizeTicketOwnerPaymentMode(
+              assignment.ticketOwnerPaymentMode
+            ),
             status: "ACTIVE",
             mealMode: asString(assignment.mealMode) || null,
             mealMenuId: asString(assignment.mealMenuId) || null,

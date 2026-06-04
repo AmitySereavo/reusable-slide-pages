@@ -51,3 +51,6 @@ private-downloads/*
 
 private-downloads/*
 !private-downloads/.gitkeep
+
+# Local project notes
+Project Notes.txt
