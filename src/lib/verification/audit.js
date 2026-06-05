@@ -14,25 +14,30 @@ export async function createVerificationDeliveryAttempt({
     await prisma.verificationDeliveryAttempt.create({
       data: {
         purpose: "verification",
-        delivery,
+        deliveryType: delivery,
         channel: result.channel,
         provider: result.provider,
         mode: result.mode,
         identifier,
+        destination: result.to || identifier,
         to: result.to,
         originalTo: result.originalTo,
         rewritten: Boolean(result.rewritten),
         target,
-        successRedirect,
-        verificationCodeId,
-        verificationTokenId,
         ok: Boolean(result.ok),
         status: result.status,
         providerMessageId: result.providerMessageId || null,
         errorCode: result.error?.code || null,
         errorMessage: result.error?.message || null,
-        errorCategory: result.error?.category || null,
-        metadata: contextMetadata,
+        errorType: result.error?.category || null,
+        metadata: {
+          ...(contextMetadata && typeof contextMetadata === "object"
+            ? contextMetadata
+            : {}),
+          successRedirect,
+          verificationCodeId,
+          verificationTokenId,
+        },
       },
     });
   } catch (error) {
@@ -76,7 +81,7 @@ export async function updateVerificationDeliveryAttemptByProviderMessageId({
         ok: ok ?? existing.ok,
         errorCode: errorCode ?? existing.errorCode,
         errorMessage: errorMessage ?? existing.errorMessage,
-        errorCategory: errorCategory ?? existing.errorCategory,
+        errorType: errorCategory ?? existing.errorType,
         metadata: mergedMetadata,
       },
     });

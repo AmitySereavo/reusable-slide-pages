@@ -249,6 +249,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const previousVideoTimeRef = useRef(0);
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
+  const invitationOrderRequestKeyRef = useRef<string | null>(null);
   const searchParams = useSearchParams();
 
   
@@ -258,8 +259,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [videoResumeOverrides, setVideoResumeOverrides] = useState<
     Record<string, number>
   >({});
-
-
 
 
 
@@ -1907,7 +1906,7 @@ async function next() {
   }
 
   function getInvitationOrderPayload() {
-        const normalizedTicketAssignments = currentTicketAssignments.map(
+    const normalizedTicketAssignments = currentTicketAssignments.map(
       (assignment) => ({
         ...assignment,
         ownerName: String(assignment.ownerName ?? "").trim(),
@@ -1922,8 +1921,33 @@ async function next() {
           "purchaser_pays_ticket_and_addons",
       })
     );
+
+    const existingOrderRequestKey = String(
+      answers.invitationOrderRequestKey ?? ""
+    ).trim();
+
+    if (existingOrderRequestKey) {
+      invitationOrderRequestKeyRef.current = existingOrderRequestKey;
+    }
+
+    if (!invitationOrderRequestKeyRef.current) {
+      invitationOrderRequestKeyRef.current = `invitation-${config.slug}-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}`;
+    }
+
+    const orderRequestKey = invitationOrderRequestKeyRef.current;
+
+    if (!existingOrderRequestKey) {
+      setAnswers((prev) => ({
+        ...prev,
+        invitationOrderRequestKey: orderRequestKey,
+      }));
+    }
+
     return {
       questionnaireSlug: config.slug,
+      orderRequestKey,
       fullName: String(answers.fullName ?? "").trim(),
       email: String(answers.email ?? "").trim(),
       phone: String(answers.phone ?? "").trim(),
@@ -1935,7 +1959,10 @@ async function next() {
       ticketAssignments: normalizedTicketAssignments,
       deliverySelection: sharedDeliverySelection,
       orderSummary: sharedOrderSummary,
-      answers,
+      answers: {
+        ...answers,
+        invitationOrderRequestKey: orderRequestKey,
+      },
     };
   }
 
@@ -2180,10 +2207,10 @@ async function next() {
       setAuthVerificationContext(getAuthVerificationStartPayload());
     }
 
-        if (
-      runName === "checkSignupIdentifier" &&
-      data?.exists === true &&
-      data?.verified === true
+      if (
+        runName === "checkSignupIdentifier" &&
+        data?.exists === true &&
+        data?.verified === true
     ) {
       throw new Error(
         data?.message ||

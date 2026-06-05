@@ -1184,6 +1184,7 @@ model InvitationOrder {
   id                String @id @default(cuid())
   questionnaireSlug String
   orderCode         String @unique
+  orderRequestKey String? @unique
 
   purchaserUserId String?
   purchaserUser   User?   @relation("InvitationOrderPurchaser", fields: [purchaserUserId], references: [id], onDelete: SetNull)

@@ -12,7 +12,7 @@ export default function VerifyPageClient() {
   const token = searchParams.get("token");
 
   const redirectTimeoutRef = useRef(null);
-
+  const consumeStartedRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(
     token ? AUTH_MESSAGES.verification.tokenFlow.initialMessage : ""
@@ -21,8 +21,9 @@ export default function VerifyPageClient() {
   const [done, setDone] = useState(false);
 
   async function handleVerifyLink() {
-    if (!token || loading || done) return;
+    if (!token || loading || done || consumeStartedRef.current) return;
 
+    consumeStartedRef.current = true;
     setLoading(true);
     setMessage(
       AUTH_MESSAGES?.verification?.verifyingLink || "Verifying your link..."
@@ -65,11 +66,13 @@ export default function VerifyPageClient() {
         window.location.href = redirectTo;
       }, 1200);
     } catch (error) {
-      setMessage(
-        error?.message ||
-          AUTH_MESSAGES?.verification?.verificationFailed ||
-          "Verification failed."
-      );
+    consumeStartedRef.current = false;
+
+    setMessage(
+      error?.message ||
+        AUTH_MESSAGES?.verification?.verificationFailed ||
+        "Verification failed."
+    );
       setMessageType("error");
       setDone(true);
     } finally {

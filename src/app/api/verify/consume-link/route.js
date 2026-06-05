@@ -195,22 +195,24 @@ export async function POST(request) {
     const identifier = record.identifier;
     const isEmail = identifier.includes("@");
 
-    const verificationData = isEmail
-      ? { emailVerifiedAt: new Date() }
-      : { phoneVerifiedAt: new Date() };
+    const userVerificationData = isEmail
+    ? { emailVerifiedAt: new Date() }
+    : { phoneVerifiedAt: new Date() };
 
     const userResult = await prisma.user.updateMany({
       where: {
         OR: [{ email: identifier }, { phone: identifier }],
       },
-      data: verificationData,
+      data: userVerificationData,
     });
 
     const leadResult = await prisma.lead.updateMany({
       where: {
         OR: [{ email: identifier }, { phone: identifier }],
       },
-      data: verificationData,
+      data: {
+        verifiedAt: new Date(),
+      },
     });
 
     if (userResult.count === 0 && leadResult.count === 0) {

@@ -195,14 +195,14 @@ async function sendTicketOwnerGroupLink({
   ownerName,
   ownerUserId,
 }) {
-  const firstTicket = tickets[0];
+  const unsentTickets = tickets.filter((ticket) => !ticket.portalEmailSentAt);
+  const firstTicket = unsentTickets[0];
 
   if (!firstTicket) {
     return {
-      ok: false,
-      error: {
-        message: "No tickets supplied for owner email.",
-      },
+      ok: true,
+      skipped: true,
+      reason: "ticket-owner-email-already-sent",
     };
   }
 
@@ -232,7 +232,7 @@ async function sendTicketOwnerGroupLink({
   const baseUrl = getBaseUrl(request);
   const verifyUrl = `${baseUrl}/verify?token=${encodeURIComponent(rawToken)}`;
 
-  const ticketCodes = tickets.map((ticket) => ticket.ticketCode);
+  const ticketCodes = unsentTickets.map((ticket) => ticket.ticketCode);
 
   const deliveryResult = await sendVerificationDelivery({
     identifier: ownerEmail,
@@ -244,10 +244,10 @@ async function sendTicketOwnerGroupLink({
     contextMetadata: {
       purpose: "ticket-owner-access",
       recipientName: ownerName,
-      ticketCount: tickets.length,
+      ticketCount: unsentTickets.length,
       ticketCodes,
-      ticketSummary: buildTicketSummaryText(tickets),
-      ticketSummaryHtml: buildTicketSummaryHtml(tickets),
+      ticketSummary: buildTicketSummaryText(unsentTickets),
+      ticketSummaryHtml: buildTicketSummaryHtml(unsentTickets),
       mealEditDeadlineLabel: "the event meal deadline",
       firstTicketId: firstTicket.id,
       firstTicketCode: firstTicket.ticketCode,
@@ -260,7 +260,7 @@ async function sendTicketOwnerGroupLink({
     await prisma.invitationOrderTicket.updateMany({
       where: {
         id: {
-          in: tickets.map((ticket) => ticket.id),
+          in: unsentTickets.map((ticket) => ticket.id),
         },
       },
       data: {
@@ -279,6 +279,7 @@ export async function POST(request) {
     const body = await request.json();
 
     const questionnaireSlug = asString(body.questionnaireSlug) || "invitation";
+    const orderRequestKey = asString(body.orderRequestKey);
     const fullName = asString(body.fullName);
     const purchaserEmail = normalizeEmail(body.email);
     const purchaserPhone = asString(body.phone);
@@ -325,6 +326,33 @@ export async function POST(request) {
       );
     }
 
+    if (orderRequestKey) {
+      const existingOrder = await prisma.invitationOrder.findUnique({
+        where: {
+          orderRequestKey,
+        },
+        include: {
+          tickets: true,
+        },
+      });
+
+      if (existingOrder) {
+        return Response.json({
+          ok: true,
+          message: "Invitation order already created.",
+          reused: true,
+          order: {
+            id: existingOrder.id,
+            orderCode: existingOrder.orderCode,
+            status: existingOrder.status,
+          },
+          ticketCount: existingOrder.tickets.length,
+          guestPortalLinksSent: 0,
+          deliveryResults: [],
+        });
+      }
+    }
+
     const orderCode = buildOrderCode();
 
     const transactionResult = await prisma.$transaction(async (tx) => {
@@ -337,6 +365,7 @@ export async function POST(request) {
         data: {
           questionnaireSlug,
           orderCode,
+          orderRequestKey: orderRequestKey || null,
           purchaserUserId: purchaserUser?.id ?? null,
           purchaserName: fullName || null,
           purchaserEmail,
