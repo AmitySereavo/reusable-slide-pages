@@ -148,6 +148,7 @@ BR
 @reviewgoto: review-order
 @ticketgoto: ticket-details
 @mealgoto: meal-selection
+@syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
@@ -164,6 +165,7 @@ BR
 @deliverygoto: delivery-options
 @contactgoto: contact-details
 @reviewgoto: review-order
+@syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
@@ -186,6 +188,7 @@ BR
 @deliverygoto: delivery-options
 @contactgoto: contact-details
 @reviewgoto: review-order
+@syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
@@ -224,6 +227,7 @@ BR
 @type: form
 @contactmode: order
 @showauthcontrols: true
+@syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f
