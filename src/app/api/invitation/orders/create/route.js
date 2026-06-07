@@ -429,6 +429,7 @@ export async function POST(request) {
             ticketOwnerPaymentMode: normalizeTicketOwnerPaymentMode(
               assignment.ticketOwnerPaymentMode
             ),
+            ticketOwnerAddonBudget: asMoney(assignment.ticketOwnerAddonBudget),
             status: "ACTIVE",
             mealMode: asString(assignment.mealMode) || null,
             mealMenuId: asString(assignment.mealMenuId) || null,

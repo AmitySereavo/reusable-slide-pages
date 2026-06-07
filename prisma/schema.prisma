@@ -1248,7 +1248,7 @@ model InvitationOrderTicket {
   ownerPhone String?
 
   ticketOwnerPaymentMode String @default("purchaser_pays_ticket_and_addons")
-
+  ticketOwnerAddonBudget Decimal @default(0) @db.Decimal(10, 2)
   status String @default("ACTIVE")
 
   mealMode       String?

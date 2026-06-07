@@ -110,6 +110,7 @@ export type TicketAssignment = {
   isPurchaserTicket?: boolean;
   emailTicketToOwner?: boolean;
   ticketOwnerPaymentMode?: TicketOwnerPaymentMode;
+  ticketOwnerAddonBudget?: number;
   mealMode?: "required" | "optional";
   mealMenuId?: string;
   mealLabel?: string;

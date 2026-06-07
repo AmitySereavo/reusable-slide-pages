@@ -164,9 +164,9 @@ export default async function TicketOwnerPage({ params }: TicketOwnerPageProps) 
           )}
 
           <Link
-            href={`/questionnaire/invitation?ticketCode=${encodeURIComponent(
+            href={`/questionnaire/invitation?slide=meal-selection&ticketCode=${encodeURIComponent(
               ticket.ticketCode
-            )}&ticketOwner=1&goto=meal-selection`}
+            )}&ticketOwner=1`}
             style={{
               display: "inline-flex",
               justifyContent: "center",

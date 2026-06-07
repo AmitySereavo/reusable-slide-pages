@@ -77,6 +77,13 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
         ticketOwnerPaymentMode: normalizeTicketOwnerPaymentMode(
           record.ticketOwnerPaymentMode
         ),
+
+        ticketOwnerAddonBudget:
+          typeof record.ticketOwnerAddonBudget === "number" &&
+          Number.isFinite(record.ticketOwnerAddonBudget)
+            ? Math.max(0, record.ticketOwnerAddonBudget)
+            : 0,
+
         mealMode:
           record.mealMode === "required" || record.mealMode === "optional"
             ? record.mealMode
@@ -134,6 +141,7 @@ export function buildTicketAssignmentsFromLines(params: {
           existing?.emailTicketToOwner ?? (existing?.isPurchaserTicket ? false : true),
         ticketOwnerPaymentMode:
           existing?.ticketOwnerPaymentMode ?? DEFAULT_TICKET_OWNER_PAYMENT_MODE,  
+        ticketOwnerAddonBudget: existing?.ticketOwnerAddonBudget ?? 0,
         mealMode: line.mealSelection?.mode,
         mealMenuId: line.mealSelection?.menuId,
         mealLabel: line.mealSelection?.label,
@@ -310,14 +318,22 @@ export function getTicketMealSelectionSummary(params: {
 export function updateTicketAssignmentField(params: {
   assignments: TicketAssignments;
   ticketCode: string;
-  field: "ownerName" | "ownerEmail" | "ownerPhone" | "mealNotes";
-  value: string;
+  field:
+    | "ownerName"
+    | "ownerEmail"
+    | "ownerPhone"
+    | "mealNotes"
+    | "ticketOwnerAddonBudget";
+  value: string | number;
 }) {
   return params.assignments.map((assignment) =>
     assignment.ticketCode === params.ticketCode
       ? {
           ...assignment,
-          [params.field]: params.value,
+          [params.field]:
+            params.field === "ticketOwnerAddonBudget"
+              ? Math.max(0, Number(params.value || 0))
+              : String(params.value ?? ""),
         }
       : assignment
   );
