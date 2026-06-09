@@ -12,6 +12,12 @@ function asNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function asMoney(value: unknown) {
+  const parsed = Number(value ?? 0);
+
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+}
+
 export async function GET(_request: Request, { params }: TicketContextRouteProps) {
   const { ticketCode } = await params;
 
@@ -90,5 +96,46 @@ export async function GET(_request: Request, { params }: TicketContextRouteProps
       fullName: ticket.ownerName || "",
       email: ticket.ownerEmail || "",
     },
+  });
+}
+
+export async function PATCH(request: Request, { params }: TicketContextRouteProps) {
+  const { ticketCode } = await params;
+  const body = await request.json().catch(() => null);
+
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Invalid ticket update payload.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const mealSelection =
+    body.mealSelection && typeof body.mealSelection === "object"
+      ? body.mealSelection
+      : {};
+
+  const updatedTicket = await prisma.invitationOrderTicket.update({
+    where: {
+      ticketCode,
+    },
+    data: {
+      mealSelection,
+      mealExtraTotal: asMoney(body.mealExtraTotal),
+      wantsExtraFood: body.wantsExtraFood === true,
+      hasMealNotes: body.hasMealNotes === true,
+      mealNotes:
+        typeof body.mealNotes === "string" && body.mealNotes.trim()
+          ? body.mealNotes.trim()
+          : null,
+    },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    ticketCode: updatedTicket.ticketCode,
   });
 }

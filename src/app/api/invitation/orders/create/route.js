@@ -230,7 +230,12 @@ async function sendTicketOwnerGroupLink({
   });
 
   const baseUrl = getBaseUrl(request);
-  const verifyUrl = `${baseUrl}/verify?token=${encodeURIComponent(rawToken)}`;
+  const verifyUrl =
+    firstTicket.ticketCode && firstTicket.ticketCode.trim()
+      ? `${baseUrl}/invitation/tickets/${encodeURIComponent(
+          firstTicket.ticketCode
+        )}`
+      : `${baseUrl}/verify?token=${encodeURIComponent(rawToken)}`;
 
   const ticketCodes = unsentTickets.map((ticket) => ticket.ticketCode);
 

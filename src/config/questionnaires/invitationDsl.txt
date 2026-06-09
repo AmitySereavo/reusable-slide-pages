@@ -226,7 +226,7 @@ BR
 @id: contact-details
 @type: form
 @contactmode: order
-@showauthcontrols: true
+@showauthcontrols: false
 @syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
@@ -237,7 +237,6 @@ BR
 # [c1] Contact Details
 BR
 [c2] Enter your contact details so we can process your tickets.
-[c3] Already have an account? log in before continuing.
 BR
 @fields:
 - fullName|text|Full name|required|Full name

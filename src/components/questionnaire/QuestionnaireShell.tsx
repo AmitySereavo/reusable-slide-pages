@@ -986,6 +986,59 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     );
   }, [currentSlide, currentTicketAssignments, mergedVariables]);
 
+  async function saveTicketOwnerMealSelection(nextAssignments: TicketAssignments) {
+    if (!isTicketOwnerPortalFlow || !requestedTicketCode) {
+      return true;
+    }
+
+    const assignment = nextAssignments.find(
+      (item) => item.ticketCode === requestedTicketCode
+    );
+
+    if (!assignment) {
+      return false;
+    }
+
+    const mealExtraTotal = calculateSingleTicketMealExtraTotal({
+      menu: currentMealMenu,
+      assignment,
+    });
+
+    try {
+      const response = await fetch(
+        `/api/invitation/tickets/${encodeURIComponent(
+          requestedTicketCode
+        )}/context`,
+        {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            mealSelection: assignment.mealSelection ?? {},
+            mealExtraTotal,
+            wantsExtraFood: assignment.wantsExtraFood === true,
+            hasMealNotes: assignment.hasMealNotes === true,
+            mealNotes: assignment.mealNotes ?? "",
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || data?.ok !== true) {
+        console.error("Ticket owner meal save failed:", data);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Ticket owner meal save error:", error);
+      return false;
+    }
+  }
 
   const sharedDeliverySelection = useMemo<DeliverySelection>(
     () => normalizeDeliverySelection(answers.deliverySelection),
@@ -1015,7 +1068,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return getMealMenu(mergedVariables, "mealMenus", firstMenuId);
   }, [currentTicketAssignments, mergedVariables]);
 
-  const sharedMealExtraTotal = useMemo(
+    const sharedMealExtraTotal = useMemo(
     () =>
       calculateTicketMealExtraTotal({
         menu: sharedMealMenu,
@@ -1024,12 +1077,32 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedMealMenu, currentTicketAssignments]
   );
 
+  const sharedTicketOwnerAddonBudgetTotal = useMemo(
+    () =>
+      currentTicketAssignments.reduce((sum, assignment) => {
+        if (
+          assignment.ticketOwnerPaymentMode !==
+          "owner_selects_sender_pays_addons"
+        ) {
+          return sum;
+        }
+
+        const budget = Number(assignment.ticketOwnerAddonBudget ?? 0);
+
+        return sum + (Number.isFinite(budget) ? Math.max(0, budget) : 0);
+      }, 0),
+    [currentTicketAssignments]
+  );
+
   const sharedOrderSubtotalWithMeals =
-    sharedOrderSummary.subtotal + sharedMealExtraTotal;
+    sharedOrderSummary.subtotal +
+    sharedMealExtraTotal +
+    sharedTicketOwnerAddonBudgetTotal;
 
   const sharedOrderGrandTotalWithMeals =
-    sharedOrderSummary.grandTotal + sharedMealExtraTotal;
-
+    sharedOrderSummary.grandTotal +
+    sharedMealExtraTotal +
+    sharedTicketOwnerAddonBudgetTotal;
   const contactInfoComplete = useMemo(
     () => isContactInfoComplete(answers, sharedDeliverySelection),
     [answers, sharedDeliverySelection]
@@ -1780,6 +1853,21 @@ async function next() {
     }
 
     if (currentSlide.type === "meal") {
+      if (isTicketOwnerPortalFlow && requestedTicketCode) {
+        void saveTicketOwnerMealSelection(currentTicketAssignments).then((saved) => {
+          if (!saved) {
+            setSubmitError("Your meal selections could not be saved. Please try again.");
+            return;
+          }
+
+          window.location.href = `/invitation/tickets/${encodeURIComponent(
+            requestedTicketCode
+          )}`;
+        });
+
+        return;
+      }
+
       goToTarget("ticket-details");
       return;
     }
@@ -2030,6 +2118,11 @@ async function next() {
         ticketOwnerPaymentMode:
           assignment.ticketOwnerPaymentMode ??
           "purchaser_pays_ticket_and_addons",
+        ticketOwnerAddonBudget:
+          typeof assignment.ticketOwnerAddonBudget === "number" &&
+          Number.isFinite(assignment.ticketOwnerAddonBudget)
+            ? Math.max(0, assignment.ticketOwnerAddonBudget)
+            : 0,
       })
     );
 
@@ -2069,7 +2162,12 @@ async function next() {
       resolvedLines: sharedOrderLines,
       ticketAssignments: normalizedTicketAssignments,
       deliverySelection: sharedDeliverySelection,
-      orderSummary: sharedOrderSummary,
+      orderSummary: {
+        ...sharedOrderSummary,
+        subtotal: sharedOrderSubtotalWithMeals,
+        grandTotal: sharedOrderGrandTotalWithMeals,
+        ticketOwnerAddonBudgetTotal: sharedTicketOwnerAddonBudgetTotal,
+      },
       answers: {
         ...answers,
         invitationOrderRequestKey: orderRequestKey,
@@ -3150,6 +3248,11 @@ function triggerDownload(downloadKey: string, label?: string) {
                               ? sharedOrderGrandTotalWithMeals
                               : currentShopSubtotal
                           }
+                          ticketOwnerAddonBudgetTotal={
+                            currentSlide.shopMode === "review"
+                              ? sharedTicketOwnerAddonBudgetTotal
+                              : 0
+                          }
                           activeDiscountLabel={activeDiscountDefinition?.label}
                           showDeliveryFee={sharedOrderHasDeliveryFee}
                           showDiscountTotal={sharedOrderHasDiscount}
@@ -3240,9 +3343,10 @@ function triggerDownload(downloadKey: string, label?: string) {
                           ticketLines={sharedOrderLines.filter((line) => line.fulfillmentType === "ticket")}
                           theme={theme}
                           purchaserEmail={String(answers.email ?? "").trim()}
-                          onChange={(nextAssignments) =>
-                            setAnswer("ticketAssignments", nextAssignments)
-                          }
+                          onChange={(nextAssignments) => {
+                            setAnswer("ticketAssignments", nextAssignments);
+                            void saveTicketOwnerMealSelection(nextAssignments);
+                          }}
                           onMarkAllForEmail={() =>
                             setAnswer(
                               "ticketAssignments",
@@ -3276,7 +3380,23 @@ function triggerDownload(downloadKey: string, label?: string) {
                           onChange={(nextAssignments) =>
                             setAnswer("ticketAssignments", nextAssignments)
                           }
-                          onBackToTickets={() => goToTarget("ticket-details")}
+                          onBackToTickets={async () => {
+                            if (isTicketOwnerPortalFlow && requestedTicketCode) {
+                              const saved = await saveTicketOwnerMealSelection(currentTicketAssignments);
+
+                              if (!saved) {
+                                setSubmitError("Your meal selections could not be saved. Please try again.");
+                                return;
+                              }
+
+                              window.location.href = `/invitation/tickets/${encodeURIComponent(
+                                requestedTicketCode
+                              )}`;
+                              return;
+                            }
+
+                            goToTarget("ticket-details");
+                          }}
                         />
                       ) : null}
 
@@ -3816,7 +3936,12 @@ function TicketDetailsRenderer({
           menu,
           assignment,
         });
-        const ticketTotal = ticketBasePrice + mealExtraTotal;
+        const addonBudget =
+          typeof assignment.ticketOwnerAddonBudget === "number" &&
+          Number.isFinite(assignment.ticketOwnerAddonBudget)
+            ? Math.max(0, assignment.ticketOwnerAddonBudget)
+            : 0;
+
         const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
         const hasSelectedMealItems = mealSummary.length > 0;
 
@@ -3825,6 +3950,13 @@ function TicketDetailsRenderer({
         const selectedPaymentMode =
           assignment.ticketOwnerPaymentMode ??
           "purchaser_pays_ticket_and_addons";
+
+        const visibleAddonBudget =
+          selectedPaymentMode === "owner_selects_sender_pays_addons"
+            ? addonBudget
+            : 0;
+
+        const ticketTotal = ticketBasePrice + mealExtraTotal + visibleAddonBudget;
 
         const ownerEmailIsValid = isValidTicketOwnerEmail(
           assignment.ownerEmail
@@ -3840,11 +3972,7 @@ function TicketDetailsRenderer({
           assignment.isPurchaserTicket === true ||
           selectedPaymentMode === "purchaser_pays_ticket_and_addons";
 
-        const addonBudgetValue =
-          typeof assignment.ticketOwnerAddonBudget === "number" &&
-          Number.isFinite(assignment.ticketOwnerAddonBudget)
-            ? String(assignment.ticketOwnerAddonBudget)
-            : "";
+        const addonBudgetValue = addonBudget > 0 ? String(addonBudget) : "";
 
         return (
           <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
@@ -3856,27 +3984,6 @@ function TicketDetailsRenderer({
                 Code: {assignment.ticketCode}
               </div>
             </div>
-
-            {!assignment.ownerEmail?.trim() ? (
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() =>
-                  setExpandedTicketCode((current) =>
-                    current === assignment.ticketCode
-                      ? null
-                      : assignment.ticketCode
-                  )
-                }
-                style={{
-                  borderColor: theme.colors.border,
-                  background: "#FFFFFF",
-                  color: theme.colors.text,
-                }}
-              >
-                Add ticket owner details
-              </button>
-            ) : null}
 
             {assignment.ownerName?.trim() || assignment.ownerEmail?.trim() ? (
               <div className={styles.ticketOwnerSummary}>
@@ -3905,7 +4012,11 @@ function TicketDetailsRenderer({
                 color: theme.colors.text,
               }}
             >
-              {detailsAreExpanded ? "Hide details" : "See details"}
+              {detailsAreExpanded
+                ? "Hide details"
+                : assignment.ownerName?.trim() || assignment.ownerEmail?.trim()
+                  ? "See details"
+                  : "Add ticket owner details"}
             </button>
 
             {detailsAreExpanded ? (
@@ -4003,8 +4114,7 @@ function TicketDetailsRenderer({
                           }
                         />
                           <span>
-                            I&apos;ll select add-ons and pay for this ticket
-                            owner&apos;s ticket.
+                            I&apos;ll select add-ons and pay for {ticketOwnerName}'s ticket.
                           </span>
                       </label>
 
@@ -4041,64 +4151,77 @@ function TicketDetailsRenderer({
                           }
                         />
                         <span>
-                        {ticketOwnerName} will select own add-ons, and I&apos;ll pay.
+                          {ticketOwnerName}&nbsp;will select add-ons, and I&apos;ll pay.
                         </span>
                       </label>
 
-                      <label
-                        className={styles.ticketOwnerAccessOption}
+                    </div>
+                      {selectedPaymentMode === "owner_selects_sender_pays_addons" ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "10px",
+                        padding: "16px",
+                        borderRadius: "18px",
+                        border: `1px solid ${theme.colors.border}`,
+                        background: "#FFFFFF",
+                      }}
+                    >
+                      <label style={{ fontWeight: 600 }}>
+                        The budget I&apos;ll put for {ticketOwnerName}&apos;s add-ons is:
+                      </label>
+
+                      <div
                         style={{
-                          borderColor:
-                            selectedPaymentMode === "owner_pays_addons"
-                              ? theme.colors.primary
-                              : theme.colors.border,
-                          background:
-                            selectedPaymentMode === "owner_pays_addons"
-                              ? withOpacity(theme.colors.primary, 0.12)
-                              : "#FFFFFF",
+                          display: "grid",
+                          gridTemplateColumns: "auto minmax(0, 1fr)",
+                          alignItems: "center",
+                          gap: "10px",
+                          width: "100%",
                         }}
                       >
+                        <span
+                          id="currencySymbol"
+                          style={{
+                            fontWeight: 800,
+                            fontSize: "1.15rem",
+                            lineHeight: 1,
+                          }}
+                        >
+                          $
+                        </span>
+
                         <input
-                          type="radio"
-                          name={`ticket-owner-payment-${assignment.ticketCode}`}
-                          checked={selectedPaymentMode === "owner_pays_addons"}
-                          onChange={() =>
+                          className={styles.input}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={addonBudgetValue}
+                          onChange={(event) =>
                             onChange(
-                              updateTicketOwnerPaymentMode({
+                              updateTicketAssignmentField({
                                 assignments,
                                 ticketCode: assignment.ticketCode,
-                                value: "owner_pays_addons",
+                                field: "ticketOwnerAddonBudget",
+                                value: Number(event.target.value || 0),
                               })
                             )
                           }
+                          placeholder="0.00"
+                          style={{
+                            borderColor: theme.colors.border,
+                            width: "100%",
+                            minWidth: 0,
+                          }}
                         />
-                        <span>
-                          Let {ticketOwnerName} pay for own add-ons. I&apos;ll
-                          pay for ticket only.
-                        </span>
-                      </label>
+                      </div>
+
+                      <p className={styles.contactNote} style={{ margin: 0 }}>
+                        P.S. leave blank or 0 if {ticketOwnerName} should pay for their own
+                        add-ons in full.
+                      </p>
                     </div>
-                    {selectedPaymentMode === "owner_selects_sender_pays_addons" ? (
-                      <input
-                        className={styles.input}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={addonBudgetValue}
-                        onChange={(event) =>
-                          onChange(
-                            updateTicketAssignmentField({
-                              assignments,
-                              ticketCode: assignment.ticketCode,
-                              field: "ticketOwnerAddonBudget",
-                              value: Number(event.target.value || 0),
-                            })
-                          )
-                        }
-                        placeholder="Add-on budget for owner (blank or 0 means ticket only)"
-                        style={{ borderColor: theme.colors.border }}
-                      />
-                    ) : null}
+                  ) : null}
                   </div>
                 ) : null}
 
@@ -4163,7 +4286,11 @@ function TicketDetailsRenderer({
                 ) : null}
 
                 <div className={styles.ticketTotalRow}>
-                  <span>Ticket total</span>
+                  <span>
+                    {visibleAddonBudget > 0
+                      ? `Ticket total with ${ticketOwnerName}'s add-on budget`
+                      : "Ticket total"}
+                  </span>
                   <strong>{formatCurrency(ticketTotal, "USD")}</strong>
                 </div>
               </div>
@@ -4868,6 +4995,7 @@ function ShopSlideRenderer({
   deliveryFee,
   discountTotal,
   grandTotal,
+  ticketOwnerAddonBudgetTotal,
   activeDiscountLabel,
   showDeliveryFee,
   showDiscountTotal,
@@ -4888,6 +5016,7 @@ function ShopSlideRenderer({
   deliveryFee: number;
   discountTotal: number;
   grandTotal: number;
+  ticketOwnerAddonBudgetTotal?: number;
   activeDiscountLabel?: string;
   showDeliveryFee?: boolean;
   showDiscountTotal?: boolean;
@@ -5299,6 +5428,13 @@ function ShopSlideRenderer({
             <div>
               Discount total: -
               {formatCurrency(discountTotal, catalog.currencyCode)}
+            </div>
+          ) : null}
+
+          {ticketOwnerAddonBudgetTotal && ticketOwnerAddonBudgetTotal > 0 ? (
+            <div>
+              Ticket owner add-on budgets:{" "}
+              {formatCurrency(ticketOwnerAddonBudgetTotal, catalog.currencyCode)}
             </div>
           ) : null}
 
