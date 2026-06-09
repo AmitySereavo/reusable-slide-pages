@@ -888,6 +888,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     ]
   );
 
+  const latestTicketAssignmentsRef = useRef<TicketAssignments>(
+    currentTicketAssignments
+  );
+
+  useEffect(() => {
+    latestTicketAssignmentsRef.current = currentTicketAssignments;
+  }, [currentTicketAssignments]);
+
   useEffect(() => {
     if (!requestedTicketCode) {
       return;
@@ -1854,7 +1862,7 @@ async function next() {
 
     if (currentSlide.type === "meal") {
       if (isTicketOwnerPortalFlow && requestedTicketCode) {
-        void saveTicketOwnerMealSelection(currentTicketAssignments).then((saved) => {
+        void saveTicketOwnerMealSelection(latestTicketAssignmentsRef.current).then((saved) => {
           if (!saved) {
             setSubmitError("Your meal selections could not be saved. Please try again.");
             return;
@@ -3377,12 +3385,16 @@ function triggerDownload(downloadKey: string, label?: string) {
                               : ""
                           }
                           theme={theme}
-                          onChange={(nextAssignments) =>
-                            setAnswer("ticketAssignments", nextAssignments)
-                          }
+                          onChange={(nextAssignments) => {
+                            latestTicketAssignmentsRef.current = nextAssignments;
+                            setAnswer("ticketAssignments", nextAssignments);
+                            void saveTicketOwnerMealSelection(nextAssignments);
+                          }}
                           onBackToTickets={async () => {
                             if (isTicketOwnerPortalFlow && requestedTicketCode) {
-                              const saved = await saveTicketOwnerMealSelection(currentTicketAssignments);
+                              const saved = await saveTicketOwnerMealSelection(
+                                latestTicketAssignmentsRef.current
+                              );
 
                               if (!saved) {
                                 setSubmitError("Your meal selections could not be saved. Please try again.");
