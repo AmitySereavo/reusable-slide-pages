@@ -5119,6 +5119,20 @@ function ShopSlideRenderer({
           (line) => line.productId === product.id
         );
 
+        const isEventProduct = product.fulfillmentType === "ticket";
+        const eventDescription =
+          product.detailsDescription ?? product.description ?? "";
+        const eventInfoRows = [
+          product.eventVenueLabel
+            ? ["Venue:", product.eventVenueLabel]
+            : null,
+          product.eventAddress ? ["Address:", product.eventAddress] : null,
+          product.eventDateLabel ? ["Date:", product.eventDateLabel] : null,
+          product.eventTimeLabel
+            ? ["Show starts at:", product.eventTimeLabel]
+            : null,
+        ].filter(Boolean) as string[][];
+
         return (
           <div
             key={product.id}
@@ -5128,59 +5142,129 @@ function ShopSlideRenderer({
             className={styles.productPanel}
             style={{ borderColor: theme.colors.border }}
           >
-            <div className={styles.productPanelHeader}>
-              <div className={styles.productHeaderMain}>
-                <div className={styles.productImageWrap}>
+            {isEventProduct ? (
+              <div className={styles.eventProductHeader}>
+                <div className={styles.eventProductHeroWrap}>
                   {product.imageUrl ? (
                     <img
                       src={product.imageUrl}
                       alt={product.title}
-                      className={styles.productImage}
+                      className={styles.eventProductHeroImage}
                     />
                   ) : (
                     <div
-                      className={styles.productImageFallback}
+                      className={styles.eventProductHeroFallback}
                       style={{ borderColor: theme.colors.border }}
                     />
                   )}
                 </div>
 
-                <div className={styles.productHeaderText}>
-                  <div className={styles.productTitleRow}>
-                    <div className={styles.productTitleGroup}>
-                      <h3 className={styles.productTitle}>{product.title}</h3>
-                      {product.description ? (
-                        <p className={styles.productDescription}>{product.description}</p>
-                      ) : null}
+                <div className={styles.eventProductBody}>
+                  <h3 className={styles.eventProductTitle}>{product.title}</h3>
 
-                      {slideMode === "review" ? (
-                        <span className={styles.cartItemBadge}>Cart item</span>
+                  {eventInfoRows.length ? (
+                    <div className={styles.eventProductInfoRows}>
+                      {eventInfoRows.map(([label, value]) => (
+                        <div key={label} className={styles.eventProductInfoRow}>
+                          <strong>{label}</strong>
+                          <span>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {slideMode === "review" ? (
+                    <div className={styles.eventProductTopActions}>
+                      <span className={styles.cartItemBadge}>Cart item</span>
+
+                      {firstReviewLine ? (
+                        <button
+                          type="button"
+                          className={styles.adjustLinkButton}
+                          onClick={() =>
+                            onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
+                          }
+                        >
+                          Adjust
+                        </button>
                       ) : null}
                     </div>
-
-                    {slideMode === "review" && firstReviewLine ? (
-                      <button
-                        type="button"
-                        className={styles.adjustLinkButton}
-                        onClick={() =>
-                          onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
-                        }
-                      >
-                        Adjust
-                      </button>
-                    ) : null}
-                  </div>
+                  ) : !isExpanded ? (
+                    <button
+                      type="button"
+                      className={styles.seeCostButton}
+                      onClick={() =>
+                        setExpandedProducts((prev) => ({
+                          ...prev,
+                          [product.id]: true,
+                        }))
+                      }
+                      style={{
+                        borderColor: theme.colors.border,
+                        color: theme.colors.text,
+                      }}
+                    >
+                      See details
+                    </button>
+                  ) : null}
                 </div>
               </div>
+            ) : (
+              <div className={styles.productPanelHeader}>
+                <div className={styles.productHeaderMain}>
+                  <div className={styles.productImageWrap}>
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.title}
+                        className={styles.productImage}
+                      />
+                    ) : (
+                      <div
+                        className={styles.productImageFallback}
+                        style={{ borderColor: theme.colors.border }}
+                      />
+                    )}
+                  </div>
 
-              {slideMode === "browse" ? (
+                  <div className={styles.productHeaderText}>
+                    <div className={styles.productTitleRow}>
+                      <div className={styles.productTitleGroup}>
+                        <h3 className={styles.productTitle}>{product.title}</h3>
+                        {product.description ? (
+                          <p className={styles.productDescription}>
+                            {product.description}
+                          </p>
+                        ) : null}
+
+                        {slideMode === "review" ? (
+                          <span className={styles.cartItemBadge}>Cart item</span>
+                        ) : null}
+                      </div>
+
+                      {slideMode === "review" && firstReviewLine ? (
+                        <button
+                          type="button"
+                          className={styles.adjustLinkButton}
+                          onClick={() =>
+                            onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
+                          }
+                        >
+                          Adjust
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+              {slideMode === "browse" && !isExpanded ? (
                 <button
                   type="button"
                   className={styles.seeCostButton}
                   onClick={() =>
                     setExpandedProducts((prev) => ({
                       ...prev,
-                      [product.id]: !prev[product.id],
+                      [product.id]: true,
                     }))
                   }
                   style={{
@@ -5188,238 +5272,266 @@ function ShopSlideRenderer({
                     color: theme.colors.text,
                   }}
                 >
-                  {isExpanded ? "Hide details" : "See details"}
+                  See details
                 </button>
               ) : null}
-            </div>
+              </div>
+            )}
 
             {isExpanded ? (
               <div className={styles.sizeRows}>
-                {product.sizeOptions
-                  .filter((sizeOption) => {
-                    if (slideMode === "browse") return true;
+                {isEventProduct && eventDescription ? (
+                  <div className={styles.eventProductDetailsBox}>
+                    {eventDescription}
+                  </div>
+            ) : null}
 
-                    return selectedLines.some(
-                      (line) =>
-                        line.productId === product.id &&
-                        line.sizeOptionId === sizeOption.id
-                    );
-                  })
-                  .map((sizeOption) => {
-                    const lineKey = `${product.id}::${sizeOption.id}`;
-                    const cartLine = cart[lineKey];
-                    const resolvedLine =
-                      slideMode === "review"
-                        ? selectedLines.find(
-                            (line) =>
-                              line.productId === product.id &&
-                              line.sizeOptionId === sizeOption.id
-                          )
-                        : undefined;
+            {product.sizeOptions
+              .filter((sizeOption) => {
+                if (slideMode === "browse") return true;
 
-                    const selected =
-                      slideMode === "review" ? true : cartLine?.selected === true;
-                    const quantity = Math.max(1, cartLine?.quantity ?? 1);
-                    const activePurchaseMode =
-                      sizeOption.purchaseModes?.find(
-                        (mode) => mode.id === cartLine?.purchaseModeId
-                      ) ?? sizeOption.purchaseModes?.[0];
+                return selectedLines.some(
+                  (line) =>
+                    line.productId === product.id &&
+                    line.sizeOptionId === sizeOption.id
+                );
+              })
+              .map((sizeOption) => {
+                const lineKey = `${product.id}::${sizeOption.id}`;
+                const cartLine = cart[lineKey];
+                const resolvedLine =
+                  slideMode === "review"
+                    ? selectedLines.find(
+                        (line) =>
+                          line.productId === product.id &&
+                          line.sizeOptionId === sizeOption.id
+                      )
+                    : undefined;
 
-                    const unitPrice =
-                      slideMode === "review"
-                        ? resolvedLine?.unitPrice ??
-                          sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
-                        : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
-                    const isEventTicketLine = product.fulfillmentType === "ticket";
-                    return (
-                      <div
-                        key={sizeOption.id}
-                        className={styles.sizeRowBlock}
-                        style={{ borderTopColor: theme.colors.border }}
-                      >
-                        <div className={styles.sizeRow}>
-                          {slideMode === "browse" ? (
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={(event) => {
-                                const nextSelected = event.target.checked;
+                const selected =
+                  slideMode === "review" ? true : cartLine?.selected === true;
+                const quantity = Math.max(1, cartLine?.quantity ?? 1);
+                const activePurchaseMode =
+                  sizeOption.purchaseModes?.find(
+                    (mode) => mode.id === cartLine?.purchaseModeId
+                  ) ?? sizeOption.purchaseModes?.[0];
 
-                                if (
-                                  nextSelected &&
-                                  sizeOption.purchaseModes?.length &&
-                                  !cartLine?.purchaseModeId
-                                ) {
-                                  onSetPurchaseMode(
-                                    product.id,
-                                    sizeOption.id,
-                                    getDefaultPurchaseModeId(sizeOption)
-                                  );
-                                }
+                const unitPrice =
+                  slideMode === "review"
+                    ? resolvedLine?.unitPrice ??
+                      sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
+                    : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
+                const isEventTicketLine = product.fulfillmentType === "ticket";
+                return (
+                  <div
+                    key={sizeOption.id}
+                    className={styles.sizeRowBlock}
+                    style={{ borderTopColor: theme.colors.border }}
+                  >
+                    <div className={styles.sizeRow}>
+                      {slideMode === "browse" ? (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(event) => {
+                            const nextSelected = event.target.checked;
 
-                                onToggleLine(
-                                  product.id,
-                                  sizeOption.id,
-                                  nextSelected
-                                );
-                              }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className={styles.removeLineButton}
-                              onClick={() => onRemoveLine(product.id, sizeOption.id)}
-                              style={{
-                                borderColor: theme.colors.border,
-                                color: theme.colors.text,
-                              }}
-                            >
-                              Remove
-                            </button>
-                          )}
-                          
-                          <div className={styles.sizeText}>
-                            <div className={styles.sizeLabel}>{sizeOption.label}</div>
-
-                            {sizeOption.description ? (
-                              <div className={styles.sizeDescription}>
-                                {sizeOption.description}
-                              </div>
-                            ) : null}
-                          </div>
-                          
-                          <div className={styles.sizePrice}>
-                            {resolvedLine?.baseUnitPrice !== undefined &&
-                            resolvedLine.baseUnitPrice > unitPrice ? (
-                              <div>
-                                <div
-                                  style={{
-                                    textDecoration: "line-through",
-                                    opacity: 0.6,
-                                    fontSize: "0.9em",
-                                  }}
-                                >
-                                  {formatCurrency(
-                                    resolvedLine.baseUnitPrice,
-                                    catalog.currencyCode
-                                  )}
-                                </div>
-                                <div>
-                                  {formatCurrency(unitPrice, catalog.currencyCode)}
-                                </div>
-                              </div>
-                            ) : (
-                              formatCurrency(unitPrice, catalog.currencyCode)
-                            )}
-                          </div>
-                              {isEventTicketLine && slideMode === "review" ? (
-                                <div className={styles.ticketQuantityLocked}>
-                                  Quantity locked before payment
-                                </div>
-                              ) : (
-                                <QuantityControl
-                                  quantity={quantity}
-                                  disabled={slideMode === "browse" ? !selected : false}
-                                  onDecrease={() =>
-                                    onSetQuantity(product.id, sizeOption.id, quantity - 1)
-                                  }
-                                  onIncrease={() =>
-                                    onSetQuantity(product.id, sizeOption.id, quantity + 1)
-                                  }
-                                  theme={theme}
-                                />
-                              )}
-                        </div>
-
-                          {slideMode === "browse" &&
-                          sizeOption.purchaseModes?.length &&
-                          !isInternalOnlyPurchaseMode(sizeOption.purchaseModes) ? (
-                          <div className={styles.purchaseModes}>
-                            {sizeOption.purchaseModes.map((mode) => {
-                              const checked =
-                                (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
-                                mode.id;
-                
-                              return (
-                                <label
-                                  key={mode.id}
-                                  className={styles.purchaseModeOption}
-                                >
-                                  <input
-                                    type="radio"
-                                    name={`${product.id}-${sizeOption.id}-purchase-mode`}
-                                    checked={checked}
-                                    disabled={slideMode === "browse" ? !selected : true}
-                                    onChange={() =>
-                                      onSetPurchaseMode(
-                                        product.id,
-                                        sizeOption.id,
-                                        mode.id
-                                      )
-                                    }
-                                  />
-                                  <span>{mode.label}</span>
-                                  {mode.priceAdjustment !== 0 ? (
-                                    <span className={styles.purchaseModePrice}>
-                                      {mode.priceAdjustment > 0 ? "+" : ""}
-                                      {formatCurrency(
-                                        mode.priceAdjustment,
-                                        catalog.currencyCode
-                                      )}
-                                    </span>
-                                  ) : null}
-                                </label>
+                            if (
+                              nextSelected &&
+                              sizeOption.purchaseModes?.length &&
+                              !cartLine?.purchaseModeId
+                            ) {
+                              onSetPurchaseMode(
+                                product.id,
+                                sizeOption.id,
+                                getDefaultPurchaseModeId(sizeOption)
                               );
-                            })}
+                            }
+
+                            onToggleLine(
+                              product.id,
+                              sizeOption.id,
+                              nextSelected
+                            );
+                          }}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.removeLineButton}
+                          onClick={() => onRemoveLine(product.id, sizeOption.id)}
+                          style={{
+                            borderColor: theme.colors.border,
+                            color: theme.colors.text,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                      
+                      <div className={styles.sizeText}>
+                        <div className={styles.sizeLabel}>{sizeOption.label}</div>
+
+                        {sizeOption.description ? (
+                          <div className={styles.sizeDescription}>
+                            {sizeOption.description}
                           </div>
                         ) : null}
+                      </div>
+                      
+                      <div className={styles.sizePrice}>
+                        {resolvedLine?.baseUnitPrice !== undefined &&
+                        resolvedLine.baseUnitPrice > unitPrice ? (
+                          <div>
+                            <div
+                              style={{
+                                textDecoration: "line-through",
+                                opacity: 0.6,
+                                fontSize: "0.9em",
+                              }}
+                            >
+                              {formatCurrency(
+                                resolvedLine.baseUnitPrice,
+                                catalog.currencyCode
+                              )}
+                            </div>
+                            <div>
+                              {formatCurrency(unitPrice, catalog.currencyCode)}
+                            </div>
+                          </div>
+                        ) : (
+                          formatCurrency(unitPrice, catalog.currencyCode)
+                        )}
+                      </div>
+                          {isEventTicketLine && slideMode === "review" ? (
+                            <div className={styles.ticketQuantityLocked}>
+                              Quantity locked before payment
+                            </div>
+                          ) : (
+                            <QuantityControl
+                              quantity={quantity}
+                              disabled={slideMode === "browse" ? !selected : false}
+                              onDecrease={() =>
+                                onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                              }
+                              onIncrease={() =>
+                                onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                              }
+                              theme={theme}
+                            />
+                          )}
+                    </div>
 
-                        {slideMode === "review" ? (
-                          <div className={styles.reviewMetaRow}>
-                            {resolvedLine?.purchaseModeLabel ? (
-                              <span>{resolvedLine.purchaseModeLabel}</span>
-                            ) : null}
-
-                            {typeof sizeOption.weight === "number" &&
-                            sizeOption.weight > 0 ? (
-                              <span>
-                                Weight:{" "}
-                                {formatWeight(
-                                  sizeOption.weight * quantity,
-                                  catalog.weightUnit
-                                )}
-                              </span>
-                            ) : null}
-
-                            {resolvedLine?.discountLabel && resolvedLine.lineDiscount ? (
-                              <span>
-                                {resolvedLine.discountLabel} · -
+                    {slideMode === "browse" &&
+                    sizeOption.purchaseModes?.length &&
+                    !isInternalOnlyPurchaseMode(sizeOption.purchaseModes) ? (
+                    <div className={styles.purchaseModes}>
+                      {sizeOption.purchaseModes.map((mode) => {
+                        const checked =
+                          (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
+                          mode.id;
+          
+                        return (
+                          <label
+                            key={mode.id}
+                            className={styles.purchaseModeOption}
+                          >
+                            <input
+                              type="radio"
+                              name={`${product.id}-${sizeOption.id}-purchase-mode`}
+                              checked={checked}
+                              disabled={slideMode === "browse" ? !selected : true}
+                              onChange={() =>
+                                onSetPurchaseMode(
+                                  product.id,
+                                  sizeOption.id,
+                                  mode.id
+                                )
+                              }
+                            />
+                            <span>{mode.label}</span>
+                            {mode.priceAdjustment !== 0 ? (
+                              <span className={styles.purchaseModePrice}>
+                                {mode.priceAdjustment > 0 ? "+" : ""}
                                 {formatCurrency(
-                                  resolvedLine.lineDiscount,
+                                  mode.priceAdjustment,
                                   catalog.currencyCode
                                 )}
                               </span>
                             ) : null}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
 
-                            <span>
-                              Line total:{" "}
-                              {formatCurrency(
-                                resolvedLine?.lineTotal ?? unitPrice * quantity,
-                                catalog.currencyCode
-                              )}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                  {slideMode === "review" ? (
+                    <div className={styles.reviewMetaRow}>
+                      {resolvedLine?.purchaseModeLabel ? (
+                        <span>{resolvedLine.purchaseModeLabel}</span>
+                      ) : null}
+
+                      {typeof sizeOption.weight === "number" &&
+                      sizeOption.weight > 0 ? (
+                        <span>
+                          Weight:{" "}
+                          {formatWeight(
+                            sizeOption.weight * quantity,
+                            catalog.weightUnit
+                          )}
+                        </span>
+                      ) : null}
+
+                      {resolvedLine?.discountLabel && resolvedLine.lineDiscount ? (
+                        <span>
+                          {resolvedLine.discountLabel} · -
+                          {formatCurrency(
+                            resolvedLine.lineDiscount,
+                            catalog.currencyCode
+                          )}
+                        </span>
+                      ) : null}
+
+                      <span>
+                        Line total:{" "}
+                        {formatCurrency(
+                          resolvedLine?.lineTotal ?? unitPrice * quantity,
+                          catalog.currencyCode
+                        )}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              );
+              })}
+
+                {isEventProduct && slideMode === "browse" ? (
+                  <div className={styles.eventProductBottomActions}>
+                    <button
+                      type="button"
+                      className={styles.seeCostButton}
+                      onClick={() =>
+                        setExpandedProducts((prev) => ({
+                          ...prev,
+                          [product.id]: false,
+                        }))
+                      }
+                      style={{
+                        borderColor: theme.colors.border,
+                        color: theme.colors.text,
+                      }}
+                    >
+                      Hide details
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
-          </div>
-        );
-      })}
+        </div>
+      );
+    })}
 
-            {slideMode === "review" ? (
+      {slideMode === "review" ? (
         <div className={styles.reviewTotals}>
           {activeDiscountLabel && showDiscountTotal ? (
             <div>

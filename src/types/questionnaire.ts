@@ -52,6 +52,11 @@ export type ShopCatalogProduct = {
   title: string;
   imageUrl?: string;
   description?: string;
+  detailsDescription?: string;
+  eventVenueLabel?: string;
+  eventAddress?: string;
+  eventDateLabel?: string;
+  eventTimeLabel?: string;
   fulfillmentType?: FulfillmentType;
   sizeOptions: ShopCatalogSizeOption[];
 };

@@ -594,6 +594,34 @@ function normalizeShopProduct(
     typeof record.imageUrl === "string" ? record.imageUrl : undefined;
   const description =
     typeof record.description === "string" ? record.description : undefined;
+  const detailsDescription =
+    typeof record.detailsDescription === "string"
+      ? record.detailsDescription
+      : undefined;
+  const eventVenueLabel =
+    typeof record.eventVenueLabel === "string"
+      ? record.eventVenueLabel
+      : typeof record.venue === "string"
+        ? record.venue
+        : undefined;
+  const eventAddress =
+    typeof record.eventAddress === "string"
+      ? record.eventAddress
+      : typeof record.address === "string"
+        ? record.address
+        : undefined;
+  const eventDateLabel =
+    typeof record.eventDateLabel === "string"
+      ? record.eventDateLabel
+      : typeof record.dateLabel === "string"
+        ? record.dateLabel
+        : undefined;
+  const eventTimeLabel =
+    typeof record.eventTimeLabel === "string"
+      ? record.eventTimeLabel
+      : typeof record.showTimeLabel === "string"
+        ? record.showTimeLabel
+        : undefined;
   const fulfillmentType =
     record.fulfillmentType === "physical" ||
     record.fulfillmentType === "digital" ||
@@ -610,11 +638,16 @@ function normalizeShopProduct(
     .map(normalizeShopSizeOption)
     .filter(Boolean) as ShopCatalogSizeOption[];
 
-    return {
+  return {
     id,
     title,
     imageUrl,
     description,
+    detailsDescription,
+    eventVenueLabel,
+    eventAddress,
+    eventDateLabel,
+    eventTimeLabel,
     fulfillmentType,
     sizeOptions,
   };
