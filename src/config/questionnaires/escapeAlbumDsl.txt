@@ -2,6 +2,10 @@
 @type: media
 @title: Good Morning
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-01-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
 @next: Lyrics

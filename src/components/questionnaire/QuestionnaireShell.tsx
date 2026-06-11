@@ -2668,8 +2668,12 @@ function handleDownloadButtonClick(downloadButton: DownloadButton) {
       [requestKey]: downloadButton.key,
     }));
 
-    if (currentSlide?.goto) {
-      goToTarget(currentSlide.goto);
+    const downloadFormatSlideId =
+      visibleSlides.find((slide) => slide.downloadFormatOptions?.length)?.id ??
+      null;
+
+    if (downloadFormatSlideId) {
+      goToTarget(downloadFormatSlideId);
       return;
     }
 
