@@ -99,6 +99,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "escape-album": {
+    slug: "escape-album",
+    name: "Escape Album",
+    themeKey: "escapeAlbum",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/escapeAlbumDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "nursery-ops": {
   slug: "nursery-ops",
   name: "Nursery Operations",

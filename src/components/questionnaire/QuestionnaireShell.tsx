@@ -19,6 +19,7 @@ import {
   DeliverySelection,
   DiscountDefinition,
   DiscountedOrderSummary,
+  DownloadButton,
   FormField,
   PromotionEligibleItem,
   QuestionnaireAnswers,
@@ -2657,6 +2658,28 @@ function triggerDownload(downloadKey: string, label?: string) {
   setDownloadNotice(openQuestionnaireDownload(downloadKey, label));
 }
 
+function handleDownloadButtonClick(downloadButton: DownloadButton) {
+  const requestKey = currentSlide?.downloadRequestKey;
+  const requestTarget = currentSlide?.downloadRequests?.[downloadButton.key];
+
+  if (requestKey && requestTarget) {
+    setAnswers((prev) => ({
+      ...prev,
+      [requestKey]: downloadButton.key,
+    }));
+
+    if (currentSlide?.goto) {
+      goToTarget(currentSlide.goto);
+      return;
+    }
+
+    setDownloadNotice("Choose MP3 or WAV to continue.");
+    return;
+  }
+
+  triggerDownload(downloadButton.key, downloadButton.label);
+}
+
 function getCurrentDownloadRequest() {
   const requestKey = currentSlide?.downloadRequestKey;
 
@@ -2681,14 +2704,20 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
     return;
   }
 
-  const downloadKey =
-    request.scope === "album"
-      ? `escape-album-${format}`
-      : `escape-${request.itemId}-${format}`;
+  const baseDownloadKey =
+    request.itemId ?? (request.scope === "album" ? "album" : "");
+
+  if (!baseDownloadKey) {
+    setDownloadNotice("This download is not configured yet.");
+    return;
+  }
+
+  const downloadKey = `${baseDownloadKey}-${format}`;
 
   setDownloadNotice(openQuestionnaireDownload(downloadKey, label));
 }
 
+  
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
 
@@ -3755,10 +3784,7 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
                             key={`${currentSlide.id}-${downloadButton.key}`}
                             type="button"
                             onClick={() =>
-                              triggerDownload(
-                                downloadButton.key,
-                                downloadButton.label
-                              )
+                              handleDownloadButtonClick(downloadButton)
                             }
                             className={`${styles.primaryButton} ${styles.actionButton}`}
                             style={{

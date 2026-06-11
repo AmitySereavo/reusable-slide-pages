@@ -48,6 +48,7 @@ public/media/invitation/*.mp4
 
 # Private downloadable files
 private-downloads/*
+protected-media/
 
 private-downloads/*
 !private-downloads/.gitkeep
