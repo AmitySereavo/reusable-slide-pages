@@ -1054,6 +1054,15 @@
   opacity: 0.78;
 }
 
+.productDescriptionFull {
+  margin: 0;
+  width: 100%;
+  font-size: 1rem;
+  line-height: 1.45;
+  opacity: 0.82;
+  white-space: pre-line;
+}
+
 .eventProductDetailsBox {
   white-space: pre-line;
 }

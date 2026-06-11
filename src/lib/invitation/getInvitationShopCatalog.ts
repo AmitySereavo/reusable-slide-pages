@@ -193,9 +193,9 @@ sizeOptions: [
         slug: "escape-album-digital",
         fulfillmentType: "digital",
         title: "Escape Album — Digital Download",
-        imageUrl: "/media/invitation/escape-album-cover.jpg",
+        imageUrl: "/media/invitation/Escape album artwork 640 by 640.jpg",
         description:
-          "Get secure email access to download the full Escape album. Both MP3 and WAV download links will be available after purchase.",
+          "Get secure email access to download the full Escape album.\n\nBoth MP3 and WAV download links will be available after purchase.",
         sizeOptions: [
           {
             id: "escape-album-full-download",

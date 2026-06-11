@@ -3,6 +3,7 @@ import {
   ChoicePlacement,
   ConditionRule,
   DownloadButton,
+  DownloadFormatOption,
   FormField,
   MediaAspect,
   MediaType,
@@ -55,6 +56,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
   let inFieldsBlock = false;
   let inChoicesBlock = false;
   let inDownloadButtonsBlock = false;
+  let inDownloadRequestsBlock = false;
+  let inDownloadFormatsBlock = false;
   let inWhenBlock = false;
   let inBackWhenBlock = false;
   let inShowIfBlock = false;
@@ -66,6 +69,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
+      inDownloadFormatsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -76,6 +81,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
+inDownloadFormatsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -87,6 +94,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = true;
       inChoicesBlock = false;
       inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
+      inDownloadFormatsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -97,6 +106,8 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inChoicesBlock = true;
       inFieldsBlock = false;
       inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
+      inDownloadFormatsBlock = false;
       inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
@@ -105,6 +116,32 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
 
     if (line.startsWith("@downloadbuttons:")) {
       inDownloadButtonsBlock = true;
+      inDownloadRequestsBlock = false;
+      inDownloadFormatsBlock = false;
+      inChoicesBlock = false;
+      inFieldsBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      inShowIfBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@downloadrequests:")) {
+      inDownloadRequestsBlock = true;
+      inDownloadButtonsBlock = false;
+      inDownloadFormatsBlock = false;
+      inChoicesBlock = false;
+      inFieldsBlock = false;
+      inWhenBlock = false;
+      inBackWhenBlock = false;
+      inShowIfBlock = false;
+      continue;
+    }
+
+    if (line.startsWith("@downloadformats:")) {
+      inDownloadFormatsBlock = true;
+      inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
       inChoicesBlock = false;
       inFieldsBlock = false;
       inWhenBlock = false;
@@ -118,6 +155,9 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
       inFieldsBlock = false;
       inChoicesBlock = false;
       inDownloadButtonsBlock = false;
+      inDownloadRequestsBlock = false;
+      inDownloadFormatsBlock = false;
+      inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
       continue;
@@ -180,6 +220,32 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         draft.downloadButtons = [
           ...(draft.downloadButtons ?? []),
           downloadButton,
+        ];
+      }
+
+      continue;
+    }
+
+    if (inDownloadRequestsBlock && line.startsWith("-")) {
+      const downloadRequest = parseDownloadRequestLine(line);
+
+      if (downloadRequest) {
+        draft.downloadRequests = {
+          ...(draft.downloadRequests ?? {}),
+          [downloadRequest.key]: downloadRequest.target,
+        };
+      }
+
+      continue;
+    }
+
+    if (inDownloadFormatsBlock && line.startsWith("-")) {
+      const downloadFormat = parseDownloadFormatLine(line);
+
+      if (downloadFormat) {
+        draft.downloadFormatOptions = [
+          ...(draft.downloadFormatOptions ?? []),
+          downloadFormat,
         ];
       }
 
@@ -458,6 +524,12 @@ function parseSlideBlock(block: string): ParsedSlideDraft {
         continue;
       }
 
+      if (line.startsWith("@downloadrequestkey:")) {
+        draft.downloadRequestKey = readValue(line, "@downloadrequestkey:");
+        continue;
+      }
+  
+
       if (line.startsWith("@feature:")) {
         const feature = parseFeature(readValue(line, "@feature:"));
         draft.feature = feature;
@@ -688,8 +760,13 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     goto: draft.goto,
     run: draft.run,
     downloadKey: draft.downloadKey,
-        downloadButtons: draft.downloadButtons?.length
+    downloadButtons: draft.downloadButtons?.length
       ? draft.downloadButtons
+      : undefined,
+    downloadRequestKey: draft.downloadRequestKey,
+    downloadRequests: draft.downloadRequests,
+    downloadFormatOptions: draft.downloadFormatOptions?.length
+      ? draft.downloadFormatOptions
       : undefined,
     sections: draft.sections,
     feature: draft.feature,
@@ -917,6 +994,50 @@ function parseDownloadButtonLine(line: string): DownloadButton | null {
   return {
     key,
     label,
+    styleKey: styleKey || undefined,
+  };
+}
+
+function parseDownloadRequestLine(line: string): {
+  key: string;
+  target: {
+    scope: "song" | "album";
+    itemId?: string;
+  };
+} | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [key, scope, itemId] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (!key || (scope !== "song" && scope !== "album")) {
+    return null;
+  }
+
+  return {
+    key,
+    target: {
+      scope,
+      itemId: itemId || undefined,
+    },
+  };
+}
+
+function parseDownloadFormatLine(line: string): DownloadFormatOption | null {
+  const value = line.replace(/^-+\s*/, "").trim();
+
+  const [format, label, styleKey] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (format !== "mp3" && format !== "wav") {
+    return null;
+  }
+
+  return {
+    format,
+    label: label || format.toUpperCase(),
     styleKey: styleKey || undefined,
   };
 }

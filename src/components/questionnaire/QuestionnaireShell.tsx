@@ -2657,6 +2657,38 @@ function triggerDownload(downloadKey: string, label?: string) {
   setDownloadNotice(openQuestionnaireDownload(downloadKey, label));
 }
 
+function getCurrentDownloadRequest() {
+  const requestKey = currentSlide?.downloadRequestKey;
+
+  if (!requestKey) {
+    return null;
+  }
+
+  const selectedRequestKey = String(answers[requestKey] ?? "");
+
+  if (!selectedRequestKey) {
+    return null;
+  }
+
+  return currentSlide.downloadRequests?.[selectedRequestKey] ?? null;
+}
+
+function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
+  const request = getCurrentDownloadRequest();
+
+  if (!request) {
+    setDownloadNotice("Choose what you want to download first.");
+    return;
+  }
+
+  const downloadKey =
+    request.scope === "album"
+      ? `escape-album-${format}`
+      : `escape-${request.itemId}-${format}`;
+
+  setDownloadNotice(openQuestionnaireDownload(downloadKey, label));
+}
+
   async function handleNext() {
     if (!currentSlide || !canGoNext() || isSubmitting) return;
 
@@ -3650,7 +3682,10 @@ function triggerDownload(downloadKey: string, label?: string) {
               </AnimatePresence>
             </div>
 
-            {hasPinnedChoices || hasDownloadButtons || hasVisibleNav ? (
+            {hasPinnedChoices ||
+              hasDownloadButtons ||
+              currentSlide.downloadFormatOptions?.length ||
+              hasVisibleNav ? (
               <div
                 className={`${styles.actionBarOverlay} ${
                   actionBarHidden ? styles.actionBarShifted : ""
@@ -3734,6 +3769,40 @@ function triggerDownload(downloadKey: string, label?: string) {
                             }}
                           >
                             {downloadButton.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
+                  {currentSlide.downloadFormatOptions?.length ? (
+                    <div className={styles.choiceStack}>
+                      {currentSlide.downloadFormatOptions.map((downloadFormat) => {
+                        const buttonStyle = resolveButtonStyle(
+                          theme,
+                          downloadFormat.styleKey ?? currentSlide.buttonStyleKey,
+                          "primary"
+                        );
+
+                        return (
+                          <button
+                            key={`${currentSlide.id}-${downloadFormat.format}`}
+                            type="button"
+                            onClick={() =>
+                              triggerDownloadRequest(
+                                downloadFormat.format,
+                                downloadFormat.label
+                              )
+                            }
+                            className={`${styles.primaryButton} ${styles.actionButton}`}
+                            style={{
+                              background: buttonStyle.background,
+                              color: buttonStyle.color,
+                              borderColor: buttonStyle.borderColor,
+                              borderRadius: theme.radius?.button ?? "14px",
+                            }}
+                          >
+                            {downloadFormat.label}
                           </button>
                         );
                       })}
@@ -5231,11 +5300,6 @@ function ShopSlideRenderer({
                     <div className={styles.productTitleRow}>
                       <div className={styles.productTitleGroup}>
                         <h3 className={styles.productTitle}>{product.title}</h3>
-                        {product.description ? (
-                          <p className={styles.productDescription}>
-                            {product.description}
-                          </p>
-                        ) : null}
 
                         {slideMode === "review" ? (
                           <span className={styles.cartItemBadge}>Cart item</span>
@@ -5256,6 +5320,12 @@ function ShopSlideRenderer({
                     </div>
                   </div>
                 </div>
+
+                {product.description ? (
+                  <p className={styles.productDescriptionFull}>
+                    {product.description}
+                  </p>
+                ) : null}
 
               {slideMode === "browse" && !isExpanded ? (
                 <button

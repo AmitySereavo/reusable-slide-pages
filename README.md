@@ -22,6 +22,8 @@ It currently acts as a shared development ground for:
 - URL-addressable slides
 - invitation / music / event flows
 - ticket and meal-selection flows
+- ticket owner portals
+- digital album/download deliverables
 - plant shop / seed shop flows
 - DB-backed nursery operations
 - reusable record lists
@@ -33,10 +35,10 @@ Long-term, these systems should remain separable so they can become dedicated pr
 
 ## Current source of truth
 
-Current reusable-slide-pages source of truth before the latest local README/update commit:
+Current reusable-slide-pages source of truth before the next local README/update commit:
 
 ```txt
-656074b4461874d339ded93cccd5ead50be6a10e
+912cd1604251c044828c04721ee3e321ada282f6
 ```
 
 Reusable auth source merged into this project:
@@ -45,35 +47,7 @@ Reusable auth source merged into this project:
 2aa462dfcfa090eefa0a3b38d08000d722c43419
 ```
 
-Latest local work after the source-of-truth SHA above includes:
-
-```txt
-- hamburger menu auth controls in slide flows
-- login/logout moved into hamburger menu
-- action-bar login/logout support
-- login return-to-slide flow
-- auth-login success button returns to the slide where login was clicked
-- URL-addressable slides with @syncurl
-- Return Home remains generic and routes through goToTarget("home")
-- gated lead capture uses embedded reusable LeadCaptureForm
-- gated lead form receives reusable auth routes.login
-- reusable auth form shows "Already have an account? Log in" through routes.login
-- gated lead success advances to a DSL confirmation slide
-- duplicate gated-link clicks are reduced because form is no longer left visible after success
-- DB-backed UserMarketingQuestionAnswer model
-- DB-backed UserVideoProgress model
-- local engagement tracking syncs into DB when a user/lead becomes known
-- performance/rating slides bypass only when DB says the user already answered
-- gated-access cookie can identify the temporary/lead account
-- returning lead/temp account can become a normal session from signed gated cookie
-- video resume is controlled per video through @videoresume
-- @videoresume supports none, auto, prompt-once, prompt-every-time
-- @videoresume can combine with @videogoto
-- @syncurl supports refreshable deep slides such as second-video
-- Clear Visitor State option exists for development/testing
-```
-
-After committing these local fixes, update this README source-of-truth SHA.
+After committing the next local changes, update this README source-of-truth SHA.
 
 ---
 
@@ -93,6 +67,9 @@ plant shop / seed shop flows
 
 invitation / music / event flows
 → later extracted as their own website/app
+
+album / music deliverables
+→ later extracted as part of the music/event website or as reusable digital-deliverable infrastructure
 
 reusable auth
 → extracted/refined back into a robust standalone reusable auth/account system
@@ -114,8 +91,9 @@ Because of this, shared systems should stay reusable:
 - gated access helpers
 - engagement tracking helpers
 - embedded auth form renderer
+- private download route helpers
 
-Avoid hardcoding nursery, plant shop, invitation, or business-specific wording into shared systems.
+Avoid hardcoding nursery, plant shop, invitation, album, or business-specific wording into shared systems.
 
 Project-specific wording belongs in:
 
@@ -158,55 +136,8 @@ src/lib/questionnaire
 - Twilio package installed but SMS is paused for now
 - bcrypt
 - crypto/HMAC signed gated access cookies
+- private download route for protected files
 - Git LFS for large media when needed
-
----
-
-## Supported capabilities
-
-The project supports:
-
-- marketing funnels
-- questionnaires
-- media-rich video flows
-- URL-refreshable slides
-- gated video access
-- per-video resume behavior
-- return-viewer resume prompts
-- storefront pages
-- delivery and pickup flows
-- contact capture
-- embedded reusable auth forms
-- gated lead capture
-- temporary auth-backed lead accounts
-- marketing-question answer storage
-- video progress storage
-- digital downloads
-- ticket / invitation flows
-- ticket-owner assignment
-- per-ticket meal selection
-- ticket owner email delivery direction
-- DB-backed nursery operations
-- record lists
-- reusable profile blocks
-- reusable authentication
-- slide-style signup and login
-- slide-style account verification
-- reusable auth footer inside slide flows
-- password reset
-- account management
-- account summary cards
-- update account information
-- configurable name-update limits
-- name-change history
-- retained email history
-- verified active email switching
-- password updated timestamp tracking
-- configurable account deletion
-- account deletion verification codes
-- immediate or scheduled account deletion
-- dev-safe email delivery testing
-- real-recipient email testing
 
 ---
 
@@ -235,13 +166,13 @@ Shared questionnaire route:
 /questionnaire/[slug]
 ```
 
-The shared shell stays generic.
+The shared shell stays generic. The DSL and registry decide the experience.
 
 ---
 
 ## Active questionnaires and flows
 
-## `self-trust`
+### `self-trust`
 
 A score-based self-trust flow.
 
@@ -253,7 +184,7 @@ Route:
 
 ---
 
-## `garden-herbs`
+### `garden-herbs`
 
 A content questionnaire for garden herbs.
 
@@ -265,7 +196,7 @@ Route:
 
 ---
 
-## `seed`
+### `seed`
 
 A plant/seed funnel with DB-backed shop catalog, delivery selection, contact capture, review order, discounts, and promotion item logic.
 
@@ -277,9 +208,9 @@ Route:
 
 ---
 
-## `invitation`
+### `invitation`
 
-A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, gated second-video access, per-ticket owner details, per-ticket meal selection, and future gated download/ticket access.
+A media-first invitation and storefront flow for music, event tickets/invitations, album downloads, gated second-video access, per-ticket owner details, per-ticket meal selection, and ticket owner portals.
 
 Route:
 
@@ -311,6 +242,7 @@ Current capabilities:
 - automatic lead-form bypass when known user/session exists
 - invitation/event shop
 - ticket/invitation purchase options
+- event-card shop layout
 - ticket-owner details page
 - generated temporary ticket codes per selected ticket
 - optional ticket owner name, email, and WhatsApp/phone
@@ -319,6 +251,9 @@ Current capabilities:
 - optional meal add-on pricing
 - extra serving pricing support
 - meal notes per ticket
+- permanent ticket owner portal links
+- ticket owner add-on budget messaging
+- over-budget add-on detection
 - digital album purchase options
 - physical-fulfillment-aware checkout routing
 - contact-only routing for digital/email-only orders
@@ -328,47 +263,565 @@ Current capabilities:
 
 ---
 
-## `nursery-ops`
+### `escape-album`
 
-A DB-backed nursery operations flow for batches, batch subsets, transplanted individuals, record lists, and reusable block-driven profiles.
+Planned dedicated album deliverable flow for purchasers of the Escape album digital download.
 
-Route:
+Route target:
 
 ```txt
-/questionnaire/nursery-ops
+/questionnaire/escape-album
 ```
 
-Current direction:
+This should be a separate DSL flow, not part of the invitation checkout DSL.
 
-- DB-backed batch creation
-- batch subsets
-- transplanted individuals
-- record lists
-- reusable profile blocks
-- dynamic data loading
-- reusable delete confirmation
-- update/cancel/return-home behavior
-- avoid hardcoding nursery wording into shared shell code
+Recommended DSL path:
+
+```txt
+src/config/questionnaires/escapeAlbumDsl.txt
+```
+
+Purpose:
+
+```txt
+purchaser buys Escape Album — Digital Download
+→ system confirms account/session ownership
+→ email sends link to album deliverable flow
+→ user opens /questionnaire/escape-album
+→ user watches lyric videos
+→ user reads written lyrics
+→ user downloads one song or the full album in MP3 or WAV
+```
+
+Base album structure:
+
+```txt
+10 songs × 2 slides each = 20 song slides
+
+Each song has:
+1. lyric video media slide
+2. written lyrics slide
+```
+
+Additional slide:
+
+```txt
+download-format slide
+→ lets user choose MP3 or WAV
+```
+
+Total expected base flow:
+
+```txt
+21 slides
+```
+
+The same download-format slide should be reusable for:
+
+```txt
+Download this song
+Download full album
+```
+
+The download-format slide should use context to decide which existing download key to trigger.
 
 ---
 
-## `generic-profile-flow`
+## Escape album song list
 
-A reusable profile-flow testbed.
-
-Route:
+Current visible song/video names from the working folder:
 
 ```txt
-/questionnaire/generic-profile-flow
+01-good-morning
+02-life-good
+03-work-hard
+04-income
+05-mystical-feeling
+06-close-to-me
+07-constantly
+08-judgement
+09-not-misled
+10-cant-let-you-go
 ```
+
+Bonus / non-song item:
+
+```txt
+amity-sereavo-speaks
+```
+
+The bonus item should be kept separate from the 10-song album sequence unless the DSL intentionally adds a bonus section.
+
+---
+
+## Private media storage rule
+
+Paid media files must not be placed in `public/`.
+
+Anything in `public/` can be accessed directly by URL if someone knows the path.
+
+Paid album files, lyric videos, WAV files, MP3 files, written lyrics, and full-album ZIP packages should live outside the public web root.
+
+Recommended local development structure:
+
+```txt
+protected-media/
+  escape/
+    videos/
+      vertical/
+      horizontal/
+    audio/
+      mp3/
+      wav/
+    lyrics/
+    covers/
+    downloads/
+      full-album/
+    bonus/
+      videos/
+```
+
+Recommended full paths:
+
+```txt
+protected-media/escape/videos/vertical/
+protected-media/escape/videos/horizontal/
+protected-media/escape/audio/mp3/
+protected-media/escape/audio/wav/
+protected-media/escape/lyrics/
+protected-media/escape/covers/
+protected-media/escape/downloads/full-album/
+protected-media/escape/bonus/videos/
+```
+
+Recommended song file names:
+
+```txt
+protected-media/escape/videos/vertical/01-good-morning.mp4
+protected-media/escape/videos/vertical/02-life-good.mp4
+protected-media/escape/videos/vertical/03-work-hard.mp4
+protected-media/escape/videos/vertical/04-income.mp4
+protected-media/escape/videos/vertical/05-mystical-feeling.mp4
+protected-media/escape/videos/vertical/06-close-to-me.mp4
+protected-media/escape/videos/vertical/07-constantly.mp4
+protected-media/escape/videos/vertical/08-judgement.mp4
+protected-media/escape/videos/vertical/09-not-misled.mp4
+protected-media/escape/videos/vertical/10-cant-let-you-go.mp4
+
+protected-media/escape/videos/horizontal/01-good-morning.mp4
+protected-media/escape/videos/horizontal/02-life-good.mp4
+protected-media/escape/videos/horizontal/03-work-hard.mp4
+protected-media/escape/videos/horizontal/04-income.mp4
+protected-media/escape/videos/horizontal/05-mystical-feeling.mp4
+protected-media/escape/videos/horizontal/06-close-to-me.mp4
+protected-media/escape/videos/horizontal/07-constantly.mp4
+protected-media/escape/videos/horizontal/08-judgement.mp4
+protected-media/escape/videos/horizontal/09-not-misled.mp4
+protected-media/escape/videos/horizontal/10-cant-let-you-go.mp4
+
+protected-media/escape/audio/mp3/01-good-morning.mp3
+protected-media/escape/audio/mp3/02-life-good.mp3
+protected-media/escape/audio/mp3/03-work-hard.mp3
+protected-media/escape/audio/mp3/04-income.mp3
+protected-media/escape/audio/mp3/05-mystical-feeling.mp3
+protected-media/escape/audio/mp3/06-close-to-me.mp3
+protected-media/escape/audio/mp3/07-constantly.mp3
+protected-media/escape/audio/mp3/08-judgement.mp3
+protected-media/escape/audio/mp3/09-not-misled.mp3
+protected-media/escape/audio/mp3/10-cant-let-you-go.mp3
+
+protected-media/escape/audio/wav/01-good-morning.wav
+protected-media/escape/audio/wav/02-life-good.wav
+protected-media/escape/audio/wav/03-work-hard.wav
+protected-media/escape/audio/wav/04-income.wav
+protected-media/escape/audio/wav/05-mystical-feeling.wav
+protected-media/escape/audio/wav/06-close-to-me.wav
+protected-media/escape/audio/wav/07-constantly.wav
+protected-media/escape/audio/wav/08-judgement.wav
+protected-media/escape/audio/wav/09-not-misled.wav
+protected-media/escape/audio/wav/10-cant-let-you-go.wav
+
+protected-media/escape/lyrics/01-good-morning.txt
+protected-media/escape/lyrics/02-life-good.txt
+protected-media/escape/lyrics/03-work-hard.txt
+protected-media/escape/lyrics/04-income.txt
+protected-media/escape/lyrics/05-mystical-feeling.txt
+protected-media/escape/lyrics/06-close-to-me.txt
+protected-media/escape/lyrics/07-constantly.txt
+protected-media/escape/lyrics/08-judgement.txt
+protected-media/escape/lyrics/09-not-misled.txt
+protected-media/escape/lyrics/10-cant-let-you-go.txt
+```
+
+Full album packages:
+
+```txt
+protected-media/escape/downloads/full-album/escape-album-mp3.zip
+protected-media/escape/downloads/full-album/escape-album-wav.zip
+```
+
+Bonus video:
+
+```txt
+protected-media/escape/bonus/videos/amity-sereavo-speaks-vertical.mp4
+```
+
+Recommended `.gitignore` entry:
+
+```txt
+protected-media/
+```
+
+Private files should not be committed to Git unless intentionally tracked with a secure/private strategy.
+
+---
+
+## Private download access
+
+The browser should never link directly to protected media files.
+
+The DSL should trigger download keys. The server-side download route should:
+
+```txt
+receive download key
+→ check logged-in user/session
+→ check purchase/entitlement
+→ resolve the private file path
+→ stream the file
+```
+
+Existing download-key pattern for Escape album:
+
+```txt
+escape-song-01-mp3
+escape-song-01-wav
+escape-song-02-mp3
+escape-song-02-wav
+escape-song-03-mp3
+escape-song-03-wav
+escape-song-04-mp3
+escape-song-04-wav
+escape-song-05-mp3
+escape-song-05-wav
+escape-song-06-mp3
+escape-song-06-wav
+escape-song-07-mp3
+escape-song-07-wav
+escape-song-08-mp3
+escape-song-08-wav
+escape-song-09-mp3
+escape-song-09-wav
+escape-song-10-mp3
+escape-song-10-wav
+escape-album-mp3
+escape-album-wav
+```
+
+The project should reuse the existing download feature instead of building a new one.
+
+Required reusable enhancement:
+
+```txt
+download this song
+→ store download request context
+→ go to format-choice slide
+→ choose MP3/WAV
+→ call existing download key
+
+download full album
+→ store album request context
+→ go to format-choice slide
+→ choose MP3/WAV
+→ call existing download key
+```
+
+Do not create a separate one-off Escape album downloader.
+
+---
+
+## Album deliverable action-bar behavior
+
+On each song media slide:
+
+```txt
+Back
+Next
+Download this song
+Download full album
+```
+
+Behavior:
+
+```txt
+Back
+→ previous slide
+
+Next
+→ written lyrics slide for the same song
+
+Download this song
+→ download-format slide
+→ MP3/WAV choice downloads the current song
+
+Download full album
+→ download-format slide
+→ MP3/WAV choice downloads full album package
+```
+
+On each written lyrics slide:
+
+```txt
+Back
+Next
+Download this song
+Download full album
+```
+
+Behavior:
+
+```txt
+Back
+→ song media slide
+
+Next
+→ next song media slide
+
+Download this song
+→ download-format slide
+→ MP3/WAV choice downloads the current song
+
+Download full album
+→ download-format slide
+→ MP3/WAV choice downloads full album package
+```
+
+For the last lyrics slide:
+
+```txt
+Next
+→ album complete / thank you / download full album slide
+```
+
+---
+
+## Album deliverable access control
+
+The Escape album deliverable flow should be gated.
+
+Access rules:
+
+```txt
+User must be logged in
+User must own/purchase Escape Album — Digital Download
+If access passes → show /questionnaire/escape-album
+If access fails → redirect to login, purchase page, or access denied page
+```
+
+The purchase product is currently part of the invitation shop catalog:
+
+```txt
+Escape Album — Digital Download
+```
+
+After purchase, the email should include a link to the deliverable flow:
+
+```txt
+/questionnaire/escape-album
+```
+
+The email should not include raw file links.
+
+---
+
+## Event and shop card layout direction
+
+Event/invitation products should use a rich event card layout.
+
+Collapsed event card should show:
+
+```txt
+hero image
+event title
+Venue:
+Address:
+Date:
+Show starts at:
+See details
+```
+
+Expanded event card should show:
+
+```txt
+hero image
+event title
+Venue:
+Address:
+Date:
+Show starts at:
+
+description/instructions
+
+ticket options
+
+Hide details
+```
+
+The `Hide details` button belongs at the bottom of the expanded card, after the ticket list.
+
+It should not appear inside every ticket row.
+
+Normal non-event products should use a simpler product-card layout:
+
+```txt
+image + title on the same line
+description across the full width under image/title
+See details
+```
+
+Event-specific metadata belongs in the invitation shop catalog helper, not in `QuestionnaireShell`.
+
+Invitation shop catalog helper:
+
+```txt
+src/lib/invitation/getInvitationShopCatalog.ts
+```
+
+Current event products:
+
+```txt
+ranny-williams-july-1-event
+phoenix-toronto-event
+```
+
+Recommended event metadata fields:
+
+```ts
+eventVenueLabel;
+eventAddress;
+eventDateLabel;
+eventTimeLabel;
+detailsDescription;
+```
+
+Example details description:
+
+```txt
+Select your invitation type.
+
+Eligible invitations include meal selection.
+
+You will choose meal details for each ticket owner on the ticket details page.
+```
+
+Use newline spacing in data:
+
+```ts
+detailsDescription:
+  "Select your invitation type.\n\nEligible invitations include meal selection.\n\nYou will choose meal details for each ticket owner on the ticket details page.",
+```
+
+CSS should preserve spacing:
+
+```css
+white-space: pre-line;
+```
+
+---
+
+## Ticket owner portal
+
+Ticket owner portal route:
+
+```txt
+/invitation/tickets/[ticketCode]
+```
+
+Purpose:
+
+```txt
+ticket owner opens permanent ticket link
+→ sees ticket details
+→ sees event item
+→ sees payment/add-on responsibility
+→ sees meal selections
+→ can select or adjust meal when allowed
+→ over-budget add-ons can route to cart/payment
+```
+
+Payment modes:
+
+```txt
+purchaser_pays_ticket_and_addons
+owner_selects_sender_pays_addons
+owner_pays_addons
+owner_pays_ticket_and_addons
+```
+
+Current public-facing behavior:
+
+```txt
+purchaser_pays_ticket_and_addons
+→ purchaser controls add-ons
+→ ticket owner sees details only
+
+owner_selects_sender_pays_addons
+→ ticket owner selects meal/add-ons
+→ purchaser may cover a configured budget
+→ ticket owner pays anything over budget
+```
+
+Exact budget wording target:
+
+```txt
+Add-ons up to $20.00 was paid for by Jarret Swaby.
+Any selections over this budget, you will pay for.
+```
+
+Ticket owner meal selections are saved to:
+
+```txt
+/api/invitation/tickets/[ticketCode]/context
+```
+
+The frontend must save latest ticket assignments before returning to the portal.
+
+---
+
+## Ticket and meal selection direction
+
+Tickets are assigned per selected event invitation.
+
+Each ticket can have:
+
+```txt
+ticketCode
+ownerName
+ownerEmail
+ownerPhone
+ticketOwnerPaymentMode
+ticketOwnerAddonBudget
+mealMode
+mealMenuId
+mealLabel
+mealEnabled
+mealSelection
+wantsExtraFood
+hasMealNotes
+mealNotes
+mealExtraTotal
+```
+
+Meal selections should be per ticket, not aggregate only.
+
+Ticket owners should only edit tickets they are allowed to edit.
+
+Purchasers can manage all tickets for an order.
 
 ---
 
 ## Auth slide flows
 
 Reusable auth has been merged into reusable-slide-pages.
-
-The goal is to let the same slide system handle signup, login, verification, password reset, account management, account deletion, and verified account-contact updates while still keeping the auth APIs and reusable auth UI components reusable.
 
 Preferred slide-style auth routes:
 
@@ -494,21 +947,17 @@ src/lib/auth/sessionToken.js
 
 Testing note:
 
+```txt
 Use the same host for login and account testing.
 
 Use:
-
-```txt
 http://localhost:3000
-```
 
 Do not mix with:
-
-```txt
 http://127.0.0.1:3000
-```
 
 Cookies are host-specific.
+```
 
 ---
 
@@ -551,34 +1000,6 @@ Backend route:
 /api/account/profile
 ```
 
-Account profile endpoint returns:
-
-```txt
-id
-name
-email
-phone
-maskedEmail
-maskedPhone
-activeEmailAddress
-emailAddresses
-country
-city
-addressLine1
-addressLine2
-parishOrRegion
-postalCode
-emailVerifiedAt
-phoneVerifiedAt
-passwordUpdatedAt
-createdAt
-updatedAt
-deletionRequestedAt
-deletionScheduledAt
-deletedAt
-deletionStatus
-```
-
 ---
 
 ## Account name update limits
@@ -603,64 +1024,6 @@ accountInfo: {
     rollingMonths: null,
   },
 },
-```
-
-Examples:
-
-```js
-// 2 times forever
-nameUpdate: {
-  enabled: true,
-  window: "forever",
-  maxUpdates: 2,
-  rollingDays: null,
-  rollingMonths: null,
-}
-```
-
-```js
-// once per month
-nameUpdate: {
-  enabled: true,
-  window: "calendarMonth",
-  maxUpdates: 1,
-  rollingDays: null,
-  rollingMonths: null,
-}
-```
-
-```js
-// twice every 6 months
-nameUpdate: {
-  enabled: true,
-  window: "rollingMonths",
-  maxUpdates: 2,
-  rollingDays: null,
-  rollingMonths: 6,
-}
-```
-
-Backend routes:
-
-```txt
-/api/account/update-info
-/api/account/name-update-status
-```
-
-Prisma model:
-
-```prisma
-model UserNameChange {
-  id           String   @id @default(cuid())
-  userId       String
-  previousName String?
-  newName      String
-  createdAt    DateTime @default(now())
-
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-}
 ```
 
 Rules:
@@ -689,88 +1052,11 @@ Only verified emails can become active.
 The active email is used for account updates, verification, receipts, downloads, tickets, invoices, marketing, and notifications.
 ```
 
-Prisma model:
-
-```prisma
-model UserEmailAddress {
-  id              String    @id @default(cuid())
-  userId          String
-  email           String
-  normalizedEmail String    @unique
-
-  isActive        Boolean   @default(false)
-  isVerified      Boolean   @default(false)
-  verifiedAt      DateTime?
-  reservedAt      DateTime  @default(now())
-
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([userId, isActive])
-  @@index([userId, isVerified])
-}
-```
-
 Important:
 
 ```txt
 User.email remains for compatibility.
 UserEmailAddress becomes the email ownership/history source of truth.
-```
-
-Existing accounts must be backfilled so their current `User.email` is also stored in `UserEmailAddress`.
-
-Backfill SQL:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-INSERT INTO "UserEmailAddress" (
-  "id",
-  "userId",
-  "email",
-  "normalizedEmail",
-  "isActive",
-  "isVerified",
-  "verifiedAt",
-  "reservedAt",
-  "createdAt",
-  "updatedAt"
-)
-SELECT
-  gen_random_uuid()::text,
-  "id",
-  "email",
-  lower(trim("email")),
-  true,
-  CASE WHEN "emailVerifiedAt" IS NOT NULL THEN true ELSE false END,
-  "emailVerifiedAt",
-  now(),
-  now(),
-  now()
-FROM "User"
-WHERE "email" IS NOT NULL
-ON CONFLICT ("normalizedEmail") DO NOTHING;
-```
-
-Inspect email history:
-
-```sql
-SELECT
-  "id",
-  "userId",
-  "email",
-  "normalizedEmail",
-  "isActive",
-  "isVerified",
-  "verifiedAt",
-  "reservedAt",
-  "createdAt"
-FROM "UserEmailAddress"
-ORDER BY "userId", "isActive" DESC, "createdAt" ASC;
 ```
 
 ---
@@ -866,51 +1152,6 @@ Purpose:
 - avoid rebuilding auth and lead forms manually in DSL
 - allow slides to contain reusable auth forms while preserving slide routing
 - allow reusable auth form bottom links through routes.login/routes.signup
-```
-
-Important implementation note:
-
-```txt
-LeadCaptureForm accepts routes.
-LeadCaptureForm passes routes to AuthForm.
-AuthForm renders "Already have an account? Log in" when routes.login exists.
-QuestionnaireShell should pass loginHref through routes.login instead of manually adding a separate link under the embedded form.
-```
-
-Example:
-
-```txt
-===
-@id: whatsapp-subscription
-@type: authform
-@authform: gatedLeadCapture
-@shownext: false
-@countstep: false
-@showsteptext: false
-@showprogressbar: false
-@goto: private-link-sent
----
-BR
-# [c1] Continue watching
-BR
-[c3] Sign up and check your email for the private link to the next video.
-```
-
-Confirmation slide after gated lead signup:
-
-```txt
-===
-@id: private-link-sent
-@type: content
-@title: Check your email
-@subtitle: Your private link is on the way.
-@body: We sent a private link to your email. Open that link to verify your access and continue watching.
-@showauthcontrols: true
-@showreturnhome: true
-@showback: false
-@countstep: false
-@next: Return Home
-@goto: home
 ```
 
 Rules:
@@ -1040,36 +1281,6 @@ Use a strong random value before production.
 
 ---
 
-## Returning verified lead / temporary account flow
-
-Returning verified users do not need to see the gated lead form again.
-
-The shell checks:
-
-```txt
-/api/questionnaires/gated-access/status
-```
-
-Behavior:
-
-```txt
-User opens /questionnaire/invitation with valid signed gated-access cookie
-→ shell checks gated-access status
-→ status can create/refresh a normal auth session for the temporary lead user
-→ shell loads DB engagement status
-→ answered marketing questions are skipped based on DB records
-→ gated lead form is bypassed based on known user/session access
-```
-
-Important correction:
-
-```txt
-The cookie should not decide whether a marketing question is skipped.
-Marketing question skip should come from UserMarketingQuestionAnswer.
-```
-
----
-
 ## Marketing-question answer tracking
 
 Marketing questions can be tracked per user.
@@ -1080,43 +1291,6 @@ Purpose:
 - do not show the same rating/marketing slide again after the user answered
 - let users later review or update answered questions
 - keep the rule DB-backed instead of cookie-backed
-```
-
-Prisma model:
-
-```prisma
-model UserMarketingQuestionAnswer {
-  id                String   @id @default(cuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  questionnaireSlug String
-  slideId           String
-  questionKey       String
-  answer            Json
-  source            String?
-  answeredAt        DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@unique([userId, questionnaireSlug, questionKey])
-  @@index([userId])
-  @@index([questionnaireSlug])
-  @@index([slideId])
-  @@index([answeredAt])
-}
-```
-
-Registry example:
-
-```ts
-variables: {
-  marketingQuestions: {
-    skipWhenLoggedIn: true,
-    skipSlideIds: ["performance-rating"],
-    skipTarget: "second-video",
-    answeredQuestionsTarget: "/questionnaire/auth-account?section=answered-questions",
-  },
-}
 ```
 
 Behavior:
@@ -1134,29 +1308,6 @@ anonymous visitor answers marketing question
 ## Video progress tracking
 
 Video progress is tracked locally first, then synced to DB when the user becomes known.
-
-Prisma model:
-
-```prisma
-model UserVideoProgress {
-  id                  String   @id @default(cuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  questionnaireSlug   String
-  slideId             String
-  lastPositionSeconds Int      @default(0)
-  durationSeconds     Int?
-  watchedAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  @@unique([userId, questionnaireSlug, slideId])
-  @@index([userId])
-  @@index([questionnaireSlug])
-  @@index([slideId])
-  @@index([watchedAt])
-}
-```
 
 Backend routes:
 
@@ -1184,8 +1335,6 @@ Rules:
 ---
 
 ## Video timestamp and resume system
-
-The video timestamp system uses DSL directives.
 
 Start a video at a configured timestamp:
 
@@ -1244,59 +1393,6 @@ A decision on video 1 should not control video 2.
 Each video uses its own saved UserVideoProgress row.
 ```
 
-Example:
-
-```txt
-===
-@id: home
-@type: media
-@media: /media/invitation/intro.mp4
-@mediatype: video
-@mediaaspect: vertical
-@autoplay: true
-@progressmode: video
-@videogoto: 00:45|performance-rating
-@videoresume: prompt-once
-@showauthcontrols: true
-@countstep: false
-@showsteptext: false
-@showprogressbar: true
-```
-
-Example second video:
-
-```txt
-===
-@id: second-video
-@type: media
-@media: /media/invitation/private-video.mp4
-@mediatype: video
-@mediaaspect: vertical
-@autoplay: true
-@progressmode: video
-@videostart: 14:18
-@videoresume: auto
-@syncurl: true
-@showreturnhome: true
-@showauthcontrols: true
-@countstep: false
-@showsteptext: false
-@showprogressbar: true
-```
-
-Expected combined behavior:
-
-```txt
-first video has @videoresume: prompt-once and @videogoto
-→ returning user clicks Continue from where I stopped
-→ video seeks to its saved timestamp
-→ if playback reaches @videogoto, shell routes forward
-→ marketing slide is skipped if DB says answered
-→ gated lead form is skipped if user/session exists
-→ second video has @videoresume: auto
-→ second video starts from its own saved timestamp
-```
-
 ---
 
 ## URL-addressable slides
@@ -1315,32 +1411,6 @@ Purpose:
 - allow refresh to return to a deep slide instead of restarting at slide 1
 - support private/deep video slides
 - keep the behavior opt-in per slide
-```
-
-Example:
-
-```txt
-===
-@id: second-video
-@type: media
-@mediatype: video
-@syncurl: true
-@showreturnhome: true
-```
-
-Behavior:
-
-```txt
-user reaches second-video
-→ URL becomes /questionnaire/invitation?slide=second-video
-
-user refreshes
-→ questionnaire opens second-video
-
-user clicks Return Home
-→ existing Return Home calls goToTarget("home")
-→ home does not have @syncurl
-→ shell clears ?slide=second-video
 ```
 
 Important:
@@ -1396,267 +1466,6 @@ Backend route:
 
 ---
 
-## Active email for messaging
-
-Account messages should use the active verified email when available.
-
-Preferred lookup:
-
-```js
-const activeEmail = await prisma.userEmailAddress.findFirst({
-  where: {
-    userId,
-    isActive: true,
-    isVerified: true,
-  },
-});
-```
-
-Fallback for older accounts:
-
-```js
-const emailToUse = activeEmail?.email ?? user.email;
-```
-
-Long-term direction:
-
-```txt
-Auth:
-- users
-- verified emails
-- sessions
-- temporary/claimed accounts
-- consent/opt-in status later
-
-Reusable-slide-pages:
-- products
-- tickets
-- invitations
-- meals
-- orders
-- invoices
-- downloads
-- gated slide access
-- video progress
-- marketing-question answers
-
-Shared messaging:
-- email sending
-- WhatsApp sending later
-- templates
-- delivery logs
-- marketing sequences
-```
-
----
-
-## `auth-forgot-password`
-
-Slide-style forgot-password flow.
-
-Route:
-
-```txt
-/questionnaire/auth-forgot-password
-```
-
-Current behavior:
-
-- user enters email or phone
-- email users receive a password reset link
-- phone reset code support exists in backend, but SMS is paused until later
-- neutral success messaging should be used so the UI does not reveal whether an account exists
-- back button can return to the account hub when opened from account management
-- footer links include back to login and create account
-
-Backend route:
-
-```txt
-/api/password/forgot
-```
-
----
-
-## `auth-reset-password`
-
-Slide-style password reset flow.
-
-Route:
-
-```txt
-/questionnaire/auth-reset-password?token=<reset-token>
-```
-
-Current behavior:
-
-- reads token from URL search params
-- user enters new password
-- user confirms new password
-- validates password policy
-- submits to `/api/password/reset`
-- updates `passwordUpdatedAt`
-- old sessions are revoked after password reset
-- footer links include back to login and create account
-
-Backend route:
-
-```txt
-/api/password/reset
-```
-
----
-
-## `auth-delete-account`
-
-Slide-style delete account flow.
-
-Route:
-
-```txt
-/questionnaire/auth-delete-account
-```
-
-Current delete-account flow when verification code is required:
-
-```txt
-Type DELETE
-→ Send Delete Code
-→ code email sends
-→ Enter delete code
-→ Complete Deletion
-→ success slide
-→ user is logged out
-```
-
-Current behavior:
-
-- user must be logged in
-- user must type `DELETE`
-- start route sends a deletion verification code
-- deletion code is stored as a bcrypt hash
-- deletion code uses `target: "accountDeletion"`
-- deletion code email wording is configured through `verificationContent.js`
-- duplicate send protection exists in the slide action flow
-- server-side cooldown prevents immediate duplicate deletion-code emails
-- final delete route checks the deletion code before deleting or scheduling
-- final delete route clears the session after successful deletion/scheduling
-- success slide wording changes based on immediate vs scheduled deletion
-- stale “You must be logged in” errors are hidden on successful deletion confirmation
-- footer links include back to account and policies
-
-Backend routes:
-
-```txt
-/api/account/delete/start
-/api/account/delete
-/api/account/delete/cancel
-```
-
----
-
-## Reusable auth footer
-
-The reusable auth footer lives in:
-
-```txt
-src/customerAccess/components/AuthFooter.jsx
-src/customerAccess/components/AuthFooter.d.ts
-```
-
-The footer uses:
-
-```txt
-src/customerAccess/config/siteConfig.js
-src/customerAccess/config/siteConfig.d.ts
-```
-
-The slide shell imports and renders the reusable footer only for auth flows:
-
-```txt
-config.slug starts with "auth-"
-```
-
-The footer is intentionally part of `src/customerAccess` so the slide system builds on reusableAuth instead of creating a separate one-off footer inside `QuestionnaireShell`.
-
-Footer behavior by flow:
-
-```txt
-auth-login
-→ Forgot password?
-→ Create account
-
-auth-signup
-→ Already have an account? Log in
-
-auth-forgot-password
-→ Back to login
-→ Create account
-
-auth-reset-password
-→ Back to login
-→ Create account
-
-auth-account
-→ Dashboard
-
-auth-delete-account
-→ Back to account
-```
-
-All auth footers also show:
-
-```txt
-business name
-privacy policy link
-terms link
-contact link
-```
-
-Footer routes come from:
-
-```txt
-siteConfig.routes
-siteConfig.footerLinks
-```
-
----
-
-## Site config
-
-Reusable auth site config:
-
-```txt
-src/customerAccess/config/siteConfig.js
-```
-
-Current structure:
-
-```js
-export const siteConfig = {
-  businessName: "Reusable Auth-Lead Capture system",
-  footerLinks: {
-    privacy: "/privacy-policy",
-    terms: "/terms",
-    contact: "/contact",
-  },
-  routes: {
-    login: "/questionnaire/auth-login",
-    signup: "/questionnaire/auth-signup",
-    verify: "/verify",
-    dashboard: "/dashboard",
-    verifiedLead: "/verify/verified-lead",
-    verifyLinkSent: "/verify/link-sent",
-    forgotPassword: "/questionnaire/auth-forgot-password",
-    forgotPasswordCode: "/forgot-password/code",
-    resetPassword: "/questionnaire/auth-reset-password",
-    account: "/questionnaire/auth-account",
-    deleteAccount: "/questionnaire/auth-delete-account",
-  },
-};
-```
-
----
-
 ## Registry architecture
 
 Questionnaires are registered in:
@@ -1691,85 +1500,7 @@ gatedAccess
 marketingQuestions
 ```
 
-For auth flows, the registry can inject auth behavior variables such as:
-
-```txt
-authVerificationDelivery
-authVerificationMethod
-authVerificationExpiresInMinutes
-authVerificationExpiresInHours
-authVerificationTarget
-authVerificationSuccessRedirect
-authPasswordResetMethod
-authPasswordResetSuccessGoto
-```
-
----
-
-## Auth verification config
-
-Signup verification is config-driven.
-
-This allows one project to use code verification while another uses link verification without changing shared component code.
-
-Example code verification config:
-
-```ts
-variables: {
-  authVerificationDelivery: "code",
-  authVerificationMethod: "email",
-  authVerificationExpiresInMinutes: 15,
-  authVerificationExpiresInHours: null,
-  authVerificationTarget: "account",
-  authVerificationSuccessRedirect: "/dashboard",
-}
-```
-
-Example link verification config:
-
-```ts
-variables: {
-  authVerificationDelivery: "link",
-  authVerificationMethod: "email",
-  authVerificationExpiresInMinutes: null,
-  authVerificationExpiresInHours: 24,
-  authVerificationTarget: "account",
-  authVerificationSuccessRedirect: "/dashboard",
-}
-```
-
-Use short expiry for verification codes.
-
-Use longer expiry for verification links when the business requires that behavior.
-
----
-
-## Verification content config
-
-Verification message wording is configured in:
-
-```txt
-src/customerAccess/config/verificationContent.js
-```
-
-The delivery helper resolves content using:
-
-```txt
-target
-delivery
-channel
-```
-
-Example target paths:
-
-```txt
-verificationContent.targets.user.code.email
-verificationContent.targets.lead.code.email
-verificationContent.targets.passwordReset.link.email
-verificationContent.targets.accountDeletion.code.email
-verificationContent.targets.accountEmailUpdate.code.email
-verificationContent.targets.gatedLeadAccess.link.email
-```
+For auth flows, the registry can inject auth behavior variables.
 
 ---
 
@@ -1794,15 +1525,15 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 For Gmail SMTP:
 
-- use `smtp.gmail.com`
+```txt
+- use smtp.gmail.com
 - use a Google App Password
-- do not use `smtp@gmail.com`
+- do not use smtp@gmail.com
+```
 
 ---
 
 ## Dev email safety mode
-
-The auth system supports a dev-test email rewrite mode.
 
 Safe testing:
 
@@ -1825,28 +1556,6 @@ EMAIL_DEV_TEST_MODE="false"
 ```
 
 Restart the dev server after changing `.env`.
-
-Expected dev-safe delivery log:
-
-```txt
-provider: smtp
-mode: smtp
-ok: true
-rewritten: true
-to: EMAIL_DEV_TEST_INBOX
-originalTo: real-user@example.com
-```
-
-Expected real-recipient delivery log:
-
-```txt
-provider: smtp
-mode: smtp
-ok: true
-rewritten: false
-to: real-user@example.com
-originalTo: real-user@example.com
-```
 
 ---
 
@@ -1891,31 +1600,6 @@ Password fields are supported in DSL forms:
 
 ---
 
-## Password updated tracking
-
-The `User` model supports:
-
-```prisma
-passwordUpdatedAt DateTime?
-```
-
-This field should be set:
-
-```txt
-on signup
-on password reset
-on future logged-in password change
-```
-
-Password display rule:
-
-```txt
-Never show the password.
-Only show last updated date/time.
-```
-
----
-
 ## Account deletion config
 
 Account deletion is business-configurable.
@@ -1924,48 +1608,6 @@ Config lives in:
 
 ```txt
 src/customerAccess/config/authRules.js
-```
-
-Example immediate deletion with code verification:
-
-```js
-accountDeletion: {
-  mode: "immediate",
-  delayDays: 0,
-  allowCancelBeforeDeletion: false,
-  anonymizeInsteadOfDelete: false,
-
-  requireVerificationCode: true,
-  verificationExpiresInMinutes: 10,
-}
-```
-
-Example delayed deletion with code verification:
-
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 30,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: false,
-
-  requireVerificationCode: true,
-  verificationExpiresInMinutes: 10,
-}
-```
-
-Example anonymize instead of hard delete:
-
-```js
-accountDeletion: {
-  mode: "delayed",
-  delayDays: 14,
-  allowCancelBeforeDeletion: true,
-  anonymizeInsteadOfDelete: true,
-
-  requireVerificationCode: true,
-  verificationExpiresInMinutes: 10,
-}
 ```
 
 Supported intended options:
@@ -1979,73 +1621,12 @@ requireVerificationCode: boolean
 verificationExpiresInMinutes: number
 ```
 
----
-
-## User model account fields
-
-The `User` model supports account profile fields:
-
-```prisma
-name              String?
-country           String?
-city              String?
-addressLine1      String?
-addressLine2      String?
-parishOrRegion    String?
-postalCode        String?
-email             String?
-phone             String?
-emailVerifiedAt   DateTime?
-phoneVerifiedAt   DateTime?
-passwordUpdatedAt DateTime?
-```
-
-Deletion-related fields:
-
-```prisma
-deletionRequestedAt DateTime?
-deletionScheduledAt DateTime?
-deletedAt           DateTime?
-deletionStatus      String?
-```
-
-Account relations include:
-
-```prisma
-sessions                  Session[]
-verificationCodes         VerificationCode[]
-verificationTokens        VerificationToken[]
-passwordResetTokens       PasswordResetToken[]
-passwordResetChallenges   PasswordResetAccessGrant[]
-nameChanges               UserNameChange[]
-emailAddresses            UserEmailAddress[]
-marketingQuestionAnswers  UserMarketingQuestionAnswer[]
-videoProgressRecords      UserVideoProgress[]
-```
-
----
-
-## Verification token model
-
-The `VerificationToken` model supports link verification and gated access redirect behavior.
-
-Required fields include:
-
-```prisma
-identifier
-tokenHash
-target
-successRedirect
-expiresAt
-consumedAt
-userId
-```
-
-`successRedirect` is needed for flows such as:
+Backend routes:
 
 ```txt
-gatedLeadAccess
-→ /questionnaire/invitation?leadAccess=verified&goto=second-video
+/api/account/delete/start
+/api/account/delete
+/api/account/delete/cancel
 ```
 
 ---
@@ -2101,6 +1682,7 @@ src/config/questionnaires/gardenHerbsDsl.txt
 src/config/questionnaires/seedDsl.txt
 src/config/questionnaires/seedDsl2.txt
 src/config/questionnaires/invitationDsl.txt
+src/config/questionnaires/escapeAlbumDsl.txt
 src/config/questionnaires/nurseryOpsDsl.txt
 src/config/questionnaires/authSignupDsl.txt
 src/config/questionnaires/authLoginDsl.txt
@@ -2145,71 +1727,38 @@ accountsummary
 
 ---
 
-## Supported form field types
+## Common DSL directives
 
-Current form field types include:
-
-```txt
-text
-email
-tel
-password
-number
-date
-checkbox
-textarea
-select
-```
-
----
-
-## Supported DSL directives
-
-Current DSL directives include:
+Content and identity:
 
 ```txt
 @id:
 @type:
 @title:
 @subtitle:
-@titleplacement:
-@store:
-@source:
-@block:
-@blocksource:
-@titlefield:
-@subtitlefield:
-@metafields:
-@emptytext:
-@feature:
-@fields:
-@choices:
-@choiceplacement:
-@downloadbuttons:
-@when:
-@backwhen:
-@showif:
-@run:
-@downloadkey:
-@back:
-@backgoto:
-@showback:
-@shownext:
+@body:
 @countstep:
 @showsteptext:
 @showprogressbar:
-@showreturnhome:
-@showcancel:
-@showauthcontrols:
 @syncurl:
-@cancelgoto:
+```
+
+Navigation:
+
+```txt
 @next:
+@back:
 @goto:
-@buttonstyle:
-@backstyle:
-@nextstyle:
+@showback:
+@shownext:
+@showreturnhome:
+@returnhome:
+```
+
+Media:
+
+```txt
 @media:
-@embed:
 @mediatype:
 @mediaaspect:
 @autoplay:
@@ -2217,602 +1766,198 @@ Current DSL directives include:
 @videostart:
 @videogoto:
 @videoresume:
-@pagebgcolor:
-@pagebgimage:
-@pagebgsize:
-@pagebgposition:
-@cardopacity:
-@progressoverlaybg:
-@actionbarbg:
-@progressoverlaytextcolor:
-@actionbartextcolor:
-@catalog:
-@shopmode:
-@ticketgoto:
-@mealgoto:
-@mealmenu:
-@deliverygoto:
-@contactgoto:
-@reviewgoto:
-@deliveryconfig:
-@completioncheck:
-@gotoifcomplete:
-@gotoifincomplete:
-@contactmode:
+```
+
+Choices:
+
+```txt
+@store:
+@choiceplacement:
+@choices:
+```
+
+Downloads:
+
+```txt
+@downloadkey:
+@downloadbuttons:
+```
+
+Planned dynamic download choice support:
+
+```txt
+@downloadrequestkey:
+@downloadrequests:
+@downloadformats:
+```
+
+Auth:
+
+```txt
+@showauthcontrols:
 @authform:
 ```
 
----
-
-## Basic DSL examples
-
-## Account summary hub
+Forms:
 
 ```txt
-===
-@id: account-home
-@type: accountsummary
-@shownext: false
-@countstep: false
-@showsteptext: false
-@showprogressbar: false
-```
-
-The `accountsummary` renderer handles:
-
-```txt
-account cards
-masked values
-email history display
-update buttons
-logout button
-logged-out redirect
-delete account link
-```
-
----
-
-## Login slide without progress UI
-
-```txt
-===
-@id: login
-@type: form
-@shownext: true
-@next: Log In
-@goto: login-submitting
-@run: submitLogin
-@countstep: false
-@showsteptext: false
-@showprogressbar: false
----
-BR
-# [c1] Log in
-BR
-[c3] Enter your email or phone number and password.
 @fields:
-- identifier|text|Email or phone|required|Email or phone number
-- password|password|Password|required|Password
+```
+
+Conditions:
+
+```txt
+@when:
+@backwhen:
+@showif:
 ```
 
 ---
 
-## Account email update with authverify
+## Existing download feature
+
+The project already has a download feature.
+
+Do not build a second downloader for the Escape album.
+
+The existing system should remain responsible for:
 
 ```txt
-===
-@id: account-update-email
-@type: form
-@shownext: true
-@next: Send Verification Code
-@goto: account-update-email-code
-@showback: true
-@back: Back
-@backgoto: account-home
-@run: requestAccountEmailUpdate
----
-BR
-# [c1] Add or update email
-BR
-[c3] Enter the new email address. We will send a code before it becomes your active email.
-@fields:
-- accountEmailAddress|email|New email address|required|you@example.com
-
-===
-@id: account-update-email-code
-@type: authverify
-@shownext: false
-@showback: true
-@back: Back
-@backgoto: account-update-email
-@goto: account-saved
----
-BR
-# [c1] Verify new email
-BR
-[c3] Enter the newest code we sent to your new email address.
+download key
+→ access check
+→ file resolution
+→ file streaming/download
 ```
 
----
+The album deliverable flow only needs to choose which existing download key to call.
 
-## Embedded gated lead form
-
-```txt
-===
-@id: whatsapp-subscription
-@type: authform
-@authform: gatedLeadCapture
-@shownext: false
-@countstep: false
-@showsteptext: false
-@showprogressbar: false
-@showauthcontrols: true
-@goto: private-link-sent
----
-BR
-# [c1] Continue watching
-BR
-[c3] Sign up and check your email for the private link to the next video.
-```
-
----
-
-## Gated lead confirmation slide
-
-```txt
-===
-@id: private-link-sent
-@type: content
-@title: Check your email
-@subtitle: Your private link is on the way.
-@body: We sent a private link to your email. Open that link to verify your access and continue watching.
-@showauthcontrols: true
-@showreturnhome: true
-@showback: false
-@countstep: false
-@next: Return Home
-@goto: home
-```
-
----
-
-## Video slide with resume and URL sync
-
-```txt
-===
-@id: second-video
-@type: media
-@media: /media/invitation/private-video.mp4
-@mediatype: video
-@mediaaspect: vertical
-@autoplay: true
-@progressmode: video
-@videostart: 14:18
-@videoresume: auto
-@syncurl: true
-@showreturnhome: true
-@showauthcontrols: true
-@countstep: false
-@showsteptext: false
-```
-
----
-
-## Delete account flow
-
-```txt
-===
-@id: delete-account-warning
-@type: form
-@shownext: true
-@next: Send Delete Code
-@goto: delete-account-code
-@showback: true
-@back: Back to Account
-@backgoto: /questionnaire/auth-account
-@run: startDeleteAccount
----
-BR
-# [c1] Delete account
-BR
-[c3] Type DELETE to confirm. We will send a verification code before completing the deletion.
-@fields:
-- deleteConfirmation|text|Type DELETE to confirm|required|DELETE
-```
-
----
-
-## Dynamic variables
-
-A registry entry can define:
-
-```ts
-dynamicVariablesEndpoint: "/api/questionnaires/nursery-ops/data";
-```
-
-The shared route loads dynamic variables and merges them into questionnaire variables before rendering.
-
-Use this for DB-backed flows such as:
-
-```txt
-nursery batches
-batch subsets
-transplanted individuals
-shop catalog data
-ticket data later
-```
-
----
-
-## Reusable record lists
-
-Record list slide type:
-
-```txt
-recordlist
-```
-
-Supported directives:
-
-```txt
-@source:
-@titlefield:
-@subtitlefield:
-@metafields:
-@emptytext:
-@store:
-@goto:
-```
-
-Example:
-
-```txt
-===
-@id: existing-batches
-@type: recordlist
-@source: nurseryBatches
-@titlefield: plantName
-@subtitlefield: code
-@metafields: startDate,status
-@emptytext: No batches created yet.
-@store: opsSelectedBatchCode
-@goto: batch-profile
-```
-
-Behavior:
-
-```txt
-- list records from dynamic variables
-- store selected record id/code/value
-- go to target slide
-- profile blocks can use selected record context
-```
-
----
-
-## Reusable profile blocks
-
-Blocks are defined in registry/config, not hardcoded in the shell.
-
-Block actions can route to other slides.
-
-Supported ideas:
-
-```txt
-rows
-sections
-section actions
-profile actions
-showIf rules
-selected source records
-```
-
-Use blocks for reusable profile screens such as:
-
-```txt
-batch profile
-batch subset profile
-transplanted individual profile
-ticket profile later
-order profile later
-```
-
----
-
-## Shop / ticket / meal flow
-
-The invitation and plant shop flows share reusable commerce pieces.
-
-Supported concepts:
-
-```txt
-ShopCatalog
-ShopCart
-ShopResolvedCartLine
-DeliverySelection
-MealMenu
-TicketAssignment
-TicketAssignments
-TicketMealSelection
-MealSelections
-DiscountDefinition
-```
-
-Ticket flow supports:
-
-```txt
-- product purchase modes with fulfillment type
-- ticket product type
-- generated temporary ticket codes
-- owner name
-- owner email
-- owner phone
-- purchaser ticket marker
-- email this ticket to owner
-- meal mode required/optional
-- meal menu id
-- meal label
-- meal add-on price
-- wants extra food
-- meal notes
-- per-ticket meal selections
-```
-
-Current direction:
-
-```txt
-- original purchaser can see all tickets
-- original purchaser can pay for additions for invited guests
-- invited guests will later receive their own portal URL
-- invited guests can view/edit only their own ticket details
-- temporary accounts can be created for ticket owners
-- ticket-owner portal should build on reusable auth/session features
-```
-
----
-
-## Downloads
-
-Private downloads use API routes rather than exposing raw private files directly.
-
-Current ideas:
-
-```txt
-- download buttons in DSL
-- catalog key maps to protected files
-- per-track MP3/WAV support
-- album purchase access later
-- persistent emailed access links later
-```
-
-DSL example:
+Existing simple DSL download buttons:
 
 ```txt
 @downloadbuttons:
-- escape-mp3|Download MP3|primary
-- escape-wav|Download WAV|secondary
+- escape-album-mp3|Download MP3|c1
+- escape-album-wav|Download WAV|c2
+```
+
+Planned dynamic pattern:
+
+```txt
+song slide
+→ stores albumDownloadRequest = song-01 or album
+→ routes to download-format slide
+→ user chooses MP3 or WAV
+→ shell builds existing download key
+→ existing download API streams protected file
 ```
 
 ---
 
-## Development workflow expectations
+## Protected downloads and entitlement
 
-Before making changes:
+Paid files require access checks.
+
+Rules:
 
 ```txt
-1. Read README.md.
-2. Read example_ChatGPT_workflow.txt.
-3. Read the relevant DSL file.
-4. Read the current component/API file before suggesting changes.
-5. Build on existing files and patterns.
-6. Do not create new one-off systems when reusable systems already exist.
+- user must be logged in or have valid claim/access session
+- user must own the purchased product or entitlement
+- protected files must not live in public/
+- download API must resolve private file path server-side
+- raw private file paths must never be exposed to the browser
 ```
 
-Preferred response style for code help:
+Future entitlement helpers should answer:
 
 ```txt
-- path first
-- exact replacement blocks
-- one line of context above/below when possible
-- avoid vague "find the section" instructions
-- keep QuestionnaireShell generic
-- keep DSL-specific copy in DSL/config
-- prefer reusable helpers
-- avoid unnecessary new DSL directives when existing ones already solve it
-- avoid hardcoded invitation/nursery/shop slide IDs inside shared shell code
+Does this user own Escape Album — Digital Download?
+Does this user own this ticket?
+Does this user own this gated deliverable?
+```
+
+---
+
+## Repository workflow for ChatGPT-assisted changes
+
+Before proposing code changes:
+
+```txt
+1. Read example_ChatGPT_workflow.txt.
+2. Treat the user-provided SHA as source of truth.
+3. Inspect the relevant files at that SHA.
+4. Inspect README.md when the change affects architecture or patterns.
+5. Give exact file paths.
+6. Give exact placement.
+7. Prefer exact find/replace blocks.
+8. Keep reusable behavior in shared systems.
+9. Keep product/project wording in DSL/config/catalog helpers.
+10. Do not guess file locations.
+```
+
+Response format for code changes:
+
+```txt
+File:
+path/to/file
+
+Find:
+exact existing block
+
+Replace with:
+exact new block
+
+Run:
+npm run build
+```
+
+Avoid:
+
+```txt
+- vague placement like "near the top"
+- hardcoding project-specific wording into QuestionnaireShell
+- creating duplicate systems when one already exists
+- putting private paid files in public/
 ```
 
 ---
 
 ## Build and test commands
 
-Install:
+Common commands:
 
 ```bash
-npm install
-```
-
-Run dev:
-
-```bash
+npm run build
 npm run dev
-```
-
-Build:
-
-```bash
-npm run build
-```
-
-Prisma format:
-
-```bash
+npx prisma generate
+npx prisma db push
 npx prisma format
 ```
 
-Push schema:
+Clean local dev restart:
 
-```bash
-npx prisma db push
-```
-
-Generate Prisma client:
-
-```bash
+```powershell
+Ctrl + C
+Remove-Item -Recurse -Force .next
 npx prisma generate
-```
-
-Common full cycle after schema changes:
-
-```bash
-npx prisma format
-npx prisma db push
-npx prisma generate
-npm run build
 npm run dev
 ```
 
 ---
 
-## Regression checklist
+## Current next development priorities
 
-After auth/account changes:
-
-```txt
-- signup works
-- signup verification code sends
-- verification auto-checks after final code digit
-- wrong verification code clears the code boxes
-- resend verification code cooldown works
-- login works
-- login success button returns to returnTo slide when returnTo exists
-- auth-login has no progress bar or slide count
-- auth-account requires login
-- auth-account page does not show slide count or progress bar
-- auth-account summary cards load
-- logout works
-- account deletion code sends once
-- account deletion server cooldown prevents duplicate emails
-- account deletion completes or schedules based on config
-```
-
-After email-history changes:
+Immediate priorities:
 
 ```txt
-- signup creates UserEmailAddress row
-- existing User.email can be backfilled into UserEmailAddress
-- new email update reserves email to same account
-- email already reserved to another account is blocked
-- verified email can become active
-- old emails remain stored
-- User.email updates to active email for compatibility
+1. Finalize event/shop card layout.
+2. Keep event metadata in getInvitationShopCatalog.
+3. Fix normal product card layout.
+4. Register escape-album deliverable DSL.
+5. Reuse existing download feature for Escape album.
+6. Add dynamic download-choice context if needed.
+7. Keep album media private in protected-media/.
+8. Add entitlement check before serving album downloads.
+9. Email album deliverable link after purchase.
+10. Continue keeping shared shell reusable.
 ```
 
-After gated lead/access changes:
-
-```txt
-- logged-out visitor reaches gatedLeadCapture form
-- reusable auth embedded form renders
-- "Already have an account? Log in" appears through routes.login
-- gated lead submit creates/fetches temporary auth-backed user
-- gated lead submit creates/updates Lead row
-- local engagement snapshot syncs after lead submit
-- private access link email sends
-- success advances to confirmation slide
-- form is not left visible after success
-- clicked private link verifies user/email/lead
-- gated access cookie is set
-- returning verified lead can bypass gate
-- returning verified lead can become session-backed temp user
-```
-
-After marketing-question tracking changes:
-
-```txt
-- anonymous marketing answer stores locally
-- lead signup syncs local answer to UserMarketingQuestionAnswer
-- returning user loads DB answered slide ids
-- answered marketing slide is skipped
-- skip is based on DB, not cookie
-```
-
-After video tracking/resume changes:
-
-```txt
-- anonymous video progress stores locally
-- known user video progress syncs to UserVideoProgress
-- @videoresume: none uses @videostart only
-- @videoresume: auto resumes from this video slide's saved timestamp
-- @videoresume: prompt-once asks once per session for this video only
-- @videoresume: prompt-every-time asks every time this video loads
-- prompt continue seeks immediately to saved timestamp
-- prompt start uses configured @videostart
-- @videoresume can combine with @videogoto
-- second video can use @videoresume: auto after first video routes forward
-```
-
-After URL-sync changes:
-
-```txt
-- slide with @syncurl updates URL to ?slide=<id>
-- refresh opens the synced slide
-- non-sync slides clear ?slide
-- Return Home remains generic and routes through goToTarget("home")
-- Return Home clears URL when home does not have @syncurl
-```
-
-After invitation ticket/meal changes:
-
-```txt
-- contact details come before ticket details
-- first ticket can autofill from contact/account details
-- ticket owner name/email/phone can be edited
-- purchaser ticket can be marked
-- email-this-ticket flags work per ticket
-- email-all-tickets direction remains compatible with future backend sending
-- required meal tickets require meal selection before checkout
-- optional meal tickets can skip or select meal
-- per-ticket meal add-on prices calculate correctly
-```
-
----
-
-## Known development cautions
-
-```txt
-- Restart dev server after Prisma/schema/session/auth changes.
-- Clear .next after Prisma client/session shape changes.
-- Do not mix localhost and 127.0.0.1 when testing cookies.
-- Keep DSL-specific slide IDs out of shared shell code.
-- Keep reusable auth form behavior inside src/customerAccess when possible.
-- Use routes.login/routes.signup for reusable auth links.
-- Do not store raw email/phone in gated cookies.
-- Do not store video timestamps in gated cookies.
-- Use DB records for known-user progress and answered questions.
-- Use @videoresume per video instead of global resume assumptions.
-```
-
----
-
-## Git notes
-
-Recommended commit style:
-
-```bash
-git add .
-git commit -m "feat: add reusable gated lead access and video engagement tracking"
-```
-
-For smaller commits, prefer:
-
-```bash
-git commit -m "feat: add per-video resume and URL synced slides"
-```
-
-```bash
-git commit -m "feat: sync lead engagement tracking to database"
-```
-
-```bash
-git commit -m "feat: add reusable auth login links to embedded lead forms"
-```
+Do not continue building album deliverable access with public file links.

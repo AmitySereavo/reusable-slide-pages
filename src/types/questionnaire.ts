@@ -21,6 +21,19 @@ export type DownloadButton = {
   styleKey?: string;
 };
 
+export type DownloadRequestTarget = {
+  scope: "song" | "album";
+  itemId?: string;
+};
+
+export type DownloadRequestMap = Record<string, DownloadRequestTarget>;
+
+export type DownloadFormatOption = {
+  format: "mp3" | "wav";
+  label: string;
+  styleKey?: string;
+};
+
 export type ShopMealSelectionRequirement = {
   mode: "required" | "optional";
   menuId: string;
@@ -463,6 +476,9 @@ export type Slide = {
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
   downloadButtons?: DownloadButton[];
+  downloadRequestKey?: string;
+  downloadRequests?: DownloadRequestMap;
+  downloadFormatOptions?: DownloadFormatOption[];
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -601,8 +617,11 @@ export type ParsedSlideDraft = {
   cancelGoto?: string;
   goto?: string;
   run?: string;
-  downloadKey?: string;
+ downloadKey?: string;
   downloadButtons?: DownloadButton[];
+  downloadRequestKey?: string;
+  downloadRequests?: DownloadRequestMap;
+  downloadFormatOptions?: DownloadFormatOption[];
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
