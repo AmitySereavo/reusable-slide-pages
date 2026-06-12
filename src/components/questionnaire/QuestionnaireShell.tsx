@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
 import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
 import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
+import SlideFooterActions from "./renderers/SlideFooterActions";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -21,6 +22,7 @@ import {
   DiscountDefinition,
   DiscountedOrderSummary,
   DownloadButton,
+  SlideFooterAction,
   FormField,
   PromotionEligibleItem,
   QuestionnaireAnswers,
@@ -179,6 +181,11 @@ type VideoSeekRequest = {
   seconds?: number;
 };
 
+type MediaControlRequest = {
+  id: string;
+  action: "toggle-mute" | "toggle-play";
+};
+
 function isInternalOnlyPurchaseMode(
   purchaseModes: NonNullable<ShopCatalogSizeOption["purchaseModes"]>
 ) {
@@ -247,6 +254,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoSeekRequest, setVideoSeekRequest] =
     useState<VideoSeekRequest | null>(null);
+  const [mediaControlRequest, setMediaControlRequest] =
+    useState<MediaControlRequest | null>(null);
 
   const previousVideoTimeRef = useRef(0);
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
@@ -1295,6 +1304,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setIsCurrentVerticalVideoPlaying(false);
     setVideoProgress(0);
     setVideoSeekRequest(null);
+    setMediaControlRequest(null);
     previousVideoTimeRef.current = 0;
     setDownloadNotice(null);
     setSubmitError(null);
@@ -2685,6 +2695,55 @@ function handleDownloadButtonClick(downloadButton: DownloadButton) {
   triggerDownload(downloadButton.key, downloadButton.label);
 }
 
+function handleFooterAction(action: SlideFooterAction) {
+  if (action.kind === "media") {
+    const mediaAction = action.target ?? action.key;
+
+    if (mediaAction === "toggle-mute" || mediaAction === "toggle-play") {
+      setMediaControlRequest({
+        id: `${currentSlide.id}-${mediaAction}-${Date.now()}`,
+        action: mediaAction,
+      });
+    }
+
+    return;
+  }
+
+  if (action.kind === "goto") {
+    const target = action.target ?? action.key;
+
+    if (target) {
+      goToTarget(target);
+    }
+
+    return;
+  }
+
+  if (action.kind === "download") {
+    triggerDownload(action.key, action.label);
+    return;
+  }
+
+  if (action.kind === "auth") {
+    if (action.key === "logout") {
+      void handleAuthLogoutClick();
+      return;
+    }
+
+    handleAuthLoginClick();
+    return;
+  }
+
+  if (action.kind === "link" && action.href) {
+    if (isExternalTarget(action.href)) {
+      openExternalTarget(action.href);
+      return;
+    }
+
+    window.location.href = action.href;
+  }
+}
+
 function getCurrentDownloadRequest() {
   const requestKey = currentSlide?.downloadRequestKey;
 
@@ -2723,31 +2782,31 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
 }
 
   
-  async function handleNext() {
-    if (!currentSlide || !canGoNext() || isSubmitting) return;
+async function handleNext() {
+  if (!currentSlide || !canGoNext() || isSubmitting) return;
 
-    if (config.slug === "auth-login" && currentSlide.id === "login-success") {
-      const returnTo = getLoginReturnToTarget();
+  if (config.slug === "auth-login" && currentSlide.id === "login-success") {
+    const returnTo = getLoginReturnToTarget();
 
-      if (returnTo) {
-        window.location.href = returnTo;
-        return;
-      }
-    }
-
-    if (currentSlide.run) {
-      const ok = await runSlideAction(currentSlide.run);
-      if (!ok) return;
-    }
-
-    if (currentSlide.downloadKey) {
-      window.location.href = getQuestionnaireDownloadUrl(currentSlide.downloadKey);
-
+    if (returnTo) {
+      window.location.href = returnTo;
       return;
     }
-
-    next();
   }
+
+  if (currentSlide.run) {
+    const ok = await runSlideAction(currentSlide.run);
+    if (!ok) return;
+  }
+
+  if (currentSlide.downloadKey) {
+    window.location.href = getQuestionnaireDownloadUrl(currentSlide.downloadKey);
+
+    return;
+  }
+
+  next();
+}
 
   if (!currentSlide) {
     return <main>No slides available.</main>;
@@ -2771,6 +2830,8 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
   const showProgressBar = currentSlide.showProgressBar !== false;
   const hasPinnedChoices = Boolean(pinnedChoices?.length);
   const hasDownloadButtons = Boolean(currentSlide.downloadButtons?.length);
+  const footerActions = currentSlide.footerActions ?? [];
+  const hasFooterActions = footerActions.length > 0;
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -3141,6 +3202,7 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
                           }
                         }}
                         videoSeekRequest={videoSeekRequest}
+                        mediaControlRequest={mediaControlRequest}
                       />
                         {shouldShowVideoResumePrompt({
                           currentSlide,
@@ -3722,6 +3784,20 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
                 </motion.div>
               </AnimatePresence>
             </div>
+
+            {hasFooterActions ? (
+              <div className={styles.slideFooterTextActionsOverlay}>
+                <div className={styles.overlayFrame}>
+                  <SlideFooterActions
+                    actions={footerActions}
+                    isLoggedIn={Boolean(authSessionUser)}
+                    isAuthSessionLoaded={isAuthSessionLoaded}
+                    isSubmitting={isSubmitting}
+                    onAction={handleFooterAction}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {hasPinnedChoices ||
               hasDownloadButtons ||
@@ -6192,6 +6268,7 @@ function MediaRenderer({
   onVerticalVideoPlayingChange,
   onVideoProgressChange,
   videoSeekRequest,
+  mediaControlRequest,
 }: {
   slide: {
     title: string;
@@ -6208,6 +6285,7 @@ function MediaRenderer({
     duration: number;
   }) => void;
   videoSeekRequest?: VideoSeekRequest | null;
+  mediaControlRequest?: MediaControlRequest | null;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasAppliedStartTimeRef = useRef(false);
@@ -6254,6 +6332,21 @@ function MediaRenderer({
       video.currentTime = (video.duration * videoSeekRequest.percent) / 100;
     }
   }, [videoSeekRequest, slide.autoplay]);
+
+    useEffect(() => {
+    if (!mediaControlRequest) {
+      return;
+    }
+
+    if (mediaControlRequest.action === "toggle-mute") {
+      toggleMute();
+      return;
+    }
+
+    if (mediaControlRequest.action === "toggle-play") {
+      togglePlayPause();
+    }
+  }, [mediaControlRequest]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -6434,14 +6527,6 @@ function MediaRenderer({
               });
             }}
           />
-
-          <button
-            type="button"
-            className={styles.mediaMuteButton}
-            onClick={toggleMute}
-          >
-            {isMuted ? "Sound on" : "Mute"}
-          </button>
 
           {!isPlaying ? (
             <button

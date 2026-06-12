@@ -8,15 +8,14 @@
 @autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: good-morning-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-01|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-01|song|escape-song-01
-- album|album|escape-album
+@showback: false
+@next: Next
+@goto: life-good-video
+@footeraction: media|mute|Mute/Unmute|toggle-mute
+@footeraction: media|play|Play/Pause|toggle-play
+@footeraction: goto|lyrics|View Lyrics|good-morning-lyrics
+@footeraction: download|escape-song-01-mp3|Download MP3
+
 ===
 @id: good-morning-lyrics
 @type: annotatedtext
@@ -26,13 +25,14 @@
 @textmode: lyrics
 @annotationcatalog: escape-good-morning
 @showprogressbar: false
-@showauthcontrols: true
+@showauthcontrols: false
 @next: Test article annotations
 @goto: article-annotation-test
 @downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-01|Download this song|secondary
-- album|Download full album|secondary
+@footeraction: download|song-01|Download this song|secondary|always
+@footeraction: download|album|Download full album|secondary|always
+@footeraction: auth|login|Login / Sign up|secondary|logged-out
+@footeraction: auth|logout|Logout|secondary|logged-in
 @downloadrequests:
 - song-01|song|escape-song-01
 - album|album|escape-album

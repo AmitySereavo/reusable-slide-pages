@@ -15,6 +15,7 @@ import {
   SelectOption,
   Slide,
   SlideFeature,
+  SlideFooterAction,
   SlideProgressMode,
   VideoRoute,
   SlideRouteRule,
@@ -529,7 +530,18 @@ inDownloadFormatsBlock = false;
         draft.downloadRequestKey = readValue(line, "@downloadrequestkey:");
         continue;
       }
-  
+
+      if (line.startsWith("@footeraction:")) {
+        const footerAction = parseFooterActionLine(
+          readValue(line, "@footeraction:")
+        );
+
+        if (footerAction) {
+          draft.footerActions = [...(draft.footerActions ?? []), footerAction];
+        }
+
+        continue;
+      }
 
       if (line.startsWith("@feature:")) {
         const feature = parseFeature(readValue(line, "@feature:"));
@@ -784,9 +796,10 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       : undefined,
     downloadRequestKey: draft.downloadRequestKey,
     downloadRequests: draft.downloadRequests,
-    downloadFormatOptions: draft.downloadFormatOptions?.length
+      downloadFormatOptions: draft.downloadFormatOptions?.length
       ? draft.downloadFormatOptions
       : undefined,
+    footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
@@ -1061,6 +1074,43 @@ function parseDownloadFormatLine(line: string): DownloadFormatOption | null {
     format,
     label: label || format.toUpperCase(),
     styleKey: styleKey || undefined,
+  };
+}
+
+function parseFooterActionLine(value: string): SlideFooterAction | null {
+  const [kind, key, label, targetOrHref, visibility] = value
+    .split("|")
+    .map((part) => part.trim());
+
+  if (
+    kind !== "media" &&
+    kind !== "goto" &&
+    kind !== "download" &&
+    kind !== "auth" &&
+    kind !== "link"
+  ) {
+    return null;
+  }
+
+  if (!key || !label) {
+    return null;
+  }
+
+  return {
+    kind,
+    key,
+    label,
+    target:
+      kind === "goto" || kind === "media" || kind === "auth"
+        ? targetOrHref || undefined
+        : undefined,
+    href: kind === "link" ? targetOrHref || undefined : undefined,
+    visibility:
+      visibility === "logged-in" ||
+      visibility === "logged-out" ||
+      visibility === "always"
+        ? visibility
+        : undefined,
   };
 }
 

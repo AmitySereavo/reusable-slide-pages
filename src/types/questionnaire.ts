@@ -21,6 +21,24 @@ export type DownloadButton = {
   styleKey?: string;
 };
 
+export type SlideFooterActionKind =
+  | "media"
+  | "goto"
+  | "download"
+  | "auth"
+  | "link";
+
+export type SlideFooterActionVisibility = "always" | "logged-in" | "logged-out";
+
+export type SlideFooterAction = {
+  kind: SlideFooterActionKind;
+  key: string;
+  label: string;
+  target?: string;
+  href?: string;
+  visibility?: SlideFooterActionVisibility;
+};
+
 export type DownloadRequestTarget = {
   scope: "song" | "album";
   itemId?: string;
@@ -481,6 +499,7 @@ export type Slide = {
   downloadRequestKey?: string;
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
+  footerActions?: SlideFooterAction[];
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -622,11 +641,12 @@ export type ParsedSlideDraft = {
   cancelGoto?: string;
   goto?: string;
   run?: string;
- downloadKey?: string;
+  downloadKey?: string;
   downloadButtons?: DownloadButton[];
   downloadRequestKey?: string;
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
+  footerActions?: SlideFooterAction[];
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
