@@ -186,6 +186,11 @@ type MediaControlRequest = {
   action: "toggle-mute" | "toggle-play";
 };
 
+type MediaState = {
+  isMuted: boolean;
+  isPlaying: boolean;
+};
+
 function isInternalOnlyPurchaseMode(
   purchaseModes: NonNullable<ShopCatalogSizeOption["purchaseModes"]>
 ) {
@@ -256,6 +261,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     useState<VideoSeekRequest | null>(null);
   const [mediaControlRequest, setMediaControlRequest] =
     useState<MediaControlRequest | null>(null);
+  const [mediaState, setMediaState] = useState<MediaState>({
+    isMuted: false,
+    isPlaying: false,
+  });
 
   const previousVideoTimeRef = useRef(0);
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
@@ -1305,6 +1314,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setVideoProgress(0);
     setVideoSeekRequest(null);
     setMediaControlRequest(null);
+    setMediaState({
+      isMuted: false,
+      isPlaying: false,
+    });
     previousVideoTimeRef.current = 0;
     setDownloadNotice(null);
     setSubmitError(null);
@@ -3203,6 +3216,7 @@ async function handleNext() {
                         }}
                         videoSeekRequest={videoSeekRequest}
                         mediaControlRequest={mediaControlRequest}
+                        onMediaStateChange={setMediaState}
                       />
                         {shouldShowVideoResumePrompt({
                           currentSlide,
@@ -3793,6 +3807,7 @@ async function handleNext() {
                     isLoggedIn={Boolean(authSessionUser)}
                     isAuthSessionLoaded={isAuthSessionLoaded}
                     isSubmitting={isSubmitting}
+                    mediaState={mediaState}
                     onAction={handleFooterAction}
                   />
                 </div>
@@ -6269,6 +6284,7 @@ function MediaRenderer({
   onVideoProgressChange,
   videoSeekRequest,
   mediaControlRequest,
+  onMediaStateChange,
 }: {
   slide: {
     title: string;
@@ -6286,6 +6302,7 @@ function MediaRenderer({
   }) => void;
   videoSeekRequest?: VideoSeekRequest | null;
   mediaControlRequest?: MediaControlRequest | null;
+  onMediaStateChange?: (state: MediaState) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasAppliedStartTimeRef = useRef(false);
@@ -6333,10 +6350,10 @@ function MediaRenderer({
     }
   }, [videoSeekRequest, slide.autoplay]);
 
-    useEffect(() => {
-    if (!mediaControlRequest) {
-      return;
-    }
+  useEffect(() => {
+  if (!mediaControlRequest) {
+    return;
+  }
 
     if (mediaControlRequest.action === "toggle-mute") {
       toggleMute();
@@ -6347,6 +6364,13 @@ function MediaRenderer({
       togglePlayPause();
     }
   }, [mediaControlRequest]);
+
+  useEffect(() => {
+    onMediaStateChange?.({
+      isMuted,
+      isPlaying,
+    });
+  }, [isMuted, isPlaying, onMediaStateChange]);
 
   useEffect(() => {
     const video = videoRef.current;

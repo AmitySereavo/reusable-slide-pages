@@ -11,11 +11,10 @@
 @showback: false
 @next: Next
 @goto: life-good-video
-@footeraction: media|mute|Mute/Unmute|toggle-mute
-@footeraction: media|play|Play/Pause|toggle-play
-@footeraction: goto|lyrics|View Lyrics|good-morning-lyrics
-@footeraction: download|escape-song-01-mp3|Download MP3
-
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|good-morning-lyrics
+@footeraction: download|escape-song-01-wav|WAV
+@footeraction: download|escape-song-01-mp3|MP3
 ===
 @id: good-morning-lyrics
 @type: annotatedtext
