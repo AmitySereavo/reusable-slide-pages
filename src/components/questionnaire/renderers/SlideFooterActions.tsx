@@ -10,6 +10,7 @@ type MediaState = {
 
 type Props = {
   actions: SlideFooterAction[];
+  downloadLabel?: string;
   isLoggedIn: boolean;
   isAuthSessionLoaded: boolean;
   isSubmitting: boolean;
@@ -19,6 +20,7 @@ type Props = {
 
 export default function SlideFooterActions({
   actions,
+  downloadLabel,
   isLoggedIn,
   isAuthSessionLoaded,
   isSubmitting,
@@ -63,7 +65,9 @@ export default function SlideFooterActions({
 
       {downloadActions.length ? (
         <>
-          <div className={styles.slideFooterDownloadLabel}>Download</div>
+          <div className={styles.slideFooterDownloadLabel}>
+            {downloadLabel?.trim() || "Download"}
+          </div>
           <FooterActionRow
             actions={downloadActions}
             isSubmitting={isSubmitting}

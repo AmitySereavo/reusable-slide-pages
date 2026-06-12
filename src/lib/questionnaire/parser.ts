@@ -531,6 +531,11 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@footerdownloadlabel:")) {
+        draft.footerDownloadLabel = readValue(line, "@footerdownloadlabel:");
+        continue;
+      }
+
       if (line.startsWith("@footeraction:")) {
         const footerAction = parseFooterActionLine(
           readValue(line, "@footeraction:")
@@ -800,6 +805,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       ? draft.downloadFormatOptions
       : undefined,
     footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
+    footerDownloadLabel: draft.footerDownloadLabel,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,

@@ -500,6 +500,7 @@ export type Slide = {
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
+  footerDownloadLabel?: string;
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -647,6 +648,7 @@ export type ParsedSlideDraft = {
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
+  footerDownloadLabel?: string;
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;

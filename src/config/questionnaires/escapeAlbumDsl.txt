@@ -11,6 +11,7 @@
 @showback: false
 @next: Next
 @goto: life-good-video
+@footerdownloadlabel: Download - Good Morning
 @footeraction: media|mute|Mute|toggle-mute
 @footeraction: goto|lyrics|Lyrics|good-morning-lyrics
 @footeraction: download|escape-song-01-wav|WAV
@@ -25,354 +26,268 @@
 @annotationcatalog: escape-good-morning
 @showprogressbar: false
 @showauthcontrols: false
-@next: Test article annotations
-@goto: article-annotation-test
-@downloadrequestkey: escapeDownloadRequest
-@footeraction: download|song-01|Download this song|secondary|always
-@footeraction: download|album|Download full album|secondary|always
-@footeraction: auth|login|Login / Sign up|secondary|logged-out
-@footeraction: auth|logout|Logout|secondary|logged-in
-@downloadrequests:
-- song-01|song|escape-song-01
-- album|album|escape-album
+@shownext: false
 # Good Morning Lyrics
-===
-@id: article-annotation-test
-@type: annotatedtext
-@title: Article Annotation Test
-@subtitle: URL and video annotation test
-@textsource: /api/downloads/escape-article-test-text
-@textmode: article
-@annotationcatalog: escape-story-test
-@showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: life-good-video
-# Article Annotation Test
 ===
 @id: life-good-video
 @type: media
 @title: Life Good
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-02-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: life-good-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-02|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-02|song|escape-song-02
-- album|album|escape-album
-# Life Good
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: work-hard-video
+@footerdownloadlabel: Download - Life Good
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|life-good-lyrics
+@footeraction: download|escape-song-02-wav|WAV
+@footeraction: download|escape-song-02-mp3|MP3
 ===
 @id: life-good-lyrics
-@type: content
+@type: annotatedtext
 @title: Life Good
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-02-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: work-hard-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-02|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-02|song|escape-song-02
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Life Good Lyrics
-Paste the written lyrics for Life Good here.
 ===
 @id: work-hard-video
 @type: media
 @title: Work Hard
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-03-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: work-hard-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-03|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-03|song|escape-song-03
-- album|album|escape-album
-# Work Hard
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: income-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|work-hard-lyrics
+@footerdownloadlabel: Download - Work Hard
+@footeraction: download|escape-song-03-wav|WAV
+@footeraction: download|escape-song-03-mp3|MP3
 ===
 @id: work-hard-lyrics
-@type: content
+@type: annotatedtext
 @title: Work Hard
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-03-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: income-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-03|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-03|song|escape-song-03
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Work Hard Lyrics
-Paste the written lyrics for Work Hard here.
 ===
 @id: income-video
 @type: media
 @title: Income
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-04-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: income-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-04|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-04|song|escape-song-04
-- album|album|escape-album
-# Income
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: mystical-feeling-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|income-lyrics
+@footerdownloadlabel: Download - Income
+@footeraction: download|escape-song-04-wav|WAV
+@footeraction: download|escape-song-04-mp3|MP3
 ===
 @id: income-lyrics
-@type: content
+@type: annotatedtext
 @title: Income
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-04-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: mystical-feeling-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-04|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-04|song|escape-song-04
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Income Lyrics
-Paste the written lyrics for Income here.
 ===
 @id: mystical-feeling-video
 @type: media
 @title: Mystical Feeling
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-05-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: mystical-feeling-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-05|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-05|song|escape-song-05
-- album|album|escape-album
-# Mystical Feeling
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: close-to-me-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|mystical-feeling-lyrics
+@footerdownloadlabel: Download - Mystical Feeling
+@footeraction: download|escape-song-05-wav|WAV
+@footeraction: download|escape-song-05-mp3|MP3
 ===
 @id: mystical-feeling-lyrics
-@type: content
+@type: annotatedtext
 @title: Mystical Feeling
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-05-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: close-to-me-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-05|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-05|song|escape-song-05
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Mystical Feeling Lyrics
-Paste the written lyrics for Mystical Feeling here.
 ===
 @id: close-to-me-video
 @type: media
 @title: Close To Me
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-06-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: close-to-me-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-06|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-06|song|escape-song-06
-- album|album|escape-album
-# Close To Me
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: constantly-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|close-to-me-lyrics
+@footerdownloadlabel: Download - Close To Me
+@footeraction: download|escape-song-06-wav|WAV
+@footeraction: download|escape-song-06-mp3|MP3
 ===
 @id: close-to-me-lyrics
-@type: content
+@type: annotatedtext
 @title: Close To Me
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-06-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: constantly-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-06|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-06|song|escape-song-06
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Close To Me Lyrics
-Paste the written lyrics for Close To Me here.
 ===
 @id: constantly-video
 @type: media
 @title: Constantly
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-07-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: constantly-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-07|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-07|song|escape-song-07
-- album|album|escape-album
-# Constantly
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: judgement-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|constantly-lyrics
+@footerdownloadlabel: Download - Constantly
+@footeraction: download|escape-song-07-wav|WAV
+@footeraction: download|escape-song-07-mp3|MP3
 ===
 @id: constantly-lyrics
-@type: content
+@type: annotatedtext
 @title: Constantly
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-07-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: judgement-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-07|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-07|song|escape-song-07
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Constantly Lyrics
-Paste the written lyrics for Constantly here.
 ===
 @id: judgement-video
 @type: media
 @title: Judgement
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-08-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: judgement-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-08|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-08|song|escape-song-08
-- album|album|escape-album
-# Judgement
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: not-misled-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|judgement-lyrics
+@footerdownloadlabel: Download - Judgement
+@footeraction: download|escape-song-08-wav|WAV
+@footeraction: download|escape-song-08-mp3|MP3
 ===
 @id: judgement-lyrics
-@type: content
+@type: annotatedtext
 @title: Judgement
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-08-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: not-misled-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-08|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-08|song|escape-song-08
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Judgement Lyrics
-Paste the written lyrics for Judgement here.
 ===
 @id: not-misled-video
 @type: media
 @title: Not Misled
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-09-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: not-misled-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-09|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-09|song|escape-song-09
-- album|album|escape-album
-# Not Misled
-Your private lyric video will appear here once the protected media viewer is wired.
+@next: Next
+@goto: cant-let-you-go-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|not-misled-lyrics
+@footerdownloadlabel: Download - Not Misled
+@footeraction: download|escape-song-09-wav|WAV
+@footeraction: download|escape-song-09-mp3|MP3
 ===
 @id: not-misled-lyrics
-@type: content
+@type: annotatedtext
 @title: Not Misled
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-09-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Next song
-@goto: cant-let-you-go-video
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-09|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-09|song|escape-song-09
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Not Misled Lyrics
-Paste the written lyrics for Not Misled here.
 ===
 @id: cant-let-you-go-video
 @type: media
 @title: Can't Let You Go
 @subtitle: Lyric Video
+@media: /api/downloads/escape-video-10-vertical
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
 @showprogressbar: false
 @showauthcontrols: true
-@next: Lyrics
-@goto: cant-let-you-go-lyrics
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-10|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-10|song|escape-song-10
-- album|album|escape-album
-# Can't Let You Go
-Your private lyric video will appear here once the protected media viewer is wired.
+@shownext: false
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|lyrics|Lyrics|cant-let-you-go-lyrics
+@footerdownloadlabel: Download - Can't Let You Go
+@footeraction: download|escape-song-10-wav|WAV
+@footeraction: download|escape-song-10-mp3|MP3
 ===
 @id: cant-let-you-go-lyrics
-@type: content
+@type: annotatedtext
 @title: Can't Let You Go
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-10-text
+@textmode: lyrics
 @showprogressbar: false
-@showauthcontrols: true
-@next: Download options
-@goto: download-format
-@downloadrequestkey: escapeDownloadRequest
-@downloadbuttons:
-- song-10|Download this song|secondary
-- album|Download full album|secondary
-@downloadrequests:
-- song-10|song|escape-song-10
-- album|album|escape-album
+@showauthcontrols: false
+@shownext: false
 # Can't Let You Go Lyrics
-Paste the written lyrics for Can't Let You Go here.
 ===
 @id: download-format
 @type: content

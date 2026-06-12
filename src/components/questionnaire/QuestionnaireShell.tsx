@@ -3802,14 +3802,15 @@ async function handleNext() {
             {hasFooterActions ? (
               <div className={styles.slideFooterTextActionsOverlay}>
                 <div className={styles.overlayFrame}>
-                  <SlideFooterActions
-                    actions={footerActions}
-                    isLoggedIn={Boolean(authSessionUser)}
-                    isAuthSessionLoaded={isAuthSessionLoaded}
-                    isSubmitting={isSubmitting}
-                    mediaState={mediaState}
-                    onAction={handleFooterAction}
-                  />
+                <SlideFooterActions
+                  actions={footerActions}
+                  downloadLabel={currentSlide.footerDownloadLabel}
+                  isLoggedIn={Boolean(authSessionUser)}
+                  isAuthSessionLoaded={isAuthSessionLoaded}
+                  isSubmitting={isSubmitting}
+                  mediaState={mediaState}
+                  onAction={handleFooterAction}
+                />
                 </div>
               </div>
             ) : null}
