@@ -7,6 +7,18 @@ export type DownloadCatalogItem = {
 
 export const downloadCatalog: DownloadCatalogItem[] = [
   {
+    key: "escape-lyrics-01-text",
+    filePath: "protected-media/escape/lyrics/01-good-morning.txt",
+    fileName: "Good Morning Lyrics.txt",
+    contentType: "text/plain; charset=utf-8",
+  },
+  {
+    key: "escape-article-test-text",
+    filePath: "protected-media/escape/lyrics/article-test.txt",
+    fileName: "Article Test.txt",
+    contentType: "text/plain; charset=utf-8",
+  },
+  {
     key: "escape-video-01-vertical",
     filePath: "protected-media/escape/videos/vertical/01-good-morning.mp4",
     fileName: "Good Morning - Lyric Video.mp4",

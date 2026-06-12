@@ -1,4 +1,5 @@
 import {
+  AnnotatedTextMode,
   ChoiceItem,
   ChoicePlacement,
   ConditionRule,
@@ -554,6 +555,24 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@textsource:")) {
+        draft.annotatedTextSourceUrl = readValue(line, "@textsource:");
+        continue;
+      }
+
+      if (line.startsWith("@textmode:")) {
+        draft.annotatedTextMode = readValue(
+          line,
+          "@textmode:"
+        ) as AnnotatedTextMode;
+        continue;
+      }
+
+      if (line.startsWith("@annotationcatalog:")) {
+        draft.annotationCatalogKey = readValue(line, "@annotationcatalog:");
+        continue;
+      }
+
       if (line.startsWith("@mediatype:")) {
         draft.mediaType = readValue(line, "@mediatype:") as MediaType;
         continue;
@@ -783,6 +802,9 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     nextStyleKey: draft.nextStyleKey,
     mediaUrl: draft.mediaUrl,
     embedUrl: draft.embedUrl,
+    annotatedTextSourceUrl: draft.annotatedTextSourceUrl,
+    annotatedTextMode: draft.annotatedTextMode,
+    annotationCatalogKey: draft.annotationCatalogKey,
     mediaType: draft.mediaType,
     mediaAspect: draft.mediaAspect,
     progressMode: draft.progressMode,

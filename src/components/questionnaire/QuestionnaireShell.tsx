@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
 import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
+import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -3532,6 +3533,13 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
                         />
                       ) : null}
 
+                      {currentSlide.type === "annotatedtext" ? (
+                        <AnnotatedTextSlideRenderer
+                          slide={currentSlide}
+                          theme={theme}
+                        />
+                      ) : null}
+
                       {currentBlock ? (
                         <DataBlockRenderer
                           block={currentBlock}
@@ -6326,7 +6334,9 @@ function MediaRenderer({
           className={`${styles.mediaWrap} ${
             slide.mediaAspect === "horizontal"
               ? styles.mediaWrapHorizontal
-              : ""
+              : slide.mediaAspect === "vertical"
+                ? styles.mediaWrapVertical
+                : ""
           }`}
         >
           <iframe
@@ -6348,7 +6358,9 @@ function MediaRenderer({
           className={`${styles.mediaWrap} ${
             slide.mediaAspect === "horizontal"
               ? styles.mediaWrapHorizontal
-              : ""
+              : slide.mediaAspect === "vertical"
+                ? styles.mediaWrapVertical
+                : ""
           }`}
         >
           <img
@@ -6368,7 +6380,9 @@ function MediaRenderer({
           className={`${styles.mediaWrap} ${
             slide.mediaAspect === "horizontal"
               ? styles.mediaWrapHorizontal
-              : ""
+              : slide.mediaAspect === "vertical"
+                ? styles.mediaWrapVertical
+                : ""
           }`}
         >
           <video

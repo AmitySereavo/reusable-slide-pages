@@ -264,7 +264,8 @@
   background: #000;
 }
 
-.mediaWrapHorizontal {
+.mediaWrapHorizontal,
+.mediaWrapVertical {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -344,6 +345,15 @@
   width: 100%;
   height: auto;
   max-height: 100%;
+  object-fit: contain;
+}
+
+.mediaWrapVertical .mediaVideo,
+.mediaWrapVertical .mediaImage,
+.mediaWrapVertical .mediaFrame {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
   object-fit: contain;
 }
 

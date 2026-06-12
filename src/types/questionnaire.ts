@@ -434,6 +434,7 @@ export type SlideSection =
 
 export type MediaType = "image" | "video";
 export type MediaAspect = "horizontal" | "vertical" | "square";
+export type AnnotatedTextMode = "lyrics" | "article" | "chapter" | "story";
 export type SlideProgressMode = "slide" | "video";
 export type VideoResumeMode =
   | "none"
@@ -462,7 +463,8 @@ export type SlideType =
   | "authverify"
   | "authform"
   | "accountsummary"
-  | "recordlist";
+  | "recordlist"
+  | "annotatedtext";
 
 export type Slide = {
   id: string;
@@ -509,6 +511,9 @@ export type Slide = {
   nextStyleKey?: string;
   mediaUrl?: string;
   embedUrl?: string;
+  annotatedTextSourceUrl?: string;
+  annotatedTextMode?: AnnotatedTextMode;
+  annotationCatalogKey?: string;
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;
@@ -633,6 +638,9 @@ export type ParsedSlideDraft = {
   nextStyleKey?: string;
   mediaUrl?: string;
   embedUrl?: string;
+  annotatedTextSourceUrl?: string;
+  annotatedTextMode?: AnnotatedTextMode;
+  annotationCatalogKey?: string;
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;

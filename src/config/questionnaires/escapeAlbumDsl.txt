@@ -17,17 +17,18 @@
 @downloadrequests:
 - song-01|song|escape-song-01
 - album|album|escape-album
-# Good Morning
-Your private lyric video will appear here once the protected media viewer is wired.
 ===
 @id: good-morning-lyrics
-@type: content
+@type: annotatedtext
 @title: Good Morning
 @subtitle: Written Lyrics
+@textsource: /api/downloads/escape-lyrics-01-text
+@textmode: lyrics
+@annotationcatalog: escape-good-morning
 @showprogressbar: false
 @showauthcontrols: true
-@next: Next song
-@goto: life-good-video
+@next: Test article annotations
+@goto: article-annotation-test
 @downloadrequestkey: escapeDownloadRequest
 @downloadbuttons:
 - song-01|Download this song|secondary
@@ -36,7 +37,19 @@ Your private lyric video will appear here once the protected media viewer is wir
 - song-01|song|escape-song-01
 - album|album|escape-album
 # Good Morning Lyrics
-Paste the written lyrics for Good Morning here.
+===
+@id: article-annotation-test
+@type: annotatedtext
+@title: Article Annotation Test
+@subtitle: URL and video annotation test
+@textsource: /api/downloads/escape-article-test-text
+@textmode: article
+@annotationcatalog: escape-story-test
+@showprogressbar: false
+@showauthcontrols: true
+@next: Next song
+@goto: life-good-video
+# Article Annotation Test
 ===
 @id: life-good-video
 @type: media
