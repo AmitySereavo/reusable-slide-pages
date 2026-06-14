@@ -7,7 +7,10 @@ import { seedTheme } from "@/config/themes/seedTheme";
 import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
-import { getInvitationShopCatalog } from "@/lib/invitation/getInvitationShopCatalog";
+import {
+  getInvitationShopCatalog,
+  getMusicMerchShopCatalog,
+} from "@/lib/invitation/getInvitationShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
@@ -107,7 +110,14 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dslPath: "src/config/questionnaires/escapeAlbumDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
-    variables: {},
+    variables: {
+      purchaseAccess: {
+        itemKey: "escape-album",
+        gateSlideId: "escape-album-access",
+        accessSlideId: "good-morning-video",
+        storeTarget: "/questionnaire/invitation?slide=invitation-shop",
+      },
+    },
     dynamicVariablesEndpoint: undefined,
   },
 
@@ -301,10 +311,12 @@ export async function getQuestionnaireBySlug(slug: string) {
 
   if (entry.slug === "invitation") {
     const shopCatalog = getInvitationShopCatalog();
+    const musicMerchShopCatalog = getMusicMerchShopCatalog();
 
       resolvedVariables = {
       ...entry.variables,
       shopCatalog,
+      musicMerchShopCatalog,
       deliveryConfig,
       discountDefinitions,
       mealMenus,

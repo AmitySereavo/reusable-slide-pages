@@ -7,6 +7,54 @@
 @showprogressbar: false
 
 ===
+@id: purchased-items
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+@showprogressbar: false
+---
+BR
+# [c1] Purchased Items
+BR
+[c3] Your purchased albums, downloads, tickets, and other account items will be listed here.
+
+===
+@id: my-tickets
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+@showprogressbar: false
+---
+BR
+# [c1] My Tickets
+BR
+[c3] Your ticket links and event access will be listed here.
+
+===
+@id: receipts
+@type: content
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+@showprogressbar: false
+---
+BR
+# [c1] Receipts
+BR
+[c3] Your order receipts will be listed here.
+
+===
 @id: account-update-name
 @type: form
 @shownext: true

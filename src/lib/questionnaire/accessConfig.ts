@@ -71,3 +71,34 @@ export function getGatedAccessConfig(
         : undefined,
   };
 }
+
+export type PurchaseAccessConfig = {
+  itemKey?: string;
+  gateSlideId?: string;
+  accessSlideId?: string;
+  storeTarget?: string;
+};
+
+export function getPurchaseAccessConfig(
+  variables: QuestionnaireVariableMap
+): PurchaseAccessConfig | null {
+  const raw = variables.purchaseAccess;
+
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const record = raw as Record<string, unknown>;
+
+  return {
+    itemKey: typeof record.itemKey === "string" ? record.itemKey : undefined,
+    gateSlideId:
+      typeof record.gateSlideId === "string" ? record.gateSlideId : undefined,
+    accessSlideId:
+      typeof record.accessSlideId === "string"
+        ? record.accessSlideId
+        : undefined,
+    storeTarget:
+      typeof record.storeTarget === "string" ? record.storeTarget : undefined,
+  };
+}

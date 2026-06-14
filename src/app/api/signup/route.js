@@ -144,6 +144,7 @@ export async function POST(request) {
           country: country || null,
           city: city || null,
           adminLevel,
+          createdBy: "user",
         },
       });
 

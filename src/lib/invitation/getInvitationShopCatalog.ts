@@ -1,5 +1,12 @@
 import type { ShopCatalog } from "@/types/questionnaire";
 
+const ESCAPE_ALBUM_PURCHASE_MODE = {
+  id: "standard-with-escape-album",
+  label: "Add Escape Album download",
+  priceAdjustment: 12,
+  requiresPhysicalFulfillment: false,
+};
+
 export function getInvitationShopCatalog(): ShopCatalog {
   return {
     currencyCode: "USD",
@@ -39,6 +46,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
               },
+              ESCAPE_ALBUM_PURCHASE_MODE,
             ],
           },
           {
@@ -58,6 +66,10 @@ export function getInvitationShopCatalog(): ShopCatalog {
                 id: "standard",
                 label: "Standard",
                 priceAdjustment: 0,
+                requiresPhysicalFulfillment: true,
+              },
+              {
+                ...ESCAPE_ALBUM_PURCHASE_MODE,
                 requiresPhysicalFulfillment: true,
               },
             ],
@@ -81,6 +93,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
               },
+              ESCAPE_ALBUM_PURCHASE_MODE,
             ],
           },
           {
@@ -100,6 +113,10 @@ export function getInvitationShopCatalog(): ShopCatalog {
                 id: "standard",
                 label: "Standard",
                 priceAdjustment: 0,
+                requiresPhysicalFulfillment: true,
+              },
+              {
+                ...ESCAPE_ALBUM_PURCHASE_MODE,
                 requiresPhysicalFulfillment: true,
               },
             ],
@@ -136,6 +153,7 @@ sizeOptions: [
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
               },
+              ESCAPE_ALBUM_PURCHASE_MODE,
             ],
           },
           {
@@ -150,6 +168,10 @@ sizeOptions: [
                 id: "standard",
                 label: "Standard",
                 priceAdjustment: 0,
+                requiresPhysicalFulfillment: true,
+              },
+              {
+                ...ESCAPE_ALBUM_PURCHASE_MODE,
                 requiresPhysicalFulfillment: true,
               },
             ],
@@ -168,6 +190,7 @@ sizeOptions: [
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
               },
+              ESCAPE_ALBUM_PURCHASE_MODE,
             ],
           },
           {
@@ -184,10 +207,23 @@ sizeOptions: [
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: true,
               },
+              {
+                ...ESCAPE_ALBUM_PURCHASE_MODE,
+                requiresPhysicalFulfillment: true,
+              },
             ],
           },
         ],
       },
+    ],
+  };
+}
+
+export function getMusicMerchShopCatalog(): ShopCatalog {
+  return {
+    currencyCode: "USD",
+    weightUnit: "lb",
+    products: [
       {
         id: "escape-album-digital",
         slug: "escape-album-digital",

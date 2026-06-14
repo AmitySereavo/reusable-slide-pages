@@ -449,6 +449,13 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@progressplacement:")) {
+        const value = readValue(line, "@progressplacement:");
+        draft.progressPlacement =
+          value === "footer-edge" || value === "overlay" ? value : undefined;
+        continue;
+      }
+
       if (line.startsWith("@showreturnhome:")) {
         draft.showReturnHome = parseBooleanValue(
           readValue(line, "@showreturnhome:"),
@@ -531,8 +538,8 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
-      if (line.startsWith("@footerdownloadlabel:")) {
-        draft.footerDownloadLabel = readValue(line, "@footerdownloadlabel:");
+      if (line.startsWith("@footercontentlabel:")) {
+        draft.footerContentLabel = readValue(line, "@footercontentlabel:");
         continue;
       }
 
@@ -785,6 +792,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     countStep: draft.countStep,
     showStepText: draft.showStepText,
     showProgressBar: draft.showProgressBar,
+    progressPlacement: draft.progressPlacement,
     showReturnHome: draft.showReturnHome,
     cancelGoto: draft.cancelGoto,
     showCancel: draft.showCancel,
@@ -805,7 +813,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       ? draft.downloadFormatOptions
       : undefined,
     footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
-    footerDownloadLabel: draft.footerDownloadLabel,
+    footerContentLabel: draft.footerContentLabel,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
@@ -1091,6 +1099,7 @@ function parseFooterActionLine(value: string): SlideFooterAction | null {
   if (
     kind !== "media" &&
     kind !== "goto" &&
+    kind !== "textpanel" &&
     kind !== "download" &&
     kind !== "auth" &&
     kind !== "link"
@@ -1107,7 +1116,10 @@ function parseFooterActionLine(value: string): SlideFooterAction | null {
     key,
     label,
     target:
-      kind === "goto" || kind === "media" || kind === "auth"
+      kind === "goto" ||
+      kind === "textpanel" ||
+      kind === "media" ||
+      kind === "auth"
         ? targetOrHref || undefined
         : undefined,
     href: kind === "link" ? targetOrHref || undefined : undefined,

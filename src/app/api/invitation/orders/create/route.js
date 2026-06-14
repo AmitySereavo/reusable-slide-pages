@@ -4,8 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { parseIdentifier } from "@/customerAccess/utils/identifier";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
+import { ESCAPE_ALBUM_ITEM_KEY } from "@/lib/entitlements/purchasedItems";
 
-const TARGET = "ticketOwnerAccess";
+const TICKET_OWNER_ACCESS_TARGET = "ticketOwnerAccess";
+const ESCAPE_ALBUM_ACCESS_TARGET = "escapeAlbumAccess";
+const ESCAPE_ALBUM_PURCHASE_MODE_ID = "standard-with-escape-album";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -70,8 +73,29 @@ function buildFinalTicketCode(orderCode, index) {
   return `${orderCode}-T${String(index + 1).padStart(4, "0")}`;
 }
 
-async function createTemporaryPasswordHash() {
-  return bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+function createTemporaryPassword() {
+  return `${crypto.randomBytes(18).toString("base64url")}Aa1!`;
+}
+
+async function createTemporaryPasswordHash(temporaryPassword) {
+  return bcrypt.hash(temporaryPassword, 10);
+}
+
+async function issueTemporaryPasswordForUser(tx, userId) {
+  const temporaryPassword = createTemporaryPassword();
+  const passwordHash = await createTemporaryPasswordHash(temporaryPassword);
+
+  await tx.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      password: passwordHash,
+      passwordUpdatedAt: new Date(),
+    },
+  });
+
+  return temporaryPassword;
 }
 
 async function findOrCreateTemporaryUserForEmail(tx, params) {
@@ -92,7 +116,26 @@ async function findOrCreateTemporaryUserForEmail(tx, params) {
   });
 
   if (existingReservedEmail?.user) {
-    return existingReservedEmail.user;
+    if (existingReservedEmail.user.createdBy === "algorithm") {
+      const temporaryPassword = await issueTemporaryPasswordForUser(
+        tx,
+        existingReservedEmail.user.id
+      );
+
+      return {
+        user: existingReservedEmail.user,
+        created: false,
+        temporaryPassword,
+        temporaryPasswordWasIssued: true,
+      };
+    }
+
+    return {
+      user: existingReservedEmail.user,
+      created: false,
+      temporaryPassword: null,
+      temporaryPasswordWasIssued: false,
+    };
   }
 
   const existingUser = await tx.user.findUnique({
@@ -119,17 +162,38 @@ async function findOrCreateTemporaryUserForEmail(tx, params) {
       },
     });
 
-    return existingUser;
+    if (existingUser.createdBy === "algorithm") {
+      const temporaryPassword = await issueTemporaryPasswordForUser(
+        tx,
+        existingUser.id
+      );
+
+      return {
+        user: existingUser,
+        created: false,
+        temporaryPassword,
+        temporaryPasswordWasIssued: true,
+      };
+    }
+
+    return {
+      user: existingUser,
+      created: false,
+      temporaryPassword: null,
+      temporaryPasswordWasIssued: false,
+    };
   }
 
-  const passwordHash = await createTemporaryPasswordHash();
+  const temporaryPassword = createTemporaryPassword();
+  const passwordHash = await createTemporaryPasswordHash(temporaryPassword);
 
   const user = await tx.user.create({
     data: {
       email,
       name: name || null,
       password: passwordHash,
-      passwordUpdatedAt: null,
+      passwordUpdatedAt: new Date(),
+      createdBy: "algorithm",
     },
   });
 
@@ -143,7 +207,12 @@ async function findOrCreateTemporaryUserForEmail(tx, params) {
     },
   });
 
-  return user;
+  return {
+    user,
+    created: true,
+    temporaryPassword,
+    temporaryPasswordWasIssued: true,
+  };
 }
 
 function getTicketOwnerEmail(assignment) {
@@ -194,6 +263,9 @@ async function sendTicketOwnerGroupLink({
   ownerEmail,
   ownerName,
   ownerUserId,
+  temporaryPassword,
+  accountWasCreated,
+  temporaryPasswordWasIssued,
 }) {
   const unsentTickets = tickets.filter((ticket) => !ticket.portalEmailSentAt);
   const firstTicket = unsentTickets[0];
@@ -214,7 +286,7 @@ async function sendTicketOwnerGroupLink({
   await prisma.verificationToken.deleteMany({
     where: {
       identifier: ownerEmail,
-      target: TARGET,
+      target: TICKET_OWNER_ACCESS_TARGET,
     },
   });
 
@@ -222,7 +294,7 @@ async function sendTicketOwnerGroupLink({
     data: {
       identifier: ownerEmail,
       tokenHash,
-      target: TARGET,
+      target: TICKET_OWNER_ACCESS_TARGET,
       expiresAt,
       successRedirect,
       userId: ownerUserId,
@@ -230,6 +302,8 @@ async function sendTicketOwnerGroupLink({
   });
 
   const baseUrl = getBaseUrl(request);
+  const loginUrl = `${baseUrl}/questionnaire/auth-login`;
+  const forgotPasswordUrl = `${baseUrl}/questionnaire/auth-forgot-password`;
   const verifyUrl =
     firstTicket.ticketCode && firstTicket.ticketCode.trim()
       ? `${baseUrl}/invitation/tickets/${encodeURIComponent(
@@ -243,7 +317,7 @@ async function sendTicketOwnerGroupLink({
     identifier: ownerEmail,
     delivery: "link",
     verifyUrl,
-    target: TARGET,
+    target: TICKET_OWNER_ACCESS_TARGET,
     successRedirect,
     verificationTokenId: verificationToken.id,
     contextMetadata: {
@@ -258,6 +332,11 @@ async function sendTicketOwnerGroupLink({
       firstTicketCode: firstTicket.ticketCode,
       orderId: firstTicket.orderId,
       ownerUserId,
+      loginUrl,
+      forgotPasswordUrl,
+      temporaryPassword,
+      accountWasCreated,
+      temporaryPasswordWasIssued,
     },
   });
 
@@ -275,6 +354,56 @@ async function sendTicketOwnerGroupLink({
   }
 
   return deliveryResult;
+}
+
+function orderIncludesEscapeAlbumAccess(resolvedLines) {
+  if (!Array.isArray(resolvedLines)) {
+    return false;
+  }
+
+  return resolvedLines.some((line) => {
+    if (!line || typeof line !== "object" || Array.isArray(line)) {
+      return false;
+    }
+
+    return (
+      line.purchaseModeId === ESCAPE_ALBUM_PURCHASE_MODE_ID ||
+      line.productId === "escape-album-digital" ||
+      line.sizeOptionId === "escape-album-full-download"
+    );
+  });
+}
+
+async function sendEscapeAlbumAccessEmail({
+  request,
+  purchaserEmail,
+  purchaserName,
+  temporaryPassword,
+  accountWasCreated,
+  temporaryPasswordWasIssued,
+}) {
+  const baseUrl = getBaseUrl(request);
+  const albumUrl = `${baseUrl}/questionnaire/escape-album`;
+  const loginUrl = `${baseUrl}/questionnaire/auth-login`;
+  const forgotPasswordUrl = `${baseUrl}/questionnaire/auth-forgot-password`;
+
+  return sendVerificationDelivery({
+    identifier: purchaserEmail,
+    delivery: "link",
+    verifyUrl: albumUrl,
+    target: ESCAPE_ALBUM_ACCESS_TARGET,
+    successRedirect: "/questionnaire/escape-album",
+    contextMetadata: {
+      purpose: "escape-album-access",
+      recipientName: purchaserName,
+      albumUrl,
+      loginUrl,
+      forgotPasswordUrl,
+      temporaryPassword,
+      accountWasCreated,
+      temporaryPasswordWasIssued,
+    },
+  });
 }
 
 export async function POST(request) {
@@ -342,6 +471,68 @@ export async function POST(request) {
       });
 
       if (existingOrder) {
+        let albumDeliveryResult = null;
+        const existingOrderResolvedLines = Array.isArray(
+          existingOrder.resolvedLinesSnapshot
+        )
+          ? existingOrder.resolvedLinesSnapshot
+          : [];
+
+        if (
+          orderIncludesEscapeAlbumAccess(existingOrderResolvedLines) &&
+          existingOrder.purchaserEmail
+        ) {
+          const purchaserUserResult = await prisma.$transaction((tx) =>
+            findOrCreateTemporaryUserForEmail(tx, {
+              email: existingOrder.purchaserEmail,
+              name: existingOrder.purchaserName,
+            })
+          );
+
+          if (purchaserUserResult?.user?.id) {
+            await prisma.userPurchasedItem.upsert({
+              where: {
+                userId_itemKey: {
+                  userId: purchaserUserResult.user.id,
+                  itemKey: ESCAPE_ALBUM_ITEM_KEY,
+                },
+              },
+              create: {
+                userId: purchaserUserResult.user.id,
+                itemKey: ESCAPE_ALBUM_ITEM_KEY,
+                status: "ACTIVE",
+                source: "invitation-order",
+                metadata: {
+                  orderId: existingOrder.id,
+                  orderCode: existingOrder.orderCode,
+                  purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
+                  resentFromExistingOrder: true,
+                },
+              },
+              update: {
+                status: "ACTIVE",
+                source: "invitation-order",
+                metadata: {
+                  orderId: existingOrder.id,
+                  orderCode: existingOrder.orderCode,
+                  purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
+                  resentFromExistingOrder: true,
+                },
+              },
+            });
+
+            albumDeliveryResult = await sendEscapeAlbumAccessEmail({
+              request,
+              purchaserEmail: existingOrder.purchaserEmail,
+              purchaserName: existingOrder.purchaserName,
+              temporaryPassword: purchaserUserResult.temporaryPassword,
+              accountWasCreated: purchaserUserResult.created === true,
+              temporaryPasswordWasIssued:
+                purchaserUserResult.temporaryPasswordWasIssued === true,
+            });
+          }
+        }
+
         return Response.json({
           ok: true,
           message: "Invitation order already created.",
@@ -353,15 +544,19 @@ export async function POST(request) {
           },
           ticketCount: existingOrder.tickets.length,
           guestPortalLinksSent: 0,
+          albumAccessSent: albumDeliveryResult?.ok === true,
+          albumDeliveryResult,
           deliveryResults: [],
         });
       }
     }
 
     const orderCode = buildOrderCode();
+    const includesEscapeAlbumAccess =
+      orderIncludesEscapeAlbumAccess(resolvedLines);
 
     const transactionResult = await prisma.$transaction(async (tx) => {
-      const purchaserUser = await findOrCreateTemporaryUserForEmail(tx, {
+      const purchaserUserResult = await findOrCreateTemporaryUserForEmail(tx, {
         email: purchaserEmail,
         name: fullName,
       });
@@ -371,7 +566,7 @@ export async function POST(request) {
           questionnaireSlug,
           orderCode,
           orderRequestKey: orderRequestKey || null,
-          purchaserUserId: purchaserUser?.id ?? null,
+          purchaserUserId: purchaserUserResult?.user?.id ?? null,
           purchaserName: fullName || null,
           purchaserEmail,
           purchaserPhone: purchaserPhone || null,
@@ -396,6 +591,37 @@ export async function POST(request) {
         },
       });
 
+      if (includesEscapeAlbumAccess && purchaserUserResult?.user?.id) {
+        await tx.userPurchasedItem.upsert({
+          where: {
+            userId_itemKey: {
+              userId: purchaserUserResult.user.id,
+              itemKey: ESCAPE_ALBUM_ITEM_KEY,
+            },
+          },
+          create: {
+            userId: purchaserUserResult.user.id,
+            itemKey: ESCAPE_ALBUM_ITEM_KEY,
+            status: "ACTIVE",
+            source: "invitation-order",
+            metadata: {
+              orderId: order.id,
+              orderCode: order.orderCode,
+              purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
+            },
+          },
+          update: {
+            status: "ACTIVE",
+            source: "invitation-order",
+            metadata: {
+              orderId: order.id,
+              orderCode: order.orderCode,
+              purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
+            },
+          },
+        });
+      }
+
       const createdTickets = [];
 
       for (let index = 0; index < ticketAssignments.length; index += 1) {
@@ -404,7 +630,7 @@ export async function POST(request) {
         const ownerName = asString(assignment.ownerName);
         const ownerPhone = asString(assignment.ownerPhone);
 
-        const ownerUser = ownerEmail
+        const ownerUserResult = ownerEmail
           ? await findOrCreateTemporaryUserForEmail(tx, {
               email: ownerEmail,
               name: ownerName,
@@ -427,7 +653,7 @@ export async function POST(request) {
                 ? assignment.ticketIndex
                 : index,
             ticketLabel: asString(assignment.ticketLabel) || null,
-            ownerUserId: ownerUser?.id ?? null,
+            ownerUserId: ownerUserResult?.user?.id ?? null,
             ownerName: ownerName || null,
             ownerEmail: ownerEmail || null,
             ownerPhone: ownerPhone || null,
@@ -459,7 +685,11 @@ export async function POST(request) {
           ticket,
           ownerEmail,
           ownerName,
-          ownerUserId: ownerUser?.id ?? null,
+          ownerUserId: ownerUserResult?.user?.id ?? null,
+          temporaryPassword: ownerUserResult?.temporaryPassword ?? null,
+          accountWasCreated: ownerUserResult?.created === true,
+          temporaryPasswordWasIssued:
+            ownerUserResult?.temporaryPasswordWasIssued === true,
           isPurchaserTicket: assignment.isPurchaserTicket === true,
           emailTicketToOwner: assignment.emailTicketToOwner !== false,
         });
@@ -468,10 +698,17 @@ export async function POST(request) {
       return {
         order,
         tickets: createdTickets,
+        purchaserUserId: purchaserUserResult?.user?.id ?? null,
+        purchaserTemporaryPassword: purchaserUserResult?.temporaryPassword ?? null,
+        purchaserAccountWasCreated: purchaserUserResult?.created === true,
+        purchaserTemporaryPasswordWasIssued:
+          purchaserUserResult?.temporaryPasswordWasIssued === true,
+        includesEscapeAlbumAccess,
       };
     });
 
     const deliveryResults = [];
+    let albumDeliveryResult = null;
     const ticketsByOwnerEmail = new Map();
 
     for (const item of transactionResult.tickets) {
@@ -488,6 +725,9 @@ export async function POST(request) {
         ownerEmail: item.ownerEmail,
         ownerName: item.ownerName,
         ownerUserId: item.ownerUserId,
+        temporaryPassword: item.temporaryPassword,
+        accountWasCreated: item.accountWasCreated,
+        temporaryPasswordWasIssued: item.temporaryPasswordWasIssued,
         tickets: [],
       };
 
@@ -495,6 +735,13 @@ export async function POST(request) {
 
       if (!existingGroup.ownerName && item.ownerName) {
         existingGroup.ownerName = item.ownerName;
+      }
+
+      if (!existingGroup.temporaryPassword && item.temporaryPassword) {
+        existingGroup.temporaryPassword = item.temporaryPassword;
+        existingGroup.temporaryPasswordWasIssued = true;
+        existingGroup.accountWasCreated =
+          existingGroup.accountWasCreated || item.accountWasCreated === true;
       }
 
       ticketsByOwnerEmail.set(item.ownerEmail, existingGroup);
@@ -507,6 +754,10 @@ export async function POST(request) {
         ownerEmail: group.ownerEmail,
         ownerName: group.ownerName,
         ownerUserId: group.ownerUserId,
+        temporaryPassword: group.temporaryPassword,
+        accountWasCreated: group.accountWasCreated === true,
+        temporaryPasswordWasIssued:
+          group.temporaryPasswordWasIssued === true,
       });
 
       deliveryResults.push({
@@ -515,6 +766,21 @@ export async function POST(request) {
         ownerName: group.ownerName,
         ok: deliveryResult.ok,
         deliveryResult,
+      });
+    }
+
+    if (
+      transactionResult.includesEscapeAlbumAccess &&
+      transactionResult.purchaserUserId
+    ) {
+      albumDeliveryResult = await sendEscapeAlbumAccessEmail({
+        request,
+        purchaserEmail,
+        purchaserName: fullName,
+        temporaryPassword: transactionResult.purchaserTemporaryPassword,
+        accountWasCreated: transactionResult.purchaserAccountWasCreated,
+        temporaryPasswordWasIssued:
+          transactionResult.purchaserTemporaryPasswordWasIssued,
       });
     }
 
@@ -528,6 +794,8 @@ export async function POST(request) {
       },
       ticketCount: transactionResult.tickets.length,
       guestPortalLinksSent: deliveryResults.filter((item) => item.ok).length,
+      albumAccessSent: albumDeliveryResult?.ok === true,
+      albumDeliveryResult,
       deliveryResults,
     });
   } catch (error) {

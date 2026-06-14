@@ -153,8 +153,27 @@ export const verificationContent = {
             recipientName,
             ticketSummary,
             mealEditDeadlineLabel,
+            loginUrl,
+            forgotPasswordUrl,
+            temporaryPassword,
+            accountWasCreated,
+            temporaryPasswordWasIssued,
           }) =>
             `${greetingText(recipientName)}You have ticket access for the event.\n\n${ticketSummary || ""}\n\nUse this private link to view your ticket and meal details: ${verifyUrl}${
+              loginUrl
+                ? temporaryPassword && (accountWasCreated || temporaryPasswordWasIssued)
+                  ? `\n\n${
+                      accountWasCreated
+                        ? "We created an account for you so your ticket stays connected to your email."
+                        : "We issued a fresh temporary password for your account."
+                    }\nLogin URL: ${loginUrl}\nTemporary password: ${temporaryPassword}\n\nPlease change this password to something you will remember after you log in.`
+                  : `\n\nThis ticket is connected to an existing account. Log in with your account to access it: ${loginUrl}${
+                      forgotPasswordUrl
+                        ? `\nForgot your password? Reset it here: ${forgotPasswordUrl}`
+                        : ""
+                    }`
+                : ""
+            }${
               mealEditDeadlineLabel
                 ? `\n\nMeal edits are available until ${mealEditDeadlineLabel}.`
                 : ""
@@ -164,10 +183,29 @@ export const verificationContent = {
             recipientName,
             ticketSummaryHtml,
             mealEditDeadlineLabel,
+            loginUrl,
+            forgotPasswordUrl,
+            temporaryPassword,
+            accountWasCreated,
+            temporaryPasswordWasIssued,
           }) =>
             `${greetingHtml(recipientName)}<p>You have ticket access for the event.</p>${
               ticketSummaryHtml || ""
             }<p>Use this private link to view your ticket and meal details:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>${
+              loginUrl
+                ? temporaryPassword && (accountWasCreated || temporaryPasswordWasIssued)
+                  ? `<p>${
+                      accountWasCreated
+                        ? "We created an account for you so your ticket stays connected to your email."
+                        : "We issued a fresh temporary password for your account."
+                    }</p><p><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a><br><strong>Temporary password:</strong> ${escapeHtml(temporaryPassword)}</p><p>Please change this password to something you will remember after you log in.</p>`
+                  : `<p>This ticket is connected to an existing account. Log in with your account to access it: <a href="${loginUrl}">${loginUrl}</a></p>${
+                      forgotPasswordUrl
+                        ? `<p>Forgot your password? Reset it here: <a href="${forgotPasswordUrl}">${forgotPasswordUrl}</a></p>`
+                        : ""
+                    }`
+                : ""
+            }${
               mealEditDeadlineLabel
                 ? `<p>Meal edits are available until ${escapeHtml(mealEditDeadlineLabel)}.</p>`
                 : ""
@@ -191,6 +229,57 @@ export const verificationContent = {
         whatsapp: {
           getText: ({ verifyUrl }) =>
             `Use this private link to continue watching: ${verifyUrl}`,
+        },
+      },
+    },
+    escapeAlbumAccess: {
+      link: {
+        email: {
+          subject: "Your Escape album access",
+          getText: ({
+            verifyUrl,
+            recipientName,
+            loginUrl,
+            forgotPasswordUrl,
+            temporaryPassword,
+            accountWasCreated,
+            temporaryPasswordWasIssued,
+          }) =>
+            `${greetingText(recipientName)}Your Escape album access is ready.\n\nOpen the album here: ${verifyUrl}${
+              temporaryPassword && (accountWasCreated || temporaryPasswordWasIssued)
+                ? `\n\n${
+                    accountWasCreated
+                      ? "We created an account for you so your album stays connected to your email."
+                      : "We issued a fresh temporary password for your account."
+                  }\nLogin URL: ${loginUrl}\nTemporary password: ${temporaryPassword}\n\nPlease change this password to something you will remember after you log in.`
+                : `\n\nLog in with your existing account to access the album: ${loginUrl}${
+                    forgotPasswordUrl
+                      ? `\nForgot your password? Reset it here: ${forgotPasswordUrl}`
+                      : ""
+                  }`
+            }\n\nIf you did not expect this email, you can ignore it.`,
+          getHtml: ({
+            verifyUrl,
+            recipientName,
+            loginUrl,
+            forgotPasswordUrl,
+            temporaryPassword,
+            accountWasCreated,
+            temporaryPasswordWasIssued,
+          }) =>
+            `${greetingHtml(recipientName)}<p>Your Escape album access is ready.</p><p>Open the album here: <a href="${verifyUrl}">${verifyUrl}</a></p>${
+              temporaryPassword && (accountWasCreated || temporaryPasswordWasIssued)
+                ? `<p>${
+                    accountWasCreated
+                      ? "We created an account for you so your album stays connected to your email."
+                      : "We issued a fresh temporary password for your account."
+                  }</p><p><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a><br><strong>Temporary password:</strong> ${escapeHtml(temporaryPassword)}</p><p>Please change this password to something you will remember after you log in.</p>`
+                : `<p>Log in with your existing account to access the album: <a href="${loginUrl}">${loginUrl}</a></p>${
+                    forgotPasswordUrl
+                      ? `<p>Forgot your password? Reset it here: <a href="${forgotPasswordUrl}">${forgotPasswordUrl}</a></p>`
+                      : ""
+                  }`
+            }<p>If you did not expect this email, you can ignore it.</p>`,
         },
       },
     },

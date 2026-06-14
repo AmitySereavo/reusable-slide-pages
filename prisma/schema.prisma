@@ -1007,6 +1007,7 @@ model User {
   passwordUpdatedAt DateTime?
 
   adminLevel Int @default(0)
+  createdBy  String @default("user")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1029,6 +1030,28 @@ model User {
   invitationTicketPayments  InvitationTicketPayment[]     @relation("InvitationTicketPaymentUser")
   marketingQuestionAnswers  UserMarketingQuestionAnswer[]
   videoProgressRecords      UserVideoProgress[]
+  purchasedItems            UserPurchasedItem[]
+}
+
+model UserPurchasedItem {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  itemKey String
+  status  String @default("ACTIVE")
+  source  String?
+
+  purchasedAt DateTime  @default(now())
+  expiresAt   DateTime?
+  metadata    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, itemKey])
+  @@index([userId, status])
+  @@index([itemKey, status])
 }
 
 model UserNameChange {

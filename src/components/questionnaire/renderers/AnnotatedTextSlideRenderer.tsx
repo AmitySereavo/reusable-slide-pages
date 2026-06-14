@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Slide, ThemeConfig } from "@/types/questionnaire";
 import {
+  AnnotatedTextBlock,
   AnnotatedTextCatalogItem,
   AnnotatedTextSegment,
   parseAnnotatedText,
@@ -12,9 +13,14 @@ import { getAnnotatedTextCatalog } from "@/config/annotatedText/escapeAnnotation
 type Props = {
   slide: Slide;
   theme: ThemeConfig;
+  presentation?: "slide" | "panel";
 };
 
-export default function AnnotatedTextSlideRenderer({ slide, theme }: Props) {
+export default function AnnotatedTextSlideRenderer({
+  slide,
+  theme,
+  presentation = "slide",
+}: Props) {
   const [sourceText, setSourceText] = useState("");
   const [loadError, setLoadError] = useState("");
   const [openAnnotationKey, setOpenAnnotationKey] = useState("");
@@ -25,6 +31,7 @@ export default function AnnotatedTextSlideRenderer({ slide, theme }: Props) {
   );
 
   const blocks = useMemo(() => parseAnnotatedText(sourceText), [sourceText]);
+  const sections = useMemo(() => buildAnnotatedTextSections(blocks), [blocks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,85 +105,179 @@ export default function AnnotatedTextSlideRenderer({ slide, theme }: Props) {
         display: "grid",
         gap: slide.annotatedTextMode === "lyrics" ? 8 : 14,
         color: theme.colors.text,
+        minHeight: 0,
+        paddingBottom: presentation === "panel" ? 24 : undefined,
       }}
     >
-      {blocks.map((block, blockIndex) => {
-        if (block.type === "break") {
-          return <div key={`break-${blockIndex}`} style={{ height: 12 }} />;
-        }
+      {sections.map((section, sectionIndex) => (
+        <section
+          key={`section-${sectionIndex}`}
+          style={{
+            display: "grid",
+            gap: slide.annotatedTextMode === "lyrics" ? 8 : 14,
+            minHeight: 0,
+          }}
+        >
+          {section.heading
+            ? renderHeadingBlock(section.heading.block, section.heading.index, {
+                presentation,
+                theme,
+              })
+            : null}
 
-        if (block.type === "heading") {
-          const HeadingTag = block.level === 1 ? "h2" : "h3";
+          {section.blocks.map(({ block, index }) =>
+            renderTextBlock(block, index, {
+              catalog,
+              openAnnotationKey,
+              setOpenAnnotationKey,
+              theme,
+            })
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
 
+type AnnotatedTextSection = {
+  heading?: {
+    block: Extract<AnnotatedTextBlock, { type: "heading" }>;
+    index: number;
+  };
+  blocks: {
+    block: Exclude<AnnotatedTextBlock, { type: "heading" }>;
+    index: number;
+  }[];
+};
+
+function buildAnnotatedTextSections(
+  blocks: AnnotatedTextBlock[]
+): AnnotatedTextSection[] {
+  const sections: AnnotatedTextSection[] = [];
+
+  blocks.forEach((block, index) => {
+    if (block.type === "heading") {
+      sections.push({
+        heading: {
+          block,
+          index,
+        },
+        blocks: [],
+      });
+      return;
+    }
+
+    if (!sections.length) {
+      sections.push({ blocks: [] });
+    }
+
+    sections[sections.length - 1].blocks.push({ block, index });
+  });
+
+  return sections;
+}
+
+function renderHeadingBlock(
+  block: Extract<AnnotatedTextBlock, { type: "heading" }>,
+  blockIndex: number,
+  {
+    presentation,
+    theme,
+  }: {
+    presentation: "slide" | "panel";
+    theme: ThemeConfig;
+  }
+) {
+  const HeadingTag = block.level === 1 ? "h2" : "h3";
+
+  return (
+    <HeadingTag
+      key={`heading-${blockIndex}`}
+      style={{
+        position: presentation === "panel" ? "sticky" : undefined,
+        top: presentation === "panel" ? 0 : undefined,
+        zIndex: presentation === "panel" ? 2 : undefined,
+        margin: block.level === 1 ? "18px 0 6px" : "14px 0 4px",
+        padding: presentation === "panel" ? "8px 0 6px" : undefined,
+        background: presentation === "panel" ? "#FFFFFF" : undefined,
+        color: theme.colors.primary,
+      }}
+    >
+      {block.text}
+    </HeadingTag>
+  );
+}
+
+function renderTextBlock(
+  block: Exclude<AnnotatedTextBlock, { type: "heading" }>,
+  blockIndex: number,
+  {
+    catalog,
+    openAnnotationKey,
+    setOpenAnnotationKey,
+    theme,
+  }: {
+    catalog: Record<string, AnnotatedTextCatalogItem>;
+    openAnnotationKey: string;
+    setOpenAnnotationKey: (key: string) => void;
+    theme: ThemeConfig;
+  }
+) {
+  if (block.type === "break") {
+    return <div key={`break-${blockIndex}`} style={{ height: 12 }} />;
+  }
+
+  return (
+    <div
+      key={`line-${blockIndex}`}
+      style={{
+        lineHeight: 1.7,
+        whiteSpace: "pre-wrap",
+      }}
+    >
+      {block.segments.map((segment, segmentIndex) => {
+        if (segment.type === "text") {
           return (
-            <HeadingTag
-              key={`heading-${blockIndex}`}
-              style={{
-                margin: block.level === 1 ? "18px 0 6px" : "14px 0 4px",
-                color: theme.colors.primary,
-              }}
-            >
-              {block.text}
-            </HeadingTag>
+            <span key={`text-${blockIndex}-${segmentIndex}`}>
+              {segment.text}
+            </span>
           );
         }
 
+        const annotationKey = buildAnnotationKey(
+          blockIndex,
+          segmentIndex,
+          segment
+        );
+        const isOpen = openAnnotationKey === annotationKey;
+        const item = catalog[segment.id];
+
         return (
-          <div
-            key={`line-${blockIndex}`}
-            style={{
-              lineHeight: 1.7,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {block.segments.map((segment, segmentIndex) => {
-              if (segment.type === "text") {
-                return (
-                  <span key={`text-${blockIndex}-${segmentIndex}`}>
-                    {segment.text}
-                  </span>
-                );
-              }
+          <span key={annotationKey} style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setOpenAnnotationKey(isOpen ? "" : annotationKey)}
+              style={{
+                border: "none",
+                borderBottom: `2px dotted ${theme.colors.primary}`,
+                background: "transparent",
+                color: theme.colors.primary,
+                cursor: "pointer",
+                font: "inherit",
+                padding: 0,
+              }}
+            >
+              {segment.text}
+            </button>
 
-              const annotationKey = buildAnnotationKey(
-                blockIndex,
-                segmentIndex,
-                segment
-              );
-              const isOpen = openAnnotationKey === annotationKey;
-              const item = catalog[segment.id];
-
-              return (
-                <span key={annotationKey} style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenAnnotationKey(isOpen ? "" : annotationKey)
-                    }
-                    style={{
-                      border: "none",
-                      borderBottom: `2px dotted ${theme.colors.primary}`,
-                      background: "transparent",
-                      color: theme.colors.primary,
-                      cursor: "pointer",
-                      font: "inherit",
-                      padding: 0,
-                    }}
-                  >
-                    {segment.text}
-                  </button>
-
-                  {isOpen ? (
-                    <AnnotationPanel
-                      item={item}
-                      fallbackSegment={segment}
-                      theme={theme}
-                    />
-                  ) : null}
-                </span>
-              );
-            })}
-          </div>
+            {isOpen ? (
+              <AnnotationPanel
+                item={item}
+                fallbackSegment={segment}
+                theme={theme}
+              />
+            ) : null}
+          </span>
         );
       })}
     </div>

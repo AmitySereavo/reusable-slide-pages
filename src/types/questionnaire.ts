@@ -24,6 +24,7 @@ export type DownloadButton = {
 export type SlideFooterActionKind =
   | "media"
   | "goto"
+  | "textpanel"
   | "download"
   | "auth"
   | "link";
@@ -454,6 +455,7 @@ export type MediaType = "image" | "video";
 export type MediaAspect = "horizontal" | "vertical" | "square";
 export type AnnotatedTextMode = "lyrics" | "article" | "chapter" | "story";
 export type SlideProgressMode = "slide" | "video";
+export type SlideProgressPlacement = "overlay" | "footer-edge";
 export type VideoResumeMode =
   | "none"
   | "auto"
@@ -500,7 +502,7 @@ export type Slide = {
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
-  footerDownloadLabel?: string;
+  footerContentLabel?: string;
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -509,6 +511,7 @@ export type Slide = {
   countStep?: boolean;
   showStepText?: boolean;
   showProgressBar?: boolean;
+  progressPlacement?: SlideProgressPlacement;
   showReturnHome?: boolean;
   showCancel?: boolean;
   showAuthControls?: boolean;
@@ -634,6 +637,7 @@ export type ParsedSlideDraft = {
   countStep?: boolean;
   showStepText?: boolean;
   showProgressBar?: boolean;
+  progressPlacement?: SlideProgressPlacement;
   showReturnHome?: boolean;
   showCancel?: boolean;
   showAuthControls?: boolean;
@@ -648,7 +652,7 @@ export type ParsedSlideDraft = {
   downloadRequests?: DownloadRequestMap;
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
-  footerDownloadLabel?: string;
+  footerContentLabel?: string;
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;

@@ -125,6 +125,7 @@ export async function POST(request) {
             password: passwordHash,
             passwordUpdatedAt: null,
             name: fullName || null,
+            createdBy: "algorithm",
           },
         });
       } else if (fullName && !workingUser.name) {

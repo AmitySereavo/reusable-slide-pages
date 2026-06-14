@@ -1,3 +1,29 @@
+@id: escape-album-access
+@type: form
+@title: Escape Album
+@subtitle: Purchased Access
+@showprogressbar: false
+@showauthcontrols: false
+@showback: false
+@syncurl: true
+@next: Log In
+@run: submitLogin
+@goto: good-morning-video
+@choiceplacement: inline
+---
+BR
+# [c1] Escape Album
+BR
+[c3] Log in with the account that purchased the album, or visit the store to get access.
+BR
+[c2] If you bought the album without an account, use the login details from your email.
+@fields:
+- identifier|text|Email or phone|required|Email or phone number
+- password|password|Password|required|Password
+@choices:
+- store|Visit Store|/questionnaire/invitation?slide=invitation-shop|secondary
+
+===
 @id: good-morning-video
 @type: media
 @title: Good Morning
@@ -6,28 +32,22 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@videostart: 00:00
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @showback: false
 @next: Next
 @goto: life-good-video
-@footerdownloadlabel: Download - Good Morning
+@footercontentlabel: Good Morning
+@footeraction: goto|previous|Previous track|cant-let-you-go-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|good-morning-lyrics
+@footeraction: goto|next|Next track|life-good-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-01-text
 @footeraction: download|escape-song-01-wav|WAV
 @footeraction: download|escape-song-01-mp3|MP3
-===
-@id: good-morning-lyrics
-@type: annotatedtext
-@title: Good Morning
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-01-text
-@textmode: lyrics
-@annotationcatalog: escape-good-morning
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Good Morning Lyrics
 ===
 @id: life-good-video
 @type: media
@@ -37,26 +57,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: work-hard-video
-@footerdownloadlabel: Download - Life Good
+@footercontentlabel: Life Good
+@footeraction: goto|previous|Previous track|good-morning-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|life-good-lyrics
+@footeraction: goto|next|Next track|work-hard-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-02-text
 @footeraction: download|escape-song-02-wav|WAV
 @footeraction: download|escape-song-02-mp3|MP3
-===
-@id: life-good-lyrics
-@type: annotatedtext
-@title: Life Good
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-02-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Life Good Lyrics
 ===
 @id: work-hard-video
 @type: media
@@ -66,26 +80,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: income-video
+@footercontentlabel: Work Hard
+@footeraction: goto|previous|Previous track|life-good-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|work-hard-lyrics
-@footerdownloadlabel: Download - Work Hard
+@footeraction: goto|next|Next track|income-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-03-text
 @footeraction: download|escape-song-03-wav|WAV
 @footeraction: download|escape-song-03-mp3|MP3
-===
-@id: work-hard-lyrics
-@type: annotatedtext
-@title: Work Hard
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-03-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Work Hard Lyrics
 ===
 @id: income-video
 @type: media
@@ -95,26 +103,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: mystical-feeling-video
+@footercontentlabel: Income
+@footeraction: goto|previous|Previous track|work-hard-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|income-lyrics
-@footerdownloadlabel: Download - Income
+@footeraction: goto|next|Next track|mystical-feeling-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-04-text
 @footeraction: download|escape-song-04-wav|WAV
 @footeraction: download|escape-song-04-mp3|MP3
-===
-@id: income-lyrics
-@type: annotatedtext
-@title: Income
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-04-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Income Lyrics
 ===
 @id: mystical-feeling-video
 @type: media
@@ -124,26 +126,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: close-to-me-video
+@footercontentlabel: Mystical Feeling
+@footeraction: goto|previous|Previous track|income-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|mystical-feeling-lyrics
-@footerdownloadlabel: Download - Mystical Feeling
+@footeraction: goto|next|Next track|close-to-me-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-05-text
 @footeraction: download|escape-song-05-wav|WAV
 @footeraction: download|escape-song-05-mp3|MP3
-===
-@id: mystical-feeling-lyrics
-@type: annotatedtext
-@title: Mystical Feeling
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-05-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Mystical Feeling Lyrics
 ===
 @id: close-to-me-video
 @type: media
@@ -153,26 +149,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: constantly-video
+@footercontentlabel: Close To Me
+@footeraction: goto|previous|Previous track|mystical-feeling-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|close-to-me-lyrics
-@footerdownloadlabel: Download - Close To Me
+@footeraction: goto|next|Next track|constantly-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-06-text
 @footeraction: download|escape-song-06-wav|WAV
 @footeraction: download|escape-song-06-mp3|MP3
-===
-@id: close-to-me-lyrics
-@type: annotatedtext
-@title: Close To Me
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-06-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Close To Me Lyrics
 ===
 @id: constantly-video
 @type: media
@@ -182,26 +172,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: judgement-video
+@footercontentlabel: Constantly
+@footeraction: goto|previous|Previous track|close-to-me-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|constantly-lyrics
-@footerdownloadlabel: Download - Constantly
+@footeraction: goto|next|Next track|judgement-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-07-text
 @footeraction: download|escape-song-07-wav|WAV
 @footeraction: download|escape-song-07-mp3|MP3
-===
-@id: constantly-lyrics
-@type: annotatedtext
-@title: Constantly
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-07-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Constantly Lyrics
 ===
 @id: judgement-video
 @type: media
@@ -211,26 +195,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: not-misled-video
+@footercontentlabel: Judgement
+@footeraction: goto|previous|Previous track|constantly-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|judgement-lyrics
-@footerdownloadlabel: Download - Judgement
+@footeraction: goto|next|Next track|not-misled-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-08-text
 @footeraction: download|escape-song-08-wav|WAV
 @footeraction: download|escape-song-08-mp3|MP3
-===
-@id: judgement-lyrics
-@type: annotatedtext
-@title: Judgement
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-08-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Judgement Lyrics
 ===
 @id: not-misled-video
 @type: media
@@ -240,26 +218,20 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@syncurl: true
+@showauthcontrols: false
 @next: Next
 @goto: cant-let-you-go-video
+@footercontentlabel: Not Misled
+@footeraction: goto|previous|Previous track|judgement-video
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|not-misled-lyrics
-@footerdownloadlabel: Download - Not Misled
+@footeraction: goto|next|Next track|cant-let-you-go-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-09-text
 @footeraction: download|escape-song-09-wav|WAV
 @footeraction: download|escape-song-09-mp3|MP3
-===
-@id: not-misled-lyrics
-@type: annotatedtext
-@title: Not Misled
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-09-text
-@textmode: lyrics
-@showprogressbar: false
-@showauthcontrols: false
-@shownext: false
-# Not Misled Lyrics
 ===
 @id: cant-let-you-go-video
 @type: media
@@ -269,25 +241,19 @@
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: false
-@showprogressbar: false
-@showauthcontrols: true
-@shownext: false
-@footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|lyrics|Lyrics|cant-let-you-go-lyrics
-@footerdownloadlabel: Download - Can't Let You Go
-@footeraction: download|escape-song-10-wav|WAV
-@footeraction: download|escape-song-10-mp3|MP3
-===
-@id: cant-let-you-go-lyrics
-@type: annotatedtext
-@title: Can't Let You Go
-@subtitle: Written Lyrics
-@textsource: /api/downloads/escape-lyrics-10-text
-@textmode: lyrics
-@showprogressbar: false
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@syncurl: true
 @showauthcontrols: false
 @shownext: false
-# Can't Let You Go Lyrics
+@footercontentlabel: Can't Let You Go
+@footeraction: goto|previous|Previous track|not-misled-video
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next track|good-morning-video
+@footeraction: textpanel|lyrics|Lyrics|/api/downloads/escape-lyrics-10-text
+@footeraction: download|escape-song-10-wav|WAV
+@footeraction: download|escape-song-10-mp3|MP3
 ===
 @id: download-format
 @type: content
@@ -295,7 +261,8 @@
 @subtitle: MP3 or WAV
 @showprogressbar: false
 @shownext: false
-@showauthcontrols: true
+@syncurl: true
+@showauthcontrols: false
 @downloadrequestkey: escapeDownloadRequest
 @downloadrequests:
 - song-01|song|escape-song-01

@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "createdBy" TEXT NOT NULL DEFAULT 'user';

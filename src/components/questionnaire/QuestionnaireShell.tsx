@@ -12,6 +12,8 @@ import styles from "./QuestionnaireShell.module.css";
 import {
   PrimitiveValue,
   RecordListItem,
+  AnnotatedTextMode,
+  Slide,
   SlideRouteRule,
 
   DataBlockAction,
@@ -104,6 +106,7 @@ import { prefillFirstTicketFromContact } from "@/lib/questionnaire/ticketAutofil
 import {
   getGatedAccessConfig,
   getMarketingQuestionsConfig,
+  getPurchaseAccessConfig,
   type GatedAccessState,
 } from "@/lib/questionnaire/accessConfig";
 
@@ -232,6 +235,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   } = useAuthSession();
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
+  const [activeFooterTextPanel, setActiveFooterTextPanel] = useState<{
+    id: string;
+    label: string;
+    sourceUrl: string;
+    mode?: AnnotatedTextMode;
+  } | null>(null);
   const [answeredQuestionSlideIds, setAnsweredQuestionSlideIds] = useState<
     string[]
   >([]);
@@ -275,6 +285,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   
   const [gatedAccessState, setGatedAccessState] =
     useState<GatedAccessState | null>(null);
+  const [purchasedItemKeys, setPurchasedItemKeys] = useState<string[]>([]);
+  const [isPurchaseAccessLoaded, setIsPurchaseAccessLoaded] = useState(false);
 
   const [videoResumeOverrides, setVideoResumeOverrides] = useState<
     Record<string, number>
@@ -301,6 +313,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const marketingQuestionsConfig = useMemo(
     () => getMarketingQuestionsConfig(mergedVariables),
+    [mergedVariables]
+  );
+
+  const purchaseAccessConfig = useMemo(
+    () => getPurchaseAccessConfig(mergedVariables),
     [mergedVariables]
   );
 
@@ -594,6 +611,177 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   });
 
   const currentSlide = visibleSlides[currentIndex];
+  const activeFooterPanelSlide = useMemo<Slide | null>(() => {
+    if (!activeFooterTextPanel || !currentSlide) {
+      return null;
+    }
+
+    return {
+      id: `${currentSlide.id}-${activeFooterTextPanel.id}-panel`,
+      type: "annotatedtext",
+      title: activeFooterTextPanel.label,
+      annotatedTextSourceUrl: activeFooterTextPanel.sourceUrl,
+      annotatedTextMode: activeFooterTextPanel.mode,
+    };
+  }, [activeFooterTextPanel, currentSlide]);
+
+  useEffect(() => {
+    setActiveFooterTextPanel(null);
+  }, [currentSlide?.id]);
+
+  const sidebarSlideLinks = useMemo(
+    () =>
+      visibleSlides
+        .filter(
+          (slide) =>
+            (slide.type === "media" || slide.type === "video") &&
+            (slide.mediaType === "video" || Boolean(slide.mediaUrl))
+        )
+        .map((slide) => ({
+          id: slide.id,
+          label: slide.title || slide.id,
+        })),
+    [visibleSlides]
+  );
+
+  const sidebarAlbumDownloadItemId = useMemo(() => {
+    for (const slide of visibleSlides) {
+      const requests = slide.downloadRequests;
+
+      if (!requests) {
+        continue;
+      }
+
+      for (const request of Object.values(requests)) {
+        if (request?.scope === "album" && request.itemId) {
+          return request.itemId;
+        }
+      }
+    }
+
+    return null;
+  }, [visibleSlides]);
+
+  const hasLeftSidebarContent =
+    sidebarSlideLinks.length > 0 || Boolean(sidebarAlbumDownloadItemId);
+
+  useEffect(() => {
+    if (!purchaseAccessConfig?.itemKey) {
+      setPurchasedItemKeys([]);
+      setIsPurchaseAccessLoaded(true);
+      return;
+    }
+
+    if (!isAuthSessionLoaded) {
+      return;
+    }
+
+    if (!authSessionUser?.id) {
+      setPurchasedItemKeys([]);
+      setIsPurchaseAccessLoaded(true);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadPurchasedItems() {
+      setIsPurchaseAccessLoaded(false);
+
+      try {
+        const response = await fetch("/api/account/purchased-items", {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+          signal: controller.signal,
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || !Array.isArray(data?.items)) {
+          setPurchasedItemKeys([]);
+          return;
+        }
+
+        setPurchasedItemKeys(
+          data.items
+            .map((item: { itemKey?: unknown }) =>
+              typeof item.itemKey === "string" ? item.itemKey : null
+            )
+            .filter((itemKey: string | null): itemKey is string =>
+              Boolean(itemKey)
+            )
+        );
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setPurchasedItemKeys([]);
+        }
+      } finally {
+        setIsPurchaseAccessLoaded(true);
+      }
+    }
+
+    loadPurchasedItems();
+
+    return () => {
+      controller.abort();
+    };
+  }, [authSessionUser?.id, isAuthSessionLoaded, purchaseAccessConfig?.itemKey]);
+
+  useEffect(() => {
+    if (
+      !purchaseAccessConfig?.itemKey ||
+      !purchaseAccessConfig.gateSlideId ||
+      !isPurchaseAccessLoaded ||
+      !currentSlide
+    ) {
+      return;
+    }
+
+    const hasPurchasedItem = purchasedItemKeys.includes(
+      purchaseAccessConfig.itemKey
+    );
+
+    const gateIndex = getSlideIndexById(
+      visibleSlides,
+      purchaseAccessConfig.gateSlideId
+    );
+
+    if (gateIndex === -1) {
+      return;
+    }
+
+    if (hasPurchasedItem) {
+      if (currentSlide.id !== purchaseAccessConfig.gateSlideId) {
+        return;
+      }
+
+      const accessSlideId = purchaseAccessConfig.accessSlideId;
+      const accessIndex = accessSlideId
+        ? getSlideIndexById(visibleSlides, accessSlideId)
+        : -1;
+
+      if (accessIndex !== -1) {
+        setHistory((prev) => [...prev, currentIndex]);
+        setCurrentIndex(accessIndex);
+      }
+
+      return;
+    }
+
+    if (currentSlide.id !== purchaseAccessConfig.gateSlideId) {
+      setHistory((prev) => [...prev, currentIndex]);
+      setCurrentIndex(gateIndex);
+    }
+  }, [
+    currentIndex,
+    currentSlide,
+    isPurchaseAccessLoaded,
+    purchaseAccessConfig,
+    purchasedItemKeys,
+    visibleSlides,
+  ]);
   useUrlSyncedSlide({
     currentIndex,
     currentSlide,
@@ -814,6 +1002,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentSlide, currentShopBaseSelectedLines, activeDiscountDefinition]
   );
 
+  const currentTicketOrderLines = useMemo<ShopResolvedCartLine[]>(
+    () =>
+      currentShopSelectedLines.filter(
+        (line) => line.fulfillmentType === "ticket"
+      ),
+    [currentShopSelectedLines]
+  );
+
   const currentShopSubtotal = useMemo(
     () => currentShopSelectedLines.reduce((sum, line) => sum + line.lineTotal, 0),
     [currentShopSelectedLines]
@@ -871,6 +1067,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedOrderBaseLines, activeDiscountDefinition]
   );
 
+  const sharedTicketOrderLines = useMemo<ShopResolvedCartLine[]>(
+    () =>
+      sharedOrderLines.filter((line) => line.fulfillmentType === "ticket"),
+    [sharedOrderLines]
+  );
+
   const currentTicketAssignments = useMemo<TicketAssignments>(
     () => {
       const existingAssignments = normalizeTicketAssignments(
@@ -891,7 +1093,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
       return prefillFirstTicketFromContact(
         buildTicketAssignmentsFromLines({
-          lines: sharedOrderLines,
+          lines: sharedTicketOrderLines,
           existingAssignments,
         }),
         answers
@@ -900,7 +1102,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [
       isTicketOwnerPortalFlow,
       requestedTicketCode,
-      sharedOrderLines,
+      sharedTicketOrderLines,
       answers.ticketAssignments,
       answers.fullName,
       answers.email,
@@ -1433,7 +1635,35 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function handleAuthLoginClick() {
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
     window.location.href = getAuthLoginHref();
+  }
+
+  function handleAccountMenuLink(target: string) {
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
+    window.location.href = target;
+  }
+
+  function getSlideHref(slideId: string) {
+    return `/questionnaire/${encodeURIComponent(config.slug)}?slide=${encodeURIComponent(
+      slideId
+    )}`;
+  }
+
+  function handleTrackSidebarSlideClick() {
+    setIsTrackSidebarOpen(false);
+    setIsAccountMenuOpen(false);
+  }
+
+  function handleSidebarAlbumDownload(itemId: string, format: "wav" | "mp3") {
+    setIsTrackSidebarOpen(false);
+    setIsAccountMenuOpen(false);
+    triggerDownload(
+      `${itemId}-${format}`,
+      `Full Album ${format.toUpperCase()}`
+    );
   }
 
   function getLoginReturnToTarget() {
@@ -1447,6 +1677,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function handleAnsweredQuestionsClick() {
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
     const target = marketingQuestionsConfig?.answeredQuestionsTarget;
 
     if (target) {
@@ -1474,6 +1706,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
       setAuthSessionUser(null);
       setIsAccountMenuOpen(false);
+      setIsTrackSidebarOpen(false);
 
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Logout failed.");
@@ -1795,6 +2028,14 @@ async function next() {
     currentSlide.run === "startDeleteAccount" ||
     currentSlide.run === "submitDeleteAccount"
   ) {
+    if (
+      currentSlide.run === "submitLogin" &&
+      currentSlide.id === purchaseAccessConfig?.gateSlideId &&
+      currentSlide.goto
+    ) {
+      goToTarget(currentSlide.goto);
+    }
+
     return;
   }
   }
@@ -1822,7 +2063,7 @@ async function next() {
           "ticketAssignments",
           prefillFirstTicketFromContact(
             buildTicketAssignmentsFromLines({
-              lines: currentShopSelectedLines,
+              lines: currentTicketOrderLines,
               existingAssignments: normalizeTicketAssignments(
                 answers.ticketAssignments
               ),
@@ -1856,7 +2097,7 @@ async function next() {
     if (currentSlide.type === "tickets") {
       const nextAssignments = prefillFirstTicketFromContact(
         buildTicketAssignmentsFromLines({
-          lines: sharedOrderLines,
+          lines: sharedTicketOrderLines,
           existingAssignments: normalizeTicketAssignments(
             answers.ticketAssignments
           ),
@@ -2449,6 +2690,16 @@ async function next() {
       setAuthVerificationContext(getAuthVerificationStartPayload());
     }
 
+    if (runName === "submitLogin" && data?.user?.id) {
+      setAuthSessionUser({
+        id: String(data.user.id),
+        name: typeof data.user.name === "string" ? data.user.name : null,
+        email: typeof data.user.email === "string" ? data.user.email : null,
+        phone: typeof data.user.phone === "string" ? data.user.phone : null,
+      });
+      setIsAuthSessionLoaded(true);
+    }
+
       if (
         runName === "checkSignupIdentifier" &&
         data?.exists === true &&
@@ -2726,7 +2977,42 @@ function handleFooterAction(action: SlideFooterAction) {
     const target = action.target ?? action.key;
 
     if (target) {
+      const targetSlide = visibleSlides.find((slide) => slide.id === target);
+
+      if (targetSlide?.type === "annotatedtext") {
+        setActiveFooterTextPanel((current) =>
+          current?.id === targetSlide.id
+            ? null
+            : {
+                id: targetSlide.id,
+                label: action.label,
+                sourceUrl: targetSlide.annotatedTextSourceUrl ?? "",
+                mode: targetSlide.annotatedTextMode,
+              }
+        );
+        return;
+      }
+
       goToTarget(target);
+    }
+
+    return;
+  }
+
+  if (action.kind === "textpanel") {
+    const sourceUrl = action.target ?? action.href;
+
+    if (sourceUrl) {
+      setActiveFooterTextPanel((current) =>
+        current?.id === action.key && current.sourceUrl === sourceUrl
+          ? null
+          : {
+              id: action.key,
+              label: action.label,
+              sourceUrl,
+              mode: getFooterTextPanelMode(action),
+            }
+      );
     }
 
     return;
@@ -2755,6 +3041,17 @@ function handleFooterAction(action: SlideFooterAction) {
 
     window.location.href = action.href;
   }
+}
+
+function getFooterTextPanelMode(action: SlideFooterAction): AnnotatedTextMode | undefined {
+  const key = action.key.toLowerCase();
+  const label = action.label.toLowerCase();
+
+  if (key === "lyrics" || label === "lyrics") {
+    return "lyrics";
+  }
+
+  return undefined;
 }
 
 function getCurrentDownloadRequest() {
@@ -2841,10 +3138,40 @@ async function handleNext() {
   config.showStepText !== false && currentSlide.showStepText !== false;
 
   const showProgressBar = currentSlide.showProgressBar !== false;
+  const isFooterEdgeProgress =
+    showProgressBar && currentSlide.progressPlacement === "footer-edge";
+  const progressControl = showProgressBar ? (
+    isVideoProgressMode ? (
+      <input
+        className={styles.videoProgressInput}
+        type="range"
+        min={0}
+        max={100}
+        step={0.1}
+        value={videoProgress}
+        aria-label="Video progress"
+        onChange={(event) => handleVideoProgressInput(event.target.value)}
+        style={{
+          accentColor: theme.colors.primary,
+        }}
+      />
+    ) : (
+      <div className={styles.progressBar}>
+        <div
+          className={styles.progressFill}
+          style={{
+            width: `${progress}%`,
+            background: theme.colors.primary,
+          }}
+        />
+      </div>
+    )
+  ) : null;
   const hasPinnedChoices = Boolean(pinnedChoices?.length);
   const hasDownloadButtons = Boolean(currentSlide.downloadButtons?.length);
   const footerActions = currentSlide.footerActions ?? [];
   const hasFooterActions = footerActions.length > 0;
+  const shouldShowAccountMenu = true;
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -2912,7 +3239,7 @@ async function handleNext() {
     const resolvedProgressOverlayBackground =
       currentSlide.progressOverlayBackgroundColor ??
       (isMediaSlide
-        ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0))"
+        ? "transparent"
         : questionnaireOverlayMode === "opaque"
           ? "rgba(255,255,255,0.98)"
           : "transparent");
@@ -2967,9 +3294,9 @@ async function handleNext() {
         <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
           style={{
-            borderColor: theme.colors.border,
-            borderRadius: theme.radius?.card ?? "24px",
-            boxShadow: theme.shadow?.card,
+            borderColor: "transparent",
+            borderRadius: "0",
+            boxShadow: "none",
           }}
         >
           <div
@@ -2996,9 +3323,104 @@ async function handleNext() {
               <div className={styles.overlayFrame}>
                 {currentSlide.showReturnHome ||
                 currentSlide.showCancel ||
-                currentSlide.showAuthControls ? (
+                shouldShowAccountMenu ? (
                   <div className={styles.topUtilityRow}>
-                    {currentSlide.showAuthControls ? (
+                    {hasLeftSidebarContent ? (
+                      <div className={styles.sidebarToggleWrap}>
+                        <button
+                          type="button"
+                          className={`${styles.sidebarToggleButton} ${styles.sidebarToggleButtonLeft}`}
+                          onClick={() => {
+                            setIsTrackSidebarOpen((prev) => !prev);
+                            setIsAccountMenuOpen(false);
+                          }}
+                          aria-label="Open content sidebar"
+                          aria-expanded={isTrackSidebarOpen}
+                        >
+                          <img
+                            src="/icons/ui/sidebar-left.svg"
+                            alt=""
+                            aria-hidden="true"
+                          />
+                        </button>
+
+                        {isTrackSidebarOpen ? (
+                          <aside
+                            className={`${styles.sidebarPanel} ${styles.sidebarPanelLeft}`}
+                            aria-label="Content navigation"
+                          >
+                            <div className={styles.sidebarTitle}>
+                              {config.slug
+                                .split("-")
+                                .map(
+                                  (part) =>
+                                    part.charAt(0).toUpperCase() + part.slice(1)
+                                )
+                                .join(" ") || "Content"}
+                            </div>
+
+                            {sidebarSlideLinks.length ? (
+                              <div className={styles.sidebarLinkList}>
+                                {sidebarSlideLinks.map((track) => (
+                                <a
+                                  key={track.id}
+                                  className={styles.sidebarLink}
+                                  href={getSlideHref(track.id)}
+                                  onClick={handleTrackSidebarSlideClick}
+                                >
+                                  {track.label}
+                                </a>
+                              ))}
+                              </div>
+                            ) : null}
+
+                            {sidebarAlbumDownloadItemId ? (
+                              <>
+                                <div className={styles.sidebarDivider} />
+
+                                <button
+                                  type="button"
+                                  className={styles.sidebarLink}
+                                  onClick={() =>
+                                    handleSidebarAlbumDownload(
+                                      sidebarAlbumDownloadItemId,
+                                      "wav"
+                                    )
+                                  }
+                                >
+                                  <img
+                                    src="/icons/footer-controls/download.svg"
+                                    alt=""
+                                    aria-hidden="true"
+                                  />
+                                  WAV - Full Album
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.sidebarLink}
+                                  onClick={() =>
+                                    handleSidebarAlbumDownload(
+                                      sidebarAlbumDownloadItemId,
+                                      "mp3"
+                                    )
+                                  }
+                                >
+                                  <img
+                                    src="/icons/footer-controls/download.svg"
+                                    alt=""
+                                    aria-hidden="true"
+                                  />
+                                  MP3 - Full Album
+                                </button>
+                              </>
+                            ) : null}
+                          </aside>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {shouldShowAccountMenu ? (
                       <div className={styles.accountMenuWrap}>
                         <button
                           type="button"
@@ -3023,11 +3445,11 @@ async function handleNext() {
                                 <button
                                   type="button"
                                   className={styles.accountMenuItem}
-                                  onClick={() => {
-                                    setIsAccountMenuOpen(false);
-                                    window.location.href =
-                                      "/questionnaire/auth-account";
-                                  }}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account"
+                                    )
+                                  }
                                 >
                                   Account
                                 </button>
@@ -3035,10 +3457,48 @@ async function handleNext() {
                                 <button
                                   type="button"
                                   className={styles.accountMenuItem}
-                                  onClick={handleAnsweredQuestionsClick}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=purchased-items"
+                                    )
+                                  }
                                 >
-                                  Answered Questions
+                                  Purchased Items
                                 </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=my-tickets"
+                                    )
+                                  }
+                                >
+                                  My Tickets
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=receipts"
+                                    )
+                                  }
+                                >
+                                  Receipts
+                                </button>
+
+                                {marketingQuestionsConfig ? (
+                                  <button
+                                    type="button"
+                                    className={styles.accountMenuItem}
+                                    onClick={handleAnsweredQuestionsClick}
+                                  >
+                                    Answered Questions
+                                  </button>
+                                ) : null}
 
                                 <button
                                   type="button"
@@ -3063,11 +3523,39 @@ async function handleNext() {
                                 <button
                                   type="button"
                                   className={styles.accountMenuItem}
-                                  onClick={handleClearVisitorState}
-                                  disabled={isSubmitting}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=purchased-items"
+                                    )
+                                  }
                                 >
-                                  Clear Visitor State
+                                  Purchased Items
                                 </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=my-tickets"
+                                    )
+                                  }
+                                >
+                                  My Tickets
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=receipts"
+                                    )
+                                  }
+                                >
+                                  Receipts
+                                </button>
+
                               </>
                             )}
                           </div>
@@ -3120,35 +3608,7 @@ async function handleNext() {
                   </div>
                 ) : null}
 
-                {showProgressBar ? (
-                  isVideoProgressMode ? (
-                    <input
-                      className={styles.videoProgressInput}
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                      value={videoProgress}
-                      aria-label="Video progress"
-                      onChange={(event) =>
-                        handleVideoProgressInput(event.target.value)
-                      }
-                      style={{
-                        accentColor: theme.colors.primary,
-                      }}
-                    />
-                  ) : (
-                    <div className={styles.progressBar}>
-                      <div
-                        className={styles.progressFill}
-                        style={{
-                          width: `${progress}%`,
-                          background: theme.colors.primary,
-                        }}
-                      />
-                    </div>
-                  )
-                ) : null}  
+                {!isFooterEdgeProgress ? progressControl : null}
             
               </div>
             </div>
@@ -3490,7 +3950,7 @@ async function handleNext() {
                         <TicketDetailsRenderer
                           assignments={currentTicketAssignments}
                           menu={currentMealMenu}
-                          ticketLines={sharedOrderLines.filter((line) => line.fulfillmentType === "ticket")}
+                          ticketLines={sharedTicketOrderLines}
                           theme={theme}
                           purchaserEmail={String(answers.email ?? "").trim()}
                           onChange={(nextAssignments) => {
@@ -3800,15 +4260,33 @@ async function handleNext() {
             </div>
 
             {hasFooterActions ? (
-              <div className={styles.slideFooterTextActionsOverlay}>
+              <div
+                className={`${styles.slideFooterTextActionsOverlay} ${
+                  activeFooterPanelSlide
+                    ? styles.slideFooterTextActionsOverlayPanelOpen
+                    : ""
+                }`}
+              >
                 <div className={styles.overlayFrame}>
                 <SlideFooterActions
                   actions={footerActions}
-                  downloadLabel={currentSlide.footerDownloadLabel}
+                  contentLabel={currentSlide.footerContentLabel}
                   isLoggedIn={Boolean(authSessionUser)}
                   isAuthSessionLoaded={isAuthSessionLoaded}
                   isSubmitting={isSubmitting}
                   mediaState={mediaState}
+                  progressControl={
+                    isFooterEdgeProgress ? progressControl : undefined
+                  }
+                  panelContent={
+                    activeFooterPanelSlide ? (
+                      <AnnotatedTextSlideRenderer
+                        slide={activeFooterPanelSlide}
+                        theme={theme}
+                        presentation="panel"
+                      />
+                    ) : undefined
+                  }
                   onAction={handleFooterAction}
                 />
                 </div>
