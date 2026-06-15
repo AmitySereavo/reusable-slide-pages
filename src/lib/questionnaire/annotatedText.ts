@@ -26,10 +26,16 @@ export type AnnotatedTextBlock =
   | {
       type: "line";
       segments: AnnotatedTextSegment[];
+      timing?: AnnotatedTextTiming;
     }
   | {
       type: "break";
     };
+
+export type AnnotatedTextTiming = {
+  startSeconds: number;
+  endSeconds?: number;
+};
 
 export type AnnotatedTextCatalogItem = {
   id: string;
@@ -74,10 +80,69 @@ function parseAnnotatedTextLine(rawLine: string): AnnotatedTextBlock {
     };
   }
 
+  const { timing, text } = parseTimingPrefix(line);
+
   return {
     type: "line",
-    segments: parseAnnotatedTextSegments(line),
+    segments: parseAnnotatedTextSegments(text),
+    timing,
   };
+}
+
+function parseTimingPrefix(line: string): {
+  timing?: AnnotatedTextTiming;
+  text: string;
+} {
+  const match = line.match(
+    /^\[((?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d{1,3})?(?:\s*-->\s*(?:(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d{1,3})?))?)\]\s*(.*)$/
+  );
+
+  if (!match) {
+    return { text: line };
+  }
+
+  const [, timingPrefix, rawText] = match;
+  const timingParts = timingPrefix
+    .split("-->")
+    .map((part) => part.trim());
+  const startSeconds = parseTimestampToSeconds(timingParts[0]);
+  const endSeconds = timingParts[1]
+    ? parseTimestampToSeconds(timingParts[1])
+    : undefined;
+
+  if (startSeconds === null || endSeconds === null) {
+    return { text: line };
+  }
+
+  return {
+    timing: {
+      startSeconds,
+      endSeconds,
+    },
+    text: rawText,
+  };
+}
+
+function parseTimestampToSeconds(value: string) {
+  const parts = value.split(":").map((part) => part.trim());
+
+  if (parts.length < 2 || parts.length > 3) {
+    return null;
+  }
+
+  const numericParts = parts.map(Number);
+
+  if (numericParts.some((part) => !Number.isFinite(part) || part < 0)) {
+    return null;
+  }
+
+  if (numericParts.length === 2) {
+    const [minutes, seconds] = numericParts;
+    return minutes * 60 + seconds;
+  }
+
+  const [hours, minutes, seconds] = numericParts;
+  return hours * 3600 + minutes * 60 + seconds;
 }
 
 function parseAnnotatedTextSegments(line: string): AnnotatedTextSegment[] {

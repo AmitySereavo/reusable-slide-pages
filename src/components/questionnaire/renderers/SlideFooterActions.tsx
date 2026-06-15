@@ -48,14 +48,21 @@ export default function SlideFooterActions({
     (action) => action.kind === "download"
   );
 
+  const panelAction = visibleActions.find(
+    (action) => action.kind === "textpanel"
+  );
+
   const lyricsActions = visibleActions.filter((action) =>
-    isLyricsAction(action)
+    isLyricsAction(action) && action.kind !== "textpanel"
   );
 
   const formatActions = [...downloadActions, ...lyricsActions];
 
   const transportActions = visibleActions.filter(
-    (action) => action.kind !== "download" && !isLyricsAction(action)
+    (action) =>
+      action.kind !== "download" &&
+      action.kind !== "textpanel" &&
+      !isLyricsAction(action)
   );
 
   if (!visibleActions.length) {
@@ -73,9 +80,20 @@ export default function SlideFooterActions({
       ) : null}
 
       {contentLabel?.trim() ? (
-        <div className={styles.slideFooterContentLabel}>
-          {getContentLabel(contentLabel)}
-        </div>
+        panelAction ? (
+          <button
+            type="button"
+            className={`${styles.slideFooterContentLabel} ${styles.slideFooterContentLabelButton}`}
+            onClick={() => onAction(panelAction)}
+            aria-expanded={Boolean(panelContent)}
+          >
+            {getContentLabel(contentLabel)}
+          </button>
+        ) : (
+          <div className={styles.slideFooterContentLabel}>
+            {getContentLabel(contentLabel)}
+          </div>
+        )
       ) : null}
 
       {transportActions.length ? (

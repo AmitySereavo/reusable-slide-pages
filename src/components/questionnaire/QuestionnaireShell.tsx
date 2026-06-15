@@ -182,6 +182,8 @@ type VideoSeekRequest = {
   id: string;
   percent?: number;
   seconds?: number;
+  play?: boolean;
+  pauseAtSeconds?: number;
 };
 
 type MediaControlRequest = {
@@ -267,6 +269,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [isCurrentVerticalVideoPlaying, setIsCurrentVerticalVideoPlaying] =
     useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
+  const [videoCurrentTimeSeconds, setVideoCurrentTimeSeconds] = useState(0);
   const [videoSeekRequest, setVideoSeekRequest] =
     useState<VideoSeekRequest | null>(null);
   const [mediaControlRequest, setMediaControlRequest] =
@@ -1837,6 +1840,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     const { currentTime, duration } = payload;
+    setVideoCurrentTimeSeconds(currentTime);
 
     if (Number.isFinite(duration) && duration > 0) {
       setVideoProgress((currentTime / duration) * 100);
@@ -1860,6 +1864,30 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     previousVideoTimeRef.current = currentTime;
+  }
+
+  function handleTimedTextLineClick(payload: {
+    startSeconds: number;
+    endSeconds?: number;
+    playMode: "continue" | "line";
+  }) {
+    if (!currentSlide) {
+      return;
+    }
+
+    const pauseAtSeconds =
+      payload.playMode === "line" &&
+      typeof payload.endSeconds === "number" &&
+      payload.endSeconds > payload.startSeconds
+        ? payload.endSeconds
+        : undefined;
+
+    setVideoSeekRequest({
+      id: `${currentSlide.id}-timed-text-${Date.now()}`,
+      seconds: payload.startSeconds,
+      play: true,
+      pauseAtSeconds,
+    });
   }
 
 
@@ -4284,6 +4312,11 @@ async function handleNext() {
                         slide={activeFooterPanelSlide}
                         theme={theme}
                         presentation="panel"
+                        enableTimingRecorder={
+                          searchParams.get("syncText") === "1"
+                        }
+                        mediaCurrentTimeSeconds={videoCurrentTimeSeconds}
+                        onTimedLineClick={handleTimedTextLineClick}
                       />
                     ) : undefined
                   }
@@ -6785,6 +6818,7 @@ function MediaRenderer({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasAppliedStartTimeRef = useRef(false);
+  const pauseAtSecondsRef = useRef<number | null>(null);
   const [isMuted, setIsMuted] = useState(slide.autoplay === true);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -6814,7 +6848,13 @@ function MediaRenderer({
         video.duration
       );
 
-      if (slide.autoplay === true) {
+      pauseAtSecondsRef.current =
+        typeof videoSeekRequest.pauseAtSeconds === "number" &&
+        Number.isFinite(videoSeekRequest.pauseAtSeconds)
+          ? Math.min(Math.max(0, videoSeekRequest.pauseAtSeconds), video.duration)
+          : null;
+
+      if (slide.autoplay === true || videoSeekRequest.play === true) {
         void video.play().catch(() => null);
       }
 
@@ -6825,6 +6865,7 @@ function MediaRenderer({
       typeof videoSeekRequest.percent === "number" &&
       Number.isFinite(videoSeekRequest.percent)
     ) {
+      pauseAtSecondsRef.current = null;
       video.currentTime = (video.duration * videoSeekRequest.percent) / 100;
     }
   }, [videoSeekRequest, slide.autoplay]);
@@ -7024,6 +7065,16 @@ function MediaRenderer({
             }}
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
+              const pauseAtSeconds = pauseAtSecondsRef.current;
+
+              if (
+                typeof pauseAtSeconds === "number" &&
+                video.currentTime >= pauseAtSeconds
+              ) {
+                pauseAtSecondsRef.current = null;
+                video.pause();
+              }
+
               onVideoProgressChange?.({
                 currentTime: video.currentTime,
                 duration: video.duration,

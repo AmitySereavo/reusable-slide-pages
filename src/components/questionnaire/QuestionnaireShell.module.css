@@ -367,6 +367,8 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  pointer-events: auto;
+  touch-action: pan-y;
   box-sizing: border-box;
   padding: 0 18px 42px;
   color: #231f20;
@@ -435,12 +437,25 @@
 }
 
 .slideFooterContentLabel {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
   font-size: 0.86rem;
   line-height: 1.1;
   font-weight: 900;
   letter-spacing: 0;
   text-transform: none;
   opacity: 0.7;
+}
+
+.slideFooterContentLabelButton {
+  cursor: pointer;
+}
+
+.slideFooterContentLabelButton:hover,
+.slideFooterContentLabelButton:focus-visible {
+  opacity: 1;
 }
 
 .slideFooterTextLink {
