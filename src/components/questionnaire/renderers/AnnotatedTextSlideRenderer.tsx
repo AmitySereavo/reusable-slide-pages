@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Slide, ThemeConfig } from "@/types/questionnaire";
+import { Slide, TextPanelMode, ThemeConfig } from "@/types/questionnaire";
 import {
   AnnotatedTextBlock,
   AnnotatedTextCatalogItem,
@@ -16,12 +16,14 @@ type Props = {
   theme: ThemeConfig;
   presentation?: "slide" | "panel";
   enableTimingRecorder?: boolean;
+  textPanelMode?: TextPanelMode;
   mediaCurrentTimeSeconds?: number;
   onTimedLineClick?: (payload: {
     startSeconds: number;
     endSeconds?: number;
     playMode: TimedTextPlayMode;
   }) => void;
+  onCustomTextMerchRequest?: (selectedText: string) => void;
 };
 
 type TimedTextPlayMode = "continue" | "line";
@@ -43,20 +45,22 @@ export default function AnnotatedTextSlideRenderer({
   theme,
   presentation = "slide",
   enableTimingRecorder = false,
+  textPanelMode = "song",
   mediaCurrentTimeSeconds,
   onTimedLineClick,
+  onCustomTextMerchRequest,
 }: Props) {
   const [sourceText, setSourceText] = useState("");
   const [loadError, setLoadError] = useState("");
   const [openAnnotationKey, setOpenAnnotationKey] = useState("");
-  const [timedTextPlayMode, setTimedTextPlayMode] =
-    useState<TimedTextPlayMode>("continue");
+  const [selectedShopText, setSelectedShopText] = useState("");
   const [isSyncRecording, setIsSyncRecording] = useState(false);
   const [syncCursor, setSyncCursor] = useState(0);
   const [recordedLineTimings, setRecordedLineTimings] = useState<
     Record<number, { startSeconds: number; endSeconds?: number }>
   >({});
   const syncLineRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const catalog = useMemo(
     () => getAnnotatedTextCatalog(slide.annotationCatalogKey),
@@ -65,10 +69,6 @@ export default function AnnotatedTextSlideRenderer({
 
   const blocks = useMemo(() => parseAnnotatedText(sourceText), [sourceText]);
   const sections = useMemo(() => buildAnnotatedTextSections(blocks), [blocks]);
-  const hasTimedLines = useMemo(
-    () => blocks.some((block) => block.type === "line" && block.timing),
-    [blocks]
-  );
   const syncableLineCount = useMemo(
     () =>
       blocks.filter(
@@ -179,6 +179,12 @@ export default function AnnotatedTextSlideRenderer({
     });
   }, [enableTimingRecorder, syncCursor]);
 
+  useEffect(() => {
+    if (textPanelMode !== "shop") {
+      setSelectedShopText("");
+    }
+  }, [textPanelMode]);
+
   function recordSyncTick(currentTime?: number) {
     if (typeof currentTime !== "number" || !Number.isFinite(currentTime)) {
       return;
@@ -258,6 +264,19 @@ export default function AnnotatedTextSlideRenderer({
 
   return (
     <div
+      ref={rootRef}
+      onMouseUp={() => {
+        if (textPanelMode === "shop") {
+          setSelectedShopText(getSelectedTextWithin(rootRef.current));
+        }
+      }}
+      onTouchEnd={() => {
+        if (textPanelMode === "shop") {
+          window.setTimeout(() => {
+            setSelectedShopText(getSelectedTextWithin(rootRef.current));
+          }, 0);
+        }
+      }}
       style={{
         display: "grid",
         gap: slide.annotatedTextMode === "lyrics" ? 8 : 14,
@@ -266,28 +285,6 @@ export default function AnnotatedTextSlideRenderer({
         paddingBottom: presentation === "panel" ? 24 : undefined,
       }}
     >
-      {hasTimedLines && onTimedLineClick ? (
-        <div
-          style={{
-            display: "inline-flex",
-            justifyContent: "center",
-            gap: 8,
-            margin: "4px 0 8px",
-          }}
-        >
-          <TimedTextModeButton
-            isActive={timedTextPlayMode === "continue"}
-            label="Continue"
-            onClick={() => setTimedTextPlayMode("continue")}
-          />
-          <TimedTextModeButton
-            isActive={timedTextPlayMode === "line"}
-            label="Line"
-            onClick={() => setTimedTextPlayMode("line")}
-          />
-        </div>
-      ) : null}
-
       {enableTimingRecorder ? (
         <div
           style={{
@@ -341,6 +338,52 @@ export default function AnnotatedTextSlideRenderer({
         </div>
       ) : null}
 
+      {textPanelMode === "shop" && selectedShopText ? (
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid rgba(35, 31, 32, 0.18)",
+            borderRadius: 8,
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
+            display: "grid",
+            gap: 8,
+            padding: 10,
+            position: "sticky",
+            top: 0,
+            zIndex: 3,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            "{selectedShopText}"
+          </div>
+          <button
+            type="button"
+            onClick={() => onCustomTextMerchRequest?.(selectedShopText)}
+            style={{
+              border: "none",
+              borderRadius: 6,
+              background: "#231f20",
+              color: "#FFFFFF",
+              cursor: "pointer",
+              font: "inherit",
+              fontSize: 12,
+              fontWeight: 900,
+              padding: "8px 10px",
+            }}
+          >
+            Put this on an item with Amity Sereavo's signature
+          </button>
+        </div>
+      ) : null}
+
       {sections.map((section, sectionIndex) => (
         <section
           key={`section-${sectionIndex}`}
@@ -374,7 +417,7 @@ export default function AnnotatedTextSlideRenderer({
               setOpenAnnotationKey,
               syncLineOrdinal: syncLineOrdinalByBlockIndex[index],
               theme,
-              timedTextPlayMode,
+              textPanelMode,
               isCurrentSyncLine:
                 syncLineOrdinalByBlockIndex[index] === syncCursor,
               isSyncRecording,
@@ -487,7 +530,7 @@ function renderTextBlock(
     setOpenAnnotationKey,
     syncLineOrdinal,
     theme,
-    timedTextPlayMode,
+    textPanelMode,
   }: {
     catalog: Record<string, AnnotatedTextCatalogItem>;
     enableTimingRecorder: boolean;
@@ -504,14 +547,15 @@ function renderTextBlock(
     setOpenAnnotationKey: (key: string) => void;
     syncLineOrdinal?: number;
     theme: ThemeConfig;
-    timedTextPlayMode: TimedTextPlayMode;
+    textPanelMode: TextPanelMode;
   }
 ) {
   if (block.type === "break") {
     return <div key={`break-${blockIndex}`} style={{ height: 12 }} />;
   }
 
-  const isTimed = Boolean(block.timing && onTimedLineClick);
+  const isPlaybackMode = textPanelMode === "lines" || textPanelMode === "song";
+  const isTimed = Boolean(block.timing && onTimedLineClick && isPlaybackMode);
   const isActive =
     typeof mediaCurrentTimeSeconds === "number" &&
     block.timing &&
@@ -536,6 +580,19 @@ function renderTextBlock(
           segmentIndex,
           segment
         );
+        const shouldShowAnnotation = shouldShowTextAnnotation(
+          segment.kind,
+          textPanelMode
+        );
+
+        if (!shouldShowAnnotation) {
+          return (
+            <span key={annotationKey}>
+              {segment.text}
+            </span>
+          );
+        }
+
         const isOpen = openAnnotationKey === annotationKey;
         const item = catalog[segment.id];
 
@@ -602,7 +659,7 @@ function renderTextBlock(
             onTimedLineClick?.({
               startSeconds: block.timing?.startSeconds ?? 0,
               endSeconds: block.timing?.endSeconds,
-              playMode: timedTextPlayMode,
+              playMode: textPanelMode === "lines" ? "line" : "continue",
             })
           }
           style={{
@@ -626,36 +683,6 @@ function renderTextBlock(
         lineContent
       )}
     </div>
-  );
-}
-
-function TimedTextModeButton({
-  isActive,
-  label,
-  onClick,
-}: {
-  isActive: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: "1px solid rgba(35, 31, 32, 0.22)",
-        borderRadius: 999,
-        background: isActive ? "#231f20" : "transparent",
-        color: isActive ? "#FFFFFF" : "inherit",
-        cursor: "pointer",
-        font: "inherit",
-        fontSize: 12,
-        fontWeight: 800,
-        padding: "5px 10px",
-      }}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -713,6 +740,45 @@ function formatTimestamp(seconds: number) {
     2,
     "0"
   )}.${String(milliseconds).padStart(3, "0")}`;
+}
+
+function shouldShowTextAnnotation(
+  kind: Extract<AnnotatedTextSegment, { type: "annotation" }>["kind"],
+  mode: TextPanelMode
+) {
+  if (mode === "shop") {
+    return true;
+  }
+
+  if (mode === "learn") {
+    return kind !== "product";
+  }
+
+  return false;
+}
+
+function getSelectedTextWithin(root: HTMLElement | null) {
+  if (!root || typeof window === "undefined") {
+    return "";
+  }
+
+  const selection = window.getSelection();
+
+  if (!selection || selection.rangeCount === 0) {
+    return "";
+  }
+
+  const range = selection.getRangeAt(0);
+
+  if (
+    !root.contains(range.commonAncestorContainer) &&
+    !root.contains(selection.anchorNode) &&
+    !root.contains(selection.focusNode)
+  ) {
+    return "";
+  }
+
+  return selection.toString().trim().replace(/\s+/g, " ").slice(0, 120);
 }
 
 function buildAnnotationKey(

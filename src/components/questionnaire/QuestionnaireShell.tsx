@@ -40,6 +40,7 @@ import {
   SlideSection,
   ThemeConfig,
   ShopCatalogSizeOption,
+  TextPanelMode,
 } from "@/types/questionnaire";
 
 import { clearQuestionnaireVisitorState } from "@/lib/questionnaire/visitorState";
@@ -186,6 +187,13 @@ type VideoSeekRequest = {
   pauseAtSeconds?: number;
 };
 
+type TimedTextAudioRequest = {
+  id: string;
+  src: string;
+  seconds: number;
+  pauseAtSeconds?: number;
+};
+
 type MediaControlRequest = {
   id: string;
   action: "toggle-mute" | "toggle-play";
@@ -244,6 +252,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sourceUrl: string;
     mode?: AnnotatedTextMode;
   } | null>(null);
+  const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("song");
   const [answeredQuestionSlideIds, setAnsweredQuestionSlideIds] = useState<
     string[]
   >([]);
@@ -272,6 +281,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [videoCurrentTimeSeconds, setVideoCurrentTimeSeconds] = useState(0);
   const [videoSeekRequest, setVideoSeekRequest] =
     useState<VideoSeekRequest | null>(null);
+  const [timedTextAudioRequest, setTimedTextAudioRequest] =
+    useState<TimedTextAudioRequest | null>(null);
   const [mediaControlRequest, setMediaControlRequest] =
     useState<MediaControlRequest | null>(null);
   const [mediaState, setMediaState] = useState<MediaState>({
@@ -1881,6 +1892,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       payload.endSeconds > payload.startSeconds
         ? payload.endSeconds
         : undefined;
+    const timedTextAudioSource =
+      payload.playMode === "line"
+        ? currentSlide.textPanelLinesMediaUrl || currentSlide.textPanelSongMediaUrl
+        : currentSlide.textPanelSongMediaUrl;
+
+    if (timedTextAudioSource) {
+      setTimedTextAudioRequest({
+        id: `${currentSlide.id}-timed-text-audio-${Date.now()}`,
+        src: timedTextAudioSource,
+        seconds: payload.startSeconds,
+        pauseAtSeconds,
+      });
+      return;
+    }
 
     setVideoSeekRequest({
       id: `${currentSlide.id}-timed-text-${Date.now()}`,
@@ -1888,6 +1913,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       play: true,
       pauseAtSeconds,
     });
+  }
+
+  function handleCustomTextMerchRequest(selectedText: string) {
+    const phrase = selectedText.trim().replace(/\s+/g, " ");
+
+    if (!phrase) {
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      customLyricMerchPhrase: phrase,
+      customLyricMerchTrack: currentSlide?.title ?? "",
+      customLyricMerchSignature: true,
+    }));
+    setActiveFooterTextPanel(null);
+    goToTarget("custom-lyric-merch");
   }
 
 
@@ -3786,6 +3828,7 @@ async function handleNext() {
                             currentSlide.sections,
                             theme,
                             answers,
+                            mergedVariables,
                             currentSlide.storeAs,
                             setAnswer
                           )}
@@ -3798,6 +3841,7 @@ async function handleNext() {
                         currentSlide.sections,
                         theme,
                         answers,
+                        mergedVariables,
                         currentSlide.storeAs,
                         setAnswer
                       )}
@@ -4306,6 +4350,7 @@ async function handleNext() {
                   progressControl={
                     isFooterEdgeProgress ? progressControl : undefined
                   }
+                  textPanelMode={textPanelMode}
                   panelContent={
                     activeFooterPanelSlide ? (
                       <AnnotatedTextSlideRenderer
@@ -4315,16 +4360,23 @@ async function handleNext() {
                         enableTimingRecorder={
                           searchParams.get("syncText") === "1"
                         }
+                        textPanelMode={textPanelMode}
                         mediaCurrentTimeSeconds={videoCurrentTimeSeconds}
                         onTimedLineClick={handleTimedTextLineClick}
+                        onCustomTextMerchRequest={(selectedText) =>
+                          handleCustomTextMerchRequest(selectedText)
+                        }
                       />
                     ) : undefined
                   }
                   onAction={handleFooterAction}
+                  onTextPanelModeChange={setTextPanelMode}
                 />
                 </div>
               </div>
             ) : null}
+
+            <TimedTextAudioPlayer request={timedTextAudioRequest} />
 
             {hasPinnedChoices ||
               hasDownloadButtons ||
@@ -7125,10 +7177,62 @@ function appendYouTubeInlineParams(
   }
 }
 
+function TimedTextAudioPlayer({
+  request,
+}: {
+  request: TimedTextAudioRequest | null;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pauseAtSecondsRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!request) {
+      return;
+    }
+
+    const audio = audioRef.current;
+
+    if (!audio) {
+      return;
+    }
+
+    pauseAtSecondsRef.current =
+      typeof request.pauseAtSeconds === "number" &&
+      Number.isFinite(request.pauseAtSeconds)
+        ? Math.max(0, request.pauseAtSeconds)
+        : null;
+
+    audio.src = request.src;
+    audio.currentTime = Math.max(0, request.seconds);
+    void audio.play().catch(() => null);
+  }, [request]);
+
+  return (
+    <audio
+      ref={audioRef}
+      preload="metadata"
+      onTimeUpdate={(event) => {
+        const audio = event.currentTarget;
+        const pauseAtSeconds = pauseAtSecondsRef.current;
+
+        if (
+          typeof pauseAtSeconds === "number" &&
+          audio.currentTime >= pauseAtSeconds
+        ) {
+          pauseAtSecondsRef.current = null;
+          audio.pause();
+        }
+      }}
+      style={{ display: "none" }}
+    />
+  );
+}
+
 function renderSections(
   sections: SlideSection[] | undefined,
   theme: ThemeConfig,
   answers: QuestionnaireAnswers,
+  variables: QuestionnaireVariableMap | undefined,
   storeAs: string | undefined,
   setAnswer: (key: string, value: QuestionnaireVariableValue) => void
 ) {
@@ -7154,7 +7258,7 @@ function renderSections(
                   theme.colors.primary,
               }}
             >
-              {section.text}
+              {replaceDynamicText(section.text, answers, variables)}
             </h1>
           );
         }
@@ -7172,7 +7276,7 @@ function renderSections(
                   theme.colors.primary,
               }}
             >
-              {section.text}
+              {replaceDynamicText(section.text, answers, variables)}
             </p>
           );
         }
@@ -7229,7 +7333,7 @@ function renderSections(
                 theme.colors.text,
             }}
           >
-            {section.text}
+            {replaceDynamicText(section.text, answers, variables)}
           </p>
         );
       })}

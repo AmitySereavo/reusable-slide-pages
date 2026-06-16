@@ -7,6 +7,7 @@ The project renders interactive multi-slide experiences from plain-text DSL file
 It currently acts as a shared development ground for:
 
 - reusable slide pages
+- reusable project/DSL builder dashboard
 - reusable auth
 - reusable lead capture
 - embedded reusable auth forms inside slides
@@ -20,10 +21,15 @@ It currently acts as a shared development ground for:
 - DB-backed video progress tracking
 - per-video resume behavior
 - URL-addressable slides
+- reusable left/right project sidebars
 - invitation / music / event flows
 - ticket and meal-selection flows
 - ticket owner portals
 - digital album/download deliverables
+- purchased-item entitlement gates
+- synced timed lyrics / annotated text panels
+- lyric text playback modes: Lines, Song, Learn, Shop
+- custom lyric phrase to merch starter flow
 - plant shop / seed shop flows
 - DB-backed nursery operations
 - reusable record lists
@@ -170,6 +176,37 @@ The shared shell stays generic. The DSL and registry decide the experience.
 
 ---
 
+## Current implementation snapshot
+
+The project has moved beyond a basic slide renderer. It now includes:
+
+- a reusable questionnaire shell at `/questionnaire/[slug]`
+- a reusable dashboard builder at `/dashboard`
+- plain-text DSL parsing for slide/project creation
+- registry-backed themes, variables, catalogs, delivery config, meal menus, and reusable blocks
+- full-viewport project layout with reusable left/right sidebars
+- URL-addressable slides through `@syncurl`
+- media/video slides with progress tracking, resume behavior, and seek controls
+- footer content labels, footer action rows, and footer-edge video progress
+- expandable footer text panels powered by `@textpanel` and `@textsource`
+- timed lyric/annotated text parsing with `[00:00.000 --> 00:00.000]` line prefixes
+- text panel modes:
+  - `Lines`: clicking a timed line plays only that line
+  - `Song`: clicking a timed line plays from that point onward
+  - `Learn`: shows learning/culture/definition annotations
+  - `Shop`: shows product-forward annotations and custom phrase-to-merch entry
+- optional alternate audio sources for Song and Lines modes, falling back to the current video
+- protected digital downloads through `/api/downloads/[downloadkey]`
+- account entitlement checks through `UserPurchasedItem`
+- algorithm-created user accounts through `User.createdBy`
+- invitation ticket owner flows, meal selections, and ticket owner portals
+- Escape album purchased-access gate and album deliverable slides
+- custom phrase capture from lyrics in Shop mode, routing to a custom merch starter slide
+
+The dashboard builder is intentionally ungated during local development. Restore main-admin access control before production launch.
+
+---
+
 ## Active questionnaires and flows
 
 ### `self-trust`
@@ -265,35 +302,56 @@ Current capabilities:
 
 ### `escape-album`
 
-Planned dedicated album deliverable flow for purchasers of the Escape album digital download.
+Dedicated album deliverable flow for purchasers of the Escape album digital download.
 
-Route target:
+Route:
 
 ```txt
 /questionnaire/escape-album
 ```
 
-This should be a separate DSL flow, not part of the invitation checkout DSL.
+This is a separate DSL flow from the invitation checkout DSL.
 
-Recommended DSL path:
+DSL path:
 
 ```txt
 src/config/questionnaires/escapeAlbumDsl.txt
 ```
 
+Current implementation:
+
+- one purchased-access login slide
+- ten media/video song slides
+- lyrics/annotated text opens as a footer panel, not as separate lyric slides
+- a reusable download-format slide for MP3/WAV selection
+- a custom lyric merch starter slide
+- left sidebar lists video slides and full-album downloads
+- right sidebar lists account links
+- video slides can use URL paths through `@syncurl`
+- video progress can sit on the top edge of the footer through `@progressplacement: footer-edge`
+- the content label expands/retracts the text panel when a `textpanel` footer action exists
+- `@textpanelsongmedia` and `@textpanellinesmedia` can point timed text playback to alternate audio
+- if alternate audio is not configured, timed text playback uses the current video file
+- purchased access is checked through the user's `UserPurchasedItem` list
+- algorithm-created checkout accounts are tracked through `User.createdBy`
+
 Purpose:
 
 ```txt
-purchaser buys Escape Album — Digital Download
-→ system confirms account/session ownership
-→ email sends link to album deliverable flow
-→ user opens /questionnaire/escape-album
-→ user watches lyric videos
-→ user reads written lyrics
-→ user downloads one song or the full album in MP3 or WAV
+purchaser buys Escape Album digital download
+-> system creates or reuses an account
+-> system grants escape-album purchased item
+-> email sends album URL and generated password when an algorithm account was created
+-> user opens /questionnaire/escape-album
+-> purchased-access slide logs the user in
+-> purchased-item gate checks UserPurchasedItem
+-> user watches lyric videos
+-> user opens timed lyrics / annotated text from the footer content label
+-> user uses Lines, Song, Learn, or Shop mode
+-> user downloads one song or the full album in MP3 or WAV
 ```
 
-Base album structure:
+Superseded early plan:
 
 ```txt
 10 songs × 2 slides each = 20 song slides
@@ -1703,26 +1761,77 @@ Do not wrap DSL files in TypeScript exports.
 
 ---
 
+## Dashboard project builder
+
+Local route:
+
+```txt
+/dashboard
+```
+
+Current dashboard capabilities:
+
+- create a project name and slug
+- choose an existing theme preset or enter a custom theme key
+- add supported slide types from a visual catalog
+- edit slide IDs, titles, subtitles, media URLs, text source URLs, catalog keys, fields, choices, and common flags
+- generate a plain-text DSL file
+- copy the generated DSL
+- save a new DSL file into `src/config/questionnaires`
+- generate a registry snippet for manual insertion into `registry.ts`
+
+Important:
+
+- The dashboard is currently ungated in local dev mode.
+- The project-save API is also ungated in local dev mode.
+- Restore main-admin access control before production launch.
+- The dashboard creates DSL files but does not yet automatically edit `registry.ts` or create theme files.
+
+---
+
 ## Supported slide types
 
 Current slide types include:
 
 ```txt
-content
-score
+accountsummary
+annotatedtext
+authform
+authverify
 choice
-form
 contact
+content
+delivery
+form
+meal
 media
-video
+recordlist
+result
+score
 shop
 tickets
-meal
-delivery
-recordlist
-authverify
-authform
-accountsummary
+story
+video
+```
+
+Dashboard builder slide categories currently map onto these parser types:
+
+```txt
+Media / Video - Music        -> media
+Media / Video - Spoken       -> media
+Image With Text Overlay      -> media
+Article                      -> annotatedtext
+Short Text                   -> content
+Shop + Cart                  -> shop
+Tickets                      -> tickets
+Choice                       -> choice
+Score / Number Scale         -> score
+Form                         -> form
+Delivery                     -> delivery
+Meal                         -> meal
+Record List                  -> recordlist
+Auth Form                    -> authform
+Account Summary              -> accountsummary
 ```
 
 ---
@@ -1759,14 +1868,53 @@ Media:
 
 ```txt
 @media:
+@embed:
 @mediatype:
 @mediaaspect:
 @autoplay:
 @progressmode:
+@progressplacement:
 @videostart:
 @videogoto:
 @videoresume:
 ```
+
+Footer / text panel:
+
+```txt
+@footercontentlabel:
+@footeraction:
+@textpanel:
+@textsource:
+@textmode:
+@annotationcatalog:
+@textpanelsongmedia:
+@textpanellinesmedia:
+```
+
+`@textpanel: true` marks a media/video slide as having an expandable
+lyrics/article/annotated text panel. The panel is usually opened by clicking
+the footer content label, while the `textpanel` footer action provides the
+source URL behind the scenes.
+
+Timed text lines can use:
+
+```txt
+[00:12.340 --> 00:15.100] lyric or annotated text line
+```
+
+Playback mode behavior:
+
+```txt
+Lines -> play only the clicked timestamp range
+Song  -> play from the clicked timestamp onward
+Learn -> expose learning/definition/culture annotations
+Shop  -> expose product annotations and custom phrase-to-merch entry
+```
+
+If `@textpanelsongmedia` or `@textpanellinesmedia` are configured, timed text
+playback uses those audio files for the matching modes. If they are absent,
+playback falls back to the current video/media file.
 
 Choices:
 
@@ -1781,11 +1929,6 @@ Downloads:
 ```txt
 @downloadkey:
 @downloadbuttons:
-```
-
-Planned dynamic download choice support:
-
-```txt
 @downloadrequestkey:
 @downloadrequests:
 @downloadformats:
@@ -1839,7 +1982,7 @@ Existing simple DSL download buttons:
 - escape-album-wav|Download WAV|c2
 ```
 
-Planned dynamic pattern:
+Dynamic download-choice pattern:
 
 ```txt
 song slide
@@ -1866,13 +2009,21 @@ Rules:
 - raw private file paths must never be exposed to the browser
 ```
 
-Future entitlement helpers should answer:
+Entitlement helpers should answer:
 
 ```txt
 Does this user own Escape Album — Digital Download?
 Does this user own this ticket?
 Does this user own this gated deliverable?
 ```
+
+Current account/deliverable behavior:
+
+- `User.createdBy` distinguishes `user` accounts from `algorithm` accounts.
+- `UserPurchasedItem` stores purchased-item access such as `escape-album`.
+- Escape media/download keys require an active logged-in user with the matching purchased item.
+- Invitation album purchase grants `escape-album` at the current order-submission completion point.
+- When payment provider webhooks are added, move the purchased-item grant to the payment-completed event.
 
 ---
 
@@ -1948,16 +2099,16 @@ npm run dev
 Immediate priorities:
 
 ```txt
-1. Finalize event/shop card layout.
-2. Keep event metadata in getInvitationShopCatalog.
-3. Fix normal product card layout.
-4. Register escape-album deliverable DSL.
-5. Reuse existing download feature for Escape album.
-6. Add dynamic download-choice context if needed.
-7. Keep album media private in protected-media/.
-8. Add entitlement check before serving album downloads.
-9. Email album deliverable link after purchase.
-10. Continue keeping shared shell reusable.
+1. Continue improving the dashboard project builder.
+2. Add registry/theme creation or guided registry update from the dashboard.
+3. Put the dashboard and project-save API behind main-admin access before production launch.
+4. Finish custom lyric phrase-to-merch product selection and cart metadata.
+5. Add persistence/admin save route for synced lyric timestamp files.
+6. Move purchased-item grants to payment-completed webhooks when a real payment provider is added.
+7. Continue tightening backend security around order totals, entitlements, and redirects.
+8. Keep album media private in protected-media/.
+9. Keep shared shell features reusable and project wording in DSL/config/catalog helpers.
+10. Continue separating reusable systems from project-specific flows.
 ```
 
 Do not continue building album deliverable access with public file links.

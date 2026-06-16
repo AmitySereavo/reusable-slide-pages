@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { SlideFooterAction } from "@/types/questionnaire";
+import { SlideFooterAction, TextPanelMode } from "@/types/questionnaire";
 import styles from "../QuestionnaireShell.module.css";
 
 type MediaState = {
@@ -18,7 +18,9 @@ type Props = {
   mediaState: MediaState;
   progressControl?: ReactNode;
   panelContent?: ReactNode;
+  textPanelMode: TextPanelMode;
   onAction: (action: SlideFooterAction) => void;
+  onTextPanelModeChange: (mode: TextPanelMode) => void;
 };
 
 export default function SlideFooterActions({
@@ -30,7 +32,9 @@ export default function SlideFooterActions({
   mediaState,
   progressControl,
   panelContent,
+  textPanelMode,
   onAction,
+  onTextPanelModeChange,
 }: Props) {
   const visibleActions = actions.filter((action) => {
     if (action.visibility === "logged-in") {
@@ -114,8 +118,41 @@ export default function SlideFooterActions({
           isAuthSessionLoaded={isAuthSessionLoaded}
           mediaState={mediaState}
           variant="format"
+          afterContent={
+            panelAction ? (
+              <button
+                type="button"
+                className={styles.slideFooterTextLink}
+                onClick={() =>
+                  onTextPanelModeChange(getNextTextPanelMode(textPanelMode))
+                }
+                aria-label={`Text panel mode: ${getTextPanelModeLabel(
+                  textPanelMode
+                )}`}
+              >
+                {getTextPanelModeLabel(textPanelMode)}
+              </button>
+            ) : undefined
+          }
           onAction={onAction}
         />
+      ) : panelAction ? (
+        <div
+          className={`${styles.slideFooterTextActionRow} ${styles.slideFooterFormatRow}`}
+        >
+          <button
+            type="button"
+            className={styles.slideFooterTextLink}
+            onClick={() =>
+              onTextPanelModeChange(getNextTextPanelMode(textPanelMode))
+            }
+            aria-label={`Text panel mode: ${getTextPanelModeLabel(
+              textPanelMode
+            )}`}
+          >
+            {getTextPanelModeLabel(textPanelMode)}
+          </button>
+        </div>
       ) : null}
 
       {panelContent ? (
@@ -131,6 +168,7 @@ function FooterActionRow({
   isAuthSessionLoaded,
   mediaState,
   variant,
+  afterContent,
   onAction,
 }: {
   actions: SlideFooterAction[];
@@ -138,6 +176,7 @@ function FooterActionRow({
   isAuthSessionLoaded: boolean;
   mediaState: MediaState;
   variant: "format" | "transport";
+  afterContent?: ReactNode;
   onAction: (action: SlideFooterAction) => void;
 }) {
   return (
@@ -200,6 +239,15 @@ function FooterActionRow({
           </span>
         );
       })}
+
+      {afterContent ? (
+        <span>
+          {variant !== "transport" && actions.length > 0 ? (
+            <span className={styles.slideFooterTextDivider}> | </span>
+          ) : null}
+          {afterContent}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -241,6 +289,20 @@ function isLyricsAction(action: SlideFooterAction) {
     (action.key.toLowerCase() === "lyrics" ||
       action.label.toLowerCase() === "lyrics")
   );
+}
+
+function getTextPanelModeLabel(mode: TextPanelMode) {
+  if (mode === "lines") return "Lines";
+  if (mode === "song") return "Song";
+  if (mode === "learn") return "Learn";
+  return "Shop";
+}
+
+function getNextTextPanelMode(mode: TextPanelMode): TextPanelMode {
+  if (mode === "lines") return "song";
+  if (mode === "song") return "learn";
+  if (mode === "learn") return "shop";
+  return "lines";
 }
 
 function getFooterActionIcon(

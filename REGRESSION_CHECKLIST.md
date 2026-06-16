@@ -451,9 +451,161 @@ FROM "UserEmailAddress"
 ORDER BY "userId", "isActive" DESC, "createdAt" ASC;
 ```
 
+```sql
+SELECT
+  "id",
+  "email",
+  "name",
+  "createdBy",
+  "createdAt"
+FROM "User"
+ORDER BY "createdAt" DESC
+LIMIT 20;
+```
+
+```sql
+SELECT
+  "id",
+  "userId",
+  "itemKey",
+  "sourceType",
+  "sourceId",
+  "createdAt"
+FROM "UserPurchasedItem"
+ORDER BY "createdAt" DESC
+LIMIT 20;
+```
+
 ---
 
-## 25. Final smoke test before commit
+## 25. Dashboard project builder
+
+```txt
+- /dashboard loads directly in dev mode without login redirect.
+- Dashboard clearly marks auth gate disabled for dev.
+- Project name updates slug safely.
+- Theme preset selector updates generated registry snippet.
+- Adding each supported slide type creates a slide in the slide list.
+- Selecting a slide exposes fields relevant to that slide type.
+- Generated DSL updates after editing slide fields.
+- Media / Video - Music exposes lyrics / annotated text panel option.
+- Enabling lyrics / annotated text panel emits @textpanel, @textsource, @textmode, and textpanel footer action.
+- Song mode audio URL emits @textpanelsongmedia when provided.
+- Lines mode audio URL emits @textpanellinesmedia when provided.
+- Save DSL File creates a new src/config/questionnaires/*Dsl.txt file for a new slug.
+- Save DSL File refuses to overwrite an existing DSL file.
+- Saved DSL parses through the existing parser.
+- Registry snippet is generated but registry.ts is not edited automatically.
+- Before production, dashboard and /api/dashboard/projects must be restored behind main-admin access.
+```
+
+---
+
+## 26. Reusable sidebars, footer controls, and text panel shell
+
+```txt
+- Left sidebar toggle appears when media/video slides or album downloads exist.
+- Left sidebar lists video/media slide URLs.
+- Left sidebar includes full-album WAV/MP3 download actions when album download requests exist.
+- Right sidebar toggle appears with account links.
+- Sidebars sit above footer and action bar z-index.
+- Sidebars take full viewport height on desktop.
+- Sidebar toggle icons remain clickable when sidebars are open.
+- Media/video top edge touches the viewport top behind fixed toggles.
+- Footer/action bar width respects desktop sidebar gutters.
+- Footer content label displays @footercontentlabel text.
+- If no textpanel footer action exists, content label does not open a panel.
+- If textpanel footer action exists, clicking content label expands/retracts footer panel.
+- Footer panel is scrollable with mouse wheel, scrollbar drag, trackpad, and touch.
+- Sticky headings stay under footer controls and are pushed away by the next heading.
+```
+
+---
+
+## 27. Escape album purchase access and protected downloads
+
+```txt
+- /questionnaire/escape-album starts at purchased-access/login slide for users without entitlement.
+- Login slide has actual email/identifier and password fields.
+- Successful login updates session state and continues to album content.
+- User without escape-album purchased item remains gated.
+- User with escape-album purchased item reaches Good Morning video.
+- Invitation ticket shop remains ticket-focused.
+- Album can be added as a ticket purchase option without creating ticket owner or meal work for the album line.
+- Album order creates or reuses a user by entered email.
+- New algorithm-created account stores User.createdBy = algorithm.
+- Algorithm-created account email includes album URL and generated password.
+- Existing-account purchase does not send a password and prompts login instead.
+- Purchased album grants UserPurchasedItem itemKey escape-album.
+- Protected Escape video, lyrics, song, and full-album download keys require session + entitlement.
+- Unauthorized protected download requests do not reveal private file paths or all download keys.
+- Download format slide can download current song MP3/WAV.
+- Sidebar full-album downloads can download album MP3/WAV.
+```
+
+---
+
+## 28. Timed lyrics / annotated text modes
+
+```txt
+- Timed lyric lines parse [00:01.251 --> 00:04.192] prefixes.
+- Timed prefixes are not displayed as lyric text.
+- Clicking footer content label opens lyrics/text panel.
+- Footer mode toggle appears beside WAV/MP3 when a textpanel action exists.
+- Mode toggle cycles Lines, Song, Learn, Shop.
+- Lines mode: clicking a timed line seeks to the start and pauses at the end timestamp.
+- Song mode: clicking a timed line seeks to the start and continues playback.
+- Lines mode uses @textpanellinesmedia when configured.
+- Lines mode falls back to @textpanelsongmedia when lines media is absent.
+- Song mode uses @textpanelsongmedia when configured.
+- Modes fall back to current video/mp4 when no alternate audio is configured.
+- Learn mode shows definition/language/culture annotations and hides product annotations.
+- Shop mode shows product annotations.
+- Annotation popovers still work inside timed lyric lines.
+- Good Morning timed lyrics still preserve ohayo/bonjour/product/video annotations.
+```
+
+---
+
+## 29. Timed text sync authoring
+
+```txt
+- Adding syncText=1 to the questionnaire URL shows the sync authoring controls.
+- Sync controls are hidden without syncText=1.
+- Spacebar starts recording the current lyric line.
+- Spacebar again stops that same lyric line and records the end timestamp.
+- Recording does not assume the next line start from the previous line end.
+- After stopping a line, the sync cursor advances to the next lyric line.
+- Current sync line is highlighted.
+- Current sync line scrolls into view while syncing.
+- Reset clears recorded timings and returns to line 1.
+- Generated timestamped textarea preserves headings and lyric line text.
+- Generated timestamps use mm:ss.mmm format.
+- Before production/admin release, sync save route must be restricted to main admin.
+```
+
+---
+
+## 30. Custom lyric phrase to merch starter
+
+```txt
+- Shop mode allows selecting lyric text in the panel.
+- Selecting text in non-Shop modes does not show the custom merch action.
+- Selected lyric text is trimmed and normalized.
+- Custom merch action appears after text selection in Shop mode.
+- Clicking custom merch action stores customLyricMerchPhrase.
+- Clicking custom merch action stores customLyricMerchTrack.
+- Clicking custom merch action sets customLyricMerchSignature.
+- Footer panel closes after starting custom merch flow.
+- User is routed to custom-lyric-merch slide.
+- Custom Lyric Merch slide displays the selected phrase via [customLyricMerchPhrase].
+- Custom Lyric Merch slide shows first item type options.
+- Future cart/order metadata must preserve phrase, source track, item choice, and signature setting.
+```
+
+---
+
+## 31. Final smoke test before commit
 
 ```txt
 - npm run build passes.
@@ -469,4 +621,12 @@ ORDER BY "userId", "isActive" DESC, "createdAt" ASC;
 - Return Home clears deep slide URL.
 - auth-login returnTo still works.
 - Clear Visitor State resets visitor to fresh state.
+- /dashboard loads in dev mode.
+- Dashboard can generate DSL for a media/video slide with text panel enabled.
+- Escape album gate blocks users without purchased item.
+- Escape album opens for users with purchased item.
+- Good Morning lyrics panel opens from footer content label.
+- Lines and Song modes play timed lyrics.
+- Learn and Shop modes change annotation behavior.
+- Shop mode selected phrase routes to custom-lyric-merch.
 ```

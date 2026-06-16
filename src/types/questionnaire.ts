@@ -31,6 +31,8 @@ export type SlideFooterActionKind =
 
 export type SlideFooterActionVisibility = "always" | "logged-in" | "logged-out";
 
+export type TextPanelMode = "lines" | "song" | "learn" | "shop";
+
 export type SlideFooterAction = {
   kind: SlideFooterActionKind;
   key: string;
@@ -537,6 +539,9 @@ export type Slide = {
   annotatedTextSourceUrl?: string;
   annotatedTextMode?: AnnotatedTextMode;
   annotationCatalogKey?: string;
+  textPanelEnabled?: boolean;
+  textPanelSongMediaUrl?: string;
+  textPanelLinesMediaUrl?: string;
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;
@@ -667,6 +672,9 @@ export type ParsedSlideDraft = {
   annotatedTextSourceUrl?: string;
   annotatedTextMode?: AnnotatedTextMode;
   annotationCatalogKey?: string;
+  textPanelEnabled?: boolean;
+  textPanelSongMediaUrl?: string;
+  textPanelLinesMediaUrl?: string;
   mediaType?: MediaType;
   mediaAspect?: MediaAspect;
   autoplay?: boolean;

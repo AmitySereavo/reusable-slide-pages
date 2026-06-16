@@ -584,6 +584,24 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@textpanel:")) {
+        draft.textPanelEnabled = parseBooleanValue(
+          readValue(line, "@textpanel:"),
+          true
+        );
+        continue;
+      }
+
+      if (line.startsWith("@textpanelsongmedia:")) {
+        draft.textPanelSongMediaUrl = readValue(line, "@textpanelsongmedia:");
+        continue;
+      }
+
+      if (line.startsWith("@textpanellinesmedia:")) {
+        draft.textPanelLinesMediaUrl = readValue(line, "@textpanellinesmedia:");
+        continue;
+      }
+
       if (line.startsWith("@textmode:")) {
         draft.annotatedTextMode = readValue(
           line,
@@ -832,6 +850,9 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     annotatedTextSourceUrl: draft.annotatedTextSourceUrl,
     annotatedTextMode: draft.annotatedTextMode,
     annotationCatalogKey: draft.annotationCatalogKey,
+    textPanelEnabled: draft.textPanelEnabled,
+    textPanelSongMediaUrl: draft.textPanelSongMediaUrl,
+    textPanelLinesMediaUrl: draft.textPanelLinesMediaUrl,
     mediaType: draft.mediaType,
     mediaAspect: draft.mediaAspect,
     progressMode: draft.progressMode,

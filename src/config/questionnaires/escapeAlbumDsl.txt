@@ -255,6 +255,27 @@ BR
 @footeraction: download|escape-song-10-wav|WAV
 @footeraction: download|escape-song-10-mp3|MP3
 ===
+@id: custom-lyric-merch
+@type: form
+@title: Custom Lyric Merch
+@subtitle: Amity Sereavo Signature
+@showprogressbar: false
+@syncurl: true
+@showauthcontrols: false
+@next: Continue
+@goto: download-format
+---
+# Custom Lyric Merch
+BR
+[c3] Selected phrase:
+BR
+[c1] "[customLyricMerchPhrase]"
+BR
+[c2] Choose the first item type for this signed custom merch request. The full product picker and preview will connect here next.
+@fields:
+- customLyricMerchItem|select|Item type|required|Select item|shirt=T-shirt,hoodie=Hoodie,poster=Poster,mug=Mug
+- customLyricMerchSignature|checkbox|Add Amity Sereavo signature|optional
+===
 @id: download-format
 @type: content
 @title: Choose Download Format
