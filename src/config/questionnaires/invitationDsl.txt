@@ -172,12 +172,42 @@ BR
 @actionbartextcolor: #1f1f1f
 @back: Back
 @next: Continue
+@choiceplacement: inline
 ---
 BR
 # [c1] Ticket Details
 BR
-[c2] The first ticket is filled from your contact details. Mark which ticket is yours.
-[c3] Add guest names and emails so their ticket and meal links can be sent after the order is completed.
+[c2] - Mark the ticket that belongs to you.
+[c2] - Add guest names and emails for tickets being sent to someone else.
+@choices:
+- ticket-help|Need help with tickets?|ticket-details-help|secondary
+
+===
+// TICKET DETAILS HELP
+@id: ticket-details-help
+@type: media
+@title: Ticket Help
+@subtitle: Ticket Details
+@media: /media/invitation/YYSSLYX.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
+@back: Back
+@next: Back to Ticket Details
+@goto: ticket-details
+@footercontentlabel: Ticket Help
+@footeraction: media|mute|Mute|toggle-mute
+---
+BR
+# [c1] Ticket Help
+BR
+[c3] Mark your own ticket first. For guest tickets, add the person's name and email so their ticket and meal details can be sent after checkout.
+[c3] Use the meal button on each ticket to choose required meals before completing the cart.
 
 ===
 // MEAL SELECTION
@@ -253,9 +283,11 @@ BR
 // REVIEW ORDER
 @id: review-order
 @type: shop
+@title: Cart
 @store: orderCart
 @catalog: shopCatalog
 @shopmode: review
+@syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
 @progressoverlaytextcolor: #1f1f1f

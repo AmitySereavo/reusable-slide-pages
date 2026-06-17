@@ -178,6 +178,96 @@ type Props = {
   theme: ThemeConfig;
 };
 
+const CHECKOUT_DRAFT_SLUG = "invitation";
+const CHECKOUT_DRAFT_KEYS = [
+  "fullName",
+  "email",
+  "phone",
+  "whatsappOptIn",
+  "sendByWhatsapp",
+  "orderCart",
+  "ticketAssignments",
+  "deliverySelection",
+  "selectedMealTicketCode",
+  "appliedDiscountCode",
+  "invitationOrderRequestKey",
+] as const;
+
+function getCheckoutDraftStorageKey(questionnaireSlug: string) {
+  return `questionnaire:${questionnaireSlug}:answers`;
+}
+
+function readCheckoutDraft(questionnaireSlug: string): QuestionnaireAnswers {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = window.localStorage.getItem(
+    getCheckoutDraftStorageKey(questionnaireSlug)
+  );
+
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return parsed as QuestionnaireAnswers;
+  } catch {
+    return {};
+  }
+}
+
+function getCheckoutDraft(answers: QuestionnaireAnswers): QuestionnaireAnswers {
+  const draft: QuestionnaireAnswers = {};
+
+  for (const key of CHECKOUT_DRAFT_KEYS) {
+    const value = answers[key];
+
+    if (value !== undefined && value !== "") {
+      draft[key] = value;
+    }
+  }
+
+  return draft;
+}
+
+function hasCheckoutDraftValue(draft: QuestionnaireAnswers) {
+  return Object.keys(draft).length > 0;
+}
+
+function writeCheckoutDraft(
+  questionnaireSlug: string,
+  answers: QuestionnaireAnswers
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const draft = getCheckoutDraft(answers);
+  const storageKey = getCheckoutDraftStorageKey(questionnaireSlug);
+
+  if (!hasCheckoutDraftValue(draft)) {
+    window.localStorage.removeItem(storageKey);
+    return;
+  }
+
+  window.localStorage.setItem(storageKey, JSON.stringify(draft));
+}
+
+function clearCheckoutDraft(questionnaireSlug: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(getCheckoutDraftStorageKey(questionnaireSlug));
+}
+
 
 type VideoSeekRequest = {
   id: string;
@@ -294,6 +384,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
   const invitationOrderRequestKeyRef = useRef<string | null>(null);
+  const checkoutDraftHydratedRef = useRef(false);
+  const shouldSkipNextCheckoutDraftWriteRef = useRef(true);
+  const checkoutDraftCompletedRef = useRef(false);
   const searchParams = useSearchParams();
 
   
@@ -334,6 +427,52 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => getPurchaseAccessConfig(mergedVariables),
     [mergedVariables]
   );
+
+  useEffect(() => {
+    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+      checkoutDraftHydratedRef.current = true;
+      shouldSkipNextCheckoutDraftWriteRef.current = false;
+      return;
+    }
+
+    const draft = readCheckoutDraft(config.slug);
+
+    checkoutDraftHydratedRef.current = true;
+
+    if (!hasCheckoutDraftValue(draft)) {
+      return;
+    }
+
+    const draftOrderRequestKey = String(
+      draft.invitationOrderRequestKey ?? ""
+    ).trim();
+
+    if (draftOrderRequestKey) {
+      invitationOrderRequestKeyRef.current = draftOrderRequestKey;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      ...draft,
+    }));
+  }, [config.slug]);
+
+  useEffect(() => {
+    if (
+      config.slug !== CHECKOUT_DRAFT_SLUG ||
+      !checkoutDraftHydratedRef.current ||
+      checkoutDraftCompletedRef.current
+    ) {
+      return;
+    }
+
+    if (shouldSkipNextCheckoutDraftWriteRef.current) {
+      shouldSkipNextCheckoutDraftWriteRef.current = false;
+      return;
+    }
+
+    writeCheckoutDraft(config.slug, answers);
+  }, [answers, config.slug]);
 
 
   const discountDefinitions = useMemo<DiscountDefinition[]>(
@@ -1934,6 +2073,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
 
   function resetQuestionnaireSession() {
+    clearCheckoutDraft(config.slug);
+    checkoutDraftCompletedRef.current = false;
     setAnswers({});
     setHistory([]);
     setSubmitError(null);
@@ -2110,6 +2251,16 @@ async function next() {
   }
   }
 
+    const shouldReturnToCart =
+      String(answers.cartReturnTarget ?? "") === "review-order";
+
+    if (shouldReturnToCart && currentSlide.id !== "review-order") {
+      setAnswer("cartReturnTarget", "");
+      setAnswer("mealReturnTarget", "");
+      goToTarget("review-order");
+      return;
+    }
+
     if (currentSlide.completionCheck === "contact") {
       if (contactInfoComplete && currentSlide.gotoIfComplete) {
         goToTarget(currentSlide.gotoIfComplete);
@@ -2212,7 +2363,16 @@ async function next() {
         return;
       }
 
-      goToTarget("ticket-details");
+      const mealReturnTarget =
+        String(answers.mealReturnTarget ?? "") === "review-order"
+          ? "review-order"
+          : "ticket-details";
+
+      if (mealReturnTarget === "review-order") {
+        setAnswer("mealReturnTarget", "");
+      }
+
+      goToTarget(mealReturnTarget);
       return;
     }
 
@@ -2843,6 +3003,8 @@ async function next() {
     }
 
     if (runName === "submitInvitationOrder") {
+      clearCheckoutDraft(config.slug);
+      checkoutDraftCompletedRef.current = true;
       setAnswers((prev) => ({
         ...prev,
         invitationOrderId:
@@ -3270,8 +3432,30 @@ async function handleNext() {
         })
       : 0;
 
+  const mealNextLabel =
+    String(answers.cartReturnTarget ?? "") === "review-order" ||
+    String(answers.mealReturnTarget ?? "") === "review-order"
+      ? "Back to cart"
+      : currentSlide.nextLabel ?? "Back to ticket details";
+
+  const cartReturnActive =
+    String(answers.cartReturnTarget ?? "") === "review-order" &&
+    currentSlide.id !== "review-order";
+
   const nextLabel =
-    currentSlide.type === "shop" && currentSlide.shopMode === "review"
+    cartReturnActive && currentSlide.type === "shop"
+      ? `Back to cart Â· ${formatCurrency(
+          currentShopSubtotal,
+          currentShopCatalog?.currencyCode
+        )}`
+      : cartReturnActive && currentSlide.type === "delivery"
+        ? `Back to cart Â· ${formatCurrency(
+            sharedOrderSubtotalWithMeals + currentDeliveryFee,
+            sharedShopCatalog?.currencyCode ?? "JMD"
+          )}`
+      : cartReturnActive && currentSlide.type !== "meal"
+        ? "Back to cart"
+      : currentSlide.type === "shop" && currentSlide.shopMode === "review"
       ? `${
           sharedOrderGrandTotalWithMeals > 0
             ? currentSlide.nextLabel ?? "Pay now"
@@ -3291,7 +3475,7 @@ async function handleNext() {
               sharedShopCatalog?.currencyCode ?? "JMD"
             )}`
       : currentSlide.type === "meal"
-        ? `${currentSlide.nextLabel ?? "Back to ticket details"} · ${formatCurrency(
+        ? `${mealNextLabel} · ${formatCurrency(
             selectedMealExtraTotal,
             sharedShopCatalog?.currencyCode ?? "USD"
           )}`
@@ -3348,6 +3532,10 @@ async function handleNext() {
     const sharedOrderHasDeliveryFee =
       sharedOrderSummary.deliveryFee > 0 ||
       sharedDeliverySelection.method === "delivery";
+
+    const sharedOrderNeedsFulfillment = sharedOrderLines.some(
+      (line) => line.requiresPhysicalFulfillment === true
+    );
 
     const sharedOrderHasDiscount =
       sharedOrderSummary.discountTotal > 0;
@@ -3900,6 +4088,7 @@ async function handleNext() {
                       {currentSlide.type === "shop" ? (
                         <ShopSlideRenderer
                           slideMode={currentSlide.shopMode ?? "browse"}
+                          title={currentSlide.title}
                           catalog={currentShopCatalog}
                           cart={currentShopCart}
                           selectedLines={
@@ -3907,38 +4096,6 @@ async function handleNext() {
                               ? sharedOrderLines
                               : currentShopSelectedLines
                           }
-                          totalWeight={
-                            currentSlide.shopMode === "review"
-                              ? sharedOrderLines.reduce(
-                                  (sum, line) => sum + (line.lineWeight ?? 0),
-                                  0
-                                )
-                              : currentShopTotalWeight
-                          }
-                          deliveryFee={
-                            currentSlide.shopMode === "review"
-                              ? sharedOrderSummary.deliveryFee
-                              : 0
-                          }
-                          discountTotal={
-                            currentSlide.shopMode === "review"
-                              ? sharedOrderSummary.discountTotal
-                              : 0
-                          }
-                          grandTotal={
-                            currentSlide.shopMode === "review"
-                              ? sharedOrderGrandTotalWithMeals
-                              : currentShopSubtotal
-                          }
-                          ticketOwnerAddonBudgetTotal={
-                            currentSlide.shopMode === "review"
-                              ? sharedTicketOwnerAddonBudgetTotal
-                              : 0
-                          }
-                          activeDiscountLabel={activeDiscountDefinition?.label}
-                          showDeliveryFee={sharedOrderHasDeliveryFee}
-                          showDiscountTotal={sharedOrderHasDiscount}
-                          showTotalWeight={sharedOrderHasWeight}
                           theme={theme}
                           answers={answers}
                           onToggleLine={(productId, sizeOptionId, selected) =>
@@ -3980,7 +4137,7 @@ async function handleNext() {
                           onRemoveLine={(productId, sizeOptionId) => {
                             if (currentSlide.shopMode === "review") {
                               if (sharedOrderLines.length <= 1) {
-                                goToTarget("plant-shop");
+                                goToTarget("invitation-shop");
                                 return;
                               }
                             }
@@ -3996,9 +4153,10 @@ async function handleNext() {
                               setAnswers((prev) => ({
                                 ...prev,
                                 shopFocusLineKey: targetKey,
+                                cartReturnTarget: "review-order",
                               }));
 
-                              goToTarget("plant-shop");
+                              goToTarget("invitation-shop");
                             }
                           }}
                         />
@@ -4023,7 +4181,9 @@ async function handleNext() {
                           assignments={currentTicketAssignments}
                           menu={currentMealMenu}
                           ticketLines={sharedTicketOrderLines}
+                          addOnLines={sharedOrderLines}
                           theme={theme}
+                          purchaserName={String(answers.fullName ?? "").trim()}
                           purchaserEmail={String(answers.email ?? "").trim()}
                           onChange={(nextAssignments) => {
                             setAnswer("ticketAssignments", nextAssignments);
@@ -4044,8 +4204,11 @@ async function handleNext() {
                           }
                           onSelectMeal={(ticketCode) => {
                             setAnswer("selectedMealTicketCode", ticketCode);
+                            setAnswer("mealReturnTarget", "");
+                            setAnswer("cartReturnTarget", "");
                             goToTarget("meal-selection");
                           }}
+                          onChooseAddOns={() => goToTarget("invitation-shop")}
                         />
                       ) : null}
 
@@ -4064,25 +4227,6 @@ async function handleNext() {
                             setAnswer("ticketAssignments", nextAssignments);
                             void saveTicketOwnerMealSelection(nextAssignments);
                           }}
-                          onBackToTickets={async () => {
-                            if (isTicketOwnerPortalFlow && requestedTicketCode) {
-                              const saved = await saveTicketOwnerMealSelection(
-                                latestTicketAssignmentsRef.current
-                              );
-
-                              if (!saved) {
-                                setSubmitError("Your meal selections could not be saved. Please try again.");
-                                return;
-                              }
-
-                              window.location.href = `/invitation/tickets/${encodeURIComponent(
-                                requestedTicketCode
-                              )}`;
-                              return;
-                            }
-
-                            goToTarget("ticket-details");
-                          }}
                         />
                       ) : null}
 
@@ -4095,8 +4239,15 @@ async function handleNext() {
                             mergedVariables,
                             "deliveryConfig"
                           )}
-                          onAdjustDelivery={() => goToTarget("delivery-options")}
-                          onAdjustContact={() => goToTarget("contact-details")}
+                          showDeliverySummary={sharedOrderNeedsFulfillment}
+                          onAdjustDelivery={() => {
+                            setAnswer("cartReturnTarget", "review-order");
+                            goToTarget("delivery-options");
+                          }}
+                          onAdjustContact={() => {
+                            setAnswer("cartReturnTarget", "review-order");
+                            goToTarget("contact-details");
+                          }}
                         />
                       ) : null}
 
@@ -4107,7 +4258,35 @@ async function handleNext() {
                           menu={sharedMealMenu}
                           assignments={currentTicketAssignments}
                           mealExtraTotal={sharedMealExtraTotal}
-                          onAdjustMeals={() => goToTarget("meal-selection")}
+                          onAdjustMeals={(ticketCode) => {
+                            setAnswer("selectedMealTicketCode", ticketCode);
+                            setAnswer("mealReturnTarget", "review-order");
+                            setAnswer("cartReturnTarget", "review-order");
+                            goToTarget("meal-selection");
+                          }}
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "shop" &&
+                      currentSlide.shopMode === "review" ? (
+                        <ReviewTotalsRenderer
+                          catalog={currentShopCatalog}
+                          totalWeight={sharedOrderLines.reduce(
+                            (sum, line) => sum + (line.lineWeight ?? 0),
+                            0
+                          )}
+                          deliveryFee={sharedOrderSummary.deliveryFee}
+                          discountTotal={sharedOrderSummary.discountTotal}
+                          grandTotal={sharedOrderGrandTotalWithMeals}
+                          ticketOwnerAddonBudgetTotal={
+                            sharedTicketOwnerAddonBudgetTotal
+                          }
+                          activeDiscountLabel={activeDiscountDefinition?.label}
+                          showDeliveryFee={
+                            sharedOrderNeedsFulfillment && sharedOrderHasDeliveryFee
+                          }
+                          showDiscountTotal={sharedOrderHasDiscount}
+                          showTotalWeight={sharedOrderHasWeight}
                         />
                       ) : null}
 
@@ -4645,20 +4824,26 @@ function TicketDetailsRenderer({
   assignments,
   menu,
   ticketLines,
+  addOnLines,
   theme,
+  purchaserName,
   purchaserEmail,
   onChange,
   onMarkAllForEmail,
   onSelectMeal,
+  onChooseAddOns,
 }: {
   assignments: TicketAssignments;
   menu: MealMenu | null;
   ticketLines: ShopResolvedCartLine[];
+  addOnLines: ShopResolvedCartLine[];
   theme: ThemeConfig;
+  purchaserName: string;
   purchaserEmail: string;
   onChange: (nextAssignments: TicketAssignments) => void;
   onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
+  onChooseAddOns: () => void;
 }) {
   const [expandedTicketCode, setExpandedTicketCode] = useState<string | null>(
     null
@@ -4673,14 +4858,21 @@ function TicketDetailsRenderer({
       assignment.isPurchaserTicket !== true &&
       isValidTicketOwnerEmail(assignment.ownerEmail)
   );
+  const selectedAddOns = getTicketDetailsAddOns(addOnLines);
+  const hasPhysicalAddOns = selectedAddOns.some(
+    (line) => line.requiresPhysicalFulfillment === true
+  );
 
   return (
     <div className={styles.mealStack}>
+      {false ? (
       <div className={styles.contactNote}>
         The first ticket is prefilled from the purchaser contact details. Mark
         “This is my ticket” for the purchaser’s own ticket. Guest ticket details
         can be added under each ticket.
       </div>
+
+      ) : null}
 
       {ticketsWithOwnerEmails.length > 0 ? (
         <button
@@ -4757,6 +4949,11 @@ function TicketDetailsRenderer({
               <div className={styles.mealTicketMeta}>
                 Code: {assignment.ticketCode}
               </div>
+              {assignment.mealMode === "required" && !hasSelectedMealItems ? (
+                <div className={styles.ticketMealRequiredWarning}>
+                  Meal selection required for this ticket.
+                </div>
+              ) : null}
             </div>
 
             {assignment.ownerName?.trim() || assignment.ownerEmail?.trim() ? (
@@ -4767,31 +4964,80 @@ function TicketDetailsRenderer({
                 {assignment.ownerEmail?.trim() ? (
                   <div>{assignment.ownerEmail.trim()}</div>
                 ) : null}
+                {hasSelectedMealItems ? (
+                  <div className={styles.ticketMealSummary}>
+                    {mealSummary.map((item) => (
+                      <div
+                        key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
+                      >
+                        {cleanCartMealLabel(item.groupLabel)}:{" "}
+                        {cleanCartMealLabel(item.optionLabel)} x {item.quantity}
+                        {item.extraTotal > 0
+                          ? ` +${formatCurrency(item.extraTotal, "USD")}`
+                          : ""}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <div className={styles.ticketAddOnSummary}>
+                  <div className={styles.ticketAddOnHeader}>
+                    <span>Other Add-ons</span>
+                    <button
+                      type="button"
+                      className={styles.adjustLinkButton}
+                      onClick={onChooseAddOns}
+                    >
+                      Choose add ons
+                    </button>
+                  </div>
+                  {selectedAddOns.length > 0 ? (
+                    <div className={styles.ticketAddOnList}>
+                      {selectedAddOns.map((line) => (
+                        <div key={line.lineKey}>
+                          {line.label}
+                          {line.quantity > 1 ? ` x ${line.quantity}` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.ticketAddOnEmpty}>
+                      No add-ons selected.
+                    </div>
+                  )}
+                  {hasPhysicalAddOns ? (
+                    <div className={styles.ticketAddOnNote}>
+                      Physical add-ons are collected at the event. Contact
+                      support if any issues arise.
+                    </div>
+                  ) : null}
+                </div>
+                {ownerEmailIsValid && assignment.isPurchaserTicket !== true ? (
+                  <div className={styles.ticketOwnerEmailNotice}>
+                    {ticketOwnerName} will be emailed the details of their ticket.
+                    <div className={styles.ticketOwnerEmailWarning}>
+                      Ensure that the email address you entered is correct.
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() =>
-                setExpandedTicketCode((current) =>
-                  current === assignment.ticketCode
-                    ? null
-                    : assignment.ticketCode
-                )
-              }
-              style={{
-                borderColor: theme.colors.border,
-                background: "#FFFFFF",
-                color: theme.colors.text,
-              }}
-            >
-              {detailsAreExpanded
-                ? "Hide details"
-                : assignment.ownerName?.trim() || assignment.ownerEmail?.trim()
+            {!detailsAreExpanded ? (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setExpandedTicketCode(assignment.ticketCode)}
+                style={{
+                  borderColor: theme.colors.border,
+                  background: "#FFFFFF",
+                  color: theme.colors.text,
+                }}
+              >
+                {assignment.ownerName?.trim() || assignment.ownerEmail?.trim()
                   ? "See details"
                   : "Add ticket owner details"}
-            </button>
+              </button>
+            ) : null}
 
             {detailsAreExpanded ? (
               <div className={styles.ticketDetailsReveal}>
@@ -4999,12 +5245,6 @@ function TicketDetailsRenderer({
                   </div>
                 ) : null}
 
-                {assignment.mealMode === "required" ? (
-                  <div className={styles.contactNote}>
-                    Meal selection required for this ticket.
-                  </div>
-                ) : null}
-
                 {assignment.mealMode === "optional" ? (
                   <label className={styles.checkboxRow}>
                     <input
@@ -5025,6 +5265,82 @@ function TicketDetailsRenderer({
                   </label>
                 ) : null}
 
+                {false ? (
+                  <div className={styles.ticketMealSummary}>
+                    {mealSummary.map((item) => (
+                      <div
+                        key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
+                      >
+                        {item.groupLabel}: {item.optionLabel} × {item.quantity}
+                        {item.extraTotal > 0
+                          ? ` · +${formatCurrency(item.extraTotal, "USD")}`
+                          : ""}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className={styles.ticketOwnershipPanel}>
+                  <label className={styles.ticketOwnershipChoice}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.isPurchaserTicket === true}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+
+                        onChange(
+                          assignments.map((item) => {
+                            if (item.ticketCode !== assignment.ticketCode) {
+                              return item;
+                            }
+
+                            if (checked) {
+                              return {
+                                ...item,
+                                isPurchaserTicket: true,
+                                emailTicketToOwner: false,
+                                ownerName: purchaserName,
+                                ownerEmail: purchaserEmail,
+                              };
+                            }
+
+                            return {
+                              ...item,
+                              isPurchaserTicket: false,
+                              emailTicketToOwner: true,
+                              ownerName:
+                                item.ownerName === purchaserName
+                                  ? ""
+                                  : item.ownerName,
+                              ownerEmail:
+                                item.ownerEmail === purchaserEmail
+                                  ? ""
+                                  : item.ownerEmail,
+                            };
+                          })
+                        );
+                      }}
+                    />
+                    <span>
+                      <span className={styles.ticketOwnershipLabel}>
+                        This is my ticket.
+                      </span>
+                      <span className={styles.ticketOwnershipHelp}>
+                        (Leave unchecked if purchasing for someone else)
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <div className={styles.ticketTotalRow}>
+                  <span>
+                    {visibleAddonBudget > 0
+                      ? `Ticket total with ${ticketOwnerName}'s add-on budget`
+                      : "Ticket total"}
+                  </span>
+                  <strong>{formatCurrency(ticketTotal, "USD")}</strong>
+                </div>
+
                 {canSelectMealForThisTicket &&
                 (assignment.mealMode === "required" ||
                   assignment.mealEnabled === true) ? (
@@ -5044,29 +5360,18 @@ function TicketDetailsRenderer({
                   </button>
                 ) : null}
 
-                {hasSelectedMealItems ? (
-                  <div className={styles.ticketMealSummary}>
-                    {mealSummary.map((item) => (
-                      <div
-                        key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
-                      >
-                        {item.groupLabel}: {item.optionLabel} × {item.quantity}
-                        {item.extraTotal > 0
-                          ? ` · +${formatCurrency(item.extraTotal, "USD")}`
-                          : ""}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className={styles.ticketTotalRow}>
-                  <span>
-                    {visibleAddonBudget > 0
-                      ? `Ticket total with ${ticketOwnerName}'s add-on budget`
-                      : "Ticket total"}
-                  </span>
-                  <strong>{formatCurrency(ticketTotal, "USD")}</strong>
-                </div>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => setExpandedTicketCode(null)}
+                  style={{
+                    borderColor: theme.colors.border,
+                    background: "#FFFFFF",
+                    color: theme.colors.text,
+                  }}
+                >
+                  Hide details
+                </button>
               </div>
             ) : null}
           </div>
@@ -5082,14 +5387,12 @@ function MealSelectionRenderer({
     selectedTicketCode,
     theme,
     onChange,
-    onBackToTickets,
   }: {
     menu: MealMenu | null;
     assignments: TicketAssignments;
     selectedTicketCode: string;
     theme: ThemeConfig;
     onChange: (nextAssignments: TicketAssignments) => void;
-    onBackToTickets: () => void;
   }) {
     const mealAssignments = getTicketsNeedingMeal(assignments).filter(
       (assignment) => assignment.ticketCode === selectedTicketCode
@@ -5104,19 +5407,6 @@ function MealSelectionRenderer({
 
     return (
     <div className={styles.mealStack}>
-      <button
-        type="button"
-        className={styles.secondaryButton}
-        onClick={onBackToTickets}
-        style={{
-          borderColor: theme.colors.border,
-          background: "#FFFFFF",
-          color: theme.colors.text,
-        }}
-      >
-        Back to ticket details
-      </button>
-
       {mealAssignments.map((assignment) => {
         const mealExtraTotal = calculateSingleTicketMealExtraTotal({
           menu,
@@ -5324,7 +5614,7 @@ function MealSelectionSummaryRenderer({
   menu: MealMenu | null;
   assignments: TicketAssignments;
   mealExtraTotal: number;
-  onAdjustMeals: () => void;
+  onAdjustMeals: (ticketCode: string) => void;
 }) {
   const mealAssignments = getTicketsNeedingMeal(assignments);
 
@@ -5337,22 +5627,26 @@ function MealSelectionSummaryRenderer({
       <div className={styles.reviewSummaryCard}>
         <div className={styles.reviewSummaryHeader}>
           <div className={styles.reviewSummaryTitle}>Ticket meals</div>
-          <button
-            type="button"
-            className={styles.adjustLinkButton}
-            onClick={onAdjustMeals}
-          >
-            Adjust
-          </button>
         </div>
 
         <div className={styles.reviewSummaryBody}>
           {mealAssignments.map((assignment) => (
-            <div key={assignment.ticketCode}>
-              <strong>
-                {assignment.ownerName?.trim() || assignment.ticketLabel}
-              </strong>
-              <div>Code: {assignment.ticketCode}</div>
+            <div key={assignment.ticketCode} className={styles.reviewMealTicketBlock}>
+              <div className={styles.reviewMealTicketTopLine}>
+                <div className={styles.reviewMealTicketHeader}>
+                  {assignment.ownerName?.trim() || assignment.ticketLabel}
+                </div>
+                <button
+                  type="button"
+                  className={styles.adjustLinkButton}
+                  onClick={() => onAdjustMeals(assignment.ticketCode)}
+                >
+                  Adjust
+                </button>
+              </div>
+              <div className={styles.reviewMealTicketCode}>
+                Code: {assignment.ticketCode}
+              </div>
 
               {menu.groups.map((group) => {
                 const selectedOptions = group.options
@@ -5361,7 +5655,7 @@ function MealSelectionSummaryRenderer({
                       assignment.mealSelection?.[group.id]?.[option.id] ?? 0;
 
                     return quantity > 0
-                      ? `${option.label} × ${quantity}`
+                      ? `${cleanCartMealLabel(option.label)} × ${quantity}`
                       : null;
                   })
                   .filter(Boolean);
@@ -5371,8 +5665,12 @@ function MealSelectionSummaryRenderer({
                 }
 
                 return (
-                  <div key={`${assignment.ticketCode}-${group.id}`}>
-                    {group.label}: {selectedOptions.join(", ")}
+                  <div
+                    key={`${assignment.ticketCode}-${group.id}`}
+                    className={styles.reviewMealSelectionLine}
+                  >
+                    <span>{cleanCartMealLabel(group.label)}</span>
+                    <span>{selectedOptions.join(", ")}</span>
                   </div>
                 );
               })}
@@ -5391,15 +5689,62 @@ function MealSelectionSummaryRenderer({
           ))}
 
           {mealExtraTotal > 0 ? (
-            <div>
-              Meal add-ons / extra servings:{" "}
-              {formatCurrency(mealExtraTotal, "USD")}
+            <div className={styles.reviewMealExtraTotal}>
+              <span>Meal add-ons / extra servings total</span>
+              <strong>{formatCurrency(mealExtraTotal, "USD")}</strong>
             </div>
           ) : null}
         </div>
       </div>
     </div>
   );
+}
+
+function cleanCartMealLabel(label: string) {
+  return label
+    .replace(/^choose\s+your\s+/i, "")
+    .replace(/^choose\s+/i, "")
+    .trim();
+}
+
+function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
+  return lines
+    .map((line) => {
+      if (line.fulfillmentType !== "ticket") {
+        return {
+          lineKey: line.lineKey,
+          label:
+            line.productTitle === line.sizeLabel
+              ? line.productTitle
+              : `${line.productTitle} - ${line.sizeLabel}`,
+          quantity: line.quantity,
+          requiresPhysicalFulfillment:
+            line.requiresPhysicalFulfillment === true,
+        };
+      }
+
+      if (
+        line.purchaseModeId &&
+        line.purchaseModeId !== "standard" &&
+        line.purchaseModeLabel
+      ) {
+        return {
+          lineKey: `${line.lineKey}-${line.purchaseModeId}`,
+          label: line.purchaseModeLabel,
+          quantity: line.quantity,
+          requiresPhysicalFulfillment:
+            line.requiresPhysicalFulfillment === true,
+        };
+      }
+
+      return null;
+    })
+    .filter((line): line is {
+      lineKey: string;
+      label: string;
+      quantity: number;
+      requiresPhysicalFulfillment: boolean;
+    } => Boolean(line));
 }
 
 function DeliverySlideRenderer({
@@ -5641,12 +5986,14 @@ function ReviewSummaryRenderer({
   answers,
   deliverySelection,
   deliveryConfig,
+  showDeliverySummary,
   onAdjustDelivery,
   onAdjustContact,
 }: {
   answers: QuestionnaireAnswers;
   deliverySelection: DeliverySelection;
   deliveryConfig: DeliveryConfig | null;
+  showDeliverySummary: boolean;
   onAdjustDelivery: () => void;
   onAdjustContact: () => void;
 }) {
@@ -5671,62 +6018,80 @@ function ReviewSummaryRenderer({
       )
     : undefined;
 
+  const ticketOwnerEmailNotices = normalizeTicketAssignments(
+    answers.ticketAssignments
+  )
+    .filter(
+      (assignment) =>
+        assignment.isPurchaserTicket !== true &&
+        isValidTicketOwnerEmail(assignment.ownerEmail)
+    )
+    .map((assignment) => ({
+      ticketCode: assignment.ticketCode,
+      ownerName: assignment.ownerName?.trim() || "This ticket owner",
+      ownerEmail: String(assignment.ownerEmail ?? "").trim(),
+    }));
+  const hasMultipleTicketOwnerEmailNotices =
+    ticketOwnerEmailNotices.length > 1;
+
   return (
     <div className={styles.reviewSummaryStack}>
-      <div className={styles.reviewSummaryCard}>
-        <div className={styles.reviewSummaryHeader}>
-          <div className={styles.reviewSummaryTitle}>Delivery / Pickup</div>
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={onAdjustDelivery}
-          >
-            Adjust
-          </button>
+      {showDeliverySummary ? (
+        <div className={styles.reviewSummaryCard}>
+          <div className={styles.reviewSummaryHeader}>
+            <div className={styles.reviewSummaryTitle}>Delivery / Pickup</div>
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={onAdjustDelivery}
+            >
+              Adjust
+            </button>
+          </div>
+
+          <div className={styles.reviewSummaryBody}>
+            {deliverySelection.method === "pickup_stable" && stablePickup ? (
+              <>
+                <div>{stablePickup.label}</div>
+                <div>{stablePickup.pickupWindowLabel}</div>
+              </>
+            ) : null}
+
+            {deliverySelection.method === "pickup_popup" && popupPickup ? (
+              <>
+                <div>{popupPickup.label}</div>
+                <div>{popupPickup.eventDateLabel}</div>
+              </>
+            ) : null}
+
+            {deliverySelection.method === "delivery" ? (
+              <>
+                <div>Deliver to address</div>
+                <div>
+                  {[deliverySelection.addressLine1, deliverySelection.addressLine2]
+                    .filter(Boolean)
+                    .join(", ")}
+                </div>
+                <div>
+                  {[
+                    deliverySelection.apartmentOrUnit,
+                    deliverySelection.cityOrTown,
+                    region?.label,
+                    country?.label,
+                    deliverySelection.postalCode,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </div>
+                <div>
+                  Delivery fee:{" "}
+                  {formatCurrency(deliverySelection.deliveryFeeJmd ?? 0, "JMD")}
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
-
-        <div className={styles.reviewSummaryBody}>
-          {deliverySelection.method === "pickup_stable" && stablePickup ? (
-            <>
-              <div>{stablePickup.label}</div>
-              <div>{stablePickup.pickupWindowLabel}</div>
-            </>
-          ) : null}
-
-          {deliverySelection.method === "pickup_popup" && popupPickup ? (
-            <>
-              <div>{popupPickup.label}</div>
-              <div>{popupPickup.eventDateLabel}</div>
-            </>
-          ) : null}
-
-          {deliverySelection.method === "delivery" ? (
-            <>
-              <div>Deliver to address</div>
-              <div>
-                {[deliverySelection.addressLine1, deliverySelection.addressLine2]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
-              <div>
-                {[
-                  deliverySelection.apartmentOrUnit,
-                  deliverySelection.cityOrTown,
-                  region?.label,
-                  country?.label,
-                  deliverySelection.postalCode,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
-              <div>
-                Delivery fee:{" "}
-                {formatCurrency(deliverySelection.deliveryFeeJmd ?? 0, "JMD")}
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+      ) : null}
 
       <div className={styles.reviewSummaryCard}>
         <div className={styles.reviewSummaryHeader}>
@@ -5748,6 +6113,28 @@ function ReviewSummaryRenderer({
           {String(answers.email ?? "").trim() ? (
             <div>{String(answers.email ?? "").trim()}</div>
           ) : null}
+          {hasMultipleTicketOwnerEmailNotices ? (
+            <div className={styles.ticketOwnerEmailNotice}>
+              {ticketOwnerEmailNotices.map((notice) => (
+                <div key={notice.ticketCode}>
+                  {notice.ownerName} will be emailed the details of their ticket
+                  at {notice.ownerEmail}.
+                </div>
+              ))}
+              <div className={styles.ticketOwnerEmailWarning}>
+                Ensure that the email addresses you entered are correct.
+              </div>
+            </div>
+          ) : null}
+          {ticketOwnerEmailNotices.length === 1 ? (
+            <div className={styles.ticketOwnerEmailNotice}>
+              {ticketOwnerEmailNotices[0].ownerName} will be emailed the details
+              of their ticket at {ticketOwnerEmailNotices[0].ownerEmail}.
+              <div className={styles.ticketOwnerEmailWarning}>
+                Ensure that the email address you entered is correct.
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {deliverySelection.method === "delivery" ? (
@@ -5762,18 +6149,10 @@ function ReviewSummaryRenderer({
 
 function ShopSlideRenderer({
   slideMode,
+  title,
   catalog,
   cart,
   selectedLines,
-  totalWeight,
-  deliveryFee,
-  discountTotal,
-  grandTotal,
-  ticketOwnerAddonBudgetTotal,
-  activeDiscountLabel,
-  showDeliveryFee,
-  showDiscountTotal,
-  showTotalWeight,
   theme,
   answers,
   onToggleLine,
@@ -5783,18 +6162,10 @@ function ShopSlideRenderer({
   onAdjustLine,
 }: {
   slideMode: "browse" | "review";
+  title?: string;
   catalog: ShopCatalog | null;
   cart: ShopCart;
   selectedLines: ShopResolvedCartLine[];
-  totalWeight: number;
-  deliveryFee: number;
-  discountTotal: number;
-  grandTotal: number;
-  ticketOwnerAddonBudgetTotal?: number;
-  activeDiscountLabel?: string;
-  showDeliveryFee?: boolean;
-  showDiscountTotal?: boolean;
-  showTotalWeight?: boolean;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
   onToggleLine: (
@@ -5873,6 +6244,10 @@ function ShopSlideRenderer({
 
   return (
     <div className={styles.shopStack}>
+      {slideMode === "review" && title ? (
+        <h2 className={styles.cartTitle}>{title}</h2>
+      ) : null}
+
       {products.map((product) => {
         const isExpanded =
           slideMode === "review" || expandedProducts[product.id] === true;
@@ -5904,7 +6279,30 @@ function ShopSlideRenderer({
             className={styles.productPanel}
             style={{ borderColor: theme.colors.border }}
           >
-            {isEventProduct ? (
+            {isEventProduct && slideMode === "review" ? (
+              <div className={styles.eventProductCartHeader}>
+                <div className={styles.eventProductCartTitleRow}>
+                  <div className={styles.eventProductCartTitle}>{product.title}</div>
+                  <div className={styles.eventProductCartActions}>
+                    {product.eventDateLabel ? (
+                      <span>{product.eventDateLabel}</span>
+                    ) : null}
+
+                    {firstReviewLine ? (
+                      <button
+                        type="button"
+                        className={styles.adjustLinkButton}
+                        onClick={() =>
+                          onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
+                        }
+                      >
+                        Adjust
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : isEventProduct ? (
               <div className={styles.eventProductHeader}>
                 <div className={styles.eventProductHeroWrap}>
                   {product.imageUrl ? (
@@ -6043,7 +6441,7 @@ function ShopSlideRenderer({
 
             {isExpanded ? (
               <div className={styles.sizeRows}>
-                {isEventProduct && eventDescription ? (
+                {isEventProduct && slideMode === "browse" && eventDescription ? (
                   <div className={styles.eventProductDetailsBox}>
                     {eventDescription}
                   </div>
@@ -6085,6 +6483,45 @@ function ShopSlideRenderer({
                       sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
                     : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
                 const isEventTicketLine = product.fulfillmentType === "ticket";
+
+                if (isEventTicketLine && slideMode === "review") {
+                  return (
+                    <div
+                      key={sizeOption.id}
+                      className={styles.sizeRowBlock}
+                      style={{ borderTopColor: theme.colors.border }}
+                    >
+                      <div className={styles.eventTicketCartLine}>
+                        <button
+                          type="button"
+                          className={styles.cartRemoveLink}
+                          onClick={() => onRemoveLine(product.id, sizeOption.id)}
+                        >
+                          Remove
+                        </button>
+                        <span className={styles.eventTicketCartType}>
+                          {sizeOption.label}
+                        </span>
+                        {resolvedLine?.purchaseModeLabel ? (
+                          <span className={styles.eventTicketCartMode}>
+                            {resolvedLine.purchaseModeLabel}
+                          </span>
+                        ) : null}
+                        <span>
+                          <strong>Quantity:</strong> {quantity}
+                        </span>
+                        <span>
+                          <strong>Line total:</strong>{" "}
+                          {formatCurrency(
+                            resolvedLine?.lineTotal ?? unitPrice * quantity,
+                            catalog.currencyCode
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={sizeOption.id}
@@ -6167,9 +6604,7 @@ function ShopSlideRenderer({
                         )}
                       </div>
                           {isEventTicketLine && slideMode === "review" ? (
-                            <div className={styles.ticketQuantityLocked}>
-                              Quantity locked before payment
-                            </div>
+                            <div aria-hidden="true" />
                           ) : (
                             <QuantityControl
                               quantity={quantity}
@@ -6294,48 +6729,76 @@ function ShopSlideRenderer({
       );
     })}
 
-      {slideMode === "review" ? (
-        <div className={styles.reviewTotals}>
-          {activeDiscountLabel && showDiscountTotal ? (
-            <div>
-              Discount: {activeDiscountLabel}
-              {String(activeDiscountLabel).toLowerCase().includes("questionnaire")
-                ? hasPhoneNote()
-                : null}
-            </div>
-          ) : null}
+    </div>
+  );
+}
 
-          {showDeliveryFee ? (
-            <div>
-              Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
-            </div>
-          ) : null}
+function ReviewTotalsRenderer({
+  catalog,
+  totalWeight,
+  deliveryFee,
+  discountTotal,
+  grandTotal,
+  ticketOwnerAddonBudgetTotal,
+  activeDiscountLabel,
+  showDeliveryFee,
+  showDiscountTotal,
+  showTotalWeight,
+}: {
+  catalog: ShopCatalog | null;
+  totalWeight: number;
+  deliveryFee: number;
+  discountTotal: number;
+  grandTotal: number;
+  ticketOwnerAddonBudgetTotal?: number;
+  activeDiscountLabel?: string;
+  showDeliveryFee?: boolean;
+  showDiscountTotal?: boolean;
+  showTotalWeight?: boolean;
+}) {
+  if (!catalog) {
+    return null;
+  }
 
-          {showDiscountTotal ? (
-            <div>
-              Discount total: -
-              {formatCurrency(discountTotal, catalog.currencyCode)}
-            </div>
-          ) : null}
-
-          {ticketOwnerAddonBudgetTotal && ticketOwnerAddonBudgetTotal > 0 ? (
-            <div>
-              Ticket owner add-on budgets:{" "}
-              {formatCurrency(ticketOwnerAddonBudgetTotal, catalog.currencyCode)}
-            </div>
-          ) : null}
-
-          {showTotalWeight ? (
-            <div>
-              Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
-            </div>
-          ) : null}
-
-          <div style={{ fontWeight: 700 }}>
-            Total due: {formatCurrency(grandTotal, catalog.currencyCode)}
-          </div>
+  return (
+    <div className={styles.reviewTotals}>
+      {activeDiscountLabel && showDiscountTotal ? (
+        <div>
+          Discount: {activeDiscountLabel}
+          {String(activeDiscountLabel).toLowerCase().includes("questionnaire")
+            ? hasPhoneNote()
+            : null}
         </div>
       ) : null}
+
+      {showDeliveryFee ? (
+        <div>
+          Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
+        </div>
+      ) : null}
+
+      {showDiscountTotal ? (
+        <div>
+          Discount total: -{formatCurrency(discountTotal, catalog.currencyCode)}
+        </div>
+      ) : null}
+
+      {ticketOwnerAddonBudgetTotal && ticketOwnerAddonBudgetTotal > 0 ? (
+        <div>
+          Ticket owner add-on budgets:{" "}
+          {formatCurrency(ticketOwnerAddonBudgetTotal, catalog.currencyCode)}
+        </div>
+      ) : null}
+
+      {showTotalWeight ? (
+        <div>
+          Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
+        </div>
+      ) : null}
+
+      <div style={{ fontWeight: 700 }}>
+        Total due: {formatCurrency(grandTotal, catalog.currencyCode)}
+      </div>
     </div>
   );
 }
