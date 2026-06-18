@@ -9,6 +9,7 @@ import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import {
   getInvitationShopCatalog,
+  getInvitationOrderCatalog,
   getMusicMerchShopCatalog,
 } from "@/lib/invitation/getInvitationShopCatalog";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
@@ -312,11 +313,13 @@ export async function getQuestionnaireBySlug(slug: string) {
   if (entry.slug === "invitation") {
     const shopCatalog = getInvitationShopCatalog();
     const musicMerchShopCatalog = getMusicMerchShopCatalog();
+    const orderCatalog = getInvitationOrderCatalog();
 
       resolvedVariables = {
       ...entry.variables,
       shopCatalog,
       musicMerchShopCatalog,
+      orderCatalog,
       deliveryConfig,
       discountDefinitions,
       mealMenus,

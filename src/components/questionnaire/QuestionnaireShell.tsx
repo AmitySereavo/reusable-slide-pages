@@ -33,6 +33,7 @@ import {
   QuestionnaireVariableValue,
   ShopCart,
   ShopCatalog,
+  ShopPurchaseRecipient,
   ShopResolvedCartLine,
   TicketAssignments,
   MealMenu,
@@ -63,6 +64,7 @@ import {
   removeShopLine,
   resolveShopSelectedLines,
   setShopLinePurchaseMode,
+  setShopLinePurchaseRecipients,
   setShopLineQuantity,
   summarizeDiscountedOrder,
   toggleShopLineSelected,
@@ -192,6 +194,7 @@ const CHECKOUT_DRAFT_KEYS = [
   "appliedDiscountCode",
   "invitationOrderRequestKey",
 ] as const;
+const CHECKOUT_RESERVATION_SECONDS = 25;
 
 function getCheckoutDraftStorageKey(questionnaireSlug: string) {
   return `questionnaire:${questionnaireSlug}:answers`;
@@ -308,6 +311,10 @@ function isInternalOnlyPurchaseMode(
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
+  const [
+    checkoutReservationSecondsRemaining,
+    setCheckoutReservationSecondsRemaining,
+  ] = useState(CHECKOUT_RESERVATION_SECONDS);
 
   useAccountProfileAutofill({ setAnswers });
 
@@ -1201,7 +1208,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   const sharedShopCatalog = useMemo(
-    () => getShopCatalog(mergedVariables, "shopCatalog"),
+    () =>
+      getShopCatalog(mergedVariables, "orderCatalog") ??
+      getShopCatalog(mergedVariables, "shopCatalog"),
     [mergedVariables]
   );
 
@@ -1219,6 +1228,21 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => applyDiscountToShopLines(sharedOrderBaseLines, activeDiscountDefinition),
     [sharedOrderBaseLines, activeDiscountDefinition]
   );
+
+  useEffect(() => {
+    if (config.slug !== CHECKOUT_DRAFT_SLUG || sharedOrderLines.length === 0) {
+      setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setCheckoutReservationSecondsRemaining((seconds) =>
+        Math.max(0, seconds - 1)
+      );
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [config.slug, sharedOrderLines.length]);
 
   const sharedTicketOrderLines = useMemo<ShopResolvedCartLine[]>(
     () =>
@@ -1701,6 +1725,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function setAnswer(key: string, value: QuestionnaireVariableValue) {
+    resetCheckoutReservation();
+
     if (
       currentSlide?.id &&
       marketingQuestionsConfig?.skipSlideIds?.includes(currentSlide.id)
@@ -1714,6 +1740,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function resetCheckoutReservation() {
+    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+      return;
+    }
+
+    setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
   }
 
   function getAllFormFieldNames() {
@@ -4096,6 +4130,9 @@ async function handleNext() {
                               ? sharedOrderLines
                               : currentShopSelectedLines
                           }
+                          reservationSecondsRemaining={
+                            checkoutReservationSecondsRemaining
+                          }
                           theme={theme}
                           answers={answers}
                           onToggleLine={(productId, sizeOptionId, selected) =>
@@ -4134,10 +4171,35 @@ async function handleNext() {
                               )
                             )
                           }
+                          onSetPurchaseRecipients={(
+                            productId,
+                            sizeOptionId,
+                            recipients
+                          ) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLinePurchaseRecipients(
+                                cart,
+                                currentShopCatalog,
+                                productId,
+                                sizeOptionId,
+                                recipients
+                              )
+                            )
+                          }
                           onRemoveLine={(productId, sizeOptionId) => {
                             if (currentSlide.shopMode === "review") {
                               if (sharedOrderLines.length <= 1) {
-                                goToTarget("invitation-shop");
+                                const targetLine = sharedOrderLines.find(
+                                  (line) =>
+                                    line.productId === productId &&
+                                    line.sizeOptionId === sizeOptionId
+                                );
+
+                                goToTarget(
+                                  targetLine?.fulfillmentType === "ticket"
+                                    ? "invitation-shop"
+                                    : "music-merch-shop"
+                                );
                                 return;
                               }
                             }
@@ -4149,6 +4211,15 @@ async function handleNext() {
                           onAdjustLine={(productId, sizeOptionId) => {
                             if (currentSlide.shopMode === "review") {
                               const targetKey = `${productId}::${sizeOptionId}`;
+                              const targetLine = sharedOrderLines.find(
+                                (line) =>
+                                  line.productId === productId &&
+                                  line.sizeOptionId === sizeOptionId
+                              );
+                              const targetShop =
+                                targetLine?.fulfillmentType === "ticket"
+                                  ? "invitation-shop"
+                                  : "music-merch-shop";
 
                               setAnswers((prev) => ({
                                 ...prev,
@@ -4156,7 +4227,7 @@ async function handleNext() {
                                 cartReturnTarget: "review-order",
                               }));
 
-                              goToTarget("invitation-shop");
+                              goToTarget(targetShop);
                             }
                           }}
                         />
@@ -4208,7 +4279,7 @@ async function handleNext() {
                             setAnswer("cartReturnTarget", "");
                             goToTarget("meal-selection");
                           }}
-                          onChooseAddOns={() => goToTarget("invitation-shop")}
+                          onChooseAddOns={() => goToTarget("music-merch-shop")}
                         />
                       ) : null}
 
@@ -5707,6 +5778,56 @@ function cleanCartMealLabel(label: string) {
     .trim();
 }
 
+function updatePurchaseRecipient(
+  recipients: ShopPurchaseRecipient[],
+  index: number,
+  field: keyof ShopPurchaseRecipient,
+  value: string | number
+) {
+  return recipients.map((recipient, currentIndex) =>
+    currentIndex === index
+      ? {
+          ...recipient,
+          [field]: value,
+        }
+      : recipient
+  );
+}
+
+function removePurchaseRecipient(
+  recipients: ShopPurchaseRecipient[],
+  index: number
+) {
+  return recipients.filter((_, currentIndex) => currentIndex !== index);
+}
+
+function countValidPurchaseRecipients(recipients: ShopPurchaseRecipient[]) {
+  return recipients.filter(
+    (recipient) => isPurchaseRecipientComplete(recipient)
+  ).reduce(
+    (sum, recipient) => sum + getPurchaseRecipientQuantity(recipient),
+    0
+  );
+}
+
+function isPurchaseRecipientComplete(recipient: ShopPurchaseRecipient) {
+  return (
+    recipient.name.trim().length > 0 &&
+    isValidTicketOwnerEmail(recipient.email)
+  );
+}
+
+function getCompletedPurchaseRecipients(recipients: ShopPurchaseRecipient[]) {
+  return recipients.filter((recipient) => isPurchaseRecipientComplete(recipient));
+}
+
+function getPurchaseRecipientQuantity(recipient: ShopPurchaseRecipient) {
+  return typeof recipient.quantity === "number" &&
+    Number.isFinite(recipient.quantity)
+    ? Math.max(1, Math.floor(recipient.quantity))
+    : 1;
+}
+
 function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
   return lines
     .map((line) => {
@@ -6153,11 +6274,13 @@ function ShopSlideRenderer({
   catalog,
   cart,
   selectedLines,
+  reservationSecondsRemaining,
   theme,
   answers,
   onToggleLine,
   onSetQuantity,
   onSetPurchaseMode,
+  onSetPurchaseRecipients,
   onRemoveLine,
   onAdjustLine,
 }: {
@@ -6166,6 +6289,7 @@ function ShopSlideRenderer({
   catalog: ShopCatalog | null;
   cart: ShopCart;
   selectedLines: ShopResolvedCartLine[];
+  reservationSecondsRemaining: number;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
   onToggleLine: (
@@ -6182,6 +6306,11 @@ function ShopSlideRenderer({
     productId: string,
     sizeOptionId: string,
     purchaseModeId?: string
+  ) => void;
+  onSetPurchaseRecipients: (
+    productId: string,
+    sizeOptionId: string,
+    recipients: ShopPurchaseRecipient[]
   ) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
   onAdjustLine?: (productId: string, sizeOptionId: string) => void;
@@ -6246,6 +6375,24 @@ function ShopSlideRenderer({
     <div className={styles.shopStack}>
       {slideMode === "review" && title ? (
         <h2 className={styles.cartTitle}>{title}</h2>
+      ) : null}
+
+      {selectedLines.length > 0 ? (
+        <div className={styles.checkoutReservationNotice}>
+          {reservationSecondsRemaining > 0 ? (
+            <>
+              Items are reserved.
+              <br />
+              They will return to shop stock in {reservationSecondsRemaining} seconds.
+            </>
+          ) : (
+            <>
+              The items you selected previously have returned to shop stock.
+              <br />
+              There&apos;s a chance they might not be available.
+            </>
+          )}
+        </div>
       ) : null}
 
       {products.map((product) => {
@@ -6472,6 +6619,45 @@ function ShopSlideRenderer({
                 const selected =
                   slideMode === "review" ? true : cartLine?.selected === true;
                 const quantity = Math.max(1, cartLine?.quantity ?? 1);
+                const purchaseRecipients =
+                  cartLine?.purchaseRecipients ??
+                  resolvedLine?.purchaseRecipients ??
+                  [];
+                const recipientLimit = Math.max(
+                  0,
+                  product.maxPurchaseForOthers ?? quantity
+                );
+                const latestRecipient =
+                  purchaseRecipients.length > 0 ? purchaseRecipients[0] : null;
+                const canAddPurchaseRecipient =
+                  purchaseRecipients.length < recipientLimit &&
+                  (!latestRecipient ||
+                    isPurchaseRecipientComplete(latestRecipient));
+                const productMinQuantity = product.minOrderQuantity ?? 1;
+                const productMaxQuantity = product.maxOrderQuantity;
+                const recipientMinQuantity = product.minRecipientQuantity ?? 1;
+                const recipientMaxQuantity = product.maxRecipientQuantity;
+                const recipientReservedQuantity =
+                  countValidPurchaseRecipients(purchaseRecipients);
+                const minimumQuantity =
+                  Math.max(
+                    productMinQuantity,
+                    recipientReservedQuantity > 0
+                      ? recipientReservedQuantity
+                      : 1
+                  );
+                const accountHolderQuantity = Math.max(
+                  0,
+                  quantity - recipientReservedQuantity
+                );
+                const completedPurchaseRecipients =
+                  getCompletedPurchaseRecipients(purchaseRecipients);
+                const accountHolderName =
+                  String(answers.fullName ?? "").trim() || "you";
+                const spotsRemaining =
+                  productMaxQuantity !== undefined
+                    ? Math.max(0, productMaxQuantity - quantity)
+                    : undefined;
                 const activePurchaseMode =
                   sizeOption.purchaseModes?.find(
                     (mode) => mode.id === cartLine?.purchaseModeId
@@ -6505,6 +6691,11 @@ function ShopSlideRenderer({
                         {resolvedLine?.purchaseModeLabel ? (
                           <span className={styles.eventTicketCartMode}>
                             {resolvedLine.purchaseModeLabel}
+                          </span>
+                        ) : null}
+                        {resolvedLine?.sku ? (
+                          <span className={styles.eventTicketCartMode}>
+                            SKU: {resolvedLine.sku}
                           </span>
                         ) : null}
                         <span>
@@ -6608,6 +6799,8 @@ function ShopSlideRenderer({
                           ) : (
                             <QuantityControl
                               quantity={quantity}
+                              minQuantity={minimumQuantity}
+                              maxQuantity={productMaxQuantity}
                               disabled={slideMode === "browse" ? !selected : false}
                               onDecrease={() =>
                                 onSetQuantity(product.id, sizeOption.id, quantity - 1)
@@ -6619,6 +6812,38 @@ function ShopSlideRenderer({
                             />
                           )}
                     </div>
+
+                    {slideMode === "browse" &&
+                    selected &&
+                    product.enablePurchaseForOthers &&
+                    completedPurchaseRecipients.length > 0 ? (
+                      <div className={styles.accountHolderQuantityHint}>
+                        <div>
+                          {accountHolderQuantity} will be sent to you
+                          {accountHolderName ? ` (${accountHolderName})` : ""}.
+                        </div>
+                        {completedPurchaseRecipients.map((recipient, index) => {
+                          const recipientQuantity =
+                            getPurchaseRecipientQuantity(recipient);
+
+                          return (
+                            <div
+                              key={`${product.id}-${sizeOption.id}-allocation-${index}`}
+                            >
+                              {recipientQuantity} will be sent to{" "}
+                              {recipient.name.trim()}.
+                            </div>
+                          );
+                        })}
+                        {productMaxQuantity ? (
+                          <div className={styles.spotsRemainingLine}>
+                            {spotsRemaining} spot
+                            {spotsRemaining === 1 ? "" : "s"} remaining.
+                            Maximum {productMaxQuantity} per order.
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     {slideMode === "browse" &&
                     sizeOption.purchaseModes?.length &&
@@ -6663,8 +6888,188 @@ function ShopSlideRenderer({
                     </div>
                   ) : null}
 
+                  {slideMode === "browse" &&
+                  product.enablePurchaseForOthers &&
+                  selected ? (
+                    <div className={styles.purchaseForOthersPanel}>
+                      <button
+                        type="button"
+                        className={styles.purchaseForSomeoneButton}
+                        onClick={() =>
+                          onSetPurchaseRecipients(product.id, sizeOption.id, [
+                            {
+                              name: "",
+                              email: "",
+                              quantity: recipientMinQuantity,
+                              note: "",
+                            },
+                            ...purchaseRecipients,
+                          ])
+                        }
+                        disabled={!canAddPurchaseRecipient}
+                      >
+                        + Purchase for someone
+                      </button>
+                      <div className={styles.purchaseForOthersHint}>
+                        You can add up to {recipientLimit} people.
+                      </div>
+
+                      {purchaseRecipients.length >= recipientLimit ? (
+                        <div className={styles.purchaseForOthersLimit}>
+                          Recipient limit reached for this item.
+                        </div>
+                      ) : null}
+                      {latestRecipient &&
+                      !isPurchaseRecipientComplete(latestRecipient) ? (
+                        <div className={styles.purchaseForOthersLimit}>
+                          Add the newest recipient&apos;s name and valid email before
+                          adding another recipient.
+                        </div>
+                      ) : null}
+
+                      {purchaseRecipients.map((recipient, index) => (
+                        <div
+                          key={`${product.id}-${sizeOption.id}-recipient-${index}`}
+                          className={styles.purchaseRecipientFields}
+                        >
+                          {(() => {
+                            const recipientIsComplete =
+                              isPurchaseRecipientComplete(recipient);
+                            const recipientQuantity =
+                              getPurchaseRecipientQuantity(recipient);
+
+                            return (
+                              <>
+                          <input
+                            className={styles.input}
+                            value={recipient.name}
+                            onChange={(event) =>
+                              onSetPurchaseRecipients(
+                                product.id,
+                                sizeOption.id,
+                                updatePurchaseRecipient(
+                                  purchaseRecipients,
+                                  index,
+                                  "name",
+                                  event.target.value
+                                )
+                              )
+                            }
+                            placeholder="Recipient name (required)"
+                            style={{ borderColor: theme.colors.border }}
+                          />
+                          <input
+                            className={styles.input}
+                            type="email"
+                            value={recipient.email}
+                            onChange={(event) =>
+                              onSetPurchaseRecipients(
+                                product.id,
+                                sizeOption.id,
+                                updatePurchaseRecipient(
+                                  purchaseRecipients,
+                                  index,
+                                  "email",
+                                  event.target.value
+                                )
+                              )
+                            }
+                            placeholder="Recipient email address (required)"
+                            style={{ borderColor: theme.colors.border }}
+                          />
+                          <input
+                            className={styles.input}
+                            value={recipient.note ?? ""}
+                            onChange={(event) =>
+                              onSetPurchaseRecipients(
+                                product.id,
+                                sizeOption.id,
+                                updatePurchaseRecipient(
+                                  purchaseRecipients,
+                                  index,
+                                  "note",
+                                  event.target.value
+                                )
+                              )
+                            }
+                            placeholder="Small note (optional)"
+                            style={{ borderColor: theme.colors.border }}
+                          />
+                          <div className={styles.recipientQuantityBlock}>
+                            <QuantityControl
+                              quantity={recipientQuantity}
+                              minQuantity={recipientMinQuantity}
+                              maxQuantity={recipientMaxQuantity}
+                              disabled={!recipientIsComplete}
+                              onDecrease={() =>
+                                onSetPurchaseRecipients(
+                                  product.id,
+                                  sizeOption.id,
+                                  updatePurchaseRecipient(
+                                    purchaseRecipients,
+                                    index,
+                                    "quantity",
+                                    recipientQuantity - 1
+                                  )
+                                )
+                              }
+                              onIncrease={() =>
+                                onSetPurchaseRecipients(
+                                  product.id,
+                                  sizeOption.id,
+                                  updatePurchaseRecipient(
+                                    purchaseRecipients,
+                                    index,
+                                    "quantity",
+                                    recipientQuantity + 1
+                                  )
+                                )
+                              }
+                              theme={theme}
+                            />
+                            {recipientIsComplete ? (
+                              <div className={styles.purchaseForOthersHint}>
+                                {recipientQuantity} item
+                                {recipientQuantity === 1 ? "" : "s"} reserved
+                                for {recipient.name.trim()}.
+                              </div>
+                            ) : (
+                              <div className={styles.purchaseForOthersHint}>
+                                Add a name and valid email to reserve items for
+                                this recipient.
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.cartRemoveLink}
+                            onClick={() =>
+                              onSetPurchaseRecipients(
+                                product.id,
+                                sizeOption.id,
+                                removePurchaseRecipient(
+                                  purchaseRecipients,
+                                  index
+                                )
+                              )
+                            }
+                          >
+                            Remove recipient
+                          </button>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   {slideMode === "review" ? (
                     <div className={styles.reviewMetaRow}>
+                      {resolvedLine?.sku ? (
+                        <span>SKU: {resolvedLine.sku}</span>
+                      ) : null}
+
                       {resolvedLine?.purchaseModeLabel ? (
                         <span>{resolvedLine.purchaseModeLabel}</span>
                       ) : null}
@@ -6699,11 +7104,26 @@ function ShopSlideRenderer({
                       </span>
                     </div>
                   ) : null}
+
+                  {slideMode === "review" &&
+                  purchaseRecipients.length > 0 ? (
+                    <div className={styles.purchaseForOthersReview}>
+                      <strong>Purchased for</strong>
+                      {purchaseRecipients.map((recipient, index) => (
+                        <div key={`${product.id}-${sizeOption.id}-review-${index}`}>
+                          {getPurchaseRecipientQuantity(recipient)} for{" "}
+                          {recipient.name || "Recipient"}{" "}
+                          {recipient.email ? `(${recipient.email})` : ""}
+                          {recipient.note ? ` - ${recipient.note}` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
               })}
 
-                {isEventProduct && slideMode === "browse" ? (
+                {slideMode === "browse" ? (
                   <div className={styles.eventProductBottomActions}>
                     <button
                       type="button"
@@ -6805,12 +7225,16 @@ function ReviewTotalsRenderer({
 
 function QuantityControl({
   quantity,
+  minQuantity = 1,
+  maxQuantity,
   disabled,
   onDecrease,
   onIncrease,
   theme,
 }: {
   quantity: number;
+  minQuantity?: number;
+  maxQuantity?: number;
   disabled: boolean;
   onDecrease: () => void;
   onIncrease: () => void;
@@ -6820,7 +7244,7 @@ function QuantityControl({
     <div className={styles.quantityControl}>
       <button
         type="button"
-        disabled={disabled || quantity <= 1}
+        disabled={disabled || quantity <= minQuantity}
         onClick={onDecrease}
         className={styles.quantityButton}
         style={{ borderColor: theme.colors.border }}
@@ -6830,7 +7254,7 @@ function QuantityControl({
       <span className={styles.quantityValue}>{quantity}</span>
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || (maxQuantity !== undefined && quantity >= maxQuantity)}
         onClick={onIncrease}
         className={styles.quantityButton}
         style={{ borderColor: theme.colors.border }}

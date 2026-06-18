@@ -155,6 +155,39 @@ BR
 @actionbartextcolor: #1f1f1f
 @back: Back
 @next: Checkout
+@choiceplacement: inline
+---
+BR
+[c3] Buying music or merch without tickets?
+@choices:
+- music-merch|Open music and merch shop|music-merch-shop|secondary
+
+===
+// MUSIC AND MERCH SHOP
+@id: music-merch-shop
+@type: shop
+@store: orderCart
+@catalog: musicMerchShopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Checkout
+@choiceplacement: inline
+---
+BR
+# [c1] Music and Merch
+BR
+[c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
+[c3] Physical items are currently set up for event collection while we test the flow.
+@choices:
+- tickets|Back to tickets|invitation-shop|secondary
 
 ===
 // TICKET DETAILS
@@ -285,7 +318,7 @@ BR
 @type: shop
 @title: Cart
 @store: orderCart
-@catalog: shopCatalog
+@catalog: orderCatalog
 @shopmode: review
 @syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)

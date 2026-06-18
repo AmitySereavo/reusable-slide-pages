@@ -11,6 +11,7 @@ import {
   FulfillmentType,
   ShopMealSelectionRequirement,
   ShopPurchaseMode,
+  ShopPurchaseRecipient,
   ShopResolvedCartLine,
 } from "@/types/questionnaire";
 
@@ -265,10 +266,18 @@ export function normalizeShopCart(input: unknown): ShopCart {
       continue;
     }
 
-    const quantity = normalizePositiveInteger(raw.quantity, 1);
     const selected = raw.selected === true;
     const purchaseModeId =
       typeof raw.purchaseModeId === "string" ? raw.purchaseModeId : undefined;
+    const purchaseRecipients = normalizeShopPurchaseRecipients(
+      raw.purchaseRecipients
+    );
+    const minQuantity =
+      getMinimumQuantityForPurchaseRecipients(purchaseRecipients);
+    const quantity = Math.max(
+      minQuantity,
+      normalizePositiveInteger(raw.quantity, minQuantity)
+    );
 
     normalized[key] = {
       productId,
@@ -276,6 +285,7 @@ export function normalizeShopCart(input: unknown): ShopCart {
       selected,
       quantity,
       purchaseModeId,
+      purchaseRecipients,
     };
   }
 
@@ -300,6 +310,7 @@ export function toggleShopLineSelected(
     selected,
     quantity: nextQuantity,
     purchaseModeId: current?.purchaseModeId ?? defaultPurchaseModeId,
+    purchaseRecipients: current?.purchaseRecipients,
   };
 
   return {
@@ -317,7 +328,16 @@ export function setShopLineQuantity(
 ): ShopCart {
   const key = makeShopLineKey(productId, sizeOptionId);
   const current = cart[key];
-  const nextQuantity = normalizePositiveInteger(quantity, 1);
+  const quantityRules = getProductQuantityRules(catalog, productId);
+  const minQuantity = Math.max(
+    quantityRules.minOrderQuantity,
+    getMinimumQuantityForPurchaseRecipients(current?.purchaseRecipients)
+  );
+  const nextQuantity = clampQuantity(
+    normalizePositiveInteger(quantity, minQuantity),
+    minQuantity,
+    quantityRules.maxOrderQuantity
+  );
   return {
     ...cart,
     [key]: {
@@ -326,6 +346,7 @@ export function setShopLineQuantity(
       selected: current?.selected ?? true,
       quantity: nextQuantity,
       purchaseModeId: current?.purchaseModeId,
+      purchaseRecipients: current?.purchaseRecipients,
     },
   };
 }
@@ -347,8 +368,141 @@ export function setShopLinePurchaseMode(
       selected: current?.selected ?? true,
       quantity: normalizePositiveInteger(current?.quantity, 1),
       purchaseModeId,
+      purchaseRecipients: current?.purchaseRecipients,
     },
   };
+}
+
+export function setShopLinePurchaseRecipients(
+  cart: ShopCart,
+  catalog: ShopCatalog | null,
+  productId: string,
+  sizeOptionId: string,
+  purchaseRecipients: ShopPurchaseRecipient[]
+): ShopCart {
+  const key = makeShopLineKey(productId, sizeOptionId);
+  const current = cart[key];
+  const quantityRules = getProductQuantityRules(catalog, productId);
+  const normalizedRecipients = purchaseRecipients.map((recipient) => ({
+    ...recipient,
+    quantity: clampQuantity(
+      normalizePositiveInteger(recipient.quantity, quantityRules.minRecipientQuantity),
+      quantityRules.minRecipientQuantity,
+      quantityRules.maxRecipientQuantity
+    ),
+  }));
+  const previousReservedRecipientQuantity = countValidShopPurchaseRecipients(
+    current?.purchaseRecipients
+  );
+  const nextReservedRecipientQuantity =
+    countValidShopPurchaseRecipients(normalizedRecipients);
+  const currentQuantity = normalizePositiveInteger(current?.quantity, 1);
+  const minQuantity = Math.max(
+    quantityRules.minOrderQuantity,
+    nextReservedRecipientQuantity > 0 ? nextReservedRecipientQuantity : 1
+  );
+  const recipientQuantityDelta =
+    nextReservedRecipientQuantity - previousReservedRecipientQuantity;
+  const nextQuantity = clampQuantity(
+    currentQuantity + recipientQuantityDelta,
+    minQuantity,
+    quantityRules.maxOrderQuantity
+  );
+
+  return {
+    ...cart,
+    [key]: {
+      productId,
+      sizeOptionId,
+      selected: current?.selected ?? true,
+      quantity: nextQuantity,
+      purchaseModeId: current?.purchaseModeId,
+      purchaseRecipients: normalizedRecipients,
+    },
+  };
+}
+
+function normalizeShopPurchaseRecipients(
+  input: unknown
+): ShopPurchaseRecipient[] | undefined {
+  if (!Array.isArray(input)) {
+    return undefined;
+  }
+
+  const recipients = input
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const name = typeof record.name === "string" ? record.name : "";
+      const email = typeof record.email === "string" ? record.email : "";
+      const quantity = normalizePositiveInteger(record.quantity, 1);
+      const note = typeof record.note === "string" ? record.note : "";
+
+      return {
+        name,
+        email,
+        quantity,
+        note,
+      };
+    })
+    .filter(Boolean) as ShopPurchaseRecipient[];
+
+  return recipients.length ? recipients : undefined;
+}
+
+function getMinimumQuantityForPurchaseRecipients(
+  recipients: ShopPurchaseRecipient[] | undefined
+) {
+  const validRecipientQuantity = countValidShopPurchaseRecipients(recipients);
+  return validRecipientQuantity > 0 ? validRecipientQuantity : 1;
+}
+
+function getProductQuantityRules(
+  catalog: ShopCatalog | null,
+  productId: string
+) {
+  const product = findShopProduct(catalog, productId);
+
+  return {
+    minOrderQuantity: product?.minOrderQuantity ?? 1,
+    maxOrderQuantity: product?.maxOrderQuantity,
+    minRecipientQuantity: product?.minRecipientQuantity ?? 1,
+    maxRecipientQuantity: product?.maxRecipientQuantity,
+  };
+}
+
+function clampQuantity(value: number, min: number, max?: number) {
+  const normalizedMin = Math.max(1, Math.floor(min));
+  const normalizedMax =
+    typeof max === "number" && Number.isFinite(max)
+      ? Math.max(normalizedMin, Math.floor(max))
+      : undefined;
+  const normalizedValue = Math.max(normalizedMin, Math.floor(value));
+
+  return normalizedMax !== undefined
+    ? Math.min(normalizedValue, normalizedMax)
+    : normalizedValue;
+}
+
+function countValidShopPurchaseRecipients(
+  recipients: ShopPurchaseRecipient[] | undefined
+) {
+  if (!recipients?.length) {
+    return 0;
+  }
+
+  return recipients.filter(
+    (recipient) =>
+      recipient.name.trim().length > 0 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email.trim())
+  ).reduce(
+    (sum, recipient) =>
+      sum + normalizePositiveInteger(recipient.quantity, 1),
+    0
+  );
 }
 
 export function removeShopLine(
@@ -479,17 +633,26 @@ function resolveShopLine(
   return {
     lineKey,
     productId: product.id,
+    productSku: product.sku,
     productTitle: product.title,
-        productImageUrl: product.imageUrl,
+    productImageUrl: product.imageUrl,
     fulfillmentType: getProductFulfillmentType(product),
     requiresPhysicalFulfillment:
       getProductFulfillmentType(product) === "physical" ||
       purchaseMode?.requiresPhysicalFulfillment === true,
     sizeOptionId: sizeOption.id,
+    sizeOptionSku: sizeOption.sku,
     sizeLabel: sizeOption.label,
     quantity,
     purchaseModeId: purchaseMode?.id,
+    purchaseModeSku: purchaseMode?.sku,
     purchaseModeLabel: purchaseMode?.label,
+    sku:
+      purchaseMode?.sku ??
+      sizeOption.sku ??
+      product.sku ??
+      `${product.id}:${sizeOption.id}${purchaseMode?.id ? `:${purchaseMode.id}` : ""}`,
+    purchaseRecipients: line.purchaseRecipients,
     mealSelection,
     unitPrice,
     lineTotal: unitPrice * quantity,
@@ -589,6 +752,7 @@ function normalizeShopProduct(
 
   const record = input as Record<string, QuestionnaireVariableValue>;
   const id = typeof record.id === "string" ? record.id : undefined;
+  const sku = typeof record.sku === "string" ? record.sku : undefined;
   const title = typeof record.title === "string" ? record.title : undefined;
   const imageUrl =
     typeof record.imageUrl === "string" ? record.imageUrl : undefined;
@@ -628,6 +792,39 @@ function normalizeShopProduct(
     record.fulfillmentType === "ticket"
       ? record.fulfillmentType
       : undefined;
+  const enableStoreCreditPurchase =
+    typeof record.enableStoreCreditPurchase === "boolean"
+      ? record.enableStoreCreditPurchase
+      : undefined;
+  const enablePurchaseForOthers =
+    typeof record.enablePurchaseForOthers === "boolean"
+      ? record.enablePurchaseForOthers
+      : undefined;
+  const maxPurchaseForOthers =
+    typeof record.maxPurchaseForOthers === "number" &&
+    Number.isFinite(record.maxPurchaseForOthers)
+      ? Math.max(0, Math.floor(record.maxPurchaseForOthers))
+      : undefined;
+  const minOrderQuantity =
+    typeof record.minOrderQuantity === "number" &&
+    Number.isFinite(record.minOrderQuantity)
+      ? Math.max(1, Math.floor(record.minOrderQuantity))
+      : undefined;
+  const maxOrderQuantity =
+    typeof record.maxOrderQuantity === "number" &&
+    Number.isFinite(record.maxOrderQuantity)
+      ? Math.max(1, Math.floor(record.maxOrderQuantity))
+      : undefined;
+  const minRecipientQuantity =
+    typeof record.minRecipientQuantity === "number" &&
+    Number.isFinite(record.minRecipientQuantity)
+      ? Math.max(1, Math.floor(record.minRecipientQuantity))
+      : undefined;
+  const maxRecipientQuantity =
+    typeof record.maxRecipientQuantity === "number" &&
+    Number.isFinite(record.maxRecipientQuantity)
+      ? Math.max(1, Math.floor(record.maxRecipientQuantity))
+      : undefined;
   const sizeOptionsValue = record.sizeOptions;
 
   if (!id || !title || !Array.isArray(sizeOptionsValue)) {
@@ -640,6 +837,7 @@ function normalizeShopProduct(
 
   return {
     id,
+    sku,
     title,
     imageUrl,
     description,
@@ -649,6 +847,13 @@ function normalizeShopProduct(
     eventDateLabel,
     eventTimeLabel,
     fulfillmentType,
+    enableStoreCreditPurchase,
+    enablePurchaseForOthers,
+    maxPurchaseForOthers,
+    minOrderQuantity,
+    maxOrderQuantity,
+    minRecipientQuantity,
+    maxRecipientQuantity,
     sizeOptions,
   };
 }
@@ -662,6 +867,7 @@ function normalizeShopSizeOption(
 
   const record = input as Record<string, QuestionnaireVariableValue>;
   const id = typeof record.id === "string" ? record.id : undefined;
+  const sku = typeof record.sku === "string" ? record.sku : undefined;
   const label = typeof record.label === "string" ? record.label : undefined;
   const description =
     typeof record.description === "string" ? record.description : undefined;
@@ -687,6 +893,7 @@ function normalizeShopSizeOption(
 
     return {
       id,
+      sku,
       label,
       description,
       price,
@@ -736,6 +943,7 @@ function normalizeShopPurchaseMode(
 
   const record = input as Record<string, QuestionnaireVariableValue>;
   const id = typeof record.id === "string" ? record.id : undefined;
+  const sku = typeof record.sku === "string" ? record.sku : undefined;
   const label = typeof record.label === "string" ? record.label : undefined;
   const priceAdjustment =
     typeof record.priceAdjustment === "number" &&
@@ -756,6 +964,7 @@ function normalizeShopPurchaseMode(
 
   return {
     id,
+    sku,
     label,
     priceAdjustment,
     requiresPhysicalFulfillment,

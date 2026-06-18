@@ -2,6 +2,7 @@ import type { ShopCatalog } from "@/types/questionnaire";
 
 const ESCAPE_ALBUM_PURCHASE_MODE = {
   id: "standard-with-escape-album",
+  sku: "ADDON-ESC-DIGITAL",
   label: "Add Escape Album download",
   priceAdjustment: 12,
   requiresPhysicalFulfillment: false,
@@ -14,6 +15,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
     products: [
       {
         id: "ranny-williams-july-1-event",
+        sku: "EVENT-RW-JUL01",
         slug: "ranny-williams-july-1-event",
         fulfillmentType: "ticket",
         title: "Amity Sereavo Live",
@@ -29,6 +31,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
         sizeOptions: [
           {
             id: "ranny-williams-general-email-invitation",
+            sku: "TIX-RW-GA-EMAIL",
             label: "General Admission Invitation",
             description:
               "Use sent email along with your email address and ID to enter the event.",
@@ -42,6 +45,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-RW-GA-EMAIL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
@@ -51,6 +55,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
           },
           {
             id: "ranny-williams-general-physical-invitation",
+            sku: "TIX-RW-GA-PHYSICAL",
             label: "Physical-General Admission Invitation",
             description:
               "Official printed and signed letter sent to your mailing address.",
@@ -64,6 +69,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-RW-GA-PHYSICAL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: true,
@@ -76,6 +82,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
           },
           {
             id: "ranny-williams-vip-email-invitation",
+            sku: "TIX-RW-VIP-EMAIL",
             label: "VIP Invitation",
             description:
               "Use sent email along with your email address and ID to enter the event.",
@@ -89,6 +96,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-RW-VIP-EMAIL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
@@ -98,6 +106,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
           },
           {
             id: "ranny-williams-vip-physical-invitation",
+            sku: "TIX-RW-VIP-PHYSICAL",
             label: "Physical-VIP Invitation",
             description:
               "Official printed and signed letter sent to your mailing address.",
@@ -111,6 +120,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-RW-VIP-PHYSICAL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: true,
@@ -125,6 +135,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
       },
       {
         id: "phoenix-toronto-event",
+        sku: "EVENT-PHX-TOR",
         slug: "phoenix-toronto-event",
         fulfillmentType: "ticket",
         title: "Amity Sereavo Live, Toronto",
@@ -141,6 +152,7 @@ export function getInvitationShopCatalog(): ShopCatalog {
 sizeOptions: [
           {
             id: "phoenix-toronto-general-email-invitation",
+            sku: "TIX-PHX-GA-EMAIL",
             label: "General Admission Invitation",
             description:
               "Use sent email along with your email address and ID to enter the event.",
@@ -149,6 +161,7 @@ sizeOptions: [
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-PHX-GA-EMAIL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
@@ -158,6 +171,7 @@ sizeOptions: [
           },
           {
             id: "phoenix-toronto-general-physical-invitation",
+            sku: "TIX-PHX-GA-PHYSICAL",
             label: "Physical-General Admission Invitation",
             description:
               "Official printed and signed letter sent to your mailing address.",
@@ -166,6 +180,7 @@ sizeOptions: [
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-PHX-GA-PHYSICAL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: true,
@@ -178,6 +193,7 @@ sizeOptions: [
           },
           {
             id: "phoenix-toronto-vip-email-invitation",
+            sku: "TIX-PHX-VIP-EMAIL",
             label: "VIP Invitation",
             description:
               "Use sent email along with your email address and ID to enter the event.",
@@ -186,6 +202,7 @@ sizeOptions: [
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-PHX-VIP-EMAIL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
@@ -195,6 +212,7 @@ sizeOptions: [
           },
           {
             id: "phoenix-toronto-vip-physical-invitation",
+            sku: "TIX-PHX-VIP-PHYSICAL",
             label: "Physical-VIP Invitation",
             description:
               "Official printed and signed letter sent to your mailing address.",
@@ -203,6 +221,7 @@ sizeOptions: [
             purchaseModes: [
               {
                 id: "standard",
+                sku: "TIX-PHX-VIP-PHYSICAL",
                 label: "Standard",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: true,
@@ -226,8 +245,16 @@ export function getMusicMerchShopCatalog(): ShopCatalog {
     products: [
       {
         id: "escape-album-digital",
+        sku: "ALB-ESC-DIGITAL",
         slug: "escape-album-digital",
         fulfillmentType: "digital",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
         title: "Escape Album — Digital Download",
         imageUrl: "/media/invitation/Escape album artwork 640 by 640.jpg",
         description:
@@ -235,12 +262,14 @@ export function getMusicMerchShopCatalog(): ShopCatalog {
         sizeOptions: [
           {
             id: "escape-album-full-download",
+            sku: "ALB-ESC-DIGITAL",
             label: "Full Album Download",
             price: 12,
             weight: 0,
             purchaseModes: [
               {
                 id: "download-access",
+                sku: "ALB-ESC-DIGITAL",
                 label: "Email secure download access",
                 priceAdjustment: 0,
                 requiresPhysicalFulfillment: false,
@@ -249,6 +278,134 @@ export function getMusicMerchShopCatalog(): ShopCatalog {
           },
         ],
       },
+      {
+        id: "escape-album-physical",
+        sku: "ALB-ESC-PHYSICAL",
+        slug: "escape-album-physical",
+        fulfillmentType: "physical",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Escape Album - Physical Copy",
+        imageUrl: "/media/shop/escape-album-physical.svg",
+        description:
+          "Collect a physical Escape album copy at the event. Placeholder pricing for checkout-flow testing.",
+        sizeOptions: [
+          {
+            id: "escape-album-cd",
+            sku: "ALB-ESC-CD",
+            label: "CD",
+            price: 20,
+            weight: 0.25,
+          },
+          {
+            id: "escape-album-vinyl",
+            sku: "ALB-ESC-VINYL",
+            label: "Vinyl",
+            price: 35,
+            weight: 1.2,
+          },
+        ],
+      },
+      {
+        id: "amity-signature-tshirt",
+        sku: "MERCH-TEE-AS",
+        slug: "amity-signature-tshirt",
+        fulfillmentType: "physical",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Amity Sereavo Signature T-Shirt",
+        imageUrl: "/media/shop/amity-tshirt.svg",
+        description:
+          "Event merch placeholder for testing sizes, quantities, cart review, and pickup handling.",
+        sizeOptions: [
+          { id: "small", sku: "MERCH-TEE-AS-S", label: "Small", price: 28, weight: 0.45 },
+          { id: "medium", sku: "MERCH-TEE-AS-M", label: "Medium", price: 28, weight: 0.45 },
+          { id: "large", sku: "MERCH-TEE-AS-L", label: "Large", price: 28, weight: 0.45 },
+          { id: "x-large", sku: "MERCH-TEE-AS-XL", label: "X-Large", price: 30, weight: 0.5 },
+        ],
+      },
+      {
+        id: "amity-tote-bag",
+        sku: "MERCH-BAG-AS",
+        slug: "amity-tote-bag",
+        fulfillmentType: "physical",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Amity Sereavo Tote Bag",
+        imageUrl: "/media/shop/amity-tote.svg",
+        description:
+          "Reusable merch bag placeholder for testing physical add-on ordering.",
+        sizeOptions: [
+          { id: "standard", sku: "MERCH-BAG-AS-STD", label: "Standard Tote", price: 22, weight: 0.4 },
+        ],
+      },
+      {
+        id: "amity-armband",
+        sku: "MERCH-ARMBAND-AS",
+        slug: "amity-armband",
+        fulfillmentType: "physical",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Amity Sereavo Armband",
+        imageUrl: "/media/shop/amity-armband.svg",
+        description:
+          "Armband placeholder for testing small merchandise add-ons.",
+        sizeOptions: [
+          { id: "one-size", sku: "MERCH-ARMBAND-AS-OS", label: "One Size", price: 12, weight: 0.1 },
+        ],
+      },
+      {
+        id: "amity-hat",
+        sku: "MERCH-HAT-AS",
+        slug: "amity-hat",
+        fulfillmentType: "physical",
+        enableStoreCreditPurchase: true,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Amity Sereavo Hat",
+        imageUrl: "/media/shop/amity-hat.svg",
+        description:
+          "Hat placeholder for testing merch selection and event pickup.",
+        sizeOptions: [
+          { id: "dad-hat", sku: "MERCH-HAT-AS-DAD", label: "Dad Hat", price: 26, weight: 0.35 },
+          { id: "snapback", sku: "MERCH-HAT-AS-SNAP", label: "Snapback", price: 30, weight: 0.4 },
+        ],
+      },
     ],
+  };
+}
+
+export function getInvitationOrderCatalog(): ShopCatalog {
+  const ticketCatalog = getInvitationShopCatalog();
+  const musicMerchCatalog = getMusicMerchShopCatalog();
+
+  return {
+    currencyCode: ticketCatalog.currencyCode,
+    weightUnit: ticketCatalog.weightUnit,
+    products: [...ticketCatalog.products, ...musicMerchCatalog.products],
   };
 }

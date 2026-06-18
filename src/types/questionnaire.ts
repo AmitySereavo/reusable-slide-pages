@@ -64,6 +64,7 @@ export type ShopMealSelectionRequirement = {
 
 export type ShopPurchaseMode = {
   id: string;
+  sku?: string;
   label: string;
   priceAdjustment: number;
   requiresPhysicalFulfillment?: boolean;
@@ -72,6 +73,7 @@ export type ShopPurchaseMode = {
 
 export type ShopCatalogSizeOption = {
   id: string;
+  sku?: string;
   label: string;
   description?: string;
   price: number;
@@ -82,6 +84,7 @@ export type ShopCatalogSizeOption = {
 
 export type ShopCatalogProduct = {
   id: string;
+  sku?: string;
   slug?: string;
   title: string;
   imageUrl?: string;
@@ -92,6 +95,13 @@ export type ShopCatalogProduct = {
   eventDateLabel?: string;
   eventTimeLabel?: string;
   fulfillmentType?: FulfillmentType;
+  enableStoreCreditPurchase?: boolean;
+  enablePurchaseForOthers?: boolean;
+  maxPurchaseForOthers?: number;
+  minOrderQuantity?: number;
+  maxOrderQuantity?: number;
+  minRecipientQuantity?: number;
+  maxRecipientQuantity?: number;
   sizeOptions: ShopCatalogSizeOption[];
 };
 
@@ -204,6 +214,7 @@ export type ShopCartLine = {
   selected: boolean;
   quantity: number;
   purchaseModeId?: string;
+  purchaseRecipients?: ShopPurchaseRecipient[];
   unitPriceOverride?: number;
   compareAtUnitPrice?: number;
   discountLabel?: string;
@@ -214,18 +225,30 @@ export type ShopCartLine = {
 
 export type ShopCart = Record<string, ShopCartLine>;
 
+export type ShopPurchaseRecipient = {
+  name: string;
+  email: string;
+  quantity?: number;
+  note?: string;
+};
+
 export type ShopResolvedCartLine = {
   lineKey: string;
   productId: string;
+  productSku?: string;
   productTitle: string;
   productImageUrl?: string;
   sizeOptionId: string;
+  sizeOptionSku?: string;
   sizeLabel: string;
   quantity: number;
   fulfillmentType?: FulfillmentType;
   requiresPhysicalFulfillment?: boolean;
   purchaseModeId?: string;
+  purchaseModeSku?: string;
   purchaseModeLabel?: string;
+  sku?: string;
+  purchaseRecipients?: ShopPurchaseRecipient[];
   mealSelection?: ShopMealSelectionRequirement;
   unitPrice: number;
   lineTotal: number;
