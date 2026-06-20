@@ -283,6 +283,24 @@ export const verificationContent = {
         },
       },
     },
+    purchaseRecipientInvite: {
+      link: {
+        email: {
+          subject: ({ purchaserName }) =>
+            purchaserName
+              ? `${purchaserName} wants to add you as a purchase recipient`
+              : "Confirm purchase recipient access",
+          getText: ({ verifyUrl, recipientName, purchaserName }) =>
+            `${greetingText(recipientName)}${
+              purchaserName || "Someone"
+            } wants to add you to their verified recipient list so they can buy selected items for you.\n\nConfirm or correct your details here: ${verifyUrl}\n\nOnly after you accept can they select your name while purchasing in the store. If you did not expect this, you can ignore this email.`,
+          getHtml: ({ verifyUrl, recipientName, purchaserName }) =>
+            `${greetingHtml(recipientName)}<p>${
+              escapeHtml(purchaserName || "Someone")
+            } wants to add you to their verified recipient list so they can buy selected items for you.</p><p>Confirm or correct your details here:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>Only after you accept can they select your name while purchasing in the store.</p><p>If you did not expect this, you can ignore this email.</p>`,
+        },
+      },
+    },
     
     passwordReset: {
       code: {

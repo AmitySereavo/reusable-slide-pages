@@ -308,13 +308,17 @@
 - Contact details slide comes before ticket details.
 - Logged-in user contact fields can autofill from account info.
 - First ticket can autofill from contact details.
+- Ticket store can select verified purchase-for-someone recipients.
+- Ticket details pulls ticket owner name/email from ticket-store recipient allocation.
+- Recipient-owned ticket rows are not overwritten by purchaser contact autofill.
+- Purchaser can review who each ticket was purchased for before checkout.
 - Purchaser can mark "this is my ticket."
 - Ticket owner name can be edited.
 - Ticket owner email can be edited.
 - Ticket owner phone/WhatsApp can be edited.
 - Individual ticket can be marked for email delivery.
 - Purchaser ticket can avoid same "you received a ticket" email behavior.
-- Email all tickets action direction remains compatible with future backend sending.
+- Ticket details does not show the removed "Email all tickets to owners" bulk button.
 - If one ticket email is wrong/missing, user can return and fix/send only that ticket later.
 - Required meal ticket forces meal selection.
 - Optional meal ticket can skip or select.
@@ -329,14 +333,70 @@
 
 ```txt
 - Shop browse still loads catalog.
+- Ticket store and music/merch store both write to the shared orderCart.
+- Ticket store checkout button shows full shared cart total.
+- Music/merch checkout button shows full shared cart total.
+- Cart side panel shows full shared cart total in the selected currency.
 - Product quantity updates still work.
 - Product size options still work.
 - Purchase mode selection still works.
+- Add to cart / Update cart is required before inventory reservation.
+- Reservation countdown appears in cart/review after items are in cart.
+- Reservation countdown does not cover left/right side panels.
+- Expired reservation message appears after countdown reaches zero.
 - Review order still shows correct selected lines.
 - Delivery fee still calculates when required.
+- Delivery fee displays in the selected/account currency.
 - Discount definitions still apply.
 - Digital/email-only orders can route without physical delivery.
 - Physical orders still require delivery/pickup/contact details as configured.
+- If shared cart contains ticket lines, checkout routes through ticket details before delivery/contact/review.
+```
+
+---
+
+## 19A. Purchase for others / verified recipients
+
+```txt
+- Account side panel includes Purchase for others.
+- Purchase for others slide lets logged-in user enter recipient name and email.
+- Recipient count is limited to 12 per purchaser account.
+- Submitting recipient sends an acceptance email link.
+- Acceptance page loads pending invite by token.
+- Acceptance page prefills name from purchaser-entered name.
+- Recipient can correct name before accepting.
+- Recipient can accept without phone or mailing address.
+- Acceptance page clearly says phone/address are optional now but required before physical products can be received.
+- Accepted recipient becomes VERIFIED.
+- VERIFIED recipient appears in the store purchase-for-someone select menu.
+- PENDING recipient does not appear in the store purchase-for-someone select menu.
+- Store hides purchase-for-someone section when purchaser has no verified recipients.
+- Music/merch store hides purchase-for-someone section when entered from ticket details Choose add ons.
+- Purchase-for-someone section shows "You can add up to [n] people for this item."
+- Store credit note is neutral text, not red.
+- Returned store credit restriction appears as a separate spaced line.
+- Allocation summary says "of this item" for purchaser and recipient quantities.
+- Max-order wording says "Maximum [n] of this item per order."
+- Recipient quantity controls update main item quantity.
+- Main item quantity cannot decrease below all recipient-reserved quantities.
+```
+
+---
+
+## 19B. Currency, store credit, and inventory dashboard
+
+```txt
+- Account side panel shows purchased store credit balance.
+- Account side panel shows returned store credit balance.
+- Account currency selector updates account preferred currency.
+- Guest shop currency selector updates shop/cart display currency.
+- USD, JMD, and GBP are available.
+- Dashboard currency section can show/edit exchange rates.
+- Shop products load from DB-backed reusable inventory when available.
+- Dashboard inventory section can seed/load product records.
+- Product SKUs and variant SKUs remain visible where expected.
+- Store-credit products appear in music/merch catalog.
+- Digital gift card product appears in music/merch catalog.
 ```
 
 ---

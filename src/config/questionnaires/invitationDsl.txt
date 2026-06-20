@@ -186,8 +186,6 @@ BR
 BR
 [c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
 [c3] Physical items are currently set up for event collection while we test the flow.
-@choices:
-- tickets|Back to tickets|invitation-shop|secondary
 
 ===
 // TICKET DETAILS

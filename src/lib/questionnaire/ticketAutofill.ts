@@ -21,6 +21,10 @@ export function prefillFirstTicketFromContact(
       return assignment;
     }
 
+    if (assignment.isPurchaserTicket === false) {
+      return assignment;
+    }
+
     if (assignment.purchaserContactPrefilled === true) {
       return assignment;
     }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">Store credit</title>
+  <desc id="desc">Simple green store credit card graphic.</desc>
+  <rect width="640" height="640" fill="#f7fbf3"/>
+  <rect x="86" y="170" width="468" height="300" rx="32" fill="#2f6f3e"/>
+  <rect x="120" y="220" width="160" height="22" rx="11" fill="#f7fbf3"/>
+  <circle cx="446" cy="284" r="46" fill="#f7fbf3"/>
+  <circle cx="492" cy="284" r="46" fill="#c8d9b0" opacity=".9"/>
+  <text x="126" y="350" fill="#f7fbf3" font-family="Arial, sans-serif" font-size="54" font-weight="700">$</text>
+  <rect x="126" y="388" width="300" height="18" rx="9" fill="#f7fbf3" opacity=".9"/>
+  <rect x="126" y="420" width="210" height="14" rx="7" fill="#f7fbf3" opacity=".65"/>
+</svg>

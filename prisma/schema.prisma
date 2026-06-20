@@ -246,6 +246,138 @@ model PlantShopSizeOptionPurchaseMode {
   @@index([sizeOptionId, active, sortOrder])
 }
 
+model ReusableShopProduct {
+  id         String  @id @default(cuid())
+  catalogKey String  @default("shopCatalog")
+  productId  String
+  sku        String?
+  slug       String?
+
+  title              String
+  description        String?
+  detailsDescription String?
+  imageUrl           String?
+
+  fulfillmentType String  @default("physical")
+  active          Boolean @default(true)
+  featured        Boolean @default(false)
+  sortOrder       Int     @default(0)
+
+  enableStoreCreditPurchase Boolean @default(false)
+  enablePurchaseForOthers   Boolean @default(false)
+  maxPurchaseForOthers      Int?
+  minOrderQuantity          Int?
+  maxOrderQuantity          Int?
+  minRecipientQuantity      Int?
+  maxRecipientQuantity      Int?
+
+  stockOnHand    Int @default(0)
+  stockReserved  Int @default(0)
+  stockAvailable Int @default(0)
+
+  eventVenueLabel String?
+  eventAddress    String?
+  eventDateLabel  String?
+  eventTimeLabel  String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sizeOptions ReusableShopSizeOption[]
+
+  @@unique([catalogKey, productId])
+  @@index([catalogKey, active, sortOrder])
+  @@index([sku])
+}
+
+model ReusableShopSizeOption {
+  id        String              @id @default(cuid())
+  productId String
+  product   ReusableShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  optionId    String
+  sku         String?
+  label       String
+  description String?
+
+  active    Boolean @default(true)
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  price  Decimal  @db.Decimal(10, 2)
+  weight Decimal? @db.Decimal(10, 3)
+
+  stockOnHand    Int @default(0)
+  stockReserved  Int @default(0)
+  stockAvailable Int @default(0)
+
+  mealSelection Json?
+  metadata      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseModes ReusableShopPurchaseMode[]
+  reservations  ReusableShopInventoryReservation[]
+
+  @@unique([productId, optionId])
+  @@index([productId, active, sortOrder])
+  @@index([sku])
+}
+
+model ReusableShopInventoryReservation {
+  id             String                 @id @default(cuid())
+  reservationKey String
+  catalogKey     String
+  lineKey        String
+  sizeOptionId   String
+  sizeOption     ReusableShopSizeOption @relation(fields: [sizeOptionId], references: [id], onDelete: Cascade)
+
+  quantity Int
+  status   String @default("ACTIVE")
+
+  expiresAt  DateTime
+  releasedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reservationKey, lineKey])
+  @@index([reservationKey, status])
+  @@index([expiresAt, status])
+  @@index([sizeOptionId, status])
+}
+
+model ReusableShopPurchaseMode {
+  id           String                 @id @default(cuid())
+  sizeOptionId String
+  sizeOption   ReusableShopSizeOption @relation(fields: [sizeOptionId], references: [id], onDelete: Cascade)
+
+  modeId      String
+  sku         String?
+  label       String
+  description String?
+
+  active    Boolean @default(true)
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  priceAdjustment             Decimal @default(0) @db.Decimal(10, 2)
+  requiresPhysicalFulfillment Boolean @default(false)
+
+  mealSelection Json?
+  metadata      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sizeOptionId, modeId])
+  @@index([sizeOptionId, active, sortOrder])
+  @@index([sku])
+}
+
 enum PlantKind {
   SEED
   SEEDLING
@@ -996,17 +1128,18 @@ model User {
   country String?
   city    String?
 
-  addressLine1   String?
-  addressLine2   String?
-  parishOrRegion String?
-  postalCode     String?
+  addressLine1          String?
+  addressLine2          String?
+  parishOrRegion        String?
+  postalCode            String?
+  preferredCurrencyCode String  @default("USD")
 
   emailVerifiedAt DateTime?
   phoneVerifiedAt DateTime?
 
   passwordUpdatedAt DateTime?
 
-  adminLevel Int @default(0)
+  adminLevel Int    @default(0)
   createdBy  String @default("user")
 
   createdAt DateTime @default(now())
@@ -1017,29 +1150,146 @@ model User {
   deletedAt           DateTime?
   deletionStatus      String?
 
-  sessions                  Session[]
-  verificationCodes         VerificationCode[]
-  verificationTokens        VerificationToken[]
-  passwordResetTokens       PasswordResetToken[]
-  passwordResetChallenges   PasswordResetChallenge[]
-  passwordResetAccessGrants PasswordResetAccessGrant[]
-  nameChanges               UserNameChange[]
-  emailAddresses            UserEmailAddress[]
-  purchasedInvitationOrders InvitationOrder[]             @relation("InvitationOrderPurchaser")
-  ownedInvitationTickets    InvitationOrderTicket[]       @relation("InvitationTicketOwner")
-  invitationTicketPayments  InvitationTicketPayment[]     @relation("InvitationTicketPaymentUser")
-  marketingQuestionAnswers  UserMarketingQuestionAnswer[]
-  videoProgressRecords      UserVideoProgress[]
-  purchasedItems            UserPurchasedItem[]
+  sessions                   Session[]
+  verificationCodes          VerificationCode[]
+  verificationTokens         VerificationToken[]
+  passwordResetTokens        PasswordResetToken[]
+  passwordResetChallenges    PasswordResetChallenge[]
+  passwordResetAccessGrants  PasswordResetAccessGrant[]
+  nameChanges                UserNameChange[]
+  emailAddresses             UserEmailAddress[]
+  purchasedInvitationOrders  InvitationOrder[]             @relation("InvitationOrderPurchaser")
+  ownedInvitationTickets     InvitationOrderTicket[]       @relation("InvitationTicketOwner")
+  invitationTicketPayments   InvitationTicketPayment[]     @relation("InvitationTicketPaymentUser")
+  marketingQuestionAnswers   UserMarketingQuestionAnswer[]
+  videoProgressRecords       UserVideoProgress[]
+  purchasedItems             UserPurchasedItem[]
+  storeCreditLedgerEntries   StoreCreditLedgerEntry[]
+  purchasedGiftClaims        StoreGiftClaim[]              @relation("StoreGiftClaimPurchaser")
+  recipientGiftClaims        StoreGiftClaim[]              @relation("StoreGiftClaimRecipient")
+  purchaseRecipients         PurchaseRecipient[]           @relation("PurchaseRecipientPurchaser")
+  acceptedPurchaseRecipients PurchaseRecipient[]           @relation("PurchaseRecipientUser")
+}
+
+model StoreCreditLedgerEntry {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount       Decimal @db.Decimal(10, 2)
+  currencyCode String  @default("USD")
+  creditType   String  @default("RETURNED")
+  reason       String
+  source       String?
+  sourceId     String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, currencyCode, creditType, createdAt])
+  @@index([source, sourceId])
+}
+
+model CurrencyExchangeRate {
+  id String @id @default(cuid())
+
+  baseCurrencyCode  String
+  quoteCurrencyCode String
+  rate              Decimal @db.Decimal(18, 8)
+
+  source            String  @default("manual")
+  autoUpdateEnabled Boolean @default(false)
+
+  effectiveAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([baseCurrencyCode, quoteCurrencyCode])
+  @@index([autoUpdateEnabled])
+}
+
+model StoreGiftClaim {
+  id String @id @default(cuid())
+
+  purchaserUserId String?
+  purchaserUser   User?   @relation("StoreGiftClaimPurchaser", fields: [purchaserUserId], references: [id], onDelete: SetNull)
+
+  recipientUserId String?
+  recipientUser   User?   @relation("StoreGiftClaimRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  recipientName  String
+  recipientEmail String
+
+  productId    String
+  sizeOptionId String
+  lineKey      String?
+  quantity     Int     @default(1)
+  amount       Decimal @db.Decimal(10, 2)
+  currencyCode String  @default("USD")
+
+  status        String    @default("PENDING")
+  claimToken    String    @unique
+  claimUrl      String?
+  claimBy       DateTime
+  claimedAt     DateTime?
+  expiredAt     DateTime?
+  creditedAt    DateTime?
+  orderSource   String?
+  orderSourceId String?
+  metadata      Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([purchaserUserId, status])
+  @@index([recipientEmail, status])
+  @@index([claimBy, status])
+}
+
+model PurchaseRecipient {
+  id String @id @default(cuid())
+
+  purchaserUserId String
+  purchaserUser   User   @relation("PurchaseRecipientPurchaser", fields: [purchaserUserId], references: [id], onDelete: Cascade)
+
+  recipientUserId String?
+  recipientUser   User?   @relation("PurchaseRecipientUser", fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  recipientName            String
+  recipientEmail           String
+  normalizedRecipientEmail String
+
+  confirmedName  String?
+  phone          String?
+  addressLine1   String?
+  addressLine2   String?
+  parishOrRegion String?
+  postalCode     String?
+
+  status             String    @default("PENDING")
+  inviteTokenHash    String    @unique
+  invitedAt          DateTime  @default(now())
+  inviteExpiresAt    DateTime
+  acceptedAt         DateTime?
+  lastReminderSentAt DateTime?
+  reminderCount      Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([purchaserUserId, normalizedRecipientEmail])
+  @@index([purchaserUserId, status])
+  @@index([normalizedRecipientEmail, status])
+  @@index([inviteExpiresAt, status])
 }
 
 model UserPurchasedItem {
-  id      String @id @default(cuid())
-  userId  String
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   itemKey String
-  status  String @default("ACTIVE")
+  status  String  @default("ACTIVE")
   source  String?
 
   purchasedAt DateTime  @default(now())
@@ -1204,10 +1454,10 @@ model Lead {
 }
 
 model InvitationOrder {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   questionnaireSlug String
-  orderCode         String @unique
-  orderRequestKey String? @unique
+  orderCode         String  @unique
+  orderRequestKey   String? @unique
 
   purchaserUserId String?
   purchaserUser   User?   @relation("InvitationOrderPurchaser", fields: [purchaserUserId], references: [id], onDelete: SetNull)
@@ -1270,9 +1520,9 @@ model InvitationOrderTicket {
   ownerEmail String?
   ownerPhone String?
 
-  ticketOwnerPaymentMode String @default("purchaser_pays_ticket_and_addons")
+  ticketOwnerPaymentMode String  @default("purchaser_pays_ticket_and_addons")
   ticketOwnerAddonBudget Decimal @default(0) @db.Decimal(10, 2)
-  status String @default("ACTIVE")
+  status                 String  @default("ACTIVE")
 
   mealMode       String?
   mealMenuId     String?

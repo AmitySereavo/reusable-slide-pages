@@ -12,6 +12,9 @@ import {
   getInvitationOrderCatalog,
   getMusicMerchShopCatalog,
 } from "@/lib/invitation/getInvitationShopCatalog";
+import { getReusableShopCatalog } from "@/lib/shop/getReusableShopCatalog";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
+import { getCurrencyRateMap } from "@/lib/currency/rates";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
@@ -284,7 +287,13 @@ export async function getQuestionnaireBySlug(slug: string) {
 
   if (!entry) return null;
 
-  let resolvedVariables = entry.variables;
+  const currencyRates = await getCurrencyRateMap("USD");
+  let resolvedVariables: QuestionnaireVariableMap = {
+    ...entry.variables,
+    supportedCurrencies: [...SUPPORTED_CURRENCIES],
+    currencyRates,
+    baseCurrencyCode: "USD",
+  };
 
   if (entry.slug === "seed") {
     const seedCampaign = await getSeedCampaignData();
@@ -299,6 +308,7 @@ export async function getQuestionnaireBySlug(slug: string) {
     );
 
     resolvedVariables = {
+      ...resolvedVariables,
       ...seedCampaign.variables,
       shopCatalog,
       deliveryConfig,
@@ -311,12 +321,27 @@ export async function getQuestionnaireBySlug(slug: string) {
   }
 
   if (entry.slug === "invitation") {
-    const shopCatalog = getInvitationShopCatalog();
-    const musicMerchShopCatalog = getMusicMerchShopCatalog();
-    const orderCatalog = getInvitationOrderCatalog();
+    const shopCatalog = await getReusableShopCatalog({
+      catalogKey: "invitationTickets",
+      currencyCode: "USD",
+      weightUnit: "lb",
+      fallback: getInvitationShopCatalog,
+    });
+    const musicMerchShopCatalog = await getReusableShopCatalog({
+      catalogKey: "musicMerch",
+      currencyCode: "USD",
+      weightUnit: "lb",
+      fallback: getMusicMerchShopCatalog,
+    });
+    const orderCatalog = await getReusableShopCatalog({
+      catalogKey: "invitationOrder",
+      currencyCode: "USD",
+      weightUnit: "lb",
+      fallback: getInvitationOrderCatalog,
+    });
 
       resolvedVariables = {
-      ...entry.variables,
+      ...resolvedVariables,
       shopCatalog,
       musicMerchShopCatalog,
       orderCatalog,

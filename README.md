@@ -25,6 +25,11 @@ It currently acts as a shared development ground for:
 - invitation / music / event flows
 - ticket and meal-selection flows
 - ticket owner portals
+- shared ticket/music/merch cart flow
+- verified purchase-for-others recipient flow
+- DB-backed reusable shop inventory
+- store credit and gift-claim groundwork
+- multi-currency shop/account display
 - digital album/download deliverables
 - purchased-item entitlement gates
 - synced timed lyrics / annotated text panels
@@ -200,6 +205,12 @@ The project has moved beyond a basic slide renderer. It now includes:
 - account entitlement checks through `UserPurchasedItem`
 - algorithm-created user accounts through `User.createdBy`
 - invitation ticket owner flows, meal selections, and ticket owner portals
+- shared cart across ticket and music/merch storefronts
+- verified purchase-for-others recipient list with email acceptance links
+- ticket-owner details generated from ticket-store recipient allocation
+- store credit balances split into purchased and returned credit
+- DB-backed reusable shop inventory, reservations, and dashboard inventory management
+- account/shop currency preference with USD, JMD, and GBP support
 - Escape album purchased-access gate and album deliverable slides
 - custom phrase capture from lyrics in Shop mode, routing to a custom merch starter slide
 
@@ -279,9 +290,13 @@ Current capabilities:
 - automatic lead-form bypass when known user/session exists
 - invitation/event shop
 - ticket/invitation purchase options
+- ticket-store purchase-for-someone selection using verified recipients
+- shared cart between ticket shop and music/merch shop through `orderCart`
+- checkout action labels showing the full shared cart total
 - event-card shop layout
 - ticket-owner details page
 - generated temporary ticket codes per selected ticket
+- ticket-owner rows prefilled from purchase-for-someone recipient allocation
 - optional ticket owner name, email, and WhatsApp/phone
 - required and optional per-ticket meal support
 - per-ticket meal selection instead of aggregate meal totals
@@ -294,6 +309,11 @@ Current capabilities:
 - digital album purchase options
 - physical-fulfillment-aware checkout routing
 - contact-only routing for digital/email-only orders
+- DB-backed reusable shop products, variants, inventory, and reservation holds
+- explicit Add to cart / Update cart button before stock reservation
+- sticky reservation countdown in cart/review
+- shop/account currency display using configured exchange rates
+- purchased and returned store-credit balance display in the account side panel
 - private file download API
 - reusable DSL download buttons
 - download started confirmation notice
@@ -692,6 +712,52 @@ The email should not include raw file links.
 ---
 
 ## Event and shop card layout direction
+
+The invitation flow currently has two browse storefronts that share the same
+cart:
+
+```txt
+invitation-shop
+-> ticket / invitation products
+
+music-merch-shop
+-> music, digital album, physical album, and merchandise products
+
+review-order
+-> combined cart review using orderCatalog
+```
+
+Both storefronts write to:
+
+```txt
+@store: orderCart
+```
+
+The combined review slide uses:
+
+```txt
+@catalog: orderCatalog
+```
+
+This lets the checkout button on either shop show the full shared cart total.
+If the shared cart contains ticket lines, checkout routes through ticket details
+before delivery/contact/review so ticket ownership can be reviewed.
+
+Purchase-for-someone is account-driven:
+
+```txt
+account side panel -> Purchase for others
+-> purchaser enters recipient name/email
+-> recipient receives accept link
+-> recipient confirms/corrects name
+-> phone/address remain optional until physical delivery is needed
+-> accepted recipients become selectable in ticket and merch stores
+```
+
+The ticket store uses the same verified-recipient selector as music/merch.
+Ticket details pulls owner name/email from the selected recipient allocation, so
+ticket details is mainly for review and adjustment rather than first-time
+assignment.
 
 Event/invitation products should use a rich event card layout.
 

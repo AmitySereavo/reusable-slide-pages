@@ -1,4 +1,5 @@
 import { getSessionFromCookie, touchSession } from "@/lib/auth/sessionServer";
+import { getUserStoreCreditBalance } from "@/lib/storeCredit/balance";
 
 export async function GET() {
   try {
@@ -13,6 +14,12 @@ export async function GET() {
 
     await touchSession(session.id);
 
+    const preferredCurrencyCode = session.user.preferredCurrencyCode || "USD";
+    const storeCreditBalance = await getUserStoreCreditBalance(
+      session.user.id,
+      preferredCurrencyCode
+    );
+
     return Response.json({
       authenticated: true,
       user: {
@@ -21,6 +28,11 @@ export async function GET() {
         email: session.user.email,
         phone: session.user.phone,
         adminLevel: session.user.adminLevel,
+        preferredCurrencyCode,
+        storeCreditBalance: storeCreditBalance.total,
+        storeCreditPurchasedBalance: storeCreditBalance.purchased,
+        storeCreditReturnedBalance: storeCreditBalance.returned,
+        storeCreditCurrencyCode: storeCreditBalance.currencyCode,
       },
     });
   } catch (error) {

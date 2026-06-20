@@ -75,7 +75,7 @@
   top: 16px;
   left: 16px;
   right: 16px;
-  z-index: 260;
+  z-index: 420;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -98,7 +98,7 @@
 .sidebarToggleButton,
 .menuButton {
   position: relative;
-  z-index: 280;
+  z-index: 440;
   min-width: 38px;
   min-height: 34px;
   border: 1px solid rgba(0, 0, 0, 0.16);
@@ -132,7 +132,7 @@
   position: fixed;
   top: 0;
   bottom: 0;
-  z-index: 220;
+  z-index: 320;
   width: var(--sidebar-width);
   min-width: 0;
   display: grid;
@@ -191,9 +191,52 @@
   font-size: 0.86rem;
   font-weight: 800;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.sidebarBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.sidebarTitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.accountMenuName {
+  display: grid;
+  gap: 3px;
+}
+
+.accountMenuCredit {
+  font-size: 0.76rem;
+  font-weight: 700;
+  opacity: 0.68;
+}
+
+.accountCurrencyControl {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.accountCurrencyControl select {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid rgba(32, 28, 29, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  padding: 4px 6px;
 }
 
 .sidebarLink,
@@ -208,6 +251,21 @@
   font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.accountMenuCartItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0;
+}
+
+.accountMenuCartItem span:last-child {
+  font-size: 0.84rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .sidebarLink {
@@ -1237,6 +1295,35 @@
   margin-top: 18px;
 }
 
+.shopCurrencyRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.shopCurrencySelect {
+  min-height: 34px;
+  border: 1px solid rgba(32, 28, 29, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.deliveryFeeLine {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border: 1px solid rgba(47, 111, 62, 0.18);
+  border-radius: 8px;
+  background: rgba(47, 111, 62, 0.08);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .cartTitle {
   margin: 0;
   font-size: 1.1rem;
@@ -1245,11 +1332,57 @@
   text-align: left;
 }
 
+.cartSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.cartSectionHeader span + span {
+  padding-left: 12px;
+  border-left: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.cartReviewSectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 8px 2px 4px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.cartReviewSectionHeading button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  opacity: 0.72;
+}
+
 .productPanel {
   border: 1px solid;
   border-radius: 18px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.72);
+}
+
+.cartProductPanel {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.cartProductPanel .sizeRowBlock:first-child {
+  border-top: 0;
 }
 
 .productPanelHeader {
@@ -1381,6 +1514,9 @@
 
 .eventProductBottomActions {
   display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   justify-content: center;
   padding: 16px 14px 18px;
 }
@@ -1476,13 +1612,21 @@
   white-space: nowrap;
 }
 
-.eventTicketCartLine {
+.eventTicketCartHeaderLine {
   display: grid;
-  grid-template-columns: auto minmax(140px, 1fr) minmax(88px, auto) minmax(88px, auto) auto auto;
-  gap: 12px;
-  align-items: center;
+  gap: 5px;
+  align-items: start;
   font-size: 14px;
   line-height: 1.45;
+  min-width: 0;
+}
+
+.eventTicketCartDetails {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .eventTicketCartType,
@@ -1495,7 +1639,7 @@
   opacity: 0.78;
 }
 
-.eventTicketCartLine strong {
+.eventTicketCartHeaderLine strong {
   font-weight: 700;
 }
 
@@ -1503,27 +1647,268 @@
   appearance: none;
   justify-self: start;
   padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.cartIconButton {
+  appearance: none;
+  justify-self: end;
+  padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 13px;
-  line-height: 1.3;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
   opacity: 0.66;
   cursor: pointer;
 }
 
-.cartRemoveLink:hover {
+.cartTrashIcon {
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  mask: url("/icons/ui/trash.svg") center / contain no-repeat;
+}
+
+.cartItemPanel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.cartItemPanel > .reviewMetaRow,
+.cartItemPanel > .purchaseForOthersReview,
+.cartItemFootnote {
+  grid-column: 1 / -1;
+}
+
+.cartItemTopBar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(113, 70, 255, 0.72);
+}
+
+.cartItemTopBar input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.cartItemCountdown {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  min-width: 0;
+  color: rgba(0, 0, 0, 0.42);
+  line-height: 1.1;
+}
+
+.cartItemCountdown strong {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.cartItemCountdown span {
+  font-size: 0.72rem;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.cartItemMain {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.cartItemMain .sizeRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 14px;
+  align-items: end;
+  min-width: 0;
+}
+
+.cartItemMain .sizeText {
+  grid-column: 1 / -1;
+}
+
+.cartItemMain .sizePrice {
+  grid-column: 1;
+  align-self: center;
+}
+
+.cartItemMain .quantityControl {
+  grid-column: 2;
+  justify-self: end;
+}
+
+.cartItemThumbnail {
+  width: 88px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.cartItemThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cartItemNameLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  font-size: 1.15rem;
+  line-height: 1.28;
+  font-weight: 400;
+}
+
+.cartTicketMealStack {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.cartTicketMealBlock {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid rgba(156, 121, 55, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 248, 235, 0.5);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.cartBundledAddOnsHeader {
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.cartTicketMealTopLine,
+.cartTicketMealLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.cartTicketMealLine span:first-child {
+  opacity: 0.72;
+}
+
+.cartTicketMealMeta,
+.cartTicketMealTotal {
+  opacity: 0.72;
+}
+
+.cartItemNameLine span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventTicketCartMeta {
+  display: grid;
+  gap: 3px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  opacity: 0.76;
+}
+
+.cartItemPriceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 0;
+  font-size: 1.04rem;
+}
+
+.cartItemFootnote {
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+  line-height: 1.35;
+  opacity: 0.72;
+}
+
+.cartUnavailablePanel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+}
+
+.cartUnavailableThumbnail {
+  width: 58px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
+  opacity: 0.58;
+}
+
+.cartUnavailableThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cartRemoveLink:hover,
+.cartIconButton:hover {
   opacity: 1;
 }
 
 @media (max-width: 760px) {
-  .eventTicketCartLine {
-    grid-template-columns: 1fr;
-    gap: 4px;
+  .cartItemPanel {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .cartItemMain {
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cartItemThumbnail {
+    width: 74px;
+  }
+
+  .cartItemNameLine {
+    font-size: 1rem;
   }
 }
 
@@ -1676,6 +2061,21 @@
   justify-self: start;
 }
 
+.addToCartButton {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.addToCartButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .sizeRows {
   display: grid;
 }
@@ -1788,6 +2188,14 @@
   opacity: 0.74;
 }
 
+.purchaseForOthersCreditNote {
+  display: grid;
+  gap: 8px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  opacity: 0.74;
+}
+
 .accountHolderQuantityHint {
   margin: 6px 0 0 28px;
   font-size: 0.82rem;
@@ -1801,11 +2209,9 @@
 }
 
 .checkoutReservationNotice {
-  position: sticky;
-  top: var(--sticky-progress-bottom);
-  z-index: 130;
   width: 100%;
   box-sizing: border-box;
+  margin: 4px 0 10px;
   padding: 10px 12px;
   border: 1px solid rgba(180, 35, 24, 0.22);
   border-radius: 14px;
@@ -1813,7 +2219,18 @@
   color: #b42318;
   font-size: 0.88rem;
   line-height: 1.45;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06);
+}
+
+.cartInventoryNotice {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 35, 24, 0.22);
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #b42318;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .purchaseRecipientFields {
@@ -1821,6 +2238,13 @@
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.verifiedRecipientPicker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .recipientQuantityBlock {
@@ -1832,8 +2256,8 @@
 .purchaseForOthersReview {
   display: grid;
   gap: 4px;
-  margin-top: 10px;
-  padding-left: 28px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   font-size: 13px;
   line-height: 1.45;
   opacity: 0.84;
@@ -1851,12 +2275,10 @@
 }
 
 .reviewMetaRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  padding-left: 28px;
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   font-size: 13px;
   line-height: 1.45;
   opacity: 0.86;
@@ -2269,6 +2691,67 @@
   opacity: 0.76;
 }
 
+.purchaseRecipientForm {
+  display: grid;
+  gap: 10px;
+}
+
+.primaryActionButton {
+  min-height: 44px;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primaryActionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.purchaseRecipientList {
+  display: grid;
+  gap: 10px;
+}
+
+.purchaseRecipientCard {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.purchaseRecipientCard span {
+  opacity: 0.76;
+  overflow-wrap: anywhere;
+}
+
+.successMessage,
+.errorMessage {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.successMessage {
+  border: 1px solid rgba(47, 111, 62, 0.18);
+  background: rgba(47, 111, 62, 0.08);
+  color: #2f6f3e;
+}
+
+.errorMessage {
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  background: rgba(180, 35, 24, 0.08);
+  color: #b42318;
+}
+
 .linkButton {
   border: none;
   background: transparent;
@@ -2289,6 +2772,10 @@
   .sizeRow {
     grid-template-columns: auto 1fr;
     align-items: start;
+  }
+
+  .verifiedRecipientPicker {
+    grid-template-columns: 1fr;
   }
 
   .sizePrice {

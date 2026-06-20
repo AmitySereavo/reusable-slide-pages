@@ -57,9 +57,22 @@ export function normalizeDeliverySelection(value: unknown): DeliverySelection {
       typeof raw.cityOrTown === "string" ? raw.cityOrTown : undefined,
     postalCode:
       typeof raw.postalCode === "string" ? raw.postalCode : undefined,
-    deliveryFeeJmd:
-      typeof raw.deliveryFeeJmd === "number" && Number.isFinite(raw.deliveryFeeJmd)
-        ? raw.deliveryFeeJmd
+    deliveryFee:
+      typeof raw.deliveryFee === "number" && Number.isFinite(raw.deliveryFee)
+        ? raw.deliveryFee
+        : undefined,
+    deliveryCurrencyCode:
+      typeof raw.deliveryCurrencyCode === "string"
+        ? raw.deliveryCurrencyCode
+        : undefined,
+    deliveryBaseFee:
+      typeof raw.deliveryBaseFee === "number" &&
+      Number.isFinite(raw.deliveryBaseFee)
+        ? raw.deliveryBaseFee
+        : undefined,
+    deliveryBaseCurrencyCode:
+      typeof raw.deliveryBaseCurrencyCode === "string"
+        ? raw.deliveryBaseCurrencyCode
         : undefined,
   };
 }

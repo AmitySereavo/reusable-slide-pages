@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
@@ -35,6 +35,7 @@ import {
   ShopCatalog,
   ShopPurchaseRecipient,
   ShopResolvedCartLine,
+  TicketAssignment,
   TicketAssignments,
   MealMenu,
   MealSelections,
@@ -45,6 +46,12 @@ import {
 } from "@/types/questionnaire";
 
 import { clearQuestionnaireVisitorState } from "@/lib/questionnaire/visitorState";
+import {
+  SUPPORTED_CURRENCIES,
+  convertMoney,
+  convertShopCatalogCurrency,
+  normalizeCurrencyCode,
+} from "@/lib/currency/currencies";
 
 import {
   evaluateConditionRule,
@@ -53,6 +60,7 @@ import {
 } from "@/lib/questionnaire/engine";
 
 import {
+  addShopProductDraftToCart,
   applyDiscountToShopLines,
   hasPhysicalFulfillmentItems,
   getDefaultPurchaseModeId,
@@ -62,6 +70,7 @@ import {
   normalizeDiscountDefinitions,
   normalizeShopCart,
   removeShopLine,
+  resolveShopCartLines,
   resolveShopSelectedLines,
   setShopLinePurchaseMode,
   setShopLinePurchaseRecipients,
@@ -310,6 +319,7 @@ function isInternalOnlyPurchaseMode(
 
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
+  const [cartInventoryNotices, setCartInventoryNotices] = useState<string[]>([]);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [
     checkoutReservationSecondsRemaining,
@@ -343,6 +353,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
+  const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("USD");
   const [activeFooterTextPanel, setActiveFooterTextPanel] = useState<{
     id: string;
     label: string;
@@ -391,6 +402,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
   const invitationOrderRequestKeyRef = useRef<string | null>(null);
+  const shopReservationKeyRef = useRef<string | null>(null);
   const checkoutDraftHydratedRef = useRef(false);
   const shouldSkipNextCheckoutDraftWriteRef = useRef(true);
   const checkoutDraftCompletedRef = useRef(false);
@@ -456,6 +468,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     if (draftOrderRequestKey) {
       invitationOrderRequestKeyRef.current = draftOrderRequestKey;
+    }
+
+    const draftReservationKey = String(
+      draft.shopReservationKey ?? ""
+    ).trim();
+
+    if (draftReservationKey) {
+      shopReservationKeyRef.current = draftReservationKey;
     }
 
     setAnswers((prev) => ({
@@ -822,8 +842,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return null;
   }, [visibleSlides]);
 
+  const dashboardSidebarLinks = useMemo(
+    () => [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard#dashboard-projects", label: "Projects" },
+      { href: "/dashboard#dashboard-inventory", label: "Inventory" },
+      { href: "/dashboard#dashboard-currencies", label: "Currencies" },
+    ],
+    []
+  );
+
   const hasLeftSidebarContent =
-    sidebarSlideLinks.length > 0 || Boolean(sidebarAlbumDownloadItemId);
+    dashboardSidebarLinks.length > 0 ||
+    sidebarSlideLinks.length > 0 ||
+    Boolean(sidebarAlbumDownloadItemId);
 
   useEffect(() => {
     if (!purchaseAccessConfig?.itemKey) {
@@ -1135,6 +1167,47 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [mergedVariables, currentSlide]
   );
 
+  const currencyRates = useMemo(() => {
+    const value = mergedVariables.currencyRates;
+
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, number>)
+      : {};
+  }, [mergedVariables]);
+
+  const activeShopCurrencyCode = normalizeCurrencyCode(
+    authSessionUser?.preferredCurrencyCode ?? guestShopCurrencyCode
+  );
+
+  const jmdToActiveCurrencyRate = useMemo(() => {
+    if (activeShopCurrencyCode === "JMD") {
+      return 1;
+    }
+
+    const jmdRate = Number(currencyRates.JMD ?? 1);
+    const targetRate = Number(currencyRates[activeShopCurrencyCode] ?? 1);
+
+    if (!Number.isFinite(jmdRate) || jmdRate <= 0) {
+      return 1;
+    }
+
+    return targetRate / jmdRate;
+  }, [activeShopCurrencyCode, currencyRates]);
+
+  const currentShopDisplayCatalog = useMemo(() => {
+    const baseCurrencyCode = currentShopCatalog?.currencyCode ?? "USD";
+    const rate =
+      baseCurrencyCode === activeShopCurrencyCode
+        ? 1
+        : Number(currencyRates[activeShopCurrencyCode] ?? 1);
+
+    return convertShopCatalogCurrency(
+      currentShopCatalog,
+      activeShopCurrencyCode,
+      rate
+    );
+  }, [currentShopCatalog, activeShopCurrencyCode, currencyRates]);
+
   const currentShopCart = useMemo<ShopCart>(
     () =>
       currentSlide?.type === "shop" && currentSlide.storeAs
@@ -1146,9 +1219,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const currentShopBaseSelectedLines = useMemo<ShopResolvedCartLine[]>(
     () =>
       currentSlide?.type === "shop"
-        ? resolveShopSelectedLines(currentShopCatalog, currentShopCart)
+        ? resolveShopSelectedLines(currentShopDisplayCatalog, currentShopCart)
         : [],
-    [currentSlide, currentShopCatalog, currentShopCart]
+    [currentSlide, currentShopDisplayCatalog, currentShopCart]
   );
 
   const currentShopSelectedLines = useMemo<ShopResolvedCartLine[]>(
@@ -1162,25 +1235,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentSlide, currentShopBaseSelectedLines, activeDiscountDefinition]
   );
 
-  const currentTicketOrderLines = useMemo<ShopResolvedCartLine[]>(
-    () =>
-      currentShopSelectedLines.filter(
-        (line) => line.fulfillmentType === "ticket"
-      ),
-    [currentShopSelectedLines]
-  );
-
-  const currentShopSubtotal = useMemo(
-    () => currentShopSelectedLines.reduce((sum, line) => sum + line.lineTotal, 0),
-    [currentShopSelectedLines]
-  );
-
   const currentShopTotalWeight = useMemo(
     () =>
       currentSlide?.type === "shop"
-        ? getShopCartTotalWeight(currentShopCatalog, currentShopCart)
+        ? getShopCartTotalWeight(currentShopDisplayCatalog, currentShopCart)
         : 0,
-    [currentSlide, currentShopCatalog, currentShopCart]
+    [currentSlide, currentShopDisplayCatalog, currentShopCart]
   );
 
   const currentDeliveryConfig = useMemo<DeliveryConfig | null>(
@@ -1207,6 +1267,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentSlide, currentDeliveryConfig, currentDeliverySelection]
   );
 
+  const currentDeliveryFeeDisplay = useMemo(
+    () => convertMoney(currentDeliveryFee, jmdToActiveCurrencyRate),
+    [currentDeliveryFee, jmdToActiveCurrencyRate]
+  );
+
   const sharedShopCatalog = useMemo(
     () =>
       getShopCatalog(mergedVariables, "orderCatalog") ??
@@ -1214,14 +1279,28 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [mergedVariables]
   );
 
+  const sharedShopDisplayCatalog = useMemo(() => {
+    const baseCurrencyCode = sharedShopCatalog?.currencyCode ?? "USD";
+    const rate =
+      baseCurrencyCode === activeShopCurrencyCode
+        ? 1
+        : Number(currencyRates[activeShopCurrencyCode] ?? 1);
+
+    return convertShopCatalogCurrency(
+      sharedShopCatalog,
+      activeShopCurrencyCode,
+      rate
+    );
+  }, [sharedShopCatalog, activeShopCurrencyCode, currencyRates]);
+
   const sharedOrderCart = useMemo<ShopCart>(
     () => normalizeShopCart(answers.orderCart),
     [answers.orderCart]
   );
 
   const sharedOrderBaseLines = useMemo<ShopResolvedCartLine[]>(
-    () => resolveShopSelectedLines(sharedShopCatalog, sharedOrderCart),
-    [sharedShopCatalog, sharedOrderCart]
+    () => resolveShopSelectedLines(sharedShopDisplayCatalog, sharedOrderCart),
+    [sharedShopDisplayCatalog, sharedOrderCart]
   );
 
   const sharedOrderLines = useMemo<ShopResolvedCartLine[]>(
@@ -1243,6 +1322,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     return () => window.clearInterval(timerId);
   }, [config.slug, sharedOrderLines.length]);
+
+  useEffect(() => {
+    if (
+      config.slug !== CHECKOUT_DRAFT_SLUG ||
+      sharedOrderLines.length === 0 ||
+      checkoutReservationSecondsRemaining !== 0
+    ) {
+      return;
+    }
+
+    void releaseShopCartReservation();
+  }, [checkoutReservationSecondsRemaining, config.slug, sharedOrderLines.length]);
 
   const sharedTicketOrderLines = useMemo<ShopResolvedCartLine[]>(
     () =>
@@ -1462,10 +1553,47 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedDeliveryConfig, sharedDeliverySelection]
   );
 
-  const sharedOrderSummary = useMemo<DiscountedOrderSummary>(
-    () => summarizeDiscountedOrder(sharedOrderLines, sharedDeliveryFee),
-    [sharedOrderLines, sharedDeliveryFee]
+  const sharedDeliveryFeeDisplay = useMemo(
+    () => convertMoney(sharedDeliveryFee, jmdToActiveCurrencyRate),
+    [sharedDeliveryFee, jmdToActiveCurrencyRate]
   );
+
+  const sharedOrderSummary = useMemo<DiscountedOrderSummary>(
+    () => summarizeDiscountedOrder(sharedOrderLines, sharedDeliveryFeeDisplay),
+    [sharedOrderLines, sharedDeliveryFeeDisplay]
+  );
+
+  useEffect(() => {
+    if (!answers.deliverySelection || sharedDeliverySelection.method !== "delivery") {
+      return;
+    }
+
+    if (
+      sharedDeliverySelection.deliveryFee === sharedDeliveryFeeDisplay &&
+      sharedDeliverySelection.deliveryCurrencyCode === activeShopCurrencyCode &&
+      sharedDeliverySelection.deliveryBaseFee === sharedDeliveryFee &&
+      sharedDeliverySelection.deliveryBaseCurrencyCode === "JMD"
+    ) {
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      deliverySelection: {
+        ...sharedDeliverySelection,
+        deliveryFee: sharedDeliveryFeeDisplay,
+        deliveryCurrencyCode: activeShopCurrencyCode,
+        deliveryBaseFee: sharedDeliveryFee,
+        deliveryBaseCurrencyCode: "JMD",
+      },
+    }));
+  }, [
+    activeShopCurrencyCode,
+    answers.deliverySelection,
+    sharedDeliveryFee,
+    sharedDeliveryFeeDisplay,
+    sharedDeliverySelection,
+  ]);
 
   const sharedMealMenu = useMemo<MealMenu | null>(() => {
     const firstMenuId = getTicketsNeedingMeal(
@@ -1510,6 +1638,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sharedOrderSummary.grandTotal +
     sharedMealExtraTotal +
     sharedTicketOwnerAddonBudgetTotal;
+
+  const sidePanelCartTotal = sharedOrderGrandTotalWithMeals;
+  const sidePanelCartCurrencyCode =
+    sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode;
   const contactInfoComplete = useMemo(
     () => isContactInfoComplete(answers, sharedDeliverySelection),
     [answers, sharedDeliverySelection]
@@ -1750,6 +1882,110 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
   }
 
+  function getShopReservationKey() {
+    if (!shopReservationKeyRef.current) {
+      const randomPart =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      shopReservationKeyRef.current = `shop-${config.slug}-${randomPart}`;
+    }
+
+    return shopReservationKeyRef.current;
+  }
+
+  async function reserveShopCartInventory(
+    cart: ShopCart,
+    catalogKey?: string
+  ) {
+    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+      return cart;
+    }
+
+    const hasSelectedLines = Object.values(cart).some(
+      (line) => line.selected === true && line.quantity > 0
+    );
+
+    if (!hasSelectedLines) {
+      setCartInventoryNotices([]);
+      return cart;
+    }
+
+    const reservationKey = getShopReservationKey();
+
+    try {
+      const response = await fetch("/api/shop/reservations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reservationKey,
+          catalogKey,
+          cart,
+          expiresInSeconds: CHECKOUT_RESERVATION_SECONDS,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setCartInventoryNotices([
+          payload?.error ||
+            "Inventory could not be reserved. Please review your cart before checkout.",
+        ]);
+        return cart;
+      }
+
+      const nextCart =
+        payload?.cart && typeof payload.cart === "object"
+          ? normalizeShopCart(payload.cart)
+          : cart;
+      const notices = Array.isArray(payload?.notices)
+        ? payload.notices
+            .map((notice: { message?: unknown }) =>
+              typeof notice.message === "string" ? notice.message : ""
+            )
+            .filter(Boolean)
+        : [];
+
+      setCartInventoryNotices(notices);
+      resetCheckoutReservation();
+
+      setAnswers((prev) => ({
+        ...prev,
+        shopReservationKey: reservationKey,
+        ...(currentSlide?.storeAs ? { [currentSlide.storeAs]: nextCart } : {}),
+      }));
+
+      return nextCart;
+    } catch {
+      setCartInventoryNotices([
+        "Inventory could not be reserved. Please review your cart before checkout.",
+      ]);
+      return cart;
+    }
+  }
+
+  async function releaseShopCartReservation() {
+    const reservationKey = shopReservationKeyRef.current;
+
+    if (!reservationKey) {
+      return;
+    }
+
+    try {
+      await fetch(
+        `/api/shop/reservations?reservationKey=${encodeURIComponent(
+          reservationKey
+        )}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      // The next reservation attempt will clean up expired holds server-side.
+    }
+  }
+
   function getAllFormFieldNames() {
     return Array.from(
       new Set(
@@ -1778,11 +2014,25 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }
 
-  function updateCurrentShopCart(updater: (cart: ShopCart) => ShopCart) {
+  function updateCurrentShopCart(
+    updater: (cart: ShopCart) => ShopCart,
+    options: { reserveInventory?: boolean } = {}
+  ) {
     if (currentSlide?.type !== "shop" || !currentSlide.storeAs) return;
 
     const nextCart = updater(currentShopCart);
     setAnswer(currentSlide.storeAs, nextCart);
+
+    const shouldReserveInventory =
+      options.reserveInventory ||
+      (currentSlide.shopMode === "review" &&
+        Object.values(nextCart).some(
+          (line) => line.selected === true && line.quantity > 0
+        ));
+
+    if (shouldReserveInventory) {
+      void reserveShopCartInventory(nextCart, currentSlide.catalogKey);
+    }
   }
 
   function updateCurrentDeliverySelection(
@@ -1791,11 +2041,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     if (currentSlide?.type !== "delivery" || !currentSlide.storeAs) return;
 
     const nextSelection = updater(currentDeliverySelection);
-    const nextFee = getDeliveryFeeJmd(currentDeliveryConfig, nextSelection);
+    const nextBaseFee = getDeliveryFeeJmd(currentDeliveryConfig, nextSelection);
+    const nextFee = convertMoney(nextBaseFee, jmdToActiveCurrencyRate);
 
     setAnswer(currentSlide.storeAs, {
       ...nextSelection,
-      deliveryFeeJmd: nextFee,
+      deliveryFee: nextFee,
+      deliveryCurrencyCode: activeShopCurrencyCode,
+      deliveryBaseFee: nextBaseFee,
+      deliveryBaseCurrencyCode: "JMD",
     });
   }
 
@@ -2048,6 +2302,32 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     previousVideoTimeRef.current = currentTime;
+  }
+
+  async function handleAccountCurrencyChange(currencyCode: string) {
+    const nextCurrencyCode = normalizeCurrencyCode(currencyCode);
+
+    if (!authSessionUser) {
+      setGuestShopCurrencyCode(nextCurrencyCode);
+      return;
+    }
+
+    setAuthSessionUser({
+      ...authSessionUser,
+      preferredCurrencyCode: nextCurrencyCode,
+    });
+
+    try {
+      await fetch("/api/account/currency", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ currencyCode: nextCurrencyCode }),
+      });
+    } catch {
+      // Session refresh or the next manual change can retry this preference.
+    }
   }
 
   function handleTimedTextLineClick(payload: {
@@ -2313,12 +2593,12 @@ async function next() {
         return;
       }
 
-      if (currentSlide.ticketGoto) {
+      if (currentSlide.ticketGoto || sharedTicketOrderLines.length > 0) {
         setAnswer(
           "ticketAssignments",
           prefillFirstTicketFromContact(
             buildTicketAssignmentsFromLines({
-              lines: currentTicketOrderLines,
+              lines: sharedTicketOrderLines,
               existingAssignments: normalizeTicketAssignments(
                 answers.ticketAssignments
               ),
@@ -2326,13 +2606,13 @@ async function next() {
             answers
           )
         );
-        goToTarget(currentSlide.ticketGoto);
+        goToTarget(currentSlide.ticketGoto || "ticket-details");
         return;
       }
 
     if (
       currentSlide.deliveryGoto &&
-      hasPhysicalFulfillmentItems(currentShopCatalog, currentShopCart)
+      hasPhysicalFulfillmentItems(currentShopDisplayCatalog, currentShopCart)
     ) {
       goToTarget(currentSlide.deliveryGoto);
       return;
@@ -2364,7 +2644,7 @@ async function next() {
 
       if (
         currentSlide.deliveryGoto &&
-        hasPhysicalFulfillmentItems(sharedShopCatalog, sharedOrderCart)
+        hasPhysicalFulfillmentItems(sharedShopDisplayCatalog, sharedOrderCart)
       ) {
         goToTarget(currentSlide.deliveryGoto);
         return;
@@ -2695,7 +2975,7 @@ async function next() {
       phone: String(answers.phone ?? "").trim(),
       whatsappOptIn:
         answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
-      currencyCode: sharedShopCatalog?.currencyCode ?? "USD",
+      currencyCode: sharedShopDisplayCatalog?.currencyCode ?? "USD",
       orderCart: sharedOrderCart,
       resolvedLines: sharedOrderLines,
       ticketAssignments: normalizedTicketAssignments,
@@ -3479,13 +3759,13 @@ async function handleNext() {
   const nextLabel =
     cartReturnActive && currentSlide.type === "shop"
       ? `Back to cart Â· ${formatCurrency(
-          currentShopSubtotal,
-          currentShopCatalog?.currencyCode
+          sharedOrderGrandTotalWithMeals,
+          sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
         )}`
       : cartReturnActive && currentSlide.type === "delivery"
         ? `Back to cart Â· ${formatCurrency(
-            sharedOrderSubtotalWithMeals + currentDeliveryFee,
-            sharedShopCatalog?.currencyCode ?? "JMD"
+            sharedOrderSubtotalWithMeals + currentDeliveryFeeDisplay,
+            sharedShopDisplayCatalog?.currencyCode ?? "JMD"
           )}`
       : cartReturnActive && currentSlide.type !== "meal"
         ? "Back to cart"
@@ -3496,22 +3776,22 @@ async function handleNext() {
             : currentSlide.nextLabel ?? "Continue"
         } · ${formatCurrency(
           sharedOrderGrandTotalWithMeals,
-          sharedShopCatalog?.currencyCode ?? "JMD"
+          sharedShopDisplayCatalog?.currencyCode ?? "JMD"
         )}`
       : currentSlide.type === "shop"
         ? `${currentSlide.nextLabel ?? "Checkout"} · ${formatCurrency(
-            currentShopSubtotal,
-            currentShopCatalog?.currencyCode
+            sharedOrderGrandTotalWithMeals,
+            sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
           )}`
         : currentSlide.type === "delivery"
           ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
-              sharedOrderSubtotalWithMeals + currentDeliveryFee,
-              sharedShopCatalog?.currencyCode ?? "JMD"
+              sharedOrderSubtotalWithMeals + currentDeliveryFeeDisplay,
+              sharedShopDisplayCatalog?.currencyCode ?? "JMD"
             )}`
       : currentSlide.type === "meal"
         ? `${mealNextLabel} · ${formatCurrency(
             selectedMealExtraTotal,
-            sharedShopCatalog?.currencyCode ?? "USD"
+            sharedShopDisplayCatalog?.currencyCode ?? "USD"
           )}`
       : isSubmitting
         ? "Submitting..."
@@ -3637,10 +3917,17 @@ async function handleNext() {
                         </button>
 
                         {isTrackSidebarOpen ? (
-                          <aside
-                            className={`${styles.sidebarPanel} ${styles.sidebarPanelLeft}`}
-                            aria-label="Content navigation"
-                          >
+                          <>
+                            <button
+                              type="button"
+                              className={styles.sidebarBackdrop}
+                              aria-label="Close content sidebar"
+                              onClick={() => setIsTrackSidebarOpen(false)}
+                            />
+                            <aside
+                              className={`${styles.sidebarPanel} ${styles.sidebarPanelLeft}`}
+                              aria-label="Content navigation"
+                            >
                             <div className={styles.sidebarTitle}>
                               {config.slug
                                 .split("-")
@@ -3651,8 +3938,25 @@ async function handleNext() {
                                 .join(" ") || "Content"}
                             </div>
 
+                            {dashboardSidebarLinks.length ? (
+                              <div className={styles.sidebarLinkList}>
+                                {dashboardSidebarLinks.map((link) => (
+                                  <a
+                                    key={link.href}
+                                    className={styles.sidebarLink}
+                                    href={link.href}
+                                  >
+                                    {link.label}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : null}
+
                             {sidebarSlideLinks.length ? (
                               <div className={styles.sidebarLinkList}>
+                                {dashboardSidebarLinks.length ? (
+                                  <div className={styles.sidebarDivider} />
+                                ) : null}
                                 {sidebarSlideLinks.map((track) => (
                                 <a
                                   key={track.id}
@@ -3707,7 +4011,8 @@ async function handleNext() {
                                 </button>
                               </>
                             ) : null}
-                          </aside>
+                            </aside>
+                          </>
                         ) : null}
                       </div>
                     ) : null}
@@ -3725,12 +4030,71 @@ async function handleNext() {
                         </button>
 
                         {isAccountMenuOpen ? (
-                          <div className={styles.accountMenuPanel}>
+                          <>
+                            <button
+                              type="button"
+                              className={styles.sidebarBackdrop}
+                              aria-label="Close account menu"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                            />
+                            <div className={styles.accountMenuPanel}>
                             {authSessionUser?.name ? (
                               <div className={styles.accountMenuName}>
-                                {authSessionUser.name}
+                                <span>{authSessionUser.name}</span>
+                                <span className={styles.accountMenuCredit}>
+                                  Purchased credit:{" "}
+                                  {formatCurrency(
+                                    authSessionUser.storeCreditPurchasedBalance ?? 0,
+                                    authSessionUser.storeCreditCurrencyCode ?? "USD"
+                                  )}
+                                </span>
+                                <span className={styles.accountMenuCredit}>
+                                  Returned credit:{" "}
+                                  {formatCurrency(
+                                    authSessionUser.storeCreditReturnedBalance ?? 0,
+                                    authSessionUser.storeCreditCurrencyCode ?? "USD"
+                                  )}
+                                </span>
+                                <label className={styles.accountCurrencyControl}>
+                                  <span>Account currency</span>
+                                  <select
+                                    value={activeShopCurrencyCode}
+                                    onChange={(event) =>
+                                      handleAccountCurrencyChange(
+                                        event.target.value
+                                      )
+                                    }
+                                  >
+                                    {SUPPORTED_CURRENCIES.map((currencyCode) => (
+                                      <option
+                                        key={currencyCode}
+                                        value={currencyCode}
+                                      >
+                                        {currencyCode}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
                               </div>
                             ) : null}
+
+                            <button
+                              type="button"
+                              className={`${styles.accountMenuItem} ${styles.accountMenuCartItem}`}
+                              onClick={() =>
+                                handleAccountMenuLink(
+                                  "/questionnaire/invitation?slide=review-order"
+                                )
+                              }
+                            >
+                              <span>Cart</span>
+                              <span>
+                                {formatCurrency(
+                                  sidePanelCartTotal,
+                                  sidePanelCartCurrencyCode
+                                )}
+                              </span>
+                            </button>
 
                             {authSessionUser ? (
                               <>
@@ -3756,6 +4120,18 @@ async function handleNext() {
                                   }
                                 >
                                   Purchased Items
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=purchase-for-others"
+                                    )
+                                  }
+                                >
+                                  Purchase for others
                                 </button>
 
                                 <button
@@ -3829,6 +4205,18 @@ async function handleNext() {
                                   className={styles.accountMenuItem}
                                   onClick={() =>
                                     handleAccountMenuLink(
+                                      "/questionnaire/auth-account?slide=purchase-for-others"
+                                    )
+                                  }
+                                >
+                                  Purchase for others
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
                                       "/questionnaire/auth-account?slide=my-tickets"
                                     )
                                   }
@@ -3851,6 +4239,7 @@ async function handleNext() {
                               </>
                             )}
                           </div>
+                          </>
                         ) : null}
                       </div>
                     ) : null}
@@ -4119,11 +4508,17 @@ async function handleNext() {
                         />
                       ) : null}
 
+                      {currentSlide.type === "purchaserecipients" ? (
+                        <PurchaseRecipientsRenderer theme={theme} />
+                      ) : null}
+
                       {currentSlide.type === "shop" ? (
                         <ShopSlideRenderer
+                          slideId={currentSlide.id}
+                          reviewSection="primary"
                           slideMode={currentSlide.shopMode ?? "browse"}
                           title={currentSlide.title}
-                          catalog={currentShopCatalog}
+                          catalog={currentShopDisplayCatalog}
                           cart={currentShopCart}
                           selectedLines={
                             currentSlide.shopMode === "review"
@@ -4133,27 +4528,39 @@ async function handleNext() {
                           reservationSecondsRemaining={
                             checkoutReservationSecondsRemaining
                           }
+                          inventoryNotices={cartInventoryNotices}
+                          mealMenu={sharedMealMenu}
+                          ticketAssignments={currentTicketAssignments}
+                          onAdjustMeals={(ticketCode) => {
+                            setAnswer("selectedMealTicketCode", ticketCode);
+                            setAnswer("mealReturnTarget", "review-order");
+                            setAnswer("cartReturnTarget", "review-order");
+                            goToTarget("meal-selection");
+                          }}
+                          activeCurrencyCode={activeShopCurrencyCode}
+                          canChangeCurrency={!authSessionUser}
+                          onChangeCurrency={setGuestShopCurrencyCode}
                           theme={theme}
                           answers={answers}
-                          onToggleLine={(productId, sizeOptionId, selected) =>
-                            updateCurrentShopCart((cart) =>
-                              toggleShopLineSelected(
-                                cart,
-                                currentShopCatalog,
-                                productId,
-                                sizeOptionId,
-                                selected
-                              )
-                            )
-                          }
                           onSetQuantity={(productId, sizeOptionId, quantity) =>
                             updateCurrentShopCart((cart) =>
                               setShopLineQuantity(
                                 cart,
-                                currentShopCatalog,
+                                currentShopDisplayCatalog,
                                 productId,
                                 sizeOptionId,
                                 quantity
+                              )
+                            )
+                          }
+                          onSetLineSelected={(productId, sizeOptionId, selected) =>
+                            updateCurrentShopCart((cart) =>
+                              toggleShopLineSelected(
+                                cart,
+                                currentShopDisplayCatalog,
+                                productId,
+                                sizeOptionId,
+                                selected
                               )
                             )
                           }
@@ -4165,6 +4572,7 @@ async function handleNext() {
                             updateCurrentShopCart((cart) =>
                               setShopLinePurchaseMode(
                                 cart,
+                                currentShopDisplayCatalog,
                                 productId,
                                 sizeOptionId,
                                 purchaseModeId
@@ -4179,11 +4587,22 @@ async function handleNext() {
                             updateCurrentShopCart((cart) =>
                               setShopLinePurchaseRecipients(
                                 cart,
-                                currentShopCatalog,
+                                currentShopDisplayCatalog,
                                 productId,
                                 sizeOptionId,
                                 recipients
                               )
+                            )
+                          }
+                          onAddProductToCart={(productId) =>
+                            updateCurrentShopCart(
+                              (cart) =>
+                                addShopProductDraftToCart(
+                                  cart,
+                                  currentShopDisplayCatalog,
+                                  productId
+                                ),
+                              { reserveInventory: true }
                             )
                           }
                           onRemoveLine={(productId, sizeOptionId) => {
@@ -4237,6 +4656,8 @@ async function handleNext() {
                         <DeliverySlideRenderer
                           config={currentDeliveryConfig}
                           selection={currentDeliverySelection}
+                          deliveryFee={currentDeliveryFeeDisplay}
+                          currencyCode={activeShopCurrencyCode}
                           theme={theme}
                           onChange={(patch) =>
                             updateCurrentDeliverySelection((prev) => ({
@@ -4260,26 +4681,16 @@ async function handleNext() {
                             setAnswer("ticketAssignments", nextAssignments);
                             void saveTicketOwnerMealSelection(nextAssignments);
                           }}
-                          onMarkAllForEmail={() =>
-                            setAnswer(
-                              "ticketAssignments",
-                              currentTicketAssignments.map((assignment) => ({
-                                ...assignment,
-                                emailTicketToOwner:
-                                  assignment.isPurchaserTicket === true
-                                    ? false
-                                    : String(assignment.ownerEmail ?? "").trim()
-                                        .length > 0,
-                              }))
-                            )
-                          }
                           onSelectMeal={(ticketCode) => {
                             setAnswer("selectedMealTicketCode", ticketCode);
                             setAnswer("mealReturnTarget", "");
                             setAnswer("cartReturnTarget", "");
                             goToTarget("meal-selection");
                           }}
-                          onChooseAddOns={() => goToTarget("music-merch-shop")}
+                          onChooseAddOns={() => {
+                            setAnswer("shopEntrySource", "ticket-details-add-ons");
+                            goToTarget("music-merch-shop");
+                          }}
                         />
                       ) : null}
 
@@ -4306,6 +4717,10 @@ async function handleNext() {
                         <ReviewSummaryRenderer
                           answers={answers}
                           deliverySelection={sharedDeliverySelection}
+                          deliveryFee={sharedDeliveryFeeDisplay}
+                          currencyCode={
+                            sharedShopDisplayCatalog?.currencyCode ?? "USD"
+                          }
                           deliveryConfig={getDeliveryConfig(
                             mergedVariables,
                             "deliveryConfig"
@@ -4323,25 +4738,9 @@ async function handleNext() {
                       ) : null}
 
                       {currentSlide.type === "shop" &&
-                      currentSlide.shopMode === "review" &&
-                      hasTicketsNeedingMeal(currentTicketAssignments) ? (
-                        <MealSelectionSummaryRenderer
-                          menu={sharedMealMenu}
-                          assignments={currentTicketAssignments}
-                          mealExtraTotal={sharedMealExtraTotal}
-                          onAdjustMeals={(ticketCode) => {
-                            setAnswer("selectedMealTicketCode", ticketCode);
-                            setAnswer("mealReturnTarget", "review-order");
-                            setAnswer("cartReturnTarget", "review-order");
-                            goToTarget("meal-selection");
-                          }}
-                        />
-                      ) : null}
-
-                      {currentSlide.type === "shop" &&
                       currentSlide.shopMode === "review" ? (
                         <ReviewTotalsRenderer
-                          catalog={currentShopCatalog}
+                          catalog={currentShopDisplayCatalog}
                           totalWeight={sharedOrderLines.reduce(
                             (sum, line) => sum + (line.lineWeight ?? 0),
                             0
@@ -4358,6 +4757,124 @@ async function handleNext() {
                           }
                           showDiscountTotal={sharedOrderHasDiscount}
                           showTotalWeight={sharedOrderHasWeight}
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "shop" &&
+                      currentSlide.shopMode === "review" ? (
+                        <ShopSlideRenderer
+                          slideId={currentSlide.id}
+                          reviewSection="secondary"
+                          slideMode={currentSlide.shopMode ?? "browse"}
+                          title={currentSlide.title}
+                          catalog={currentShopDisplayCatalog}
+                          cart={currentShopCart}
+                          selectedLines={sharedOrderLines}
+                          reservationSecondsRemaining={
+                            checkoutReservationSecondsRemaining
+                          }
+                          inventoryNotices={cartInventoryNotices}
+                          mealMenu={sharedMealMenu}
+                          ticketAssignments={currentTicketAssignments}
+                          onAdjustMeals={(ticketCode) => {
+                            setAnswer("selectedMealTicketCode", ticketCode);
+                            setAnswer("mealReturnTarget", "review-order");
+                            setAnswer("cartReturnTarget", "review-order");
+                            goToTarget("meal-selection");
+                          }}
+                          activeCurrencyCode={activeShopCurrencyCode}
+                          canChangeCurrency={!authSessionUser}
+                          onChangeCurrency={setGuestShopCurrencyCode}
+                          theme={theme}
+                          answers={answers}
+                          onSetQuantity={(productId, sizeOptionId, quantity) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLineQuantity(
+                                cart,
+                                currentShopDisplayCatalog,
+                                productId,
+                                sizeOptionId,
+                                quantity
+                              )
+                            )
+                          }
+                          onSetLineSelected={(productId, sizeOptionId, selected) =>
+                            updateCurrentShopCart((cart) =>
+                              toggleShopLineSelected(
+                                cart,
+                                currentShopDisplayCatalog,
+                                productId,
+                                sizeOptionId,
+                                selected
+                              )
+                            )
+                          }
+                          onSetPurchaseMode={(
+                            productId,
+                            sizeOptionId,
+                            purchaseModeId
+                          ) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLinePurchaseMode(
+                                cart,
+                                currentShopDisplayCatalog,
+                                productId,
+                                sizeOptionId,
+                                purchaseModeId
+                              )
+                            )
+                          }
+                          onSetPurchaseRecipients={(
+                            productId,
+                            sizeOptionId,
+                            recipients
+                          ) =>
+                            updateCurrentShopCart((cart) =>
+                              setShopLinePurchaseRecipients(
+                                cart,
+                                currentShopDisplayCatalog,
+                                productId,
+                                sizeOptionId,
+                                recipients
+                              )
+                            )
+                          }
+                          onAddProductToCart={(productId) =>
+                            updateCurrentShopCart(
+                              (cart) =>
+                                addShopProductDraftToCart(
+                                  cart,
+                                  currentShopDisplayCatalog,
+                                  productId
+                                ),
+                              { reserveInventory: true }
+                            )
+                          }
+                          onRemoveLine={(productId, sizeOptionId) => {
+                            updateCurrentShopCart((cart) =>
+                              removeShopLine(cart, productId, sizeOptionId)
+                            );
+                          }}
+                          onAdjustLine={(productId, sizeOptionId) => {
+                            const targetKey = `${productId}::${sizeOptionId}`;
+                            const targetLine = sharedOrderLines.find(
+                              (line) =>
+                                line.productId === productId &&
+                                line.sizeOptionId === sizeOptionId
+                            );
+                            const targetShop =
+                              targetLine?.fulfillmentType === "ticket"
+                                ? "invitation-shop"
+                                : "music-merch-shop";
+
+                            setAnswers((prev) => ({
+                              ...prev,
+                              shopFocusLineKey: targetKey,
+                              cartReturnTarget: "review-order",
+                            }));
+
+                            goToTarget(targetShop);
+                          }}
                         />
                       ) : null}
 
@@ -4778,18 +5295,21 @@ async function handleNext() {
                       Items:{" "}
                       {formatCurrency(
                         sharedOrderSubtotalWithMeals,
-                        sharedShopCatalog?.currencyCode ?? "JMD"
+                        sharedShopDisplayCatalog?.currencyCode ?? "JMD"
                       )}
-                      {currentDeliveryFee > 0 ? (
+                      {currentDeliveryFeeDisplay > 0 ? (
                         <>
                           {" "}
-                          · Delivery: {formatCurrency(currentDeliveryFee, "JMD")}
+                          · Delivery: {formatCurrency(
+                            currentDeliveryFeeDisplay,
+                            sharedShopDisplayCatalog?.currencyCode ?? "JMD"
+                          )}
                         </>
                       ) : null}{" "}
                       · Total:{" "}
                       {formatCurrency(
-                        sharedOrderSubtotalWithMeals + currentDeliveryFee,
-                        sharedShopCatalog?.currencyCode ?? "JMD"
+                        sharedOrderSubtotalWithMeals + currentDeliveryFeeDisplay,
+                        sharedShopDisplayCatalog?.currencyCode ?? "JMD"
                       )}
                     </div>
                   ) : null}
@@ -4900,7 +5420,6 @@ function TicketDetailsRenderer({
   purchaserName,
   purchaserEmail,
   onChange,
-  onMarkAllForEmail,
   onSelectMeal,
   onChooseAddOns,
 }: {
@@ -4912,7 +5431,6 @@ function TicketDetailsRenderer({
   purchaserName: string;
   purchaserEmail: string;
   onChange: (nextAssignments: TicketAssignments) => void;
-  onMarkAllForEmail: () => void;
   onSelectMeal: (ticketCode: string) => void;
   onChooseAddOns: () => void;
 }) {
@@ -4924,11 +5442,6 @@ function TicketDetailsRenderer({
     return <p className={styles.body}>No ticket details needed yet.</p>;
   }
 
-  const ticketsWithOwnerEmails = assignments.filter(
-    (assignment) =>
-      assignment.isPurchaserTicket !== true &&
-      isValidTicketOwnerEmail(assignment.ownerEmail)
-  );
   const selectedAddOns = getTicketDetailsAddOns(addOnLines);
   const hasPhysicalAddOns = selectedAddOns.some(
     (line) => line.requiresPhysicalFulfillment === true
@@ -4943,21 +5456,6 @@ function TicketDetailsRenderer({
         can be added under each ticket.
       </div>
 
-      ) : null}
-
-      {ticketsWithOwnerEmails.length > 0 ? (
-        <button
-          type="button"
-          className={styles.secondaryButton}
-          onClick={onMarkAllForEmail}
-          style={{
-            borderColor: theme.colors.border,
-            background: "#FFFFFF",
-            color: theme.colors.text,
-          }}
-        >
-          Email all tickets to owners
-        </button>
       ) : null}
 
       {assignments.map((assignment) => {
@@ -5778,6 +6276,187 @@ function cleanCartMealLabel(label: string) {
     .trim();
 }
 
+function CartTicketMealSummary({
+  assignment,
+  menu,
+  onAdjustMeals,
+}: {
+  assignment: TicketAssignment;
+  menu: MealMenu;
+  onAdjustMeals?: (ticketCode: string) => void;
+}) {
+  const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
+  const hasSelectedMealItems = mealSummary.length > 0;
+
+  return (
+    <div className={styles.cartTicketMealBlock}>
+      <div className={styles.cartTicketMealTopLine}>
+        <strong>{assignment.ownerName?.trim() || assignment.ticketLabel}</strong>
+        {onAdjustMeals ? (
+          <button
+            type="button"
+            className={styles.adjustLinkButton}
+            onClick={() => onAdjustMeals(assignment.ticketCode)}
+          >
+            Adjust meal
+          </button>
+        ) : null}
+      </div>
+      <div className={styles.cartTicketMealMeta}>Code: {assignment.ticketCode}</div>
+      {assignment.mealMode === "required" && !hasSelectedMealItems ? (
+        <div className={styles.ticketMealRequiredWarning}>
+          Meal selection required for this ticket.
+        </div>
+      ) : null}
+      {mealSummary.map((item) => (
+        <div
+          key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
+          className={styles.cartTicketMealLine}
+        >
+          <span>{cleanCartMealLabel(item.groupLabel)}</span>
+          <span>
+            {cleanCartMealLabel(item.optionLabel)} x {item.quantity}
+            {item.extraTotal > 0
+              ? ` +${formatCurrency(item.extraTotal, "USD")}`
+              : ""}
+          </span>
+        </div>
+      ))}
+      {assignment.wantsExtraFood === true ? (
+        <div className={styles.cartTicketMealMeta}>
+          May order extra food at event.
+        </div>
+      ) : null}
+      {assignment.hasMealNotes === true &&
+      String(assignment.mealNotes ?? "").trim().length > 0 ? (
+        <div className={styles.cartTicketMealMeta}>
+          Notes: {String(assignment.mealNotes ?? "").trim()}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CartBundledAddOnsSummary({
+  lines,
+  currencyCode,
+}: {
+  lines: ShopResolvedCartLine[];
+  currencyCode?: string;
+}) {
+  if (!lines.length) {
+    return null;
+  }
+
+  return (
+    <div className={styles.cartTicketMealStack}>
+      <div className={styles.cartBundledAddOnsHeader}>Add-ons</div>
+      {lines.map((line) => (
+        <div key={line.lineKey} className={styles.cartTicketMealLine}>
+          <span>
+            {line.productTitle}
+            {line.sizeLabel ? ` - ${line.sizeLabel}` : ""}
+          </span>
+          <span>{formatCurrency(line.lineTotal, currencyCode ?? "USD")}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CartReviewSectionHeading({
+  sectionRank,
+  unselectedCount,
+  unavailableCount,
+  onRemoveUnavailable,
+}: {
+  sectionRank: number;
+  unselectedCount: number;
+  unavailableCount: number;
+  onRemoveUnavailable: () => void;
+}) {
+  if (sectionRank === 0) {
+    return null;
+  }
+
+  if (sectionRank === 2) {
+    return (
+      <div className={styles.cartReviewSectionHeading}>
+        <span>Unavailable items ({unavailableCount})</span>
+        {unavailableCount > 0 ? (
+          <button type="button" onClick={onRemoveUnavailable}>
+            Remove all
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.cartReviewSectionHeading}>
+      <span>Below are other items in your cart ({unselectedCount})</span>
+    </div>
+  );
+}
+
+function CartItemCountdown({
+  secondsRemaining,
+}: {
+  secondsRemaining: number;
+}) {
+  if (secondsRemaining <= 0) {
+    return (
+      <div className={styles.cartItemCountdown}>
+        <strong>00:00</strong>
+        <span>Returned to stock</span>
+      </div>
+    );
+  }
+
+  const minutes = Math.floor(secondsRemaining / 60);
+  const seconds = secondsRemaining % 60;
+
+  return (
+    <div className={styles.cartItemCountdown}>
+      <strong>
+        {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+      </strong>
+      <span>Until cart hold ends</span>
+    </div>
+  );
+}
+
+function getCartFulfillmentLabel(line: ShopResolvedCartLine) {
+  const text = [
+    line.productTitle,
+    line.sizeLabel,
+    line.purchaseModeLabel,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const hasDigitalSignal =
+    line.fulfillmentType === "digital" ||
+    text.includes("digital") ||
+    text.includes("download") ||
+    text.includes("mp3") ||
+    text.includes("wav");
+  const hasPhysicalSignal =
+    line.requiresPhysicalFulfillment === true ||
+    line.fulfillmentType === "physical" ||
+    line.fulfillmentType === "ticket";
+
+  if (hasPhysicalSignal && hasDigitalSignal) {
+    return "Physical and digital delivery";
+  }
+
+  if (hasPhysicalSignal) {
+    return "Physical delivery";
+  }
+
+  return "Digital delivery";
+}
+
 function updatePurchaseRecipient(
   recipients: ShopPurchaseRecipient[],
   index: number,
@@ -5871,11 +6550,15 @@ function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
 function DeliverySlideRenderer({
   config,
   selection,
+  deliveryFee,
+  currencyCode,
   theme,
   onChange,
 }: {
   config: DeliveryConfig | null;
   selection: DeliverySelection;
+  deliveryFee: number;
+  currencyCode: string;
   theme: ThemeConfig;
   onChange: (patch: Partial<DeliverySelection>) => void;
 }) {
@@ -6096,6 +6779,12 @@ function DeliverySlideRenderer({
               placeholder="Postal code"
               style={{ borderColor: theme.colors.border }}
             />
+
+            {selection.countryCode && selection.regionCode ? (
+              <div className={styles.deliveryFeeLine}>
+                Delivery fee: {formatCurrency(deliveryFee, currencyCode)}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -6106,6 +6795,8 @@ function DeliverySlideRenderer({
 function ReviewSummaryRenderer({
   answers,
   deliverySelection,
+  deliveryFee,
+  currencyCode,
   deliveryConfig,
   showDeliverySummary,
   onAdjustDelivery,
@@ -6113,6 +6804,8 @@ function ReviewSummaryRenderer({
 }: {
   answers: QuestionnaireAnswers;
   deliverySelection: DeliverySelection;
+  deliveryFee: number;
+  currencyCode: string;
   deliveryConfig: DeliveryConfig | null;
   showDeliverySummary: boolean;
   onAdjustDelivery: () => void;
@@ -6206,7 +6899,7 @@ function ReviewSummaryRenderer({
                 </div>
                 <div>
                   Delivery fee:{" "}
-                  {formatCurrency(deliverySelection.deliveryFeeJmd ?? 0, "JMD")}
+                  {formatCurrency(deliveryFee, currencyCode)}
                 </div>
               </>
             ) : null}
@@ -6269,38 +6962,57 @@ function ReviewSummaryRenderer({
 }
 
 function ShopSlideRenderer({
+  slideId,
+  reviewSection = "primary",
   slideMode,
   title,
   catalog,
   cart,
   selectedLines,
   reservationSecondsRemaining,
+  inventoryNotices,
+  mealMenu,
+  ticketAssignments,
+  onAdjustMeals,
+  activeCurrencyCode,
+  canChangeCurrency,
+  onChangeCurrency,
   theme,
   answers,
-  onToggleLine,
   onSetQuantity,
+  onSetLineSelected,
   onSetPurchaseMode,
   onSetPurchaseRecipients,
+  onAddProductToCart,
   onRemoveLine,
   onAdjustLine,
 }: {
+  slideId: string;
+  reviewSection?: "primary" | "secondary";
   slideMode: "browse" | "review";
   title?: string;
   catalog: ShopCatalog | null;
   cart: ShopCart;
   selectedLines: ShopResolvedCartLine[];
   reservationSecondsRemaining: number;
+  inventoryNotices: string[];
+  mealMenu?: MealMenu | null;
+  ticketAssignments?: TicketAssignments;
+  onAdjustMeals?: (ticketCode: string) => void;
+  activeCurrencyCode: string;
+  canChangeCurrency: boolean;
+  onChangeCurrency: (currencyCode: string) => void;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
-  onToggleLine: (
-    productId: string,
-    sizeOptionId: string,
-    selected: boolean
-  ) => void;
   onSetQuantity: (
     productId: string,
     sizeOptionId: string,
     quantity: number
+  ) => void;
+  onSetLineSelected: (
+    productId: string,
+    sizeOptionId: string,
+    selected: boolean
   ) => void;
   onSetPurchaseMode: (
     productId: string,
@@ -6312,23 +7024,82 @@ function ShopSlideRenderer({
     sizeOptionId: string,
     recipients: ShopPurchaseRecipient[]
   ) => void;
+  onAddProductToCart: (productId: string) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
   onAdjustLine?: (productId: string, sizeOptionId: string) => void;
 }) {
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>(
     {}
   );
+  const [verifiedPurchaseRecipients, setVerifiedPurchaseRecipients] = useState<
+    VerifiedPurchaseRecipientOption[]
+  >([]);
+  const [recipientSelectValues, setRecipientSelectValues] = useState<
+    Record<string, string>
+  >({});
+  const [purchaseRecipientPickerOpen, setPurchaseRecipientPickerOpen] =
+    useState<Record<string, boolean>>({});
   const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const reviewCartLines = useMemo(
+    () =>
+      slideMode === "review"
+        ? resolveShopCartLines(catalog, cart)
+        : selectedLines,
+    [cart, catalog, selectedLines, slideMode]
+  );
+  const selectedReviewLines = useMemo(
+    () =>
+      reviewCartLines.filter(
+        (line) =>
+          line.selected !== false && line.availabilityStatus !== "unavailable"
+      ),
+    [reviewCartLines]
+  );
+  const unselectedReviewLines = useMemo(
+    () =>
+      reviewCartLines.filter(
+        (line) =>
+          line.selected === false && line.availabilityStatus !== "unavailable"
+      ),
+    [reviewCartLines]
+  );
+  const unavailableReviewLines = useMemo(
+    () =>
+      reviewCartLines.filter(
+        (line) => line.availabilityStatus === "unavailable"
+      ),
+    [reviewCartLines]
+  );
+  const activeReviewLines = useMemo(() => {
+    if (slideMode !== "review") {
+      return reviewCartLines;
+    }
+
+    return reviewSection === "secondary"
+      ? [...unselectedReviewLines, ...unavailableReviewLines]
+      : selectedReviewLines;
+  }, [
+    reviewCartLines,
+    reviewSection,
+    selectedReviewLines,
+    slideMode,
+    unavailableReviewLines,
+    unselectedReviewLines,
+  ]);
+  const displayReviewLines = useMemo(
+    () => activeReviewLines.filter((line) => !line.bundledFromLineKey),
+    [activeReviewLines]
+  );
 
   useEffect(() => {
     if (slideMode === "review") {
       const nextExpanded: Record<string, boolean> = {};
-      for (const line of selectedLines) {
+      for (const line of reviewCartLines) {
         nextExpanded[line.productId] = true;
       }
       setExpandedProducts(nextExpanded);
     }
-  }, [slideMode, selectedLines]);
+  }, [slideMode, reviewCartLines]);
 
   const focusedLineKey =
     typeof answers.shopFocusLineKey === "string" ? answers.shopFocusLineKey : "";
@@ -6360,24 +7131,148 @@ function ShopSlideRenderer({
     }
   }, [slideMode, focusedLineKey]);
 
+  const products = useMemo(
+    () =>
+      catalog?.products.length && slideMode === "review"
+        ? catalog.products.filter((product) =>
+            displayReviewLines.some((line) => line.productId === product.id)
+          )
+        : catalog?.products ?? [],
+    [catalog, displayReviewLines, slideMode]
+  );
+
+  useEffect(() => {
+    const needsVerifiedRecipients = products.some(
+      (product) =>
+        product.enablePurchaseForOthers || product.fulfillmentType === "ticket"
+    );
+
+    if (!needsVerifiedRecipients) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadVerifiedRecipients() {
+      try {
+        const response = await fetch("/api/account/purchase-recipients", {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          if (isMounted) {
+            setVerifiedPurchaseRecipients([]);
+          }
+          return;
+        }
+
+        const data = await response.json().catch(() => null);
+        const recipients = Array.isArray(data?.recipients)
+          ? data.recipients
+              .filter(
+                (recipient: VerifiedPurchaseRecipientOption) =>
+                  recipient?.status === "VERIFIED"
+              )
+              .map((recipient: VerifiedPurchaseRecipientOption) => ({
+                id: recipient.id,
+                recipientName: recipient.recipientName,
+                recipientEmail: recipient.recipientEmail,
+                confirmedName: recipient.confirmedName,
+                status: recipient.status,
+              }))
+          : [];
+
+        if (isMounted) {
+          setVerifiedPurchaseRecipients(recipients);
+        }
+      } catch {
+        if (isMounted) {
+          setVerifiedPurchaseRecipients([]);
+        }
+      }
+    }
+
+    void loadVerifiedRecipients();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [products]);
+
   if (!catalog?.products.length) {
     return <p className={styles.body}>No shop items available yet.</p>;
   }
 
-  const products =
+  if (slideMode === "review" && activeReviewLines.length === 0) {
+    return null;
+  }
+
+  const productSectionRank = (productId: string) => {
+    const productLines = displayReviewLines.filter(
+      (line) => line.productId === productId
+    );
+
+    if (!productLines.length) return 0;
+    if (
+      productLines.some(
+        (line) =>
+          line.selected !== false && line.availabilityStatus !== "unavailable"
+      )
+    ) {
+      return 0;
+    }
+    if (
+      productLines.some((line) => line.availabilityStatus !== "unavailable")
+    ) {
+      return 1;
+    }
+
+    return 2;
+  };
+
+  const sortedProducts =
     slideMode === "review"
-      ? catalog.products.filter((product) =>
-          selectedLines.some((line) => line.productId === product.id)
+      ? [...products].sort(
+          (first, second) =>
+            productSectionRank(first.id) - productSectionRank(second.id)
         )
-      : catalog.products;
+      : products;
+  const renderedReviewSections = new Set<number>();
 
   return (
     <div className={styles.shopStack}>
-      {slideMode === "review" && title ? (
+      {slideMode === "review" && reviewSection === "primary" && title ? (
         <h2 className={styles.cartTitle}>{title}</h2>
       ) : null}
 
-      {selectedLines.length > 0 ? (
+      {reviewSection === "primary" ? (
+      <div className={styles.shopCurrencyRow}>
+        <span>Currency</span>
+        {canChangeCurrency ? (
+          <select
+            className={styles.shopCurrencySelect}
+            value={activeCurrencyCode}
+            onChange={(event) => onChangeCurrency(event.target.value)}
+          >
+            {SUPPORTED_CURRENCIES.map((currencyCode) => (
+              <option key={currencyCode} value={currencyCode}>
+                {currencyCode}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <strong>{activeCurrencyCode}</strong>
+        )}
+      </div>
+      ) : null}
+
+      {slideMode === "review" &&
+      reviewSection === "primary" &&
+      selectedReviewLines.length > 0 ? (
         <div className={styles.checkoutReservationNotice}>
           {reservationSecondsRemaining > 0 ? (
             <>
@@ -6395,15 +7290,53 @@ function ShopSlideRenderer({
         </div>
       ) : null}
 
-      {products.map((product) => {
-        const isExpanded =
-          slideMode === "review" || expandedProducts[product.id] === true;
+      {slideMode === "review" &&
+      reviewSection === "primary" &&
+      inventoryNotices.length > 0 ? (
+        <div className={styles.cartInventoryNotice}>
+          {inventoryNotices.map((notice, index) => (
+            <div key={`${notice}-${index}`}>{notice}</div>
+          ))}
+        </div>
+      ) : null}
 
-        const firstReviewLine = selectedLines.find(
+      {slideMode === "review" && reviewSection === "primary" ? (
+        <div className={styles.cartSectionHeader}>
+          <span>All ({reviewCartLines.length})</span>
+          <span>Selected ({selectedReviewLines.length})</span>
+        </div>
+      ) : null}
+
+      {sortedProducts.map((product) => {
+        const reviewLinesForProduct = displayReviewLines.filter(
           (line) => line.productId === product.id
         );
 
+        if (slideMode === "review" && reviewLinesForProduct.length === 0) {
+          return null;
+        }
+
+        const isExpanded =
+          slideMode === "review" || expandedProducts[product.id] === true;
+
+        const productDraftLineCount = Object.values(cart).filter(
+          (line) => line.productId === product.id
+        ).length;
+        const productSelectedLineCount = Object.values(cart).filter(
+          (line) => line.productId === product.id && line.selected === true
+        ).length;
+        const canAddProductToCart =
+          slideMode === "browse" && productDraftLineCount > 0;
+
         const isEventProduct = product.fulfillmentType === "ticket";
+        const sectionRank =
+          slideMode === "review" ? productSectionRank(product.id) : 0;
+        const shouldRenderSectionHeading =
+          slideMode === "review" && !renderedReviewSections.has(sectionRank);
+
+        if (shouldRenderSectionHeading) {
+          renderedReviewSections.add(sectionRank);
+        }
         const eventDescription =
           product.detailsDescription ?? product.description ?? "";
         const eventInfoRows = [
@@ -6418,38 +7351,31 @@ function ShopSlideRenderer({
         ].filter(Boolean) as string[][];
 
         return (
+          <Fragment key={product.id}>
+            {shouldRenderSectionHeading ? (
+              <CartReviewSectionHeading
+                sectionRank={sectionRank}
+                unselectedCount={unselectedReviewLines.length}
+                unavailableCount={unavailableReviewLines.length}
+                onRemoveUnavailable={() => {
+                  for (const line of unavailableReviewLines) {
+                    onRemoveLine(line.productId, line.sizeOptionId);
+                  }
+                }}
+              />
+            ) : null}
           <div
-            key={product.id}
             ref={(node) => {
               productRefs.current[product.id] = node;
             }}
-            className={styles.productPanel}
+            className={
+              slideMode === "review"
+                ? `${styles.productPanel} ${styles.cartProductPanel}`
+                : styles.productPanel
+            }
             style={{ borderColor: theme.colors.border }}
           >
-            {isEventProduct && slideMode === "review" ? (
-              <div className={styles.eventProductCartHeader}>
-                <div className={styles.eventProductCartTitleRow}>
-                  <div className={styles.eventProductCartTitle}>{product.title}</div>
-                  <div className={styles.eventProductCartActions}>
-                    {product.eventDateLabel ? (
-                      <span>{product.eventDateLabel}</span>
-                    ) : null}
-
-                    {firstReviewLine ? (
-                      <button
-                        type="button"
-                        className={styles.adjustLinkButton}
-                        onClick={() =>
-                          onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
-                        }
-                      >
-                        Adjust
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : isEventProduct ? (
+            {slideMode === "review" ? null : isEventProduct ? (
               <div className={styles.eventProductHeader}>
                 <div className={styles.eventProductHeroWrap}>
                   {product.imageUrl ? (
@@ -6480,23 +7406,7 @@ function ShopSlideRenderer({
                     </div>
                   ) : null}
 
-                  {slideMode === "review" ? (
-                    <div className={styles.eventProductTopActions}>
-                      <span className={styles.cartItemBadge}>Cart item</span>
-
-                      {firstReviewLine ? (
-                        <button
-                          type="button"
-                          className={styles.adjustLinkButton}
-                          onClick={() =>
-                            onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
-                          }
-                        >
-                          Adjust
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : !isExpanded ? (
+                  {!isExpanded ? (
                     <button
                       type="button"
                       className={styles.seeCostButton}
@@ -6517,7 +7427,7 @@ function ShopSlideRenderer({
                 </div>
               </div>
             ) : (
-              <div className={styles.productPanelHeader}>
+                <div className={styles.productPanelHeader}>
                 <div className={styles.productHeaderMain}>
                   <div className={styles.productImageWrap}>
                     {product.imageUrl ? (
@@ -6539,22 +7449,8 @@ function ShopSlideRenderer({
                       <div className={styles.productTitleGroup}>
                         <h3 className={styles.productTitle}>{product.title}</h3>
 
-                        {slideMode === "review" ? (
-                          <span className={styles.cartItemBadge}>Cart item</span>
-                        ) : null}
                       </div>
 
-                      {slideMode === "review" && firstReviewLine ? (
-                        <button
-                          type="button"
-                          className={styles.adjustLinkButton}
-                          onClick={() =>
-                            onAdjustLine?.(product.id, firstReviewLine.sizeOptionId)
-                          }
-                        >
-                          Adjust
-                        </button>
-                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -6565,7 +7461,7 @@ function ShopSlideRenderer({
                   </p>
                 ) : null}
 
-              {slideMode === "browse" && !isExpanded ? (
+              {!isExpanded ? (
                 <button
                   type="button"
                   className={styles.seeCostButton}
@@ -6598,7 +7494,7 @@ function ShopSlideRenderer({
               .filter((sizeOption) => {
                 if (slideMode === "browse") return true;
 
-                return selectedLines.some(
+                return displayReviewLines.some(
                   (line) =>
                     line.productId === product.id &&
                     line.sizeOptionId === sizeOption.id
@@ -6609,20 +7505,26 @@ function ShopSlideRenderer({
                 const cartLine = cart[lineKey];
                 const resolvedLine =
                   slideMode === "review"
-                    ? selectedLines.find(
+                    ? displayReviewLines.find(
                         (line) =>
                           line.productId === product.id &&
                           line.sizeOptionId === sizeOption.id
                       )
                     : undefined;
 
+                const isDraftActive = Boolean(cartLine);
                 const selected =
                   slideMode === "review" ? true : cartLine?.selected === true;
+                const isConfigurable =
+                  slideMode === "review" ? true : isDraftActive;
                 const quantity = Math.max(1, cartLine?.quantity ?? 1);
                 const purchaseRecipients =
                   cartLine?.purchaseRecipients ??
                   resolvedLine?.purchaseRecipients ??
                   [];
+                const productAllowsPurchaseForOthers =
+                  product.enablePurchaseForOthers ||
+                  product.fulfillmentType === "ticket";
                 const recipientLimit = Math.max(
                   0,
                   product.maxPurchaseForOthers ?? quantity
@@ -6652,6 +7554,27 @@ function ShopSlideRenderer({
                 );
                 const completedPurchaseRecipients =
                   getCompletedPurchaseRecipients(purchaseRecipients);
+                const selectedRecipientEmails = new Set(
+                  purchaseRecipients.map((recipient) =>
+                    recipient.email.trim().toLowerCase()
+                  )
+                );
+                const availableVerifiedRecipients =
+                  verifiedPurchaseRecipients.filter(
+                    (recipient) =>
+                      !selectedRecipientEmails.has(
+                        recipient.recipientEmail.trim().toLowerCase()
+                      )
+                  );
+                const hidePurchaseForOthersSection =
+                  (slideId === "music-merch-shop" &&
+                    String(answers.shopEntrySource ?? "") ===
+                      "ticket-details-add-ons") ||
+                  verifiedPurchaseRecipients.length === 0;
+                const selectedVerifiedRecipientId =
+                  recipientSelectValues[lineKey] ||
+                  availableVerifiedRecipients[0]?.id ||
+                  "";
                 const accountHolderName =
                   String(answers.fullName ?? "").trim() || "you";
                 const spotsRemaining =
@@ -6669,46 +7592,147 @@ function ShopSlideRenderer({
                       sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
                     : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
                 const isEventTicketLine = product.fulfillmentType === "ticket";
+                const isUnavailable =
+                  slideMode === "review" &&
+                  resolvedLine?.availabilityStatus === "unavailable";
+                const fulfillmentLabel =
+                  slideMode === "review" && resolvedLine
+                    ? getCartFulfillmentLabel(resolvedLine)
+                    : "";
+                const shouldShowPurchaseModeLabel =
+                  !activePurchaseMode?.bundledCartItems?.length &&
+                  Boolean(resolvedLine?.purchaseModeLabel);
 
-                if (isEventTicketLine && slideMode === "review") {
+                if (isUnavailable && slideMode === "review") {
                   return (
                     <div
                       key={sizeOption.id}
-                      className={styles.sizeRowBlock}
+                      className={`${styles.sizeRowBlock} ${styles.cartUnavailablePanel}`}
                       style={{ borderTopColor: theme.colors.border }}
                     >
-                      <div className={styles.eventTicketCartLine}>
+                      <div className={styles.cartUnavailableThumbnail}>
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt="" />
+                        ) : (
+                          <span>{product.title.slice(0, 1)}</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.cartIconButton}
+                        aria-label={`Remove unavailable ${product.title} ${sizeOption.label}`}
+                        onClick={() => onRemoveLine(product.id, sizeOption.id)}
+                      >
+                        <span aria-hidden="true" className={styles.cartTrashIcon} />
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (isEventTicketLine && slideMode === "review") {
+                  const lineMealAssignments =
+                    ticketAssignments?.filter(
+                      (assignment) =>
+                        assignment.lineKey === resolvedLine?.lineKey ||
+                        (assignment.productId === product.id &&
+                          assignment.sizeOptionId === sizeOption.id)
+                    ) ?? [];
+                  const bundledAddOnLines = activeReviewLines.filter(
+                    (line) => line.bundledFromLineKey === resolvedLine?.lineKey
+                  );
+
+                  return (
+                    <div
+                      key={sizeOption.id}
+                      className={`${styles.sizeRowBlock} ${styles.cartItemPanel}`}
+                      style={{ borderTopColor: theme.colors.border }}
+                    >
+                      <div className={styles.cartItemTopBar}>
+                        <input
+                          type="checkbox"
+                          checked={resolvedLine?.selected !== false}
+                          aria-label={`Selected ${product.title} ${sizeOption.label}`}
+                          onChange={(event) =>
+                            onSetLineSelected(
+                              product.id,
+                              sizeOption.id,
+                              event.target.checked
+                            )
+                          }
+                        />
+                        <CartItemCountdown
+                          secondsRemaining={reservationSecondsRemaining}
+                        />
                         <button
                           type="button"
-                          className={styles.cartRemoveLink}
+                          className={styles.cartIconButton}
+                          aria-label={`Remove ${sizeOption.label}`}
                           onClick={() => onRemoveLine(product.id, sizeOption.id)}
                         >
-                          Remove
+                          <span aria-hidden="true" className={styles.cartTrashIcon} />
                         </button>
-                        <span className={styles.eventTicketCartType}>
-                          {sizeOption.label}
-                        </span>
-                        {resolvedLine?.purchaseModeLabel ? (
-                          <span className={styles.eventTicketCartMode}>
-                            {resolvedLine.purchaseModeLabel}
-                          </span>
-                        ) : null}
-                        {resolvedLine?.sku ? (
-                          <span className={styles.eventTicketCartMode}>
-                            SKU: {resolvedLine.sku}
-                          </span>
-                        ) : null}
-                        <span>
-                          <strong>Quantity:</strong> {quantity}
-                        </span>
-                        <span>
-                          <strong>Line total:</strong>{" "}
-                          {formatCurrency(
-                            resolvedLine?.lineTotal ?? unitPrice * quantity,
-                            catalog.currencyCode
-                          )}
-                        </span>
                       </div>
+                      <div className={styles.cartItemMain}>
+                        <div className={styles.cartItemThumbnail}>
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt="" />
+                          ) : (
+                            <span>Ticket</span>
+                          )}
+                        </div>
+                        <div className={styles.eventTicketCartHeaderLine}>
+                        <div className={styles.cartItemNameLine}>
+                          <span>{product.title}</span>
+                        </div>
+                        <div className={styles.eventTicketCartType}>
+                          {sizeOption.label}
+                          {shouldShowPurchaseModeLabel
+                            ? ` - ${resolvedLine?.purchaseModeLabel}`
+                            : ""}
+                        </div>
+                        </div>
+                      </div>
+                      <div className={styles.reviewMetaRow}>
+                        {product.eventVenueLabel ? (
+                          <span>{product.eventVenueLabel}</span>
+                        ) : null}
+                        {product.eventAddress ? (
+                          <span>{product.eventAddress}</span>
+                        ) : null}
+                        {product.eventDateLabel || product.eventTimeLabel ? (
+                          <span>
+                            {[product.eventDateLabel, product.eventTimeLabel]
+                              .filter(Boolean)
+                              .join(" - ")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className={styles.cartItemPriceRow}>
+                        <strong>{formatCurrency(unitPrice, catalog.currencyCode)}</strong>
+                      </div>
+                      {lineMealAssignments.length > 0 && mealMenu ? (
+                        <div className={styles.cartTicketMealStack}>
+                          {lineMealAssignments.map((assignment) => (
+                            <CartTicketMealSummary
+                              key={assignment.ticketCode}
+                              assignment={assignment}
+                              menu={mealMenu}
+                              onAdjustMeals={onAdjustMeals}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                      {bundledAddOnLines.length > 0 ? (
+                        <CartBundledAddOnsSummary
+                          lines={bundledAddOnLines}
+                          currencyCode={catalog.currencyCode}
+                        />
+                      ) : null}
+                      {fulfillmentLabel ? (
+                        <div className={styles.cartItemFootnote}>
+                          {fulfillmentLabel}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }
@@ -6716,50 +7740,99 @@ function ShopSlideRenderer({
                 return (
                   <div
                     key={sizeOption.id}
-                    className={styles.sizeRowBlock}
+                    className={
+                      slideMode === "review"
+                        ? `${styles.sizeRowBlock} ${styles.cartItemPanel}`
+                        : styles.sizeRowBlock
+                    }
                     style={{ borderTopColor: theme.colors.border }}
                   >
-                    <div className={styles.sizeRow}>
-                      {slideMode === "browse" ? (
+                    {slideMode === "review" ? (
+                      <div className={styles.cartItemTopBar}>
                         <input
                           type="checkbox"
-                          checked={selected}
-                          onChange={(event) => {
-                            const nextSelected = event.target.checked;
-
-                            if (
-                              nextSelected &&
-                              sizeOption.purchaseModes?.length &&
-                              !cartLine?.purchaseModeId
-                            ) {
-                              onSetPurchaseMode(
-                                product.id,
-                                sizeOption.id,
-                                getDefaultPurchaseModeId(sizeOption)
-                              );
-                            }
-
-                            onToggleLine(
+                          checked={resolvedLine?.selected !== false}
+                          aria-label={`Selected ${product.title} ${sizeOption.label}`}
+                          onChange={(event) =>
+                            onSetLineSelected(
                               product.id,
                               sizeOption.id,
-                              nextSelected
-                            );
-                          }}
+                              event.target.checked
+                            )
+                          }
                         />
-                      ) : (
+                        <CartItemCountdown
+                          secondsRemaining={reservationSecondsRemaining}
+                        />
                         <button
                           type="button"
-                          className={styles.removeLineButton}
+                          className={styles.cartIconButton}
+                          aria-label={`Remove ${product.title} ${sizeOption.label}`}
                           onClick={() => onRemoveLine(product.id, sizeOption.id)}
-                          style={{
-                            borderColor: theme.colors.border,
-                            color: theme.colors.text,
-                          }}
                         >
-                          Remove
+                          <span aria-hidden="true" className={styles.cartTrashIcon} />
                         </button>
-                      )}
-                      
+                      </div>
+                    ) : null}
+                    {slideMode === "review" ? (
+                      <div className={styles.cartItemMain}>
+                        <div className={styles.cartItemThumbnail}>
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt="" />
+                          ) : (
+                            <span>{product.title.slice(0, 1)}</span>
+                          )}
+                        </div>
+                    <div className={styles.sizeRow}>
+                      <div className={styles.sizeText}>
+                        <div className={styles.sizeLabel}>
+                          {slideMode === "review" ? product.title : sizeOption.label}
+                        </div>
+
+                        {slideMode === "review" ? (
+                          <div className={styles.sizeDescription}>
+                            {[
+                              sizeOption.label,
+                              resolvedLine?.purchaseModeLabel,
+                            ]
+                              .filter(Boolean)
+                              .join(" - ")}
+                          </div>
+                        ) : sizeOption.description ? (
+                          <div className={styles.sizeDescription}>
+                            {sizeOption.description}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                      </div>
+                    ) : (
+                    <div className={styles.sizeRow}>
+                      <input
+                        type="checkbox"
+                        checked={isDraftActive}
+                        onChange={(event) => {
+                          const nextActive = event.target.checked;
+
+                          if (
+                            nextActive &&
+                            sizeOption.purchaseModes?.length &&
+                            !cartLine?.purchaseModeId
+                          ) {
+                            onSetPurchaseMode(
+                              product.id,
+                              sizeOption.id,
+                              getDefaultPurchaseModeId(sizeOption)
+                            );
+                          }
+
+                          if (nextActive) {
+                            onSetQuantity(product.id, sizeOption.id, quantity);
+                          } else {
+                            onRemoveLine(product.id, sizeOption.id);
+                          }
+                        }}
+                      />
                       <div className={styles.sizeText}>
                         <div className={styles.sizeLabel}>{sizeOption.label}</div>
 
@@ -6769,57 +7842,32 @@ function ShopSlideRenderer({
                           </div>
                         ) : null}
                       </div>
-                      
                       <div className={styles.sizePrice}>
-                        {resolvedLine?.baseUnitPrice !== undefined &&
-                        resolvedLine.baseUnitPrice > unitPrice ? (
-                          <div>
-                            <div
-                              style={{
-                                textDecoration: "line-through",
-                                opacity: 0.6,
-                                fontSize: "0.9em",
-                              }}
-                            >
-                              {formatCurrency(
-                                resolvedLine.baseUnitPrice,
-                                catalog.currencyCode
-                              )}
-                            </div>
-                            <div>
-                              {formatCurrency(unitPrice, catalog.currencyCode)}
-                            </div>
-                          </div>
-                        ) : (
-                          formatCurrency(unitPrice, catalog.currencyCode)
-                        )}
+                        {formatCurrency(unitPrice, catalog.currencyCode)}
                       </div>
-                          {isEventTicketLine && slideMode === "review" ? (
-                            <div aria-hidden="true" />
-                          ) : (
-                            <QuantityControl
-                              quantity={quantity}
-                              minQuantity={minimumQuantity}
-                              maxQuantity={productMaxQuantity}
-                              disabled={slideMode === "browse" ? !selected : false}
-                              onDecrease={() =>
-                                onSetQuantity(product.id, sizeOption.id, quantity - 1)
-                              }
-                              onIncrease={() =>
-                                onSetQuantity(product.id, sizeOption.id, quantity + 1)
-                              }
-                              theme={theme}
-                            />
-                          )}
+                      <QuantityControl
+                        quantity={quantity}
+                        minQuantity={minimumQuantity}
+                        maxQuantity={productMaxQuantity}
+                        disabled={!isConfigurable}
+                        onDecrease={() =>
+                          onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                        }
+                        onIncrease={() =>
+                          onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                        }
+                        theme={theme}
+                      />
                     </div>
+                    )}
 
                     {slideMode === "browse" &&
-                    selected &&
-                    product.enablePurchaseForOthers &&
+                    isConfigurable &&
+                    productAllowsPurchaseForOthers &&
                     completedPurchaseRecipients.length > 0 ? (
                       <div className={styles.accountHolderQuantityHint}>
                         <div>
-                          {accountHolderQuantity} will be sent to you
+                          {accountHolderQuantity} of this item will be sent to you
                           {accountHolderName ? ` (${accountHolderName})` : ""}.
                         </div>
                         {completedPurchaseRecipients.map((recipient, index) => {
@@ -6830,7 +7878,7 @@ function ShopSlideRenderer({
                             <div
                               key={`${product.id}-${sizeOption.id}-allocation-${index}`}
                             >
-                              {recipientQuantity} will be sent to{" "}
+                              {recipientQuantity} of this item will be sent to{" "}
                               {recipient.name.trim()}.
                             </div>
                           );
@@ -6839,7 +7887,7 @@ function ShopSlideRenderer({
                           <div className={styles.spotsRemainingLine}>
                             {spotsRemaining} spot
                             {spotsRemaining === 1 ? "" : "s"} remaining.
-                            Maximum {productMaxQuantity} per order.
+                            Maximum {productMaxQuantity} of this item per order.
                           </div>
                         ) : null}
                       </div>
@@ -6863,7 +7911,7 @@ function ShopSlideRenderer({
                               type="radio"
                               name={`${product.id}-${sizeOption.id}-purchase-mode`}
                               checked={checked}
-                              disabled={slideMode === "browse" ? !selected : true}
+                              disabled={slideMode === "browse" ? !isConfigurable : true}
                               onChange={() =>
                                 onSetPurchaseMode(
                                   product.id,
@@ -6889,30 +7937,94 @@ function ShopSlideRenderer({
                   ) : null}
 
                   {slideMode === "browse" &&
-                  product.enablePurchaseForOthers &&
-                  selected ? (
+                  productAllowsPurchaseForOthers &&
+                  isConfigurable &&
+                  !hidePurchaseForOthersSection ? (
                     <div className={styles.purchaseForOthersPanel}>
                       <button
                         type="button"
                         className={styles.purchaseForSomeoneButton}
                         onClick={() =>
-                          onSetPurchaseRecipients(product.id, sizeOption.id, [
-                            {
-                              name: "",
-                              email: "",
-                              quantity: recipientMinQuantity,
-                              note: "",
-                            },
-                            ...purchaseRecipients,
-                          ])
+                          setPurchaseRecipientPickerOpen((prev) => ({
+                            ...prev,
+                            [lineKey]: !prev[lineKey],
+                          }))
                         }
                         disabled={!canAddPurchaseRecipient}
                       >
                         + Purchase for someone
                       </button>
                       <div className={styles.purchaseForOthersHint}>
-                        You can add up to {recipientLimit} people.
+                        You can add up to {recipientLimit} people for this item.
                       </div>
+                      <div className={styles.purchaseForOthersCreditNote}>
+                        <div>Purchased store credit can be used for eligible gifts.</div>
+                        <div>
+                          Returned store credit cannot be used to purchase for
+                          someone else.
+                        </div>
+                      </div>
+                      {purchaseRecipientPickerOpen[lineKey] ? (
+                        <div className={styles.verifiedRecipientPicker}>
+                          <select
+                            className={styles.input}
+                            value={selectedVerifiedRecipientId}
+                            onChange={(event) =>
+                              setRecipientSelectValues((prev) => ({
+                                ...prev,
+                                [lineKey]: event.target.value,
+                              }))
+                            }
+                            disabled={availableVerifiedRecipients.length === 0}
+                            style={{ borderColor: theme.colors.border }}
+                          >
+                            {availableVerifiedRecipients.length ? (
+                              availableVerifiedRecipients.map((recipient) => (
+                                <option key={recipient.id} value={recipient.id}>
+                                  {recipient.confirmedName ||
+                                    recipient.recipientName}{" "}
+                                  ({recipient.recipientEmail})
+                                </option>
+                              ))
+                            ) : (
+                              <option value="">No verified recipients yet</option>
+                            )}
+                          </select>
+                          <button
+                            type="button"
+                            className={styles.purchaseForSomeoneButton}
+                            onClick={() => {
+                              const selectedRecipient =
+                                availableVerifiedRecipients.find(
+                                  (recipient) =>
+                                    recipient.id === selectedVerifiedRecipientId
+                                );
+
+                              if (!selectedRecipient) {
+                                return;
+                              }
+
+                              onSetPurchaseRecipients(product.id, sizeOption.id, [
+                                {
+                                  name:
+                                    selectedRecipient.confirmedName ||
+                                    selectedRecipient.recipientName,
+                                  email: selectedRecipient.recipientEmail,
+                                  quantity: recipientMinQuantity,
+                                  note: "",
+                                },
+                                ...purchaseRecipients,
+                              ]);
+                            }}
+                            disabled={
+                              !selectedVerifiedRecipientId ||
+                              availableVerifiedRecipients.length === 0
+                            }
+                          >
+                            Add selected recipient
+                          </button>
+                        </div>
+                      ) : null}
 
                       {purchaseRecipients.length >= recipientLimit ? (
                         <div className={styles.purchaseForOthersLimit}>
@@ -6940,43 +8052,9 @@ function ShopSlideRenderer({
 
                             return (
                               <>
-                          <input
-                            className={styles.input}
-                            value={recipient.name}
-                            onChange={(event) =>
-                              onSetPurchaseRecipients(
-                                product.id,
-                                sizeOption.id,
-                                updatePurchaseRecipient(
-                                  purchaseRecipients,
-                                  index,
-                                  "name",
-                                  event.target.value
-                                )
-                              )
-                            }
-                            placeholder="Recipient name (required)"
-                            style={{ borderColor: theme.colors.border }}
-                          />
-                          <input
-                            className={styles.input}
-                            type="email"
-                            value={recipient.email}
-                            onChange={(event) =>
-                              onSetPurchaseRecipients(
-                                product.id,
-                                sizeOption.id,
-                                updatePurchaseRecipient(
-                                  purchaseRecipients,
-                                  index,
-                                  "email",
-                                  event.target.value
-                                )
-                              )
-                            }
-                            placeholder="Recipient email address (required)"
-                            style={{ borderColor: theme.colors.border }}
-                          />
+                          <div className={styles.purchaseForOthersHint}>
+                            {recipient.name} ({recipient.email})
+                          </div>
                           <input
                             className={styles.input}
                             value={recipient.note ?? ""}
@@ -7066,12 +8144,8 @@ function ShopSlideRenderer({
 
                   {slideMode === "review" ? (
                     <div className={styles.reviewMetaRow}>
-                      {resolvedLine?.sku ? (
-                        <span>SKU: {resolvedLine.sku}</span>
-                      ) : null}
-
-                      {resolvedLine?.purchaseModeLabel ? (
-                        <span>{resolvedLine.purchaseModeLabel}</span>
+                      {sizeOption.description ? (
+                        <span>{sizeOption.description}</span>
                       ) : null}
 
                       {typeof sizeOption.weight === "number" &&
@@ -7087,7 +8161,7 @@ function ShopSlideRenderer({
 
                       {resolvedLine?.discountLabel && resolvedLine.lineDiscount ? (
                         <span>
-                          {resolvedLine.discountLabel} · -
+                          {resolvedLine.discountLabel}: -
                           {formatCurrency(
                             resolvedLine.lineDiscount,
                             catalog.currencyCode
@@ -7095,13 +8169,6 @@ function ShopSlideRenderer({
                         </span>
                       ) : null}
 
-                      <span>
-                        Line total:{" "}
-                        {formatCurrency(
-                          resolvedLine?.lineTotal ?? unitPrice * quantity,
-                          catalog.currencyCode
-                        )}
-                      </span>
                     </div>
                   ) : null}
 
@@ -7119,12 +8186,72 @@ function ShopSlideRenderer({
                       ))}
                     </div>
                   ) : null}
+
+                  {slideMode === "review" ? (
+                    <div className={styles.cartItemPriceRow}>
+                      <div className={styles.sizePrice}>
+                        {resolvedLine?.baseUnitPrice !== undefined &&
+                        resolvedLine.baseUnitPrice > unitPrice ? (
+                          <div>
+                            <div
+                              style={{
+                                textDecoration: "line-through",
+                                opacity: 0.6,
+                                fontSize: "0.9em",
+                              }}
+                            >
+                              {formatCurrency(
+                                resolvedLine.baseUnitPrice,
+                                catalog.currencyCode
+                              )}
+                            </div>
+                            <div>
+                              {formatCurrency(unitPrice, catalog.currencyCode)}
+                            </div>
+                          </div>
+                        ) : (
+                          formatCurrency(unitPrice, catalog.currencyCode)
+                        )}
+                      </div>
+                      <QuantityControl
+                        quantity={quantity}
+                        minQuantity={minimumQuantity}
+                        maxQuantity={productMaxQuantity}
+                        disabled={false}
+                        onDecrease={() =>
+                          onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                        }
+                        onIncrease={() =>
+                          onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                        }
+                        theme={theme}
+                      />
+                    </div>
+                  ) : null}
+
+                  {slideMode === "review" && fulfillmentLabel ? (
+                    <div className={styles.cartItemFootnote}>
+                      {fulfillmentLabel}
+                    </div>
+                  ) : null}
                 </div>
               );
               })}
 
                 {slideMode === "browse" ? (
                   <div className={styles.eventProductBottomActions}>
+                    <button
+                      type="button"
+                      className={styles.addToCartButton}
+                      disabled={!canAddProductToCart}
+                      onClick={() => onAddProductToCart(product.id)}
+                      style={{
+                        background: theme.colors.primary,
+                        color: getContrastTextColor(theme.colors.primary),
+                      }}
+                    >
+                      {productSelectedLineCount > 0 ? "Update cart" : "Add to cart"}
+                    </button>
                     <button
                       type="button"
                       className={styles.seeCostButton}
@@ -7146,6 +8273,7 @@ function ShopSlideRenderer({
               </div>
             ) : null}
         </div>
+          </Fragment>
       );
     })}
 
@@ -7235,7 +8363,7 @@ function QuantityControl({
   quantity: number;
   minQuantity?: number;
   maxQuantity?: number;
-  disabled: boolean;
+  disabled?: boolean;
   onDecrease: () => void;
   onIncrease: () => void;
   theme: ThemeConfig;
@@ -8407,6 +9535,258 @@ function buildAddressLines(user: AccountProfileUser) {
   ]
     .map((item) => String(item ?? "").trim())
     .filter(Boolean);
+}
+
+type PurchaseRecipientRecord = {
+  id: string;
+  recipientName: string;
+  recipientEmail: string;
+  confirmedName?: string | null;
+  phone?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  parishOrRegion?: string | null;
+  postalCode?: string | null;
+  status: string;
+  invitedAt?: string | null;
+  inviteExpiresAt?: string | null;
+  acceptedAt?: string | null;
+  reminderCount?: number;
+};
+
+type VerifiedPurchaseRecipientOption = {
+  id: string;
+  recipientName: string;
+  recipientEmail: string;
+  confirmedName?: string | null;
+  status: string;
+};
+
+function formatPurchaseRecipientStatus(status: string) {
+  const normalized = String(status || "").trim().toUpperCase();
+
+  if (normalized === "VERIFIED") return "Verified";
+  if (normalized === "EXPIRED") return "Invite expired";
+  if (normalized === "REMOVED") return "Removed";
+
+  return "Pending acceptance";
+}
+
+function PurchaseRecipientsRenderer({ theme }: { theme: ThemeConfig }) {
+  const [recipients, setRecipients] = useState<PurchaseRecipientRecord[]>([]);
+  const [maxRecipients, setMaxRecipients] = useState(12);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  async function loadRecipients() {
+    setIsLoading(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/account/purchase-recipients", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      const data = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        window.location.href = "/questionnaire/auth-login";
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not load recipients.");
+      }
+
+      setRecipients(Array.isArray(data?.recipients) ? data.recipients : []);
+      setMaxRecipients(Number(data?.maxRecipients) || 12);
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not load recipients.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadRecipients();
+  }, []);
+
+  async function submitRecipient(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/account/purchase-recipients", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ name, email }),
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not send invite.");
+      }
+
+      setStatusMessage({
+        type: "success",
+        text:
+          data?.message ||
+          "Invite sent. The recipient must accept before store purchase.",
+      });
+      setName("");
+      setEmail("");
+      await loadRecipients();
+    } catch (error) {
+      setStatusMessage({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "Could not send invite.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const activeRecipientCount = recipients.filter(
+    (recipient) => recipient.status !== "REMOVED"
+  ).length;
+  const verifiedRecipients = recipients.filter(
+    (recipient) => recipient.status === "VERIFIED"
+  );
+
+  return (
+    <div className={styles.accountSummaryStack}>
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardTitle}>Add recipient</div>
+        <div className={styles.accountCardMeta}>
+          Enter the person&apos;s name and email. They must accept the email
+          invite before their name can be selected in the store.
+        </div>
+
+        <form className={styles.purchaseRecipientForm} onSubmit={submitRecipient}>
+          <input
+            className={styles.input}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Recipient name"
+            required
+            style={{ borderColor: theme.colors.border }}
+          />
+          <input
+            className={styles.input}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Recipient email"
+            required
+            style={{ borderColor: theme.colors.border }}
+          />
+          <button
+            type="submit"
+            className={styles.primaryActionButton}
+            disabled={isSubmitting || activeRecipientCount >= maxRecipients}
+            style={{
+              background: theme.colors.primary,
+              color: getContrastTextColor(theme.colors.primary),
+            }}
+          >
+            {isSubmitting ? "Sending..." : "Send invite"}
+          </button>
+        </form>
+
+        <div className={styles.accountCardMeta}>
+          {activeRecipientCount} of {maxRecipients} recipient spots used.
+        </div>
+      </div>
+
+      {statusMessage ? (
+        <div
+          className={
+            statusMessage.type === "success"
+              ? styles.successMessage
+              : styles.errorMessage
+          }
+        >
+          {statusMessage.text}
+        </div>
+      ) : null}
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardTitle}>Verified recipients</div>
+        <div className={styles.accountCardMeta}>
+          Only verified recipients should appear as selectable names while
+          purchasing for someone in the store.
+        </div>
+        {isLoading ? (
+          <div className={styles.accountCardValue}>Loading recipients...</div>
+        ) : verifiedRecipients.length ? (
+          <div className={styles.purchaseRecipientList}>
+            {verifiedRecipients.map((recipient) => (
+              <div key={recipient.id} className={styles.purchaseRecipientCard}>
+                <strong>
+                  {recipient.confirmedName || recipient.recipientName}
+                </strong>
+                <span>{recipient.recipientEmail}</span>
+                <span>{formatPurchaseRecipientStatus(recipient.status)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.accountCardValue}>
+            No verified recipients yet.
+          </div>
+        )}
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardTitle}>Pending invites</div>
+        {isLoading ? (
+          <div className={styles.accountCardValue}>Loading invites...</div>
+        ) : recipients.filter((recipient) => recipient.status !== "VERIFIED")
+            .length ? (
+          <div className={styles.purchaseRecipientList}>
+            {recipients
+              .filter((recipient) => recipient.status !== "VERIFIED")
+              .map((recipient) => (
+                <div key={recipient.id} className={styles.purchaseRecipientCard}>
+                  <strong>{recipient.recipientName}</strong>
+                  <span>{recipient.recipientEmail}</span>
+                  <span>{formatPurchaseRecipientStatus(recipient.status)}</span>
+                  {recipient.inviteExpiresAt ? (
+                    <span>
+                      Invite expires:{" "}
+                      {formatAccountDate(recipient.inviteExpiresAt)}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+          </div>
+        ) : (
+          <div className={styles.accountCardValue}>No pending invites.</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AccountSummaryRenderer({

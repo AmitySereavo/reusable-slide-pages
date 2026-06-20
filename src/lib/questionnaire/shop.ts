@@ -267,8 +267,22 @@ export function normalizeShopCart(input: unknown): ShopCart {
     }
 
     const selected = raw.selected === true;
+    const availabilityStatus =
+      raw.availabilityStatus === "unavailable" ? "unavailable" : "available";
+    const unavailableReason =
+      typeof raw.unavailableReason === "string"
+        ? raw.unavailableReason
+        : undefined;
     const purchaseModeId =
       typeof raw.purchaseModeId === "string" ? raw.purchaseModeId : undefined;
+    const bundledFromLineKey =
+      typeof raw.bundledFromLineKey === "string"
+        ? raw.bundledFromLineKey
+        : undefined;
+    const bundledByPurchaseModeId =
+      typeof raw.bundledByPurchaseModeId === "string"
+        ? raw.bundledByPurchaseModeId
+        : undefined;
     const purchaseRecipients = normalizeShopPurchaseRecipients(
       raw.purchaseRecipients
     );
@@ -284,8 +298,14 @@ export function normalizeShopCart(input: unknown): ShopCart {
       sizeOptionId,
       selected,
       quantity,
+      availabilityStatus,
+      unavailableReason,
       purchaseModeId,
+      bundledFromLineKey,
+      bundledByPurchaseModeId,
       purchaseRecipients,
+      lockedQuantity: raw.lockedQuantity === true,
+      lockedPurchaseMode: raw.lockedPurchaseMode === true,
     };
   }
 
@@ -307,16 +327,18 @@ export function toggleShopLineSelected(
   const nextLine: ShopCartLine = {
     productId,
     sizeOptionId,
-    selected,
+    selected: current?.availabilityStatus === "unavailable" ? false : selected,
+    availabilityStatus: current?.availabilityStatus,
+    unavailableReason: current?.unavailableReason,
     quantity: nextQuantity,
     purchaseModeId: current?.purchaseModeId ?? defaultPurchaseModeId,
     purchaseRecipients: current?.purchaseRecipients,
   };
 
-  return {
+  return syncBundledCartItemsForLine(catalog, {
     ...cart,
     [key]: nextLine,
-  };
+  }, key);
 }
 
 export function setShopLineQuantity(
@@ -338,21 +360,24 @@ export function setShopLineQuantity(
     minQuantity,
     quantityRules.maxOrderQuantity
   );
-  return {
+  return syncBundledCartItemsForLine(catalog, {
     ...cart,
     [key]: {
       productId,
       sizeOptionId,
-      selected: current?.selected ?? true,
+      selected: current?.selected ?? false,
       quantity: nextQuantity,
       purchaseModeId: current?.purchaseModeId,
+      bundledFromLineKey: current?.bundledFromLineKey,
+      bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
       purchaseRecipients: current?.purchaseRecipients,
     },
-  };
+  }, key);
 }
 
 export function setShopLinePurchaseMode(
   cart: ShopCart,
+  catalog: ShopCatalog | null,
   productId: string,
   sizeOptionId: string,
   purchaseModeId?: string
@@ -360,17 +385,19 @@ export function setShopLinePurchaseMode(
   const key = makeShopLineKey(productId, sizeOptionId);
   const current = cart[key];
 
-  return {
+  return syncBundledCartItemsForLine(catalog, {
     ...cart,
     [key]: {
       productId,
       sizeOptionId,
-      selected: current?.selected ?? true,
+      selected: current?.selected ?? false,
       quantity: normalizePositiveInteger(current?.quantity, 1),
       purchaseModeId,
+      bundledFromLineKey: current?.bundledFromLineKey,
+      bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
       purchaseRecipients: current?.purchaseRecipients,
     },
-  };
+  }, key);
 }
 
 export function setShopLinePurchaseRecipients(
@@ -409,17 +436,130 @@ export function setShopLinePurchaseRecipients(
     quantityRules.maxOrderQuantity
   );
 
-  return {
+  return syncBundledCartItemsForLine(catalog, {
     ...cart,
     [key]: {
       productId,
       sizeOptionId,
-      selected: current?.selected ?? true,
+      selected: current?.selected ?? false,
       quantity: nextQuantity,
       purchaseModeId: current?.purchaseModeId,
+      bundledFromLineKey: current?.bundledFromLineKey,
+      bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
+      lockedQuantity: current?.lockedQuantity,
+      lockedPurchaseMode: current?.lockedPurchaseMode,
       purchaseRecipients: normalizedRecipients,
     },
-  };
+  }, key);
+}
+
+export function addShopProductDraftToCart(
+  cart: ShopCart,
+  catalog: ShopCatalog | null,
+  productId: string
+): ShopCart {
+  const product = findShopProduct(catalog, productId);
+  const draftEntries = Object.entries(cart).filter(
+    ([, line]) => line.productId === productId
+  );
+
+  if (!draftEntries.length && product?.sizeOptions[0]) {
+    const sizeOption = product.sizeOptions[0];
+    const key = makeShopLineKey(productId, sizeOption.id);
+
+    return syncBundledCartItemsForLine(catalog, {
+      ...cart,
+      [key]: {
+        productId,
+        sizeOptionId: sizeOption.id,
+        selected: true,
+        quantity: product.minOrderQuantity ?? 1,
+        purchaseModeId: getDefaultPurchaseModeId(sizeOption),
+      },
+    }, key);
+  }
+
+  let nextCart = { ...cart };
+
+  for (const [key, line] of draftEntries) {
+    nextCart[key] = {
+      ...line,
+      selected: line.availabilityStatus === "unavailable" ? false : true,
+    };
+    nextCart = syncBundledCartItemsForLine(catalog, nextCart, key);
+  }
+
+  return nextCart;
+}
+
+function syncBundledCartItemsForLine(
+  catalog: ShopCatalog | null,
+  cart: ShopCart,
+  sourceLineKey: string
+): ShopCart {
+  if (!catalog) {
+    return cart;
+  }
+
+  const sourceLine = cart[sourceLineKey];
+
+  if (!sourceLine || sourceLine.bundledFromLineKey) {
+    return cart;
+  }
+
+  const sourceSizeOption = findShopSizeOption(
+    catalog,
+    sourceLine.productId,
+    sourceLine.sizeOptionId
+  );
+  const purchaseMode = sourceSizeOption?.purchaseModes?.find(
+    (mode) => mode.id === sourceLine.purchaseModeId
+  );
+  const nextCart = { ...cart };
+
+  for (const [lineKey, line] of Object.entries(nextCart)) {
+    if (line.bundledFromLineKey === sourceLineKey) {
+      delete nextCart[lineKey];
+    }
+  }
+
+  if (!purchaseMode?.bundledCartItems?.length) {
+    return nextCart;
+  }
+
+  for (const bundledItem of purchaseMode.bundledCartItems) {
+    const targetProduct = findShopProduct(catalog, bundledItem.productId);
+    const targetSizeOption = targetProduct?.sizeOptions.find(
+      (option) => option.id === bundledItem.sizeOptionId
+    );
+
+    if (!targetProduct || !targetSizeOption) {
+      continue;
+    }
+
+    const bundledLineKey = `${sourceLineKey}::bundle::${bundledItem.productId}::${bundledItem.sizeOptionId}${bundledItem.purchaseModeId ? `::${bundledItem.purchaseModeId}` : ""}`;
+    const bundledQuantity = Math.max(
+      1,
+      normalizePositiveInteger(bundledItem.quantity, 1)
+    );
+
+    nextCart[bundledLineKey] = {
+      productId: bundledItem.productId,
+      sizeOptionId: bundledItem.sizeOptionId,
+      selected:
+        sourceLine.selected === true &&
+        sourceLine.availabilityStatus !== "unavailable",
+      quantity: normalizePositiveInteger(sourceLine.quantity, 1) * bundledQuantity,
+      purchaseModeId:
+        bundledItem.purchaseModeId ?? getDefaultPurchaseModeId(targetSizeOption),
+      bundledFromLineKey: sourceLineKey,
+      bundledByPurchaseModeId: purchaseMode.id,
+      lockedQuantity: true,
+      lockedPurchaseMode: true,
+    };
+  }
+
+  return nextCart;
 }
 
 function normalizeShopPurchaseRecipients(
@@ -513,6 +653,11 @@ export function removeShopLine(
   const key = makeShopLineKey(productId, sizeOptionId);
   const next = { ...cart };
   delete next[key];
+  for (const [lineKey, line] of Object.entries(next)) {
+    if (line.bundledFromLineKey === key) {
+      delete next[lineKey];
+    }
+  }
   return next;
 }
 
@@ -524,6 +669,21 @@ export function resolveShopSelectedLines(
 
   const lines = Object.entries(cart)
     .map(([lineKey, cartLine]) => resolveShopLine(catalog, lineKey, cartLine))
+    .filter(Boolean) as ShopResolvedCartLine[];
+
+  return lines.filter((line) => line.quantity > 0);
+}
+
+export function resolveShopCartLines(
+  catalog: ShopCatalog | null,
+  cart: ShopCart
+): ShopResolvedCartLine[] {
+  if (!catalog) return [];
+
+  const lines = Object.entries(cart)
+    .map(([lineKey, cartLine]) =>
+      resolveShopLine(catalog, lineKey, cartLine, { includeUnselected: true })
+    )
     .filter(Boolean) as ShopResolvedCartLine[];
 
   return lines.filter((line) => line.quantity > 0);
@@ -605,9 +765,10 @@ export function getDefaultPurchaseModeId(
 function resolveShopLine(
   catalog: ShopCatalog,
   lineKey: string,
-  line: ShopCartLine
+  line: ShopCartLine,
+  options: { includeUnselected?: boolean } = {}
 ): ShopResolvedCartLine | null {
-  if (!line.selected || line.quantity <= 0) {
+  if ((!options.includeUnselected && !line.selected) || line.quantity <= 0) {
     return null;
   }
 
@@ -632,6 +793,9 @@ function resolveShopLine(
 
   return {
     lineKey,
+    selected: line.selected === true,
+    availabilityStatus: line.availabilityStatus ?? "available",
+    unavailableReason: line.unavailableReason,
     productId: product.id,
     productSku: product.sku,
     productTitle: product.title,
@@ -647,6 +811,8 @@ function resolveShopLine(
     purchaseModeId: purchaseMode?.id,
     purchaseModeSku: purchaseMode?.sku,
     purchaseModeLabel: purchaseMode?.label,
+    bundledFromLineKey: line.bundledFromLineKey,
+    bundledByPurchaseModeId: line.bundledByPurchaseModeId,
     sku:
       purchaseMode?.sku ??
       sizeOption.sku ??
@@ -957,6 +1123,7 @@ function normalizeShopPurchaseMode(
       : undefined;
 
       const mealSelection = normalizeShopMealSelection(record.mealSelection);
+      const bundledCartItems = normalizeBundledCartItems(record.bundledCartItems);
 
   if (!id || !label || priceAdjustment === undefined) {
     return null;
@@ -969,7 +1136,55 @@ function normalizeShopPurchaseMode(
     priceAdjustment,
     requiresPhysicalFulfillment,
     mealSelection,
+    bundledCartItems,
   };
+}
+
+function normalizeBundledCartItems(
+  input: QuestionnaireVariableValue | undefined
+) {
+  if (!Array.isArray(input)) {
+    return undefined;
+  }
+
+  const items = input
+    .map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return null;
+      }
+
+      const record = item as Record<string, QuestionnaireVariableValue>;
+      const productId =
+        typeof record.productId === "string" ? record.productId : undefined;
+      const sizeOptionId =
+        typeof record.sizeOptionId === "string"
+          ? record.sizeOptionId
+          : undefined;
+      const purchaseModeId =
+        typeof record.purchaseModeId === "string"
+          ? record.purchaseModeId
+          : undefined;
+      const quantity =
+        typeof record.quantity === "number" && Number.isFinite(record.quantity)
+          ? Math.max(1, Math.floor(record.quantity))
+          : undefined;
+
+      if (!productId || !sizeOptionId) {
+        return null;
+      }
+
+      return {
+        productId,
+        sizeOptionId,
+        purchaseModeId,
+        quantity,
+      };
+    })
+    .filter(Boolean);
+
+  return items.length
+    ? (items as NonNullable<ShopPurchaseMode["bundledCartItems"]>)
+    : undefined;
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number) {

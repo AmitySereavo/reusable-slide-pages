@@ -10,8 +10,8 @@
 @id: purchased-items
 @type: content
 @shownext: true
-@next: Back to Account
-@goto: account-home
+@next: Shop Music + Merch
+@goto: /questionnaire/invitation?slide=music-merch-shop
 @showback: true
 @back: Back
 @backgoto: account-home
@@ -21,13 +21,41 @@ BR
 # [c1] Purchased Items
 BR
 [c3] Your purchased albums, downloads, tickets, and other account items will be listed here.
+BR
+## [c2] Purchased for others
+BR
+[c3] Gifts and items bought for other people will be listed here after checkout.
+BR
+[c3] From this section the purchaser will be able to send a limited number of reminder emails when a recipient has not claimed their item yet.
+
+===
+@id: purchase-for-others
+@type: purchaserecipients
+@shownext: true
+@next: Back to Account
+@goto: account-home
+@showback: true
+@back: Back
+@backgoto: account-home
+@showprogressbar: false
+---
+BR
+# [c1] Purchase for others
+BR
+[c3] Add and manage verified recipients before buying gifts or other items for them.
+BR
+[c3] Each recipient should confirm their name, contact number, and mailing address before they can receive items. An account will be created for the recipient during that confirmation flow.
+BR
+[c3] You can keep up to 12 verified recipients on this list.
+BR
+[c3] Store purchases for other people will use this verified recipient list instead of rushed checkout entry fields.
 
 ===
 @id: my-tickets
 @type: content
 @shownext: true
-@next: Back to Account
-@goto: account-home
+@next: Buy Tickets
+@goto: /questionnaire/invitation?slide=invitation-shop
 @showback: true
 @back: Back
 @backgoto: account-home

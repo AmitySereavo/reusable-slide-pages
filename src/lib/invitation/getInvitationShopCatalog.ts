@@ -2,10 +2,18 @@ import type { ShopCatalog } from "@/types/questionnaire";
 
 const ESCAPE_ALBUM_PURCHASE_MODE = {
   id: "standard-with-escape-album",
-  sku: "ADDON-ESC-DIGITAL",
-  label: "Add Escape Album download",
-  priceAdjustment: 12,
+  sku: "TIX-BUNDLE-ESC-DIGITAL",
+  label: "With Escape Album",
+  priceAdjustment: 0,
   requiresPhysicalFulfillment: false,
+  bundledCartItems: [
+    {
+      productId: "escape-album-digital",
+      sizeOptionId: "escape-album-full-download",
+      purchaseModeId: "download-access",
+      quantity: 1,
+    },
+  ],
 };
 
 export function getInvitationShopCatalog(): ShopCatalog {
@@ -243,6 +251,91 @@ export function getMusicMerchShopCatalog(): ShopCatalog {
     currencyCode: "USD",
     weightUnit: "lb",
     products: [
+      {
+        id: "store-credit",
+        sku: "CREDIT-STORE",
+        slug: "store-credit",
+        fulfillmentType: "digital",
+        enableStoreCreditPurchase: false,
+        enablePurchaseForOthers: false,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 20,
+        title: "Purchased Store Credit",
+        imageUrl: "/media/shop/store-credit.svg",
+        description:
+          "Add purchased credit to your account for future reusable slides purchases. Purchased credit can be used for your own purchases and eligible purchases for others. Returned credit is separate and cannot be used to purchase for someone else.",
+        sizeOptions: [
+          { id: "credit-10", sku: "CREDIT-STORE-10", label: "US$10 Credit", price: 10, weight: 0 },
+          { id: "credit-25", sku: "CREDIT-STORE-25", label: "US$25 Credit", price: 25, weight: 0 },
+          { id: "credit-50", sku: "CREDIT-STORE-50", label: "US$50 Credit", price: 50, weight: 0 },
+          { id: "credit-100", sku: "CREDIT-STORE-100", label: "US$100 Credit", price: 100, weight: 0 },
+        ],
+      },
+      {
+        id: "digital-gift-card",
+        sku: "GIFT-CARD",
+        slug: "digital-gift-card",
+        fulfillmentType: "digital",
+        enableStoreCreditPurchase: false,
+        enablePurchaseForOthers: true,
+        maxPurchaseForOthers: 4,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 12,
+        minRecipientQuantity: 1,
+        maxRecipientQuantity: 2,
+        title: "Digital Gift Card",
+        imageUrl: "/media/shop/gift-card.svg",
+        description:
+          "Send a reusable slides gift card by email. A printed physical option can be selected for pickup or delivery testing.",
+        sizeOptions: [
+          {
+            id: "gift-card-25",
+            sku: "GIFT-CARD-25",
+            label: "US$25 Gift Card",
+            price: 25,
+            weight: 0,
+            purchaseModes: [
+              {
+                id: "digital",
+                sku: "GIFT-CARD-25-DIGITAL",
+                label: "Digital delivery",
+                priceAdjustment: 0,
+                requiresPhysicalFulfillment: false,
+              },
+              {
+                id: "physical",
+                sku: "GIFT-CARD-25-PHYSICAL",
+                label: "Printed physical card",
+                priceAdjustment: 5,
+                requiresPhysicalFulfillment: true,
+              },
+            ],
+          },
+          {
+            id: "gift-card-50",
+            sku: "GIFT-CARD-50",
+            label: "US$50 Gift Card",
+            price: 50,
+            weight: 0,
+            purchaseModes: [
+              {
+                id: "digital",
+                sku: "GIFT-CARD-50-DIGITAL",
+                label: "Digital delivery",
+                priceAdjustment: 0,
+                requiresPhysicalFulfillment: false,
+              },
+              {
+                id: "physical",
+                sku: "GIFT-CARD-50-PHYSICAL",
+                label: "Printed physical card",
+                priceAdjustment: 5,
+                requiresPhysicalFulfillment: true,
+              },
+            ],
+          },
+        ],
+      },
       {
         id: "escape-album-digital",
         sku: "ALB-ESC-DIGITAL",

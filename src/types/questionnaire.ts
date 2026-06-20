@@ -69,6 +69,14 @@ export type ShopPurchaseMode = {
   priceAdjustment: number;
   requiresPhysicalFulfillment?: boolean;
   mealSelection?: ShopMealSelectionRequirement;
+  bundledCartItems?: ShopBundledCartItem[];
+};
+
+export type ShopBundledCartItem = {
+  productId: string;
+  sizeOptionId: string;
+  purchaseModeId?: string;
+  quantity?: number;
 };
 
 export type ShopCatalogSizeOption = {
@@ -107,6 +115,8 @@ export type ShopCatalogProduct = {
 
 export type ShopCatalog = {
   currencyCode?: string;
+  baseCurrencyCode?: string;
+  exchangeRate?: number;
   weightUnit?: string;
   products: ShopCatalogProduct[];
 };
@@ -213,7 +223,11 @@ export type ShopCartLine = {
   sizeOptionId: string;
   selected: boolean;
   quantity: number;
+  availabilityStatus?: "available" | "unavailable";
+  unavailableReason?: string;
   purchaseModeId?: string;
+  bundledFromLineKey?: string;
+  bundledByPurchaseModeId?: string;
   purchaseRecipients?: ShopPurchaseRecipient[];
   unitPriceOverride?: number;
   compareAtUnitPrice?: number;
@@ -234,6 +248,9 @@ export type ShopPurchaseRecipient = {
 
 export type ShopResolvedCartLine = {
   lineKey: string;
+  selected?: boolean;
+  availabilityStatus?: "available" | "unavailable";
+  unavailableReason?: string;
   productId: string;
   productSku?: string;
   productTitle: string;
@@ -247,6 +264,8 @@ export type ShopResolvedCartLine = {
   purchaseModeId?: string;
   purchaseModeSku?: string;
   purchaseModeLabel?: string;
+  bundledFromLineKey?: string;
+  bundledByPurchaseModeId?: string;
   sku?: string;
   purchaseRecipients?: ShopPurchaseRecipient[];
   mealSelection?: ShopMealSelectionRequirement;
@@ -324,7 +343,10 @@ export type DeliverySelection = {
   apartmentOrUnit?: string;
   cityOrTown?: string;
   postalCode?: string;
-  deliveryFeeJmd?: number;
+  deliveryFee?: number;
+  deliveryCurrencyCode?: string;
+  deliveryBaseFee?: number;
+  deliveryBaseCurrencyCode?: string;
 };
 
 export type OrderContact = {
@@ -508,6 +530,7 @@ export type SlideType =
   | "authverify"
   | "authform"
   | "accountsummary"
+  | "purchaserecipients"
   | "recordlist"
   | "annotatedtext";
 

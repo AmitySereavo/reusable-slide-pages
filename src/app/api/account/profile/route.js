@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
+import { getUserStoreCreditBalance } from "@/lib/storeCredit/balance";
 
 function maskEmail(email) {
   if (!email || !email.includes("@")) return email || null;
@@ -45,6 +46,7 @@ export async function GET() {
         addressLine2: true,
         parishOrRegion: true,
         postalCode: true,
+        preferredCurrencyCode: true,
         emailVerifiedAt: true,
         phoneVerifiedAt: true,
         passwordUpdatedAt: true,
@@ -76,6 +78,11 @@ export async function GET() {
     }
 
     const normalizedUserEmail = normalizeEmail(user.email);
+    const preferredCurrencyCode = user.preferredCurrencyCode || "USD";
+    const storeCreditBalance = await getUserStoreCreditBalance(
+      user.id,
+      preferredCurrencyCode
+    );
 
     const activeEmailAddress =
       user.emailAddresses.find((item) => item.isActive) ||
@@ -107,6 +114,11 @@ export async function GET() {
         })),
 
         maskedPhone: maskPhone(user.phone),
+        storeCreditBalance: storeCreditBalance.total,
+        storeCreditPurchasedBalance: storeCreditBalance.purchased,
+        storeCreditReturnedBalance: storeCreditBalance.returned,
+        storeCreditCurrencyCode: storeCreditBalance.currencyCode,
+        preferredCurrencyCode,
       },
     });
   } catch (error) {

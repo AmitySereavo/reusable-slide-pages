@@ -7,6 +7,11 @@ export type QuestionnaireAuthSessionUser = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  preferredCurrencyCode?: string;
+  storeCreditBalance?: number;
+  storeCreditPurchasedBalance?: number;
+  storeCreditReturnedBalance?: number;
+  storeCreditCurrencyCode?: string;
 };
 
 export function useAuthSession() {
@@ -38,6 +43,26 @@ export function useAuthSession() {
           name: typeof data.user.name === "string" ? data.user.name : null,
           email: typeof data.user.email === "string" ? data.user.email : null,
           phone: typeof data.user.phone === "string" ? data.user.phone : null,
+          preferredCurrencyCode:
+            typeof data.user.preferredCurrencyCode === "string"
+              ? data.user.preferredCurrencyCode
+              : "USD",
+          storeCreditBalance:
+            typeof data.user.storeCreditBalance === "number"
+              ? data.user.storeCreditBalance
+              : 0,
+          storeCreditPurchasedBalance:
+            typeof data.user.storeCreditPurchasedBalance === "number"
+              ? data.user.storeCreditPurchasedBalance
+              : 0,
+          storeCreditReturnedBalance:
+            typeof data.user.storeCreditReturnedBalance === "number"
+              ? data.user.storeCreditReturnedBalance
+              : 0,
+          storeCreditCurrencyCode:
+            typeof data.user.storeCreditCurrencyCode === "string"
+              ? data.user.storeCreditCurrencyCode
+              : "USD",
         });
       } else {
         setAuthSessionUser(null);

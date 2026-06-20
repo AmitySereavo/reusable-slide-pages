@@ -1,5 +1,6 @@
 import type {
   MealMenu,
+  ShopPurchaseRecipient,
   ShopResolvedCartLine,
   TicketAssignment,
   TicketAssignments,
@@ -117,11 +118,44 @@ export function buildTicketAssignmentsFromLines(params: {
   const nextAssignments: TicketAssignments = [];
 
   for (const line of lines) {
-    for (let index = 0; index < line.quantity; index += 1) {
+    const recipientAllocations = getTicketRecipientAllocations(
+      line.purchaseRecipients
+    );
+    const recipientTicketQuantity = recipientAllocations.reduce(
+      (sum, recipient) => sum + recipient.quantity,
+      0
+    );
+    const purchaserTicketQuantity = Math.max(
+      0,
+      line.quantity - recipientTicketQuantity
+    );
+    const ownerSlots = [
+      ...Array.from({ length: purchaserTicketQuantity }, () => ({
+        isPurchaserTicket: true,
+        ownerName: "",
+        ownerEmail: "",
+      })),
+      ...recipientAllocations.flatMap((recipient) =>
+        Array.from({ length: recipient.quantity }, () => ({
+          isPurchaserTicket: false,
+          ownerName: recipient.name,
+          ownerEmail: recipient.email,
+        }))
+      ),
+    ];
+
+    for (let index = 0; index < ownerSlots.length; index += 1) {
+      const ownerSlot = ownerSlots[index];
       const ticketCode = buildTicketCode(line, index);
       const existing = existingAssignments.find(
         (assignment) => assignment.ticketCode === ticketCode
       );
+      const isPurchaserTicket =
+        ownerSlot.isPurchaserTicket === false
+          ? false
+          : existing?.isPurchaserTicket ?? true;
+      const ownerName = ownerSlot.ownerName || existing?.ownerName || "";
+      const ownerEmail = ownerSlot.ownerEmail || existing?.ownerEmail || "";
 
       nextAssignments.push({
         ticketCode,
@@ -132,13 +166,18 @@ export function buildTicketAssignmentsFromLines(params: {
         ticketIndex: index,
         ticketLabel: `${line.sizeLabel} #${index + 1}`,
         productTitle: line.productTitle,
-        ownerName: existing?.ownerName ?? "",
-        ownerEmail: existing?.ownerEmail ?? "",
+        ownerName,
+        ownerEmail,
         ownerPhone: existing?.ownerPhone ?? "",
-        purchaserContactPrefilled: existing?.purchaserContactPrefilled,
-        isPurchaserTicket: existing?.isPurchaserTicket ?? index === 0,
+        purchaserContactPrefilled:
+          isPurchaserTicket === false
+            ? false
+            : existing?.purchaserContactPrefilled,
+        isPurchaserTicket,
         emailTicketToOwner:
-          existing?.emailTicketToOwner ?? (existing?.isPurchaserTicket ? false : true),
+          ownerSlot.isPurchaserTicket === false
+            ? true
+            : existing?.emailTicketToOwner ?? false,
         ticketOwnerPaymentMode:
           existing?.ticketOwnerPaymentMode ?? DEFAULT_TICKET_OWNER_PAYMENT_MODE,  
         ticketOwnerAddonBudget: existing?.ticketOwnerAddonBudget ?? 0,
@@ -159,6 +198,40 @@ export function buildTicketAssignmentsFromLines(params: {
   }
 
   return nextAssignments;
+}
+
+function getTicketRecipientAllocations(
+  recipients: ShopPurchaseRecipient[] | undefined
+) {
+  if (!Array.isArray(recipients)) {
+    return [];
+  }
+
+  return recipients
+    .map((recipient) => {
+      const name = String(recipient.name ?? "").trim();
+      const email = String(recipient.email ?? "").trim();
+      const quantity =
+        typeof recipient.quantity === "number" &&
+        Number.isFinite(recipient.quantity)
+          ? Math.max(1, Math.floor(recipient.quantity))
+          : 1;
+
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return null;
+      }
+
+      return {
+        name,
+        email,
+        quantity,
+      };
+    })
+    .filter(Boolean) as Array<{
+    name: string;
+    email: string;
+    quantity: number;
+  }>;
 }
 
 export function getTicketsNeedingMeal(assignments: TicketAssignments) {
