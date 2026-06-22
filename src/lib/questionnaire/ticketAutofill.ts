@@ -16,16 +16,19 @@ export function prefillFirstTicketFromContact(
     return assignments;
   }
 
-  return assignments.map((assignment, index) => {
-    if (index !== 0) {
+  return assignments.map((assignment) => {
+    if (
+      assignment.isPurchaserTicket === false ||
+      assignment.ownerLockedFromRecipient === true
+    ) {
       return assignment;
     }
 
-    if (assignment.isPurchaserTicket === false) {
-      return assignment;
-    }
-
-    if (assignment.purchaserContactPrefilled === true) {
+    if (
+      assignment.purchaserContactPrefilled === true &&
+      assignment.ownerName &&
+      assignment.ownerEmail
+    ) {
       return assignment;
     }
 

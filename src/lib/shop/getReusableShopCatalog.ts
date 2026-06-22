@@ -8,8 +8,6 @@ import type {
   ShopPurchaseMode,
 } from "@/types/questionnaire";
 
-type FallbackCatalogFactory = () => ShopCatalog;
-
 function toNumber(value: unknown) {
   if (value === null || value === undefined) return undefined;
 
@@ -24,6 +22,28 @@ function normalizeFulfillmentType(value: string | null | undefined): Fulfillment
   }
 
   return "physical";
+}
+
+function withTicketQuantityDefaults(
+  product: ShopCatalogProduct
+): ShopCatalogProduct {
+  if (product.fulfillmentType !== "ticket") {
+    return product;
+  }
+
+  return {
+    ...product,
+    enablePurchaseForOthers: product.enablePurchaseForOthers ?? true,
+    maxPurchaseForOthers: Math.min(product.maxPurchaseForOthers ?? 5, 5),
+    minOrderQuantity: product.minOrderQuantity ?? 1,
+    maxOrderQuantity: Math.min(product.maxOrderQuantity ?? 7, 7),
+    maxAccountHolderQuantity: Math.min(
+      product.maxAccountHolderQuantity ?? 2,
+      2
+    ),
+    minRecipientQuantity: product.minRecipientQuantity ?? 1,
+    maxRecipientQuantity: Math.min(product.maxRecipientQuantity ?? 1, 1),
+  };
 }
 
 function normalizeMealSelection(
@@ -55,12 +75,10 @@ export async function getReusableShopCatalog({
   catalogKey,
   currencyCode,
   weightUnit,
-  fallback,
 }: {
   catalogKey: string;
   currencyCode?: string;
   weightUnit?: string;
-  fallback?: FallbackCatalogFactory;
 }): Promise<ShopCatalog> {
   try {
     const rows = await prisma.reusableShopProduct.findMany({
@@ -135,7 +153,7 @@ export async function getReusableShopCatalog({
           return null;
         }
 
-        return {
+        return withTicketQuantityDefaults({
           id: product.productId,
           sku: product.sku ?? undefined,
           slug: product.slug ?? undefined,
@@ -154,10 +172,11 @@ export async function getReusableShopCatalog({
           maxPurchaseForOthers: product.maxPurchaseForOthers ?? undefined,
           minOrderQuantity: product.minOrderQuantity ?? undefined,
           maxOrderQuantity: product.maxOrderQuantity ?? undefined,
+          maxAccountHolderQuantity: undefined,
           minRecipientQuantity: product.minRecipientQuantity ?? undefined,
           maxRecipientQuantity: product.maxRecipientQuantity ?? undefined,
           sizeOptions,
-        };
+        });
       })
       .filter(Boolean) as ShopCatalogProduct[];
 
@@ -170,16 +189,14 @@ export async function getReusableShopCatalog({
     }
   } catch (error) {
     console.warn(
-      `Reusable shop catalog "${catalogKey}" could not be loaded from the database. Falling back to file catalog.`,
+      `Reusable shop catalog "${catalogKey}" could not be loaded from the database.`,
       error
     );
   }
 
-  return (
-    fallback?.() ?? {
-      currencyCode,
-      weightUnit,
-      products: [],
-    }
-  );
+  return {
+    currencyCode,
+    weightUnit,
+    products: [],
+  };
 }

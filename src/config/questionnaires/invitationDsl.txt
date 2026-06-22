@@ -155,12 +155,6 @@ BR
 @actionbartextcolor: #1f1f1f
 @back: Back
 @next: Checkout
-@choiceplacement: inline
----
-BR
-[c3] Buying music or merch without tickets?
-@choices:
-- music-merch|Open music and merch shop|music-merch-shop|secondary
 
 ===
 // MUSIC AND MERCH SHOP
@@ -202,6 +196,7 @@ BR
 @progressoverlaytextcolor: #1f1f1f
 @actionbartextcolor: #1f1f1f
 @back: Back
+@backgoto: invitation-shop
 @next: Continue
 @choiceplacement: inline
 ---

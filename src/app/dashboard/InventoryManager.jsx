@@ -28,9 +28,9 @@ const emptyForm = {
   stockOnHand: 0,
   stockReserved: 0,
   stockAvailable: 0,
-  optionId: "standard",
+  optionId: "default",
   optionSku: "",
-  optionLabel: "Standard",
+  optionLabel: "Default option",
   optionPrice: 0,
   optionWeight: 0,
 };
@@ -101,9 +101,9 @@ export default function InventoryManager() {
       stockOnHand: product.stockOnHand ?? 0,
       stockReserved: product.stockReserved ?? 0,
       stockAvailable: product.stockAvailable ?? 0,
-      optionId: firstOption?.optionId || "standard",
+      optionId: firstOption?.optionId || "default",
       optionSku: firstOption?.sku || "",
-      optionLabel: firstOption?.label || "Standard",
+      optionLabel: firstOption?.label || "Default option",
       optionPrice: firstOption?.price ? Number(firstOption.price) : 0,
       optionWeight: firstOption?.weight ? Number(firstOption.weight) : 0,
     });
@@ -172,30 +172,6 @@ export default function InventoryManager() {
     await loadProducts(form.catalogKey);
   }
 
-  async function seedCurrentCatalogs() {
-    setIsSaving(true);
-    setStatus("Seeding current file catalogs into database...");
-
-    const response = await fetch("/api/dashboard/inventory/seed", {
-      method: "POST",
-    });
-    const payload = await response.json();
-
-    setIsSaving(false);
-
-    if (!response.ok) {
-      setStatus(payload?.error || "Catalogs could not be seeded.");
-      return;
-    }
-
-    setStatus(
-      `Seeded ${payload.productCount || 0} products and ${
-        payload.optionCount || 0
-      } options.`
-    );
-    await loadProducts(catalogKey);
-  }
-
   return (
     <section id="dashboard-inventory" style={styles.section}>
       <div style={styles.sectionHeader}>
@@ -220,14 +196,6 @@ export default function InventoryManager() {
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          disabled={isSaving}
-          onClick={seedCurrentCatalogs}
-          style={styles.secondaryButton}
-        >
-          Seed Current Catalogs
-        </button>
       </div>
 
       <div style={styles.grid}>

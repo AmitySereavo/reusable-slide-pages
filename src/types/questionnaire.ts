@@ -108,6 +108,7 @@ export type ShopCatalogProduct = {
   maxPurchaseForOthers?: number;
   minOrderQuantity?: number;
   maxOrderQuantity?: number;
+  maxAccountHolderQuantity?: number;
   minRecipientQuantity?: number;
   maxRecipientQuantity?: number;
   sizeOptions: ShopCatalogSizeOption[];
@@ -131,6 +132,7 @@ export type MealMenuGroup = {
   id: string;
   label: string;
   required?: boolean;
+  billingMode?: "included" | "pay";
   includedServings?: number;
   options: MealMenuOption[];
 };
@@ -159,7 +161,10 @@ export type TicketAssignment = {
   productId: string;
   sizeOptionId: string;
   purchaseModeId?: string;
+  purchaseModeLabel?: string;
+  invitationDeliveryMode?: "digital" | "physical";
   ticketIndex: number;
+  ticketSelectionTimestamp?: string;
   ticketLabel: string;
   productTitle: string;
   ownerName?: string;
@@ -167,6 +172,7 @@ export type TicketAssignment = {
   ownerPhone?: string;
   purchaserContactPrefilled?: boolean;
   isPurchaserTicket?: boolean;
+  ownerLockedFromRecipient?: boolean;
   emailTicketToOwner?: boolean;
   ticketOwnerPaymentMode?: TicketOwnerPaymentMode;
   ticketOwnerAddonBudget?: number;
@@ -244,6 +250,8 @@ export type ShopPurchaseRecipient = {
   email: string;
   quantity?: number;
   note?: string;
+  purchaseModeId?: string;
+  purchaseModeLabel?: string;
 };
 
 export type ShopResolvedCartLine = {

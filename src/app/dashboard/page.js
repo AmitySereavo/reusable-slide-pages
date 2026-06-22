@@ -1,5 +1,6 @@
 import DslBuilder from "./DslBuilder";
 import InventoryManager from "./InventoryManager";
+import TicketManager from "./TicketManager";
 import CurrencyManager from "./CurrencyManager";
 
 export default async function DashboardPage() {
@@ -38,6 +39,9 @@ export default async function DashboardPage() {
           <a href="#dashboard-projects" style={dashboardLinkStyle}>
             Projects
           </a>
+          <a href="#dashboard-tickets" style={dashboardLinkStyle}>
+            Tickets
+          </a>
           <a href="#dashboard-inventory" style={dashboardLinkStyle}>
             Inventory
           </a>
@@ -50,6 +54,7 @@ export default async function DashboardPage() {
           <DslBuilder />
         </section>
 
+        <TicketManager />
         <InventoryManager />
         <CurrencyManager />
       </div>

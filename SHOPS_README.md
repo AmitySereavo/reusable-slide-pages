@@ -28,7 +28,6 @@ acceptance, but must be updated before any physical product can be received.
 
 When a verified recipient is selected in the store, the user can still set:
 
-- optional note
 - recipient-specific quantity
 
 Recipient quantities reserve items for those recipients. Any product quantity
@@ -54,10 +53,20 @@ cannot be used to purchase for someone else.
 Ticket products use the same verified-recipient selector as music and merch.
 Ticket details pulls owner name/email from the ticket-store purchase-for-someone
 allocation, so the purchaser mainly reviews and adjusts ticket ownership there.
+Recipient-owned ticket email addresses are locked in ticket details so the
+purchaser cannot accidentally change a verified recipient's email during
+checkout.
 
 The ticket store and music/merch store share the same cart. The checkout button
 on either shop should show the full shared cart total, not only the visible
 catalog's subtotal.
+
+Ticket meal pricing respects the active account/shop currency. Meal menu prices
+are currently authored in USD and converted to the selected/account currency for
+display and totals. Meal segments can be configured as included or paid add-on
+segments. Paid segments charge from the first selected serving; included
+segments allow the configured included serving count before extra-serving
+pricing applies.
 
 ## Admins
 
@@ -78,6 +87,9 @@ The product dashboard should support:
 - minimum and maximum quantity per order
 - minimum and maximum quantity per recipient
 - event pickup, delivery, digital access, or other fulfillment settings
+- meal segment billing mode for ticket menus: `included` or `pay`
+- ticket upgrades such as meet-and-greet as admin-authored purchase modes, not
+  one-off hardcoded options
 
 Current testing values for the invitation music and merch shop:
 
@@ -114,8 +126,10 @@ Important files:
 - `src/types/questionnaire.ts`
 - `src/lib/questionnaire/shop.ts`
 - `src/components/questionnaire/QuestionnaireShell.tsx`
-- `src/lib/invitation/getInvitationShopCatalog.ts`
+- `src/lib/shop/getReusableShopCatalog.ts`
 - `src/config/questionnaires/invitationDsl.txt`
+- `src/config/meals/mealMenus.ts`
+- `src/app/dashboard/TicketManager.jsx`
 
 Core product fields include:
 
@@ -160,3 +174,7 @@ cart lines include `purchaseRecipients`, ticket assignments are generated with
 recipient owner name/email already filled in. The first purchaser-owned ticket
 can still autofill from contact/account details, but recipient-owned ticket
 slots are not overwritten by purchaser autofill.
+
+Ticket assignment codes use a stable selection-time block once generated. A
+separate database-created/finalized timestamp block should be added when real
+order finalization writes server-authoritative tickets.

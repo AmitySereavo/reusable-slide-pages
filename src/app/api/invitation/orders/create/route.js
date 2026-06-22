@@ -8,7 +8,6 @@ import { ESCAPE_ALBUM_ITEM_KEY } from "@/lib/entitlements/purchasedItems";
 
 const TICKET_OWNER_ACCESS_TARGET = "ticketOwnerAccess";
 const ESCAPE_ALBUM_ACCESS_TARGET = "escapeAlbumAccess";
-const ESCAPE_ALBUM_PURCHASE_MODE_ID = "standard-with-escape-album";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -16,6 +15,24 @@ function normalizeEmail(email) {
 
 function asString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getInvitationDeliveryMode(assignment) {
+  return assignment?.invitationDeliveryMode === "physical"
+    ? "physical"
+    : "digital";
+}
+
+function getInvitationDeliveryPurchaseModeId(assignment) {
+  return getInvitationDeliveryMode(assignment) === "physical"
+    ? "physical-invitation"
+    : "digital-invitation";
+}
+
+function getInvitationDeliveryPurchaseModeLabel(assignment) {
+  return getInvitationDeliveryMode(assignment) === "physical"
+    ? "Physical Invitation (sent to a physical address)"
+    : "Digital Invitation (emailed only)";
 }
 
 function asBoolean(value) {
@@ -367,7 +384,6 @@ function orderIncludesEscapeAlbumAccess(resolvedLines) {
     }
 
     return (
-      line.purchaseModeId === ESCAPE_ALBUM_PURCHASE_MODE_ID ||
       line.productId === "escape-album-digital" ||
       line.sizeOptionId === "escape-album-full-download"
     );
@@ -505,7 +521,6 @@ export async function POST(request) {
                 metadata: {
                   orderId: existingOrder.id,
                   orderCode: existingOrder.orderCode,
-                  purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
                   resentFromExistingOrder: true,
                 },
               },
@@ -515,7 +530,6 @@ export async function POST(request) {
                 metadata: {
                   orderId: existingOrder.id,
                   orderCode: existingOrder.orderCode,
-                  purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
                   resentFromExistingOrder: true,
                 },
               },
@@ -607,7 +621,6 @@ export async function POST(request) {
             metadata: {
               orderId: order.id,
               orderCode: order.orderCode,
-              purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
             },
           },
           update: {
@@ -616,7 +629,6 @@ export async function POST(request) {
             metadata: {
               orderId: order.id,
               orderCode: order.orderCode,
-              purchaseModeId: ESCAPE_ALBUM_PURCHASE_MODE_ID,
             },
           },
         });
@@ -646,8 +658,8 @@ export async function POST(request) {
             productTitle: asString(assignment.productTitle),
             sizeOptionId: asString(assignment.sizeOptionId),
             sizeLabel: asString(assignment.ticketLabel || assignment.sizeLabel),
-            purchaseModeId: asString(assignment.purchaseModeId) || null,
-            purchaseModeLabel: asString(assignment.purchaseModeLabel) || null,
+            purchaseModeId: getInvitationDeliveryPurchaseModeId(assignment),
+            purchaseModeLabel: getInvitationDeliveryPurchaseModeLabel(assignment),
             ticketIndex:
               typeof assignment.ticketIndex === "number"
                 ? assignment.ticketIndex

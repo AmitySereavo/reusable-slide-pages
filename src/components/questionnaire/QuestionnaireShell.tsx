@@ -33,6 +33,7 @@ import {
   QuestionnaireVariableValue,
   ShopCart,
   ShopCatalog,
+  ShopCatalogProduct,
   ShopPurchaseRecipient,
   ShopResolvedCartLine,
   TicketAssignment,
@@ -60,7 +61,6 @@ import {
 } from "@/lib/questionnaire/engine";
 
 import {
-  addShopProductDraftToCart,
   applyDiscountToShopLines,
   hasPhysicalFulfillmentItems,
   getDefaultPurchaseModeId,
@@ -312,7 +312,27 @@ function isInternalOnlyPurchaseMode(
   return (
     purchaseModes.length === 1 &&
     (purchaseModes[0]?.id === "standard" ||
-      purchaseModes[0]?.id === "default")
+      purchaseModes[0]?.id === "default" ||
+      purchaseModes[0]?.id === "standard-invitation")
+  );
+}
+
+function isHiddenTicketDeliveryPurchaseMode(modeId: string | undefined) {
+  return modeId === "digital-invitation" || modeId === "physical-invitation";
+}
+
+function getVisiblePurchaseModes(
+  product: ShopCatalogProduct,
+  sizeOption: ShopCatalogSizeOption
+) {
+  const purchaseModes = sizeOption.purchaseModes ?? [];
+
+  if (product.fulfillmentType !== "ticket") {
+    return purchaseModes;
+  }
+
+  return purchaseModes.filter(
+    (mode) => !isHiddenTicketDeliveryPurchaseMode(mode.id)
   );
 }
 
@@ -846,6 +866,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard#dashboard-projects", label: "Projects" },
+      { href: "/dashboard#dashboard-tickets", label: "Tickets" },
       { href: "/dashboard#dashboard-inventory", label: "Inventory" },
       { href: "/dashboard#dashboard-currencies", label: "Currencies" },
     ],
@@ -1194,6 +1215,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return targetRate / jmdRate;
   }, [activeShopCurrencyCode, currencyRates]);
 
+  const usdToActiveCurrencyRate = useMemo(() => {
+    if (activeShopCurrencyCode === "USD") {
+      return 1;
+    }
+
+    const targetRate = Number(currencyRates[activeShopCurrencyCode] ?? 1);
+
+    return Number.isFinite(targetRate) && targetRate > 0 ? targetRate : 1;
+  }, [activeShopCurrencyCode, currencyRates]);
+
   const currentShopDisplayCatalog = useMemo(() => {
     const baseCurrencyCode = currentShopCatalog?.currencyCode ?? "USD";
     const rate =
@@ -1298,6 +1329,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [answers.orderCart]
   );
 
+  const sharedOrderCartLines = useMemo<ShopResolvedCartLine[]>(
+    () => resolveShopCartLines(sharedShopDisplayCatalog, sharedOrderCart),
+    [sharedShopDisplayCatalog, sharedOrderCart]
+  );
+
   const sharedOrderBaseLines = useMemo<ShopResolvedCartLine[]>(
     () => resolveShopSelectedLines(sharedShopDisplayCatalog, sharedOrderCart),
     [sharedShopDisplayCatalog, sharedOrderCart]
@@ -1385,6 +1421,41 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   useEffect(() => {
     latestTicketAssignmentsRef.current = currentTicketAssignments;
   }, [currentTicketAssignments]);
+
+  useEffect(() => {
+    if (config.slug !== CHECKOUT_DRAFT_SLUG || isTicketOwnerPortalFlow) {
+      return;
+    }
+
+    const savedAssignments = normalizeTicketAssignments(
+      answers.ticketAssignments
+    );
+
+    if (!savedAssignments.length) {
+      return;
+    }
+
+    const activeTicketCodes = new Set(
+      currentTicketAssignments.map((assignment) => assignment.ticketCode)
+    );
+    const hasStaleAssignments = savedAssignments.some(
+      (assignment) => !activeTicketCodes.has(assignment.ticketCode)
+    );
+
+    if (!hasStaleAssignments && savedAssignments.length === activeTicketCodes.size) {
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      ticketAssignments: currentTicketAssignments,
+    }));
+  }, [
+    answers.ticketAssignments,
+    config.slug,
+    currentTicketAssignments,
+    isTicketOwnerPortalFlow,
+  ]);
 
   useEffect(() => {
     if (!requestedTicketCode) {
@@ -1477,12 +1548,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       currentTicketAssignments
     )[0]?.mealMenuId;
 
-    return getMealMenu(
-      mergedVariables,
-      currentSlide?.mealMenuKey ?? "mealMenus",
-      firstMenuId
+    return convertMealMenuCurrency(
+      getMealMenu(
+        mergedVariables,
+        currentSlide?.mealMenuKey ?? "mealMenus",
+        firstMenuId
+      ),
+      usdToActiveCurrencyRate
     );
-  }, [currentSlide, currentTicketAssignments, mergedVariables]);
+  }, [
+    currentSlide,
+    currentTicketAssignments,
+    mergedVariables,
+    usdToActiveCurrencyRate,
+  ]);
 
   async function saveTicketOwnerMealSelection(nextAssignments: TicketAssignments) {
     if (!isTicketOwnerPortalFlow || !requestedTicketCode) {
@@ -1600,8 +1679,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       currentTicketAssignments
     )[0]?.mealMenuId;
 
-    return getMealMenu(mergedVariables, "mealMenus", firstMenuId);
-  }, [currentTicketAssignments, mergedVariables]);
+    return convertMealMenuCurrency(
+      getMealMenu(mergedVariables, "mealMenus", firstMenuId),
+      usdToActiveCurrencyRate
+    );
+  }, [currentTicketAssignments, mergedVariables, usdToActiveCurrencyRate]);
 
     const sharedMealExtraTotal = useMemo(
     () =>
@@ -1629,15 +1711,31 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [currentTicketAssignments]
   );
 
+  const sharedTicketUpgradeTotal = useMemo(
+    () =>
+      currentTicketAssignments.reduce(
+        (sum, assignment) =>
+          sum +
+          getTicketAssignmentUpgradePrice(
+            sharedShopDisplayCatalog,
+            assignment
+          ),
+        0
+      ),
+    [currentTicketAssignments, sharedShopDisplayCatalog]
+  );
+
   const sharedOrderSubtotalWithMeals =
     sharedOrderSummary.subtotal +
     sharedMealExtraTotal +
-    sharedTicketOwnerAddonBudgetTotal;
+    sharedTicketOwnerAddonBudgetTotal +
+    sharedTicketUpgradeTotal;
 
   const sharedOrderGrandTotalWithMeals =
     sharedOrderSummary.grandTotal +
     sharedMealExtraTotal +
-    sharedTicketOwnerAddonBudgetTotal;
+    sharedTicketOwnerAddonBudgetTotal +
+    sharedTicketUpgradeTotal;
 
   const sidePanelCartTotal = sharedOrderGrandTotalWithMeals;
   const sidePanelCartCurrencyCode =
@@ -1952,11 +2050,32 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       setCartInventoryNotices(notices);
       resetCheckoutReservation();
 
-      setAnswers((prev) => ({
-        ...prev,
-        shopReservationKey: reservationKey,
-        ...(currentSlide?.storeAs ? { [currentSlide.storeAs]: nextCart } : {}),
-      }));
+      setAnswers((prev) => {
+        const nextAnswers: QuestionnaireAnswers = {
+          ...prev,
+          shopReservationKey: reservationKey,
+          ...(currentSlide?.storeAs ? { [currentSlide.storeAs]: nextCart } : {}),
+        };
+
+        if (currentSlide?.storeAs === "orderCart") {
+          const nextTicketLines = resolveShopSelectedLines(
+            sharedShopDisplayCatalog,
+            nextCart
+          ).filter((line) => line.fulfillmentType === "ticket");
+
+          nextAnswers.ticketAssignments = prefillFirstTicketFromContact(
+            buildTicketAssignmentsFromLines({
+              lines: nextTicketLines,
+              existingAssignments: normalizeTicketAssignments(
+                prev.ticketAssignments
+              ),
+            }),
+            nextAnswers
+          );
+        }
+
+        return nextAnswers;
+      });
 
       return nextCart;
     } catch {
@@ -2020,8 +2139,36 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   ) {
     if (currentSlide?.type !== "shop" || !currentSlide.storeAs) return;
 
+    const storeKey = currentSlide.storeAs;
     const nextCart = updater(currentShopCart);
-    setAnswer(currentSlide.storeAs, nextCart);
+    resetCheckoutReservation();
+
+    if (storeKey === "orderCart") {
+      const nextTicketLines = resolveShopSelectedLines(
+        sharedShopDisplayCatalog,
+        nextCart
+      ).filter((line) => line.fulfillmentType === "ticket");
+      const nextTicketAssignments = prefillFirstTicketFromContact(
+        buildTicketAssignmentsFromLines({
+          lines: nextTicketLines,
+          existingAssignments: normalizeTicketAssignments(
+            answers.ticketAssignments
+          ),
+        }),
+        answers
+      );
+
+      setAnswers((prev) => ({
+        ...prev,
+        [storeKey]: nextCart,
+        ticketAssignments: nextTicketAssignments,
+      }));
+    } else {
+      setAnswers((prev) => ({
+        ...prev,
+        [storeKey]: nextCart,
+      }));
+    }
 
     const shouldReserveInventory =
       options.reserveInventory ||
@@ -2588,6 +2735,11 @@ async function next() {
     }
 
     if (currentSlide.type === "shop" && currentSlide.shopMode === "browse") {
+      if (currentShopSelectedLines.length === 0) {
+        setSubmitError("Select at least one item before checkout.");
+        return;
+      }
+
       if (currentSlide.contactGoto && !contactInfoComplete) {
         goToTarget(currentSlide.contactGoto);
         return;
@@ -4594,35 +4746,7 @@ async function handleNext() {
                               )
                             )
                           }
-                          onAddProductToCart={(productId) =>
-                            updateCurrentShopCart(
-                              (cart) =>
-                                addShopProductDraftToCart(
-                                  cart,
-                                  currentShopDisplayCatalog,
-                                  productId
-                                ),
-                              { reserveInventory: true }
-                            )
-                          }
                           onRemoveLine={(productId, sizeOptionId) => {
-                            if (currentSlide.shopMode === "review") {
-                              if (sharedOrderLines.length <= 1) {
-                                const targetLine = sharedOrderLines.find(
-                                  (line) =>
-                                    line.productId === productId &&
-                                    line.sizeOptionId === sizeOptionId
-                                );
-
-                                goToTarget(
-                                  targetLine?.fulfillmentType === "ticket"
-                                    ? "invitation-shop"
-                                    : "music-merch-shop"
-                                );
-                                return;
-                              }
-                            }
-
                             updateCurrentShopCart((cart) =>
                               removeShopLine(cart, productId, sizeOptionId)
                             );
@@ -4672,8 +4796,12 @@ async function handleNext() {
                         <TicketDetailsRenderer
                           assignments={currentTicketAssignments}
                           menu={currentMealMenu}
+                          currencyCode={
+                            sharedShopDisplayCatalog?.currencyCode ?? "USD"
+                          }
                           ticketLines={sharedTicketOrderLines}
                           addOnLines={sharedOrderLines}
+                          catalog={sharedShopDisplayCatalog}
                           theme={theme}
                           purchaserName={String(answers.fullName ?? "").trim()}
                           purchaserEmail={String(answers.email ?? "").trim()}
@@ -4698,6 +4826,10 @@ async function handleNext() {
                         <MealSelectionRenderer
                           menu={currentMealMenu}
                           assignments={currentTicketAssignments}
+                          currencyCode={
+                            sharedShopDisplayCatalog?.currencyCode ??
+                            activeShopCurrencyCode
+                          }
                           selectedTicketCode={
                             typeof answers.selectedMealTicketCode === "string"
                               ? answers.selectedMealTicketCode
@@ -4713,7 +4845,18 @@ async function handleNext() {
                       ) : null}
 
                       {currentSlide.type === "shop" &&
-                      currentSlide.shopMode === "review" ? (
+                      currentSlide.shopMode === "review" &&
+                      sharedOrderCartLines.length === 0 ? (
+                        <EmptyCartStoreChoices
+                          theme={theme}
+                          onTicketStore={() => goToTarget("invitation-shop")}
+                          onMerchStore={() => goToTarget("music-merch-shop")}
+                        />
+                      ) : null}
+
+                      {currentSlide.type === "shop" &&
+                      currentSlide.shopMode === "review" &&
+                      sharedOrderLines.length > 0 ? (
                         <ReviewSummaryRenderer
                           answers={answers}
                           deliverySelection={sharedDeliverySelection}
@@ -4738,7 +4881,8 @@ async function handleNext() {
                       ) : null}
 
                       {currentSlide.type === "shop" &&
-                      currentSlide.shopMode === "review" ? (
+                      currentSlide.shopMode === "review" &&
+                      sharedOrderLines.length > 0 ? (
                         <ReviewTotalsRenderer
                           catalog={currentShopDisplayCatalog}
                           totalWeight={sharedOrderLines.reduce(
@@ -4751,6 +4895,7 @@ async function handleNext() {
                           ticketOwnerAddonBudgetTotal={
                             sharedTicketOwnerAddonBudgetTotal
                           }
+                          ticketUpgradeTotal={sharedTicketUpgradeTotal}
                           activeDiscountLabel={activeDiscountDefinition?.label}
                           showDeliveryFee={
                             sharedOrderNeedsFulfillment && sharedOrderHasDeliveryFee
@@ -4761,7 +4906,8 @@ async function handleNext() {
                       ) : null}
 
                       {currentSlide.type === "shop" &&
-                      currentSlide.shopMode === "review" ? (
+                      currentSlide.shopMode === "review" &&
+                      sharedOrderCartLines.length > 0 ? (
                         <ShopSlideRenderer
                           slideId={currentSlide.id}
                           reviewSection="secondary"
@@ -4837,17 +4983,6 @@ async function handleNext() {
                                 sizeOptionId,
                                 recipients
                               )
-                            )
-                          }
-                          onAddProductToCart={(productId) =>
-                            updateCurrentShopCart(
-                              (cart) =>
-                                addShopProductDraftToCart(
-                                  cart,
-                                  currentShopDisplayCatalog,
-                                  productId
-                                ),
-                              { reserveInventory: true }
                             )
                           }
                           onRemoveLine={(productId, sizeOptionId) => {
@@ -5414,8 +5549,10 @@ function isValidTicketOwnerEmail(value: string | undefined) {
 function TicketDetailsRenderer({
   assignments,
   menu,
+  currencyCode,
   ticketLines,
   addOnLines,
+  catalog,
   theme,
   purchaserName,
   purchaserEmail,
@@ -5425,8 +5562,10 @@ function TicketDetailsRenderer({
 }: {
   assignments: TicketAssignments;
   menu: MealMenu | null;
+  currencyCode: string;
   ticketLines: ShopResolvedCartLine[];
   addOnLines: ShopResolvedCartLine[];
+  catalog: ShopCatalog | null;
   theme: ThemeConfig;
   purchaserName: string;
   purchaserEmail: string;
@@ -5441,11 +5580,6 @@ function TicketDetailsRenderer({
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
   }
-
-  const selectedAddOns = getTicketDetailsAddOns(addOnLines);
-  const hasPhysicalAddOns = selectedAddOns.some(
-    (line) => line.requiresPhysicalFulfillment === true
-  );
 
   return (
     <div className={styles.mealStack}>
@@ -5476,12 +5610,22 @@ function TicketDetailsRenderer({
           Number.isFinite(assignment.ticketOwnerAddonBudget)
             ? Math.max(0, assignment.ticketOwnerAddonBudget)
             : 0;
+        const ticketUpgradeTotal = getTicketAssignmentUpgradePrice(
+          catalog,
+          assignment
+        );
 
         const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
         const hasSelectedMealItems = mealSummary.length > 0;
 
         const ticketOwnerName =
           assignment.ownerName?.trim() || "this ticket owner";
+        const ticketOwnerDisplayName =
+          assignment.ownerName?.trim() ||
+          (assignment.isPurchaserTicket === true && purchaserName
+            ? purchaserName
+            : "Ticket owner");
+        const ticketTypeLabel = assignment.ticketLabel.replace(/\s+#\d+$/i, "");
         const selectedPaymentMode =
           assignment.ticketOwnerPaymentMode ??
           "purchaser_pays_ticket_and_addons";
@@ -5491,12 +5635,17 @@ function TicketDetailsRenderer({
             ? addonBudget
             : 0;
 
-        const ticketTotal = ticketBasePrice + mealExtraTotal + visibleAddonBudget;
+        const ticketTotal =
+          ticketBasePrice +
+          mealExtraTotal +
+          visibleAddonBudget +
+          ticketUpgradeTotal;
 
         const ownerEmailIsValid = isValidTicketOwnerEmail(
           assignment.ownerEmail
         );
         const shouldShowOwnerInputs =
+          assignment.ownerLockedFromRecipient !== true &&
           assignment.isPurchaserTicket !== true &&
           assignment.emailTicketToOwner === true;
         const shouldShowOwnerAccess =
@@ -5508,12 +5657,37 @@ function TicketDetailsRenderer({
           selectedPaymentMode === "purchaser_pays_ticket_and_addons";
 
         const addonBudgetValue = addonBudget > 0 ? String(addonBudget) : "";
+        const sourceTicketAssignments = assignments
+          .filter((item) => item.lineKey === assignment.lineKey)
+          .sort((first, second) => first.ticketIndex - second.ticketIndex);
+        const assignmentLinePosition = Math.max(
+          0,
+          sourceTicketAssignments.findIndex(
+            (item) => item.ticketCode === assignment.ticketCode
+          )
+        );
+        const selectedAddOns = getTicketDetailsAddOns({
+          assignment,
+          lines: addOnLines,
+          sourceLineKey: assignment.lineKey,
+          assignmentLinePosition,
+          assignmentLineCount: sourceTicketAssignments.length,
+        });
+        const hasPhysicalAddOns = selectedAddOns.some(
+          (line) => line.requiresPhysicalFulfillment === true
+        );
 
         return (
           <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
             <div className={styles.mealTicketHeader}>
               <div className={styles.mealTicketTitle}>
-                {assignment.ticketLabel}
+                {ticketOwnerDisplayName}
+              </div>
+              <div className={styles.mealTicketTitle}>
+                {assignment.productTitle || "Event"}
+              </div>
+              <div className={styles.mealTicketMeta}>
+                {ticketTypeLabel}
               </div>
               <div className={styles.mealTicketMeta}>
                 Code: {assignment.ticketCode}
@@ -5523,69 +5697,69 @@ function TicketDetailsRenderer({
                   Meal selection required for this ticket.
                 </div>
               ) : null}
+              {assignment.ownerLockedFromRecipient !== true ? (
+                <div className={styles.ticketOwnershipPanel}>
+                  <label className={styles.ticketOwnershipChoice}>
+                    <input
+                      type="checkbox"
+                      checked={assignment.isPurchaserTicket === true}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+
+                        onChange(
+                          assignments.map((item) => {
+                            if (item.ticketCode !== assignment.ticketCode) {
+                              return item;
+                            }
+
+                            if (checked) {
+                              return {
+                                ...item,
+                                isPurchaserTicket: true,
+                                emailTicketToOwner: false,
+                                ownerName: purchaserName,
+                                ownerEmail: purchaserEmail,
+                              };
+                            }
+
+                            return {
+                              ...item,
+                              isPurchaserTicket: false,
+                              emailTicketToOwner: true,
+                              ownerName:
+                                item.ownerName === purchaserName
+                                  ? ""
+                                  : item.ownerName,
+                              ownerEmail:
+                                item.ownerEmail === purchaserEmail
+                                  ? ""
+                                  : item.ownerEmail,
+                            };
+                          })
+                        );
+                      }}
+                    />
+                    <span>
+                      <span className={styles.ticketOwnershipLabel}>
+                        This is my ticket.
+                      </span>
+                      <span className={styles.ticketOwnershipHelp}>
+                        (Leave unchecked if purchasing for someone else)
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              ) : null}
             </div>
 
             {assignment.ownerName?.trim() || assignment.ownerEmail?.trim() ? (
               <div className={styles.ticketOwnerSummary}>
-                {assignment.ownerName?.trim() ? (
-                  <div>{assignment.ownerName.trim()}</div>
-                ) : null}
                 {assignment.ownerEmail?.trim() ? (
                   <div>{assignment.ownerEmail.trim()}</div>
                 ) : null}
-                {hasSelectedMealItems ? (
-                  <div className={styles.ticketMealSummary}>
-                    {mealSummary.map((item) => (
-                      <div
-                        key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
-                      >
-                        {cleanCartMealLabel(item.groupLabel)}:{" "}
-                        {cleanCartMealLabel(item.optionLabel)} x {item.quantity}
-                        {item.extraTotal > 0
-                          ? ` +${formatCurrency(item.extraTotal, "USD")}`
-                          : ""}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                <div className={styles.ticketAddOnSummary}>
-                  <div className={styles.ticketAddOnHeader}>
-                    <span>Other Add-ons</span>
-                    <button
-                      type="button"
-                      className={styles.adjustLinkButton}
-                      onClick={onChooseAddOns}
-                    >
-                      Choose add ons
-                    </button>
-                  </div>
-                  {selectedAddOns.length > 0 ? (
-                    <div className={styles.ticketAddOnList}>
-                      {selectedAddOns.map((line) => (
-                        <div key={line.lineKey}>
-                          {line.label}
-                          {line.quantity > 1 ? ` x ${line.quantity}` : ""}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className={styles.ticketAddOnEmpty}>
-                      No add-ons selected.
-                    </div>
-                  )}
-                  {hasPhysicalAddOns ? (
-                    <div className={styles.ticketAddOnNote}>
-                      Physical add-ons are collected at the event. Contact
-                      support if any issues arise.
-                    </div>
-                  ) : null}
-                </div>
                 {ownerEmailIsValid && assignment.isPurchaserTicket !== true ? (
                   <div className={styles.ticketOwnerEmailNotice}>
                     {ticketOwnerName} will be emailed the details of their ticket.
-                    <div className={styles.ticketOwnerEmailWarning}>
-                      Ensure that the email address you entered is correct.
-                    </div>
                   </div>
                 ) : null}
               </div>
@@ -5653,6 +5827,13 @@ function TicketDetailsRenderer({
                       </p>
                     ) : null}
                   </>
+                ) : null}
+
+                {assignment.ownerLockedFromRecipient === true ? (
+                  <div className={styles.ticketOwnerLockedNotice}>
+                    This ticket owner was selected from verified recipients.
+                    Their email address is locked for this order.
+                  </div>
                 ) : null}
 
                 {shouldShowOwnerAccess ? (
@@ -5834,7 +6015,7 @@ function TicketDetailsRenderer({
                   </label>
                 ) : null}
 
-                {false ? (
+                {hasSelectedMealItems ? (
                   <div className={styles.ticketMealSummary}>
                     {mealSummary.map((item) => (
                       <div
@@ -5842,63 +6023,70 @@ function TicketDetailsRenderer({
                       >
                         {item.groupLabel}: {item.optionLabel} × {item.quantity}
                         {item.extraTotal > 0
-                          ? ` · +${formatCurrency(item.extraTotal, "USD")}`
+                          ? ` · +${formatCurrency(item.extraTotal, currencyCode)}`
                           : ""}
                       </div>
                     ))}
                   </div>
                 ) : null}
 
-                <div className={styles.ticketOwnershipPanel}>
-                  <label className={styles.ticketOwnershipChoice}>
-                    <input
-                      type="checkbox"
-                      checked={assignment.isPurchaserTicket === true}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-
-                        onChange(
-                          assignments.map((item) => {
-                            if (item.ticketCode !== assignment.ticketCode) {
-                              return item;
-                            }
-
-                            if (checked) {
-                              return {
-                                ...item,
-                                isPurchaserTicket: true,
-                                emailTicketToOwner: false,
-                                ownerName: purchaserName,
-                                ownerEmail: purchaserEmail,
-                              };
-                            }
-
-                            return {
-                              ...item,
-                              isPurchaserTicket: false,
-                              emailTicketToOwner: true,
-                              ownerName:
-                                item.ownerName === purchaserName
-                                  ? ""
-                                  : item.ownerName,
-                              ownerEmail:
-                                item.ownerEmail === purchaserEmail
-                                  ? ""
-                                  : item.ownerEmail,
-                            };
-                          })
-                        );
-                      }}
-                    />
-                    <span>
-                      <span className={styles.ticketOwnershipLabel}>
-                        This is my ticket.
-                      </span>
-                      <span className={styles.ticketOwnershipHelp}>
-                        (Leave unchecked if purchasing for someone else)
-                      </span>
-                    </span>
-                  </label>
+                <div className={styles.ticketAddOnSummary}>
+                  <div className={styles.ticketAddOnHeader}>
+                    <span>Other Add-ons</span>
+                    <button
+                      type="button"
+                      className={styles.adjustLinkButton}
+                      onClick={onChooseAddOns}
+                    >
+                      Choose add ons
+                    </button>
+                  </div>
+                  {selectedAddOns.length > 0 ? (
+                    <div className={styles.ticketAddOnList}>
+                      {selectedAddOns.map((line) => (
+                        <div
+                          key={line.lineKey}
+                          className={styles.ticketAddOnRow}
+                        >
+                          <span>
+                            {line.label}
+                            {line.quantity > 1 ? ` x ${line.quantity}` : ""}
+                          </span>
+                          {line.kind === "ticket-upgrade" ? (
+                            <button
+                              type="button"
+                              className={styles.cartRemoveLink}
+                              onClick={() =>
+                                onChange(
+                                  assignments.map((item) =>
+                                    item.ticketCode === assignment.ticketCode
+                                      ? {
+                                          ...item,
+                                          purchaseModeId: undefined,
+                                          purchaseModeLabel: undefined,
+                                        }
+                                      : item
+                                  )
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.ticketAddOnEmpty}>
+                      No add-ons selected.
+                    </div>
+                  )}
+                  {hasPhysicalAddOns ? (
+                    <div className={styles.ticketAddOnNote}>
+                      Physical add-ons are collected at the event. Contact
+                      support if any issues arise.
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className={styles.ticketTotalRow}>
@@ -5907,7 +6095,9 @@ function TicketDetailsRenderer({
                       ? `Ticket total with ${ticketOwnerName}'s add-on budget`
                       : "Ticket total"}
                   </span>
-                  <strong>{formatCurrency(ticketTotal, "USD")}</strong>
+                  <strong>
+                    {formatCurrency(ticketTotal, currencyCode)}
+                  </strong>
                 </div>
 
                 {canSelectMealForThisTicket &&
@@ -5953,12 +6143,14 @@ function TicketDetailsRenderer({
 function MealSelectionRenderer({
     menu,
     assignments,
+    currencyCode,
     selectedTicketCode,
     theme,
     onChange,
   }: {
     menu: MealMenu | null;
     assignments: TicketAssignments;
+    currencyCode: string;
     selectedTicketCode: string;
     theme: ThemeConfig;
     onChange: (nextAssignments: TicketAssignments) => void;
@@ -5998,7 +6190,7 @@ function MealSelectionRenderer({
 
           <div className={styles.ticketTotalRow}>
             <span>Meal extras for this ticket</span>
-            <strong>{formatCurrency(mealExtraTotal, "USD")}</strong>
+            <strong>{formatCurrency(mealExtraTotal, currencyCode)}</strong>
           </div>
 
           {menu.groups.map((group) => {
@@ -6006,19 +6198,43 @@ function MealSelectionRenderer({
             const includedServings =
               typeof group.includedServings === "number"
                 ? group.includedServings
+                : group.billingMode === "pay"
+                  ? 0
                 : group.required === false
                   ? 0
                   : 1;
+            const groupBillingLabel =
+              group.billingMode === "pay"
+                ? "Paid add-on"
+                : includedServings > 0
+                  ? `${includedServings} included`
+                  : "";
 
             return (
-              <div key={`${assignment.ticketCode}-${group.id}`} className={styles.mealGroup}>
+              <div
+                key={`${assignment.ticketCode}-${group.id}`}
+                className={`${styles.mealGroup} ${
+                  group.billingMode === "pay" ? styles.mealGroupPaid : ""
+                } ${
+                  group.id === "alcoholic-beverage"
+                    ? styles.mealGroupAlcohol
+                    : ""
+                }`}
+              >
                 <div className={styles.mealGroupHeader}>
                   <div className={styles.mealGroupTitle}>{group.label}</div>
                   <div className={styles.mealGroupCount}>
                     {groupTotal} selected
-                    {includedServings > 0 ? ` · ${includedServings} included` : ""}
+                    {groupBillingLabel ? ` · ${groupBillingLabel}` : ""}
                   </div>
                 </div>
+
+                {group.id === "alcoholic-beverage" ? (
+                  <div className={styles.mealGroupLegalNote}>
+                    <span>Must meet the legal requirements.</span>
+                    <span>Identification must be uploaded.</span>
+                  </div>
+                ) : null}
 
                 <div className={styles.mealOptionStack}>
                   {group.options.map((option) => {
@@ -6035,7 +6251,7 @@ function MealSelectionRenderer({
 
                           {option.price ? (
                             <span className={styles.mealOptionPrice}>
-                              {formatCurrency(option.price, "USD")} per extra serving
+                              {formatCurrency(option.price, currencyCode)} per extra serving
                             </span>
                           ) : null}
 
@@ -6054,7 +6270,7 @@ function MealSelectionRenderer({
                                   groupId: group.id,
                                   optionId: option.id,
                                 }),
-                                "USD"
+                                currencyCode
                               )}
                             </span>
                           ) : null}
@@ -6178,11 +6394,13 @@ function MealSelectionSummaryRenderer({
   menu,
   assignments,
   mealExtraTotal,
+  currencyCode,
   onAdjustMeals,
 }: {
   menu: MealMenu | null;
   assignments: TicketAssignments;
   mealExtraTotal: number;
+  currencyCode: string;
   onAdjustMeals: (ticketCode: string) => void;
 }) {
   const mealAssignments = getTicketsNeedingMeal(assignments);
@@ -6260,7 +6478,7 @@ function MealSelectionSummaryRenderer({
           {mealExtraTotal > 0 ? (
             <div className={styles.reviewMealExtraTotal}>
               <span>Meal add-ons / extra servings total</span>
-              <strong>{formatCurrency(mealExtraTotal, "USD")}</strong>
+              <strong>{formatCurrency(mealExtraTotal, currencyCode)}</strong>
             </div>
           ) : null}
         </div>
@@ -6279,10 +6497,12 @@ function cleanCartMealLabel(label: string) {
 function CartTicketMealSummary({
   assignment,
   menu,
+  currencyCode,
   onAdjustMeals,
 }: {
   assignment: TicketAssignment;
   menu: MealMenu;
+  currencyCode: string;
   onAdjustMeals?: (ticketCode: string) => void;
 }) {
   const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
@@ -6317,7 +6537,7 @@ function CartTicketMealSummary({
           <span>
             {cleanCartMealLabel(item.optionLabel)} x {item.quantity}
             {item.extraTotal > 0
-              ? ` +${formatCurrency(item.extraTotal, "USD")}`
+              ? ` +${formatCurrency(item.extraTotal, currencyCode)}`
               : ""}
           </span>
         </div>
@@ -6340,9 +6560,11 @@ function CartTicketMealSummary({
 function CartBundledAddOnsSummary({
   lines,
   currencyCode,
+  purchasedForLabels,
 }: {
   lines: ShopResolvedCartLine[];
   currencyCode?: string;
+  purchasedForLabels?: string[];
 }) {
   if (!lines.length) {
     return null;
@@ -6352,14 +6574,72 @@ function CartBundledAddOnsSummary({
     <div className={styles.cartTicketMealStack}>
       <div className={styles.cartBundledAddOnsHeader}>Add-ons</div>
       {lines.map((line) => (
-        <div key={line.lineKey} className={styles.cartTicketMealLine}>
-          <span>
-            {line.productTitle}
-            {line.sizeLabel ? ` - ${line.sizeLabel}` : ""}
-          </span>
-          <span>{formatCurrency(line.lineTotal, currencyCode ?? "USD")}</span>
-        </div>
+        <Fragment key={line.lineKey}>
+          <div className={styles.cartTicketMealLine}>
+            <span>
+              {line.productTitle}
+              {line.sizeLabel ? ` - ${line.sizeLabel}` : ""}
+            </span>
+            <span>{formatCurrency(line.lineTotal, currencyCode ?? "USD")}</span>
+          </div>
+          {purchasedForLabels?.length ? (
+            <div className={styles.cartTicketMealMeta}>
+              {purchasedForLabels.map((label, index) => (
+                <div key={`${line.lineKey}-purchased-for-${index}`}>
+                  Purchased for {label}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </Fragment>
       ))}
+    </div>
+  );
+}
+
+function EmptyCartStoreChoices({
+  theme,
+  onTicketStore,
+  onMerchStore,
+}: {
+  theme: ThemeConfig;
+  onTicketStore: () => void;
+  onMerchStore: () => void;
+}) {
+  return (
+    <div
+      className={styles.emptyCartPanel}
+      style={{ borderColor: theme.colors.border }}
+    >
+      <div>
+        <h2 className={styles.emptyCartTitle}>Cart</h2>
+        <p className={styles.emptyCartText}>Your cart is empty.</p>
+      </div>
+      <div className={styles.emptyCartActions}>
+        <button
+          type="button"
+          className={styles.emptyCartButton}
+          onClick={onTicketStore}
+          style={{
+            background: theme.colors.primary,
+            color: getContrastTextColor(theme.colors.primary),
+          }}
+        >
+          Ticket store
+        </button>
+        <button
+          type="button"
+          className={styles.emptyCartButton}
+          onClick={onMerchStore}
+          style={{
+            borderColor: theme.colors.border,
+            background: "#FFFFFF",
+            color: theme.colors.text,
+          }}
+        >
+          Music and merch store
+        </button>
+      </div>
     </div>
   );
 }
@@ -6473,6 +6753,21 @@ function updatePurchaseRecipient(
   );
 }
 
+function updatePurchaseRecipientFields(
+  recipients: ShopPurchaseRecipient[],
+  index: number,
+  patch: Partial<ShopPurchaseRecipient>
+) {
+  return recipients.map((recipient, currentIndex) =>
+    currentIndex === index
+      ? {
+          ...recipient,
+          ...patch,
+        }
+      : recipient
+  );
+}
+
 function removePurchaseRecipient(
   recipients: ShopPurchaseRecipient[],
   index: number
@@ -6507,9 +6802,50 @@ function getPurchaseRecipientQuantity(recipient: ShopPurchaseRecipient) {
     : 1;
 }
 
-function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
-  return lines
+function getTicketDetailsAddOns({
+  assignment,
+  lines,
+  sourceLineKey,
+  assignmentLinePosition,
+  assignmentLineCount,
+}: {
+  assignment: TicketAssignment;
+  lines: ShopResolvedCartLine[];
+  sourceLineKey: string;
+  assignmentLinePosition: number;
+  assignmentLineCount: number;
+}) {
+  const ticketUpgrade =
+    assignment.purchaseModeId &&
+    assignment.purchaseModeLabel &&
+    !isInternalTicketUpgradeMode(assignment.purchaseModeId)
+      ? [
+          {
+            lineKey: `${assignment.ticketCode}-${assignment.purchaseModeId}`,
+            label: assignment.purchaseModeLabel,
+            quantity: 1,
+            requiresPhysicalFulfillment: false,
+            kind: "ticket-upgrade" as const,
+          },
+        ]
+      : [];
+
+  const bundledAddOns = lines
     .map((line) => {
+      if (line.bundledFromLineKey !== sourceLineKey) {
+        return null;
+      }
+
+      const quantity = getDistributedTicketAddOnQuantity({
+        totalQuantity: line.quantity,
+        assignmentLinePosition,
+        assignmentLineCount,
+      });
+
+      if (quantity < 1) {
+        return null;
+      }
+
       if (line.fulfillmentType !== "ticket") {
         return {
           lineKey: line.lineKey,
@@ -6517,9 +6853,10 @@ function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
             line.productTitle === line.sizeLabel
               ? line.productTitle
               : `${line.productTitle} - ${line.sizeLabel}`,
-          quantity: line.quantity,
+          quantity,
           requiresPhysicalFulfillment:
             line.requiresPhysicalFulfillment === true,
+          kind: "cart-line" as const,
         };
       }
 
@@ -6531,9 +6868,10 @@ function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
         return {
           lineKey: `${line.lineKey}-${line.purchaseModeId}`,
           label: line.purchaseModeLabel,
-          quantity: line.quantity,
+          quantity,
           requiresPhysicalFulfillment:
             line.requiresPhysicalFulfillment === true,
+          kind: "ticket-upgrade" as const,
         };
       }
 
@@ -6544,7 +6882,62 @@ function getTicketDetailsAddOns(lines: ShopResolvedCartLine[]) {
       label: string;
       quantity: number;
       requiresPhysicalFulfillment: boolean;
+      kind: "cart-line" | "ticket-upgrade";
     } => Boolean(line));
+
+  return [...ticketUpgrade, ...bundledAddOns];
+}
+
+function getTicketAssignmentUpgradePrice(
+  catalog: ShopCatalog | null,
+  assignment: TicketAssignment
+) {
+  if (
+    !catalog ||
+    !assignment.purchaseModeId ||
+    isInternalTicketUpgradeMode(assignment.purchaseModeId)
+  ) {
+    return 0;
+  }
+
+  const product = catalog.products.find(
+    (item) => item.id === assignment.productId
+  );
+  const sizeOption = product?.sizeOptions.find(
+    (item) => item.id === assignment.sizeOptionId
+  );
+  const purchaseMode = sizeOption?.purchaseModes?.find(
+    (mode) => mode.id === assignment.purchaseModeId
+  );
+
+  return Math.max(0, purchaseMode?.priceAdjustment ?? 0);
+}
+
+function isInternalTicketUpgradeMode(modeId: string) {
+  return (
+    modeId === "standard" ||
+    modeId === "default" ||
+    modeId === "standard-invitation" ||
+    isHiddenTicketDeliveryPurchaseMode(modeId)
+  );
+}
+
+function getDistributedTicketAddOnQuantity({
+  totalQuantity,
+  assignmentLinePosition,
+  assignmentLineCount,
+}: {
+  totalQuantity: number;
+  assignmentLinePosition: number;
+  assignmentLineCount: number;
+}) {
+  const total = Math.max(0, Math.floor(totalQuantity));
+  const count = Math.max(1, Math.floor(assignmentLineCount));
+  const position = Math.max(0, Math.floor(assignmentLinePosition));
+  const baseQuantity = Math.floor(total / count);
+  const remainder = total % count;
+
+  return baseQuantity + (position < remainder ? 1 : 0);
 }
 
 function DeliverySlideRenderer({
@@ -6919,34 +7312,38 @@ function ReviewSummaryRenderer({
           </button>
         </div>
 
-        <div className={styles.reviewSummaryBody}>
-          <div>{String(answers.fullName ?? "").trim() || "No name added yet."}</div>
-          {String(answers.phone ?? "").trim() ? (
-            <div>{String(answers.phone ?? "").trim()}</div>
-          ) : null}
-          {String(answers.email ?? "").trim() ? (
-            <div>{String(answers.email ?? "").trim()}</div>
-          ) : null}
+        <div
+          className={`${styles.reviewSummaryBody} ${styles.contactSummaryBody}`}
+        >
+          <div className={styles.contactSummarySection}>
+            <div>
+              {String(answers.fullName ?? "").trim() || "No name added yet."}
+            </div>
+            {String(answers.phone ?? "").trim() ? (
+              <div>{String(answers.phone ?? "").trim()}</div>
+            ) : null}
+            {String(answers.email ?? "").trim() ? (
+              <div>{String(answers.email ?? "").trim()}</div>
+            ) : null}
+          </div>
           {hasMultipleTicketOwnerEmailNotices ? (
-            <div className={styles.ticketOwnerEmailNotice}>
+            <div
+              className={`${styles.ticketOwnerEmailNotice} ${styles.contactSummarySection}`}
+            >
               {ticketOwnerEmailNotices.map((notice) => (
                 <div key={notice.ticketCode}>
                   {notice.ownerName} will be emailed the details of their ticket
                   at {notice.ownerEmail}.
                 </div>
               ))}
-              <div className={styles.ticketOwnerEmailWarning}>
-                Ensure that the email addresses you entered are correct.
-              </div>
             </div>
           ) : null}
           {ticketOwnerEmailNotices.length === 1 ? (
-            <div className={styles.ticketOwnerEmailNotice}>
+            <div
+              className={`${styles.ticketOwnerEmailNotice} ${styles.contactSummarySection}`}
+            >
               {ticketOwnerEmailNotices[0].ownerName} will be emailed the details
               of their ticket at {ticketOwnerEmailNotices[0].ownerEmail}.
-              <div className={styles.ticketOwnerEmailWarning}>
-                Ensure that the email address you entered is correct.
-              </div>
             </div>
           ) : null}
         </div>
@@ -6983,7 +7380,6 @@ function ShopSlideRenderer({
   onSetLineSelected,
   onSetPurchaseMode,
   onSetPurchaseRecipients,
-  onAddProductToCart,
   onRemoveLine,
   onAdjustLine,
 }: {
@@ -7024,7 +7420,6 @@ function ShopSlideRenderer({
     sizeOptionId: string,
     recipients: ShopPurchaseRecipient[]
   ) => void;
-  onAddProductToCart: (productId: string) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
   onAdjustLine?: (productId: string, sizeOptionId: string) => void;
 }) {
@@ -7272,26 +7667,6 @@ function ShopSlideRenderer({
 
       {slideMode === "review" &&
       reviewSection === "primary" &&
-      selectedReviewLines.length > 0 ? (
-        <div className={styles.checkoutReservationNotice}>
-          {reservationSecondsRemaining > 0 ? (
-            <>
-              Items are reserved.
-              <br />
-              They will return to shop stock in {reservationSecondsRemaining} seconds.
-            </>
-          ) : (
-            <>
-              The items you selected previously have returned to shop stock.
-              <br />
-              There&apos;s a chance they might not be available.
-            </>
-          )}
-        </div>
-      ) : null}
-
-      {slideMode === "review" &&
-      reviewSection === "primary" &&
       inventoryNotices.length > 0 ? (
         <div className={styles.cartInventoryNotice}>
           {inventoryNotices.map((notice, index) => (
@@ -7318,15 +7693,6 @@ function ShopSlideRenderer({
 
         const isExpanded =
           slideMode === "review" || expandedProducts[product.id] === true;
-
-        const productDraftLineCount = Object.values(cart).filter(
-          (line) => line.productId === product.id
-        ).length;
-        const productSelectedLineCount = Object.values(cart).filter(
-          (line) => line.productId === product.id && line.selected === true
-        ).length;
-        const canAddProductToCart =
-          slideMode === "browse" && productDraftLineCount > 0;
 
         const isEventProduct = product.fulfillmentType === "ticket";
         const sectionRank =
@@ -7525,6 +7891,10 @@ function ShopSlideRenderer({
                 const productAllowsPurchaseForOthers =
                   product.enablePurchaseForOthers ||
                   product.fulfillmentType === "ticket";
+                const purchaseSubject = getShopPurchaseSubjectLabel(
+                  product,
+                  sizeOption
+                );
                 const recipientLimit = Math.max(
                   0,
                   product.maxPurchaseForOthers ?? quantity
@@ -7537,6 +7907,8 @@ function ShopSlideRenderer({
                     isPurchaseRecipientComplete(latestRecipient));
                 const productMinQuantity = product.minOrderQuantity ?? 1;
                 const productMaxQuantity = product.maxOrderQuantity;
+                const productMaxAccountHolderQuantity =
+                  product.maxAccountHolderQuantity;
                 const recipientMinQuantity = product.minRecipientQuantity ?? 1;
                 const recipientMaxQuantity = product.maxRecipientQuantity;
                 const recipientReservedQuantity =
@@ -7581,10 +7953,27 @@ function ShopSlideRenderer({
                   productMaxQuantity !== undefined
                     ? Math.max(0, productMaxQuantity - quantity)
                     : undefined;
+                const mainQuantityMax =
+                  productMaxAccountHolderQuantity !== undefined
+                    ? Math.min(
+                        productMaxQuantity ?? Number.POSITIVE_INFINITY,
+                        recipientReservedQuantity +
+                          productMaxAccountHolderQuantity
+                      )
+                    : productMaxQuantity;
                 const activePurchaseMode =
                   sizeOption.purchaseModes?.find(
                     (mode) => mode.id === cartLine?.purchaseModeId
                   ) ?? sizeOption.purchaseModes?.[0];
+                const visiblePurchaseModes = getVisiblePurchaseModes(
+                  product,
+                  sizeOption
+                );
+                const linePurchaseModes = visiblePurchaseModes;
+                const recipientPurchaseModes =
+                  product.fulfillmentType === "ticket"
+                    ? visiblePurchaseModes
+                    : [];
 
                 const unitPrice =
                   slideMode === "review"
@@ -7600,6 +7989,7 @@ function ShopSlideRenderer({
                     ? getCartFulfillmentLabel(resolvedLine)
                     : "";
                 const shouldShowPurchaseModeLabel =
+                  product.fulfillmentType !== "ticket" &&
                   !activePurchaseMode?.bundledCartItems?.length &&
                   Boolean(resolvedLine?.purchaseModeLabel);
 
@@ -7640,6 +8030,16 @@ function ShopSlideRenderer({
                   const bundledAddOnLines = activeReviewLines.filter(
                     (line) => line.bundledFromLineKey === resolvedLine?.lineKey
                   );
+                  const bundledAddOnPurchasedForLabels = lineMealAssignments
+                    .filter((assignment) => assignment.isPurchaserTicket === false)
+                    .map((assignment) =>
+                      String(
+                        assignment.ownerName ||
+                          assignment.ownerEmail ||
+                          assignment.ticketLabel
+                      ).trim()
+                    )
+                    .filter(Boolean);
 
                   return (
                     <div
@@ -7717,6 +8117,7 @@ function ShopSlideRenderer({
                               key={assignment.ticketCode}
                               assignment={assignment}
                               menu={mealMenu}
+                              currencyCode={catalog.currencyCode ?? activeCurrencyCode}
                               onAdjustMeals={onAdjustMeals}
                             />
                           ))}
@@ -7726,6 +8127,7 @@ function ShopSlideRenderer({
                         <CartBundledAddOnsSummary
                           lines={bundledAddOnLines}
                           currencyCode={catalog.currencyCode}
+                          purchasedForLabels={bundledAddOnPurchasedForLabels}
                         />
                       ) : null}
                       {fulfillmentLabel ? (
@@ -7799,9 +8201,7 @@ function ShopSlideRenderer({
                               .join(" - ")}
                           </div>
                         ) : sizeOption.description ? (
-                          <div className={styles.sizeDescription}>
-                            {sizeOption.description}
-                          </div>
+                          <ShopSizeDescription text={sizeOption.description} />
                         ) : null}
                       </div>
                     </div>
@@ -7810,24 +8210,26 @@ function ShopSlideRenderer({
                     <div className={styles.sizeRow}>
                       <input
                         type="checkbox"
-                        checked={isDraftActive}
+                        checked={selected}
                         onChange={(event) => {
                           const nextActive = event.target.checked;
 
                           if (
                             nextActive &&
-                            sizeOption.purchaseModes?.length &&
+                            (visiblePurchaseModes.length ||
+                              sizeOption.purchaseModes?.length) &&
                             !cartLine?.purchaseModeId
                           ) {
                             onSetPurchaseMode(
                               product.id,
                               sizeOption.id,
-                              getDefaultPurchaseModeId(sizeOption)
+                              visiblePurchaseModes[0]?.id ??
+                                getDefaultPurchaseModeId(sizeOption)
                             );
                           }
 
                           if (nextActive) {
-                            onSetQuantity(product.id, sizeOption.id, quantity);
+                            onSetLineSelected(product.id, sizeOption.id, true);
                           } else {
                             onRemoveLine(product.id, sizeOption.id);
                           }
@@ -7837,67 +8239,85 @@ function ShopSlideRenderer({
                         <div className={styles.sizeLabel}>{sizeOption.label}</div>
 
                         {sizeOption.description ? (
-                          <div className={styles.sizeDescription}>
-                            {sizeOption.description}
-                          </div>
+                          <ShopSizeDescription text={sizeOption.description} />
                         ) : null}
                       </div>
-                      <div className={styles.sizePrice}>
-                        {formatCurrency(unitPrice, catalog.currencyCode)}
-                      </div>
-                      <QuantityControl
-                        quantity={quantity}
-                        minQuantity={minimumQuantity}
-                        maxQuantity={productMaxQuantity}
-                        disabled={!isConfigurable}
-                        onDecrease={() =>
-                          onSetQuantity(product.id, sizeOption.id, quantity - 1)
-                        }
-                        onIncrease={() =>
-                          onSetQuantity(product.id, sizeOption.id, quantity + 1)
-                        }
-                        theme={theme}
-                      />
                     </div>
                     )}
+
+                    {slideMode === "browse" ? (
+                      <div className={styles.sizePurchaseBand}>
+                        <div className={styles.sizePrice}>
+                          {formatCurrency(unitPrice, catalog.currencyCode)}
+                        </div>
+                        <QuantityControl
+                          quantity={quantity}
+                          minQuantity={minimumQuantity}
+                          maxQuantity={mainQuantityMax}
+                          disabled={!isConfigurable}
+                          onDecrease={() =>
+                            onSetQuantity(product.id, sizeOption.id, quantity - 1)
+                          }
+                          onIncrease={() =>
+                            onSetQuantity(product.id, sizeOption.id, quantity + 1)
+                          }
+                          theme={theme}
+                        />
+                      </div>
+                    ) : null}
 
                     {slideMode === "browse" &&
                     isConfigurable &&
                     productAllowsPurchaseForOthers &&
                     completedPurchaseRecipients.length > 0 ? (
                       <div className={styles.accountHolderQuantityHint}>
-                        <div>
-                          {accountHolderQuantity} of this item will be sent to you
-                          {accountHolderName ? ` (${accountHolderName})` : ""}.
-                        </div>
-                        {completedPurchaseRecipients.map((recipient, index) => {
-                          const recipientQuantity =
-                            getPurchaseRecipientQuantity(recipient);
-
-                          return (
-                            <div
-                              key={`${product.id}-${sizeOption.id}-allocation-${index}`}
-                            >
-                              {recipientQuantity} of this item will be sent to{" "}
-                              {recipient.name.trim()}.
-                            </div>
-                          );
-                        })}
-                        {productMaxQuantity ? (
-                          <div className={styles.spotsRemainingLine}>
-                            {spotsRemaining} spot
-                            {spotsRemaining === 1 ? "" : "s"} remaining.
-                            Maximum {productMaxQuantity} of this item per order.
+                        <div className={styles.purchaseAllocationList}>
+                          <div>
+                            {formatQuantitySubject(
+                              accountHolderQuantity,
+                              purchaseSubject
+                            )}{" "}
+                            will be sent to you
+                            {accountHolderName ? ` (${accountHolderName})` : ""}.
                           </div>
-                        ) : null}
+                          {completedPurchaseRecipients.map((recipient, index) => {
+                            const recipientQuantity =
+                              getPurchaseRecipientQuantity(recipient);
+
+                            return (
+                              <div
+                                key={`${product.id}-${sizeOption.id}-allocation-${index}`}
+                              >
+                                {formatQuantitySubject(
+                                  recipientQuantity,
+                                  purchaseSubject
+                                )}{" "}
+                                will be sent to{" "}
+                                <strong>{recipient.name.trim()}</strong>.
+                              </div>
+                            );
+                          })}
+                          {productMaxQuantity ? (
+                            <div className={styles.spotsRemainingLine}>
+                              {spotsRemaining} spot
+                              {spotsRemaining === 1 ? "" : "s"} remaining.
+                              Maximum{" "}
+                              {formatQuantitySubject(
+                                productMaxQuantity,
+                                purchaseSubject
+                              )}{" "}
+                              per order.
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
 
                     {slideMode === "browse" &&
-                    sizeOption.purchaseModes?.length &&
-                    !isInternalOnlyPurchaseMode(sizeOption.purchaseModes) ? (
+                    linePurchaseModes.length > 0 &&
+                    !isInternalOnlyPurchaseMode(linePurchaseModes) ? (
                     <div className={styles.purchaseModes}>
-                      {sizeOption.purchaseModes.map((mode) => {
+                      {linePurchaseModes.map((mode) => {
                         const checked =
                           (cartLine?.purchaseModeId ?? activePurchaseMode?.id) ===
                           mode.id;
@@ -7941,204 +8361,261 @@ function ShopSlideRenderer({
                   isConfigurable &&
                   !hidePurchaseForOthersSection ? (
                     <div className={styles.purchaseForOthersPanel}>
-                      <button
-                        type="button"
-                        className={styles.purchaseForSomeoneButton}
-                        onClick={() =>
-                          setPurchaseRecipientPickerOpen((prev) => ({
-                            ...prev,
-                            [lineKey]: !prev[lineKey],
-                          }))
-                        }
-                        disabled={!canAddPurchaseRecipient}
-                      >
-                        + Purchase for someone
-                      </button>
-                      <div className={styles.purchaseForOthersHint}>
-                        You can add up to {recipientLimit} people for this item.
-                      </div>
-                      <div className={styles.purchaseForOthersCreditNote}>
-                        <div>Purchased store credit can be used for eligible gifts.</div>
-                        <div>
-                          Returned store credit cannot be used to purchase for
-                          someone else.
-                        </div>
-                      </div>
-                      {purchaseRecipientPickerOpen[lineKey] ? (
-                        <div className={styles.verifiedRecipientPicker}>
-                          <select
-                            className={styles.input}
-                            value={selectedVerifiedRecipientId}
-                            onChange={(event) =>
-                              setRecipientSelectValues((prev) => ({
-                                ...prev,
-                                [lineKey]: event.target.value,
-                              }))
-                            }
-                            disabled={availableVerifiedRecipients.length === 0}
-                            style={{ borderColor: theme.colors.border }}
-                          >
-                            {availableVerifiedRecipients.length ? (
-                              availableVerifiedRecipients.map((recipient) => (
-                                <option key={recipient.id} value={recipient.id}>
-                                  {recipient.confirmedName ||
-                                    recipient.recipientName}{" "}
-                                  ({recipient.recipientEmail})
-                                </option>
-                              ))
-                            ) : (
-                              <option value="">No verified recipients yet</option>
-                            )}
-                          </select>
-                          <button
-                            type="button"
-                            className={styles.purchaseForSomeoneButton}
-                            onClick={() => {
-                              const selectedRecipient =
-                                availableVerifiedRecipients.find(
-                                  (recipient) =>
-                                    recipient.id === selectedVerifiedRecipientId
-                                );
-
-                              if (!selectedRecipient) {
-                                return;
-                              }
-
-                              onSetPurchaseRecipients(product.id, sizeOption.id, [
-                                {
-                                  name:
-                                    selectedRecipient.confirmedName ||
-                                    selectedRecipient.recipientName,
-                                  email: selectedRecipient.recipientEmail,
-                                  quantity: recipientMinQuantity,
-                                  note: "",
-                                },
-                                ...purchaseRecipients,
-                              ]);
-                            }}
-                            disabled={
-                              !selectedVerifiedRecipientId ||
-                              availableVerifiedRecipients.length === 0
-                            }
-                          >
-                            Add selected recipient
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {purchaseRecipients.length >= recipientLimit ? (
-                        <div className={styles.purchaseForOthersLimit}>
-                          Recipient limit reached for this item.
-                        </div>
-                      ) : null}
-                      {latestRecipient &&
-                      !isPurchaseRecipientComplete(latestRecipient) ? (
-                        <div className={styles.purchaseForOthersLimit}>
-                          Add the newest recipient&apos;s name and valid email before
-                          adding another recipient.
-                        </div>
-                      ) : null}
-
-                      {purchaseRecipients.map((recipient, index) => (
-                        <div
-                          key={`${product.id}-${sizeOption.id}-recipient-${index}`}
-                          className={styles.purchaseRecipientFields}
+                      <div className={styles.purchaseForSomeoneSelector}>
+                        <button
+                          type="button"
+                          className={styles.purchaseForSomeoneButton}
+                          onClick={() =>
+                            setPurchaseRecipientPickerOpen((prev) => ({
+                              ...prev,
+                              [lineKey]: !prev[lineKey],
+                            }))
+                          }
+                          disabled={!canAddPurchaseRecipient}
                         >
-                          {(() => {
-                            const recipientIsComplete =
-                              isPurchaseRecipientComplete(recipient);
-                            const recipientQuantity =
-                              getPurchaseRecipientQuantity(recipient);
-
-                            return (
-                              <>
-                          <div className={styles.purchaseForOthersHint}>
-                            {recipient.name} ({recipient.email})
-                          </div>
-                          <input
-                            className={styles.input}
-                            value={recipient.note ?? ""}
-                            onChange={(event) =>
-                              onSetPurchaseRecipients(
-                                product.id,
-                                sizeOption.id,
-                                updatePurchaseRecipient(
-                                  purchaseRecipients,
-                                  index,
-                                  "note",
-                                  event.target.value
-                                )
-                              )
-                            }
-                            placeholder="Small note (optional)"
-                            style={{ borderColor: theme.colors.border }}
-                          />
-                          <div className={styles.recipientQuantityBlock}>
-                            <QuantityControl
-                              quantity={recipientQuantity}
-                              minQuantity={recipientMinQuantity}
-                              maxQuantity={recipientMaxQuantity}
-                              disabled={!recipientIsComplete}
-                              onDecrease={() =>
-                                onSetPurchaseRecipients(
-                                  product.id,
-                                  sizeOption.id,
-                                  updatePurchaseRecipient(
-                                    purchaseRecipients,
-                                    index,
-                                    "quantity",
-                                    recipientQuantity - 1
-                                  )
-                                )
-                              }
-                              onIncrease={() =>
-                                onSetPurchaseRecipients(
-                                  product.id,
-                                  sizeOption.id,
-                                  updatePurchaseRecipient(
-                                    purchaseRecipients,
-                                    index,
-                                    "quantity",
-                                    recipientQuantity + 1
-                                  )
-                                )
-                              }
-                              theme={theme}
-                            />
-                            {recipientIsComplete ? (
-                              <div className={styles.purchaseForOthersHint}>
-                                {recipientQuantity} item
-                                {recipientQuantity === 1 ? "" : "s"} reserved
-                                for {recipient.name.trim()}.
-                              </div>
-                            ) : (
-                              <div className={styles.purchaseForOthersHint}>
-                                Add a name and valid email to reserve items for
-                                this recipient.
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            className={styles.cartRemoveLink}
-                            onClick={() =>
-                              onSetPurchaseRecipients(
-                                product.id,
-                                sizeOption.id,
-                                removePurchaseRecipient(
-                                  purchaseRecipients,
-                                  index
-                                )
-                              )
-                            }
-                          >
-                            Remove recipient
-                          </button>
-                              </>
-                            );
-                          })()}
+                          + Purchase for someone
+                        </button>
+                        <div className={styles.purchaseForOthersHint}>
+                          You can add up to {recipientLimit} people for this{" "}
+                          {purchaseSubject}.
                         </div>
-                      ))}
+                        {purchaseRecipientPickerOpen[lineKey] ? (
+                          <div className={styles.verifiedRecipientPicker}>
+                            <select
+                              className={styles.input}
+                              value={selectedVerifiedRecipientId}
+                              onChange={(event) =>
+                                setRecipientSelectValues((prev) => ({
+                                  ...prev,
+                                  [lineKey]: event.target.value,
+                                }))
+                              }
+                              disabled={availableVerifiedRecipients.length === 0}
+                              style={{ borderColor: theme.colors.border }}
+                            >
+                              {availableVerifiedRecipients.length ? (
+                                availableVerifiedRecipients.map((recipient) => (
+                                  <option key={recipient.id} value={recipient.id}>
+                                    {recipient.confirmedName ||
+                                      recipient.recipientName}{" "}
+                                    ({recipient.recipientEmail})
+                                  </option>
+                                ))
+                              ) : (
+                                <option value="">No verified recipients yet</option>
+                              )}
+                            </select>
+                            <button
+                              type="button"
+                              className={styles.purchaseForSomeoneButton}
+                              onClick={() => {
+                                const selectedRecipient =
+                                  availableVerifiedRecipients.find(
+                                    (recipient) =>
+                                      recipient.id === selectedVerifiedRecipientId
+                                  );
+
+                                if (!selectedRecipient) {
+                                  return;
+                                }
+
+                                onSetPurchaseRecipients(product.id, sizeOption.id, [
+                                  {
+                                    name:
+                                      selectedRecipient.confirmedName ||
+                                      selectedRecipient.recipientName,
+                                    email: selectedRecipient.recipientEmail,
+                                    quantity: recipientMinQuantity,
+                                    note: "",
+                                    purchaseModeId:
+                                      recipientPurchaseModes[0]?.id ??
+                                      getDefaultPurchaseModeId(sizeOption),
+                                    purchaseModeLabel:
+                                      recipientPurchaseModes[0]?.label,
+                                  },
+                                  ...purchaseRecipients,
+                                ]);
+                                setPurchaseRecipientPickerOpen((prev) => ({
+                                  ...prev,
+                                  [lineKey]: false,
+                                }));
+                              }}
+                              disabled={
+                                !selectedVerifiedRecipientId ||
+                                availableVerifiedRecipients.length === 0
+                              }
+                            >
+                              Add selected recipient
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {purchaseRecipients.length >= recipientLimit ? (
+                          <div className={styles.purchaseForOthersLimit}>
+                            Recipient limit reached for {purchaseSubject}.
+                          </div>
+                        ) : null}
+                        {latestRecipient &&
+                        !isPurchaseRecipientComplete(latestRecipient) ? (
+                          <div className={styles.purchaseForOthersLimit}>
+                            Add the newest recipient&apos;s name and valid email before
+                            adding another recipient.
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {purchaseRecipients.length ? (
+                        <div className={styles.purchaseRecipientListPanel}>
+                          {purchaseRecipients.map((recipient, index) => (
+                            <div
+                              key={`${product.id}-${sizeOption.id}-recipient-${index}`}
+                              className={styles.purchaseRecipientFields}
+                            >
+                              {(() => {
+                                const recipientIsComplete =
+                                  isPurchaseRecipientComplete(recipient);
+                                const recipientQuantity =
+                                  getPurchaseRecipientQuantity(recipient);
+                                const recipientQuantityLocked =
+                                  recipientMaxQuantity === 1 ||
+                                  recipientMinQuantity === recipientMaxQuantity;
+                                const selectedRecipientPurchaseMode =
+                                  recipientPurchaseModes.find(
+                                    (mode) =>
+                                      mode.id === recipient.purchaseModeId
+                                  ) ?? recipientPurchaseModes[0];
+
+                                return (
+                                  <>
+                                    <div className={styles.purchaseForOthersHint}>
+                                      <strong className={styles.purchaseRecipientName}>
+                                        {recipient.name}
+                                      </strong>{" "}
+                                      ({recipient.email})
+                                    </div>
+                                    <div className={styles.recipientQuantityBlock}>
+                                      {!recipientQuantityLocked ? (
+                                        <div className={styles.recipientQuantityRow}>
+                                          <QuantityControl
+                                            quantity={recipientQuantity}
+                                            minQuantity={recipientMinQuantity}
+                                            maxQuantity={recipientMaxQuantity}
+                                            disabled={!recipientIsComplete}
+                                            onDecrease={() =>
+                                              onSetPurchaseRecipients(
+                                                product.id,
+                                                sizeOption.id,
+                                                updatePurchaseRecipient(
+                                                  purchaseRecipients,
+                                                  index,
+                                                  "quantity",
+                                                  recipientQuantity - 1
+                                                )
+                                              )
+                                            }
+                                            onIncrease={() =>
+                                              onSetPurchaseRecipients(
+                                                product.id,
+                                                sizeOption.id,
+                                                updatePurchaseRecipient(
+                                                  purchaseRecipients,
+                                                  index,
+                                                  "quantity",
+                                                  recipientQuantity + 1
+                                                )
+                                              )
+                                            }
+                                            theme={theme}
+                                          />
+                                        </div>
+                                      ) : null}
+                                      {recipientIsComplete ? (
+                                        <div className={styles.purchaseForOthersHint}>
+                                          {formatQuantitySubject(
+                                            recipientQuantity,
+                                            purchaseSubject
+                                          )}{" "}
+                                          reserved for {recipient.name.trim()}.
+                                        </div>
+                                      ) : (
+                                        <div className={styles.purchaseForOthersHint}>
+                                          Add a name and valid email to reserve items for
+                                          this recipient.
+                                        </div>
+                                      )}
+                                    </div>
+                                    {recipientPurchaseModes.length > 1 ? (
+                                      <div className={styles.recipientUpgradeBlock}>
+                                        <div className={styles.purchaseForOthersHint}>
+                                          Ticket upgrade
+                                        </div>
+                                        <div className={styles.purchaseModes}>
+                                          {recipientPurchaseModes.map((mode) => (
+                                            <label
+                                              key={mode.id}
+                                              className={styles.purchaseModeOption}
+                                            >
+                                              <input
+                                                type="radio"
+                                                name={`${lineKey}-recipient-upgrade-${index}`}
+                                                checked={
+                                                  selectedRecipientPurchaseMode?.id ===
+                                                  mode.id
+                                                }
+                                                disabled={!recipientIsComplete}
+                                                onChange={() =>
+                                                  onSetPurchaseRecipients(
+                                                    product.id,
+                                                    sizeOption.id,
+                                                    updatePurchaseRecipientFields(
+                                                      purchaseRecipients,
+                                                      index,
+                                                      {
+                                                        purchaseModeId: mode.id,
+                                                        purchaseModeLabel: mode.label,
+                                                      }
+                                                    )
+                                                  )
+                                                }
+                                              />
+                                              <span>{mode.label}</span>
+                                              {mode.priceAdjustment !== 0 ? (
+                                                <span className={styles.purchaseModePrice}>
+                                                  {mode.priceAdjustment > 0 ? "+" : ""}
+                                                  {formatCurrency(
+                                                    mode.priceAdjustment,
+                                                    catalog.currencyCode
+                                                  )}
+                                                </span>
+                                              ) : null}
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className={styles.cartRemoveLink}
+                                      onClick={() =>
+                                        onSetPurchaseRecipients(
+                                          product.id,
+                                          sizeOption.id,
+                                          removePurchaseRecipient(
+                                            purchaseRecipients,
+                                            index
+                                          )
+                                        )
+                                      }
+                                    >
+                                      Remove recipient
+                                    </button>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -8216,7 +8693,7 @@ function ShopSlideRenderer({
                       <QuantityControl
                         quantity={quantity}
                         minQuantity={minimumQuantity}
-                        maxQuantity={productMaxQuantity}
+                        maxQuantity={mainQuantityMax}
                         disabled={false}
                         onDecrease={() =>
                           onSetQuantity(product.id, sizeOption.id, quantity - 1)
@@ -8240,18 +8717,6 @@ function ShopSlideRenderer({
 
                 {slideMode === "browse" ? (
                   <div className={styles.eventProductBottomActions}>
-                    <button
-                      type="button"
-                      className={styles.addToCartButton}
-                      disabled={!canAddProductToCart}
-                      onClick={() => onAddProductToCart(product.id)}
-                      style={{
-                        background: theme.colors.primary,
-                        color: getContrastTextColor(theme.colors.primary),
-                      }}
-                    >
-                      {productSelectedLineCount > 0 ? "Update cart" : "Add to cart"}
-                    </button>
                     <button
                       type="button"
                       className={styles.seeCostButton}
@@ -8288,6 +8753,7 @@ function ReviewTotalsRenderer({
   discountTotal,
   grandTotal,
   ticketOwnerAddonBudgetTotal,
+  ticketUpgradeTotal,
   activeDiscountLabel,
   showDeliveryFee,
   showDiscountTotal,
@@ -8299,6 +8765,7 @@ function ReviewTotalsRenderer({
   discountTotal: number;
   grandTotal: number;
   ticketOwnerAddonBudgetTotal?: number;
+  ticketUpgradeTotal?: number;
   activeDiscountLabel?: string;
   showDeliveryFee?: boolean;
   showDiscountTotal?: boolean;
@@ -8335,6 +8802,12 @@ function ReviewTotalsRenderer({
         <div>
           Ticket owner add-on budgets:{" "}
           {formatCurrency(ticketOwnerAddonBudgetTotal, catalog.currencyCode)}
+        </div>
+      ) : null}
+
+      {ticketUpgradeTotal && ticketUpgradeTotal > 0 ? (
+        <div>
+          Ticket upgrades: {formatCurrency(ticketUpgradeTotal, catalog.currencyCode)}
         </div>
       ) : null}
 
@@ -8391,6 +8864,95 @@ function QuantityControl({
       </button>
     </div>
   );
+}
+
+function convertMealMenuCurrency(menu: MealMenu | null, rate: number) {
+  if (!menu) {
+    return null;
+  }
+
+  if (!Number.isFinite(rate) || rate <= 0 || rate === 1) {
+    return menu;
+  }
+
+  return {
+    ...menu,
+    groups: menu.groups.map((group) => ({
+      ...group,
+      options: group.options.map((option) => ({
+        ...option,
+        price:
+          typeof option.price === "number"
+            ? convertMoney(option.price, rate)
+            : option.price,
+      })),
+    })),
+  };
+}
+
+function getShopPurchaseSubjectLabel(
+  product: ShopCatalogProduct,
+  sizeOption: ShopCatalogSizeOption
+) {
+  const optionLabel = String(sizeOption.label ?? "").trim();
+  const productTitle = String(product.title ?? "").trim();
+  const genericOptionLabels = new Set(["default", "default option", "standard"]);
+
+  if (optionLabel && product.fulfillmentType === "ticket") {
+    return optionLabel;
+  }
+
+  if (optionLabel && !genericOptionLabels.has(optionLabel.toLowerCase())) {
+    return optionLabel;
+  }
+
+  return productTitle || "item";
+}
+
+function formatQuantitySubject(quantity: number, subject: string) {
+  const normalizedQuantity = Number.isFinite(quantity)
+    ? Math.max(0, Math.floor(quantity))
+    : 0;
+  const normalizedSubject = subject.trim() || "item";
+
+  return `${normalizedQuantity} ${pluralizeSubject(
+    normalizedSubject,
+    normalizedQuantity
+  )}`;
+}
+
+function pluralizeSubject(subject: string, quantity: number) {
+  if (quantity === 1) {
+    return subject;
+  }
+
+  if (/\b(invitation|download|ticket|card|shirt|bag|hat|band)$/i.test(subject)) {
+    return `${subject}s`;
+  }
+
+  return subject;
+}
+
+function ShopSizeDescription({ text }: { text: string }) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const listItems = lines
+    .map((line) => line.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+
+  if (listItems.length > 1 || lines.some((line) => /^[-*]\s*/.test(line))) {
+    return (
+      <ul className={styles.sizeDescriptionList}>
+        {listItems.map((line, index) => (
+          <li key={`${line}-${index}`}>{line}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <div className={styles.sizeDescription}>{text}</div>;
 }
 
 function RecordListRenderer({

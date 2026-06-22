@@ -358,7 +358,7 @@ export function setShopLineQuantity(
   const nextQuantity = clampQuantity(
     normalizePositiveInteger(quantity, minQuantity),
     minQuantity,
-    quantityRules.maxOrderQuantity
+    getMaximumQuantityForLine(quantityRules, current?.purchaseRecipients)
   );
   return syncBundledCartItemsForLine(catalog, {
     ...cart,
@@ -433,7 +433,7 @@ export function setShopLinePurchaseRecipients(
   const nextQuantity = clampQuantity(
     currentQuantity + recipientQuantityDelta,
     minQuantity,
-    quantityRules.maxOrderQuantity
+    getMaximumQuantityForLine(quantityRules, normalizedRecipients)
   );
 
   return syncBundledCartItemsForLine(catalog, {
@@ -580,12 +580,22 @@ function normalizeShopPurchaseRecipients(
       const email = typeof record.email === "string" ? record.email : "";
       const quantity = normalizePositiveInteger(record.quantity, 1);
       const note = typeof record.note === "string" ? record.note : "";
+      const purchaseModeId =
+        typeof record.purchaseModeId === "string"
+          ? record.purchaseModeId
+          : undefined;
+      const purchaseModeLabel =
+        typeof record.purchaseModeLabel === "string"
+          ? record.purchaseModeLabel
+          : undefined;
 
       return {
         name,
         email,
         quantity,
         note,
+        purchaseModeId,
+        purchaseModeLabel,
       };
     })
     .filter(Boolean) as ShopPurchaseRecipient[];
@@ -609,9 +619,33 @@ function getProductQuantityRules(
   return {
     minOrderQuantity: product?.minOrderQuantity ?? 1,
     maxOrderQuantity: product?.maxOrderQuantity,
+    maxAccountHolderQuantity: product?.maxAccountHolderQuantity,
     minRecipientQuantity: product?.minRecipientQuantity ?? 1,
     maxRecipientQuantity: product?.maxRecipientQuantity,
   };
+}
+
+function getMaximumQuantityForLine(
+  quantityRules: ReturnType<typeof getProductQuantityRules>,
+  purchaseRecipients: ShopPurchaseRecipient[] | undefined
+) {
+  const recipientQuantity =
+    countValidShopPurchaseRecipients(purchaseRecipients);
+  const accountHolderMax = quantityRules.maxAccountHolderQuantity;
+  const maxWithAccountHolderLimit =
+    typeof accountHolderMax === "number" && Number.isFinite(accountHolderMax)
+      ? recipientQuantity + accountHolderMax
+      : undefined;
+
+  if (
+    typeof quantityRules.maxOrderQuantity === "number" &&
+    Number.isFinite(quantityRules.maxOrderQuantity) &&
+    typeof maxWithAccountHolderLimit === "number"
+  ) {
+    return Math.min(quantityRules.maxOrderQuantity, maxWithAccountHolderLimit);
+  }
+
+  return maxWithAccountHolderLimit ?? quantityRules.maxOrderQuantity;
 }
 
 function clampQuantity(value: number, min: number, max?: number) {
@@ -782,9 +816,12 @@ function resolveShopLine(
   }
 
   const purchaseMode = resolvePurchaseMode(sizeOption, line.purchaseModeId);
+  const fulfillmentType = getProductFulfillmentType(product);
   const mealSelection =
     purchaseMode?.mealSelection ?? sizeOption.mealSelection;
-  const unitPrice = sizeOption.price + (purchaseMode?.priceAdjustment ?? 0);
+  const unitPrice =
+    sizeOption.price +
+    (fulfillmentType === "ticket" ? 0 : purchaseMode?.priceAdjustment ?? 0);
   const quantity = normalizePositiveInteger(line.quantity, 1);
   const unitWeight =
     typeof sizeOption.weight === "number" && Number.isFinite(sizeOption.weight)
@@ -800,9 +837,9 @@ function resolveShopLine(
     productSku: product.sku,
     productTitle: product.title,
     productImageUrl: product.imageUrl,
-    fulfillmentType: getProductFulfillmentType(product),
+    fulfillmentType,
     requiresPhysicalFulfillment:
-      getProductFulfillmentType(product) === "physical" ||
+      fulfillmentType === "physical" ||
       purchaseMode?.requiresPhysicalFulfillment === true,
     sizeOptionId: sizeOption.id,
     sizeOptionSku: sizeOption.sku,
@@ -981,6 +1018,11 @@ function normalizeShopProduct(
     Number.isFinite(record.maxOrderQuantity)
       ? Math.max(1, Math.floor(record.maxOrderQuantity))
       : undefined;
+  const maxAccountHolderQuantity =
+    typeof record.maxAccountHolderQuantity === "number" &&
+    Number.isFinite(record.maxAccountHolderQuantity)
+      ? Math.max(0, Math.floor(record.maxAccountHolderQuantity))
+      : undefined;
   const minRecipientQuantity =
     typeof record.minRecipientQuantity === "number" &&
     Number.isFinite(record.minRecipientQuantity)
@@ -1018,6 +1060,7 @@ function normalizeShopProduct(
     maxPurchaseForOthers,
     minOrderQuantity,
     maxOrderQuantity,
+    maxAccountHolderQuantity,
     minRecipientQuantity,
     maxRecipientQuantity,
     sizeOptions,

@@ -200,11 +200,18 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
         typeof groupRecord.required === "boolean"
           ? groupRecord.required
           : undefined;
+      const billingMode =
+        groupRecord.billingMode === "pay" ||
+        groupRecord.billingMode === "included"
+          ? groupRecord.billingMode
+          : undefined;
       const includedServings =
         typeof groupRecord.includedServings === "number" &&
         Number.isFinite(groupRecord.includedServings)
           ? groupRecord.includedServings
-          : undefined;
+          : billingMode === "pay"
+            ? 0
+            : undefined;
       const optionsValue = groupRecord.options;
 
       if (!groupId || !groupLabel || !Array.isArray(optionsValue)) {
@@ -246,6 +253,7 @@ function normalizeMealMenu(input: QuestionnaireVariableValue): MealMenu | null {
         id: groupId,
         label: groupLabel,
         required,
+        billingMode,
         includedServings,
         options,
       };

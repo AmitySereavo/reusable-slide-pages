@@ -45,6 +45,10 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
         Number.isFinite(record.ticketIndex)
           ? record.ticketIndex
           : 0;
+      const ticketSelectionTimestamp =
+        typeof record.ticketSelectionTimestamp === "string"
+          ? record.ticketSelectionTimestamp
+          : undefined;
       const ticketLabel =
         typeof record.ticketLabel === "string" ? record.ticketLabel : "";
       const productTitle =
@@ -63,7 +67,14 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
           typeof record.purchaseModeId === "string"
             ? record.purchaseModeId
             : undefined,
+        purchaseModeLabel:
+          typeof record.purchaseModeLabel === "string"
+            ? record.purchaseModeLabel
+            : undefined,
+        invitationDeliveryMode:
+          record.invitationDeliveryMode === "physical" ? "physical" : "digital",
         ticketIndex,
+        ticketSelectionTimestamp,
         ticketLabel,
         productTitle,
         ownerName:
@@ -74,6 +85,7 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
           typeof record.ownerPhone === "string" ? record.ownerPhone : "",
         purchaserContactPrefilled: record.purchaserContactPrefilled === true,
         isPurchaserTicket: record.isPurchaserTicket === true,
+        ownerLockedFromRecipient: record.ownerLockedFromRecipient === true,
         emailTicketToOwner: record.emailTicketToOwner !== false,
         ticketOwnerPaymentMode: normalizeTicketOwnerPaymentMode(
           record.ticketOwnerPaymentMode
@@ -132,38 +144,61 @@ export function buildTicketAssignmentsFromLines(params: {
     const ownerSlots = [
       ...Array.from({ length: purchaserTicketQuantity }, () => ({
         isPurchaserTicket: true,
+        ownerLockedFromRecipient: false,
         ownerName: "",
         ownerEmail: "",
+        purchaseModeId: undefined as string | undefined,
+        purchaseModeLabel: undefined as string | undefined,
       })),
       ...recipientAllocations.flatMap((recipient) =>
         Array.from({ length: recipient.quantity }, () => ({
           isPurchaserTicket: false,
+          ownerLockedFromRecipient: true,
           ownerName: recipient.name,
           ownerEmail: recipient.email,
+          purchaseModeId: recipient.purchaseModeId,
+          purchaseModeLabel: recipient.purchaseModeLabel,
         }))
       ),
     ];
 
     for (let index = 0; index < ownerSlots.length; index += 1) {
       const ownerSlot = ownerSlots[index];
-      const ticketCode = buildTicketCode(line, index);
       const existing = existingAssignments.find(
-        (assignment) => assignment.ticketCode === ticketCode
+        (assignment) =>
+          assignment.lineKey === line.lineKey &&
+          assignment.ticketIndex === index &&
+          assignment.productId === line.productId &&
+          assignment.sizeOptionId === line.sizeOptionId
       );
+      const ticketSelectionTimestamp =
+        existing?.ticketSelectionTimestamp ?? new Date().toISOString();
+      const ticketCode =
+        existing?.ticketCode ??
+        buildTicketCode(line, index, ticketSelectionTimestamp);
       const isPurchaserTicket =
         ownerSlot.isPurchaserTicket === false
           ? false
           : existing?.isPurchaserTicket ?? true;
       const ownerName = ownerSlot.ownerName || existing?.ownerName || "";
       const ownerEmail = ownerSlot.ownerEmail || existing?.ownerEmail || "";
+      const purchaseModeId =
+        ownerSlot.purchaseModeId ?? existing?.purchaseModeId ?? line.purchaseModeId;
+      const purchaseModeLabel =
+        ownerSlot.purchaseModeLabel ??
+        existing?.purchaseModeLabel ??
+        line.purchaseModeLabel;
 
       nextAssignments.push({
         ticketCode,
         lineKey: line.lineKey,
         productId: line.productId,
         sizeOptionId: line.sizeOptionId,
-        purchaseModeId: line.purchaseModeId,
+        purchaseModeId,
+        purchaseModeLabel,
+        invitationDeliveryMode: existing?.invitationDeliveryMode ?? "digital",
         ticketIndex: index,
+        ticketSelectionTimestamp,
         ticketLabel: `${line.sizeLabel} #${index + 1}`,
         productTitle: line.productTitle,
         ownerName,
@@ -174,6 +209,9 @@ export function buildTicketAssignmentsFromLines(params: {
             ? false
             : existing?.purchaserContactPrefilled,
         isPurchaserTicket,
+        ownerLockedFromRecipient:
+          ownerSlot.ownerLockedFromRecipient === true ||
+          existing?.ownerLockedFromRecipient === true,
         emailTicketToOwner:
           ownerSlot.isPurchaserTicket === false
             ? true
@@ -225,12 +263,22 @@ function getTicketRecipientAllocations(
         name,
         email,
         quantity,
+        purchaseModeId:
+          typeof recipient.purchaseModeId === "string"
+            ? recipient.purchaseModeId
+            : undefined,
+        purchaseModeLabel:
+          typeof recipient.purchaseModeLabel === "string"
+            ? recipient.purchaseModeLabel
+            : undefined,
       };
     })
     .filter(Boolean) as Array<{
     name: string;
     email: string;
     quantity: number;
+    purchaseModeId?: string;
+    purchaseModeLabel?: string;
   }>;
 }
 
@@ -303,6 +351,8 @@ export function getTicketMealOptionExtraTotal(params: {
   const includedServings =
     typeof group.includedServings === "number"
       ? group.includedServings
+      : group.billingMode === "pay"
+        ? 0
       : group.required === false
         ? 0
         : 1;
@@ -395,6 +445,7 @@ export function updateTicketAssignmentField(params: {
     | "ownerName"
     | "ownerEmail"
     | "ownerPhone"
+    | "invitationDeliveryMode"
     | "mealNotes"
     | "ticketOwnerAddonBudget";
   value: string | number;
@@ -406,6 +457,10 @@ export function updateTicketAssignmentField(params: {
           [params.field]:
             params.field === "ticketOwnerAddonBudget"
               ? Math.max(0, Number(params.value || 0))
+              : params.field === "invitationDeliveryMode"
+                ? params.value === "physical"
+                  ? "physical"
+                  : "digital"
               : String(params.value ?? ""),
         }
       : assignment
@@ -501,6 +556,8 @@ export function calculateTicketMealExtraTotal(params: {
       const includedServings =
         typeof group.includedServings === "number"
           ? group.includedServings
+          : group.billingMode === "pay"
+            ? 0
           : group.required === false
             ? 0
             : 1;
@@ -527,13 +584,114 @@ export function calculateTicketMealExtraTotal(params: {
   }, 0);
 }
 
-function buildTicketCode(line: ShopResolvedCartLine, index: number) {
-  const slug = `${line.productId}-${line.sizeOptionId}`
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
+function buildTicketCode(
+  line: ShopResolvedCartLine,
+  index: number,
+  selectionTimestamp: string
+) {
+  const selectedAt = new Date(selectionTimestamp);
+  const timestamp =
+    Number.isNaN(selectedAt.getTime()) ? new Date() : selectedAt;
+  const productType = "INV";
+  const eventMonthDay = extractMonthDay(
+    `${line.productTitle} ${line.productId} ${line.sizeOptionId}`
+  );
+  const venue = extractVenueAbbreviation(line.productId) || "EV";
+  const selectionStamp = [
+    String(timestamp.getMonth() + 1).padStart(2, "0"),
+    String(timestamp.getDate()).padStart(2, "0"),
+    String(timestamp.getHours()).padStart(2, "0"),
+    String(timestamp.getMinutes()).padStart(2, "0"),
+  ].join("");
+  const ticketType = abbreviateWords(line.sizeLabel || line.sizeOptionId, 2) || "TK";
+  const accountHolder = "AH";
+
+  return `${productType}${eventMonthDay}${venue}${selectionStamp}-${ticketType}${accountHolder}${index + 1}`;
+}
+
+function extractMonthDay(value: string) {
+  const normalized = String(value ?? "");
+  const numericDate = normalized.match(/\b(0?[1-9]|1[0-2])[-_/](0?[1-9]|[12][0-9]|3[01])\b/);
+
+  if (numericDate) {
+    return `${numericDate[1].padStart(2, "0")}${numericDate[2].padStart(2, "0")}`;
+  }
+
+  const monthNames = new Map([
+    ["jan", "01"],
+    ["january", "01"],
+    ["feb", "02"],
+    ["february", "02"],
+    ["mar", "03"],
+    ["march", "03"],
+    ["apr", "04"],
+    ["april", "04"],
+    ["may", "05"],
+    ["jun", "06"],
+    ["june", "06"],
+    ["jul", "07"],
+    ["july", "07"],
+    ["aug", "08"],
+    ["august", "08"],
+    ["sep", "09"],
+    ["sept", "09"],
+    ["september", "09"],
+    ["oct", "10"],
+    ["october", "10"],
+    ["nov", "11"],
+    ["november", "11"],
+    ["dec", "12"],
+    ["december", "12"],
+  ]);
+  const namedDate = normalized.match(
+    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+([0-9]{1,2})\b/i
+  );
+
+  if (namedDate) {
+    return `${monthNames.get(namedDate[1].toLowerCase()) ?? "00"}${namedDate[2].padStart(2, "0")}`;
+  }
+
+  return "0000";
+}
+
+function extractVenueAbbreviation(productId: string) {
+  const tokens = String(productId ?? "")
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean);
+  const ignored = new Set(["event", "ticket", "invitation", "july"]);
+  const venueTokens = tokens.filter(
+    (token) => /^[a-z]+$/i.test(token) && !ignored.has(token.toLowerCase())
+  );
+
+  return venueTokens.length
+    ? venueTokens
+        .slice(0, 2)
+        .map((token) => token.slice(0, 1))
+        .join("")
+        .toUpperCase()
+    : "";
+}
+
+function abbreviateWords(value: string, maxLength: number) {
+  const ignored = new Set([
+    "the",
+    "and",
+    "with",
+    "for",
+    "event",
+    "live",
+    "invitation",
+    "ticket",
+  ]);
+  const words = String(value ?? "")
+    .split(/[^a-z0-9]+/i)
+    .filter((word) => word && !ignored.has(word.toLowerCase()));
+  const initials = words
+    .map((word) => word.slice(0, 1))
+    .join("")
     .toUpperCase();
 
-  return `TKT-${slug}-${String(index + 1).padStart(4, "0")}`;
+  return initials.slice(0, maxLength);
 }
 
 function normalizeTicketMealSelection(input: unknown) {

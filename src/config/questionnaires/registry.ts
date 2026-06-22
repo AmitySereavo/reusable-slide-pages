@@ -7,11 +7,6 @@ import { seedTheme } from "@/config/themes/seedTheme";
 import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
 import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
-import {
-  getInvitationShopCatalog,
-  getInvitationOrderCatalog,
-  getMusicMerchShopCatalog,
-} from "@/lib/invitation/getInvitationShopCatalog";
 import { getReusableShopCatalog } from "@/lib/shop/getReusableShopCatalog";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
 import { getCurrencyRateMap } from "@/lib/currency/rates";
@@ -325,19 +320,16 @@ export async function getQuestionnaireBySlug(slug: string) {
       catalogKey: "invitationTickets",
       currencyCode: "USD",
       weightUnit: "lb",
-      fallback: getInvitationShopCatalog,
     });
     const musicMerchShopCatalog = await getReusableShopCatalog({
       catalogKey: "musicMerch",
       currencyCode: "USD",
       weightUnit: "lb",
-      fallback: getMusicMerchShopCatalog,
     });
     const orderCatalog = await getReusableShopCatalog({
       catalogKey: "invitationOrder",
       currencyCode: "USD",
       weightUnit: "lb",
-      fallback: getInvitationOrderCatalog,
     });
 
       resolvedVariables = {

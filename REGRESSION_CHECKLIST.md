@@ -313,16 +313,28 @@
 - Recipient-owned ticket rows are not overwritten by purchaser contact autofill.
 - Purchaser can review who each ticket was purchased for before checkout.
 - Purchaser can mark "this is my ticket."
-- Ticket owner name can be edited.
-- Ticket owner email can be edited.
+- Purchaser-owned tickets show the account/contact holder name even when they are not first in the list.
+- Recipient-owned tickets selected from verified recipients do not expose editable owner email fields.
+- Manually entered non-recipient guest tickets can still show editable owner name/email fields where supported.
+- Ticket owner name can be edited only when the ticket owner is not locked from a verified recipient.
+- Ticket owner email can be edited only when the ticket owner is not locked from a verified recipient.
 - Ticket owner phone/WhatsApp can be edited.
 - Individual ticket can be marked for email delivery.
 - Purchaser ticket can avoid same "you received a ticket" email behavior.
 - Ticket details does not show the removed "Email all tickets to owners" bulk button.
+- Ticket details does not show invitation-format upsell controls; physical invitation upsell belongs later under My Tickets/purchased tickets.
+- Ticket codes remain stable after refresh once generated for a cart line/ticket index.
 - If one ticket email is wrong/missing, user can return and fix/send only that ticket later.
 - Required meal ticket forces meal selection.
 - Optional meal ticket can skip or select.
 - Meal add-on totals calculate per ticket.
+- Meal pricing displays in the active account/shop currency, not hardcoded USD.
+- Meal menu option prices are converted from the menu base currency before display.
+- Included meal segments allow included serving counts before charging extras.
+- Paid meal segments charge from the first selected serving.
+- Paid meal segments have a visibly different background/shade from included segments.
+- Invitation menu order is base, main, side, drink, dessert, snack, alcoholic beverage.
+- Invitation dessert, snack, and alcoholic-beverage segments are paid add-ons.
 - Extra food option calculates correctly.
 - Meal notes save per ticket.
 ```
@@ -391,9 +403,11 @@
 - Account currency selector updates account preferred currency.
 - Guest shop currency selector updates shop/cart display currency.
 - USD, JMD, and GBP are available.
+- Ticket meal selection and cart meal summaries reflect the selected/account currency.
 - Dashboard currency section can show/edit exchange rates.
 - Shop products load from DB-backed reusable inventory when available.
 - Dashboard inventory section can seed/load product records.
+- Dashboard tickets section can author reusable ticket products and optional paid upgrades.
 - Product SKUs and variant SKUs remain visible where expected.
 - Store-credit products appear in music/merch catalog.
 - Digital gift card product appears in music/merch catalog.

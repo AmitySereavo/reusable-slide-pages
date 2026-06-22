@@ -32,6 +32,10 @@ type InventoryProductInput = {
   description?: string;
   detailsDescription?: string;
   imageUrl?: string;
+  eventVenueLabel?: string;
+  eventAddress?: string;
+  eventDateLabel?: string;
+  eventTimeLabel?: string;
   fulfillmentType?: string;
   active?: boolean;
   enableStoreCreditPurchase?: boolean;
@@ -155,6 +159,10 @@ export async function POST(request: Request) {
         description: cleanText(body?.description),
         detailsDescription: cleanText(body?.detailsDescription),
         imageUrl: cleanText(body?.imageUrl),
+        eventVenueLabel: cleanText(body?.eventVenueLabel),
+        eventAddress: cleanText(body?.eventAddress),
+        eventDateLabel: cleanText(body?.eventDateLabel),
+        eventTimeLabel: cleanText(body?.eventTimeLabel),
         fulfillmentType: normalizeFulfillmentType(body?.fulfillmentType),
         active: body?.active !== false,
         enableStoreCreditPurchase: body?.enableStoreCreditPurchase === true,
@@ -175,6 +183,10 @@ export async function POST(request: Request) {
         description: cleanText(body?.description),
         detailsDescription: cleanText(body?.detailsDescription),
         imageUrl: cleanText(body?.imageUrl),
+        eventVenueLabel: cleanText(body?.eventVenueLabel),
+        eventAddress: cleanText(body?.eventAddress),
+        eventDateLabel: cleanText(body?.eventDateLabel),
+        eventTimeLabel: cleanText(body?.eventTimeLabel),
         fulfillmentType: normalizeFulfillmentType(body?.fulfillmentType),
         active: body?.active !== false,
         enableStoreCreditPurchase: body?.enableStoreCreditPurchase === true,
