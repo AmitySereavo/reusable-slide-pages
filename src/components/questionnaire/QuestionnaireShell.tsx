@@ -1,11 +1,22 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  type MouseEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
 import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
 import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
+import {
+  CommerceExitWarning,
+  EmptyCartStoreChoices,
+} from "./renderers/CommerceFlowPanels";
 import SlideFooterActions from "./renderers/SlideFooterActions";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
@@ -336,6 +347,26 @@ function getVisiblePurchaseModes(
   );
 }
 
+const COMMERCE_WORKSPACE_SLIDE_IDS = new Set([
+  "invitation-shop",
+  "music-merch-shop",
+  "ticket-details",
+  "ticket-details-help",
+  "meal-selection",
+  "delivery-options",
+  "contact-details",
+  "review-order",
+  "payment",
+  "payment-details",
+  "checkout",
+  "purchase-for-others",
+]);
+
+type PendingCommerceExit = {
+  target: string;
+  mode: "href" | "slide";
+};
+
 
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
@@ -373,6 +404,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
+  const [pendingCommerceExit, setPendingCommerceExit] =
+    useState<PendingCommerceExit | null>(null);
   const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("USD");
   const [activeFooterTextPanel, setActiveFooterTextPanel] = useState<{
     id: string;
@@ -2222,6 +2255,115 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return buildQuestionnaireLoginHref(getCurrentReturnToPath());
   }
 
+  function isCommerceWorkspaceSlideId(slideId: string | undefined | null) {
+    return Boolean(slideId && COMMERCE_WORKSPACE_SLIDE_IDS.has(slideId));
+  }
+
+  function getSlideIdFromQuestionnaireHref(target: string) {
+    try {
+      const url = new URL(target, window.location.origin);
+
+      if (!url.pathname.startsWith("/questionnaire/")) {
+        return null;
+      }
+
+      return url.searchParams.get("slide");
+    } catch {
+      return null;
+    }
+  }
+
+  function isCommerceWorkspaceTarget(target: string, mode: "href" | "slide") {
+    if (mode === "slide") {
+      return isCommerceWorkspaceSlideId(target);
+    }
+
+    return isCommerceWorkspaceSlideId(getSlideIdFromQuestionnaireHref(target));
+  }
+
+  function hasCommerceWorkspaceProgress() {
+    return (
+      Object.keys(sharedOrderCart).length > 0 ||
+      currentTicketAssignments.length > 0 ||
+      Boolean(answers.selectedMealTicketCode) ||
+      Boolean(answers.shopEntrySource)
+    );
+  }
+
+  function shouldWarnBeforeCommerceExit(target: string, mode: "href" | "slide") {
+    return (
+      isCommerceWorkspaceSlideId(currentSlide?.id) &&
+      hasCommerceWorkspaceProgress() &&
+      !isCommerceWorkspaceTarget(target, mode)
+    );
+  }
+
+  function clearCommerceWorkspaceProgress() {
+    clearCheckoutDraft(config.slug);
+    checkoutDraftCompletedRef.current = false;
+    setCartInventoryNotices([]);
+    setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
+    setAnswers((prev) => {
+      const next = { ...prev };
+
+      delete next.orderCart;
+      delete next.ticketAssignments;
+      delete next.selectedMealTicketCode;
+      delete next.mealReturnTarget;
+      delete next.cartReturnTarget;
+      delete next.shopEntrySource;
+      delete next.shopReservationKey;
+      delete next.deliverySelection;
+
+      return next;
+    });
+  }
+
+  function requestCommerceAwareNavigation(
+    target: string,
+    mode: "href" | "slide"
+  ) {
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
+
+    if (shouldWarnBeforeCommerceExit(target, mode)) {
+      setPendingCommerceExit({ target, mode });
+      return;
+    }
+
+    if (mode === "slide") {
+      goToTarget(target);
+      return;
+    }
+
+    window.location.href = target;
+  }
+
+  function confirmCommerceExit() {
+    const pending = pendingCommerceExit;
+
+    if (!pending) {
+      return;
+    }
+
+    setPendingCommerceExit(null);
+    clearCommerceWorkspaceProgress();
+
+    if (pending.mode === "slide") {
+      goToTarget(pending.target);
+      return;
+    }
+
+    window.location.href = pending.target;
+  }
+
+  function getPermanentHomeTarget() {
+    const homeSlide =
+      visibleSlides.find((slide) => slide.id === "home") ?? visibleSlides[0];
+
+    return homeSlide ? getSlideHref(homeSlide.id) : `/questionnaire/${config.slug}`;
+  }
+
   function handleAuthLoginClick() {
     setIsAccountMenuOpen(false);
     setIsTrackSidebarOpen(false);
@@ -2229,9 +2371,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function handleAccountMenuLink(target: string) {
-    setIsAccountMenuOpen(false);
-    setIsTrackSidebarOpen(false);
-    window.location.href = target;
+    requestCommerceAwareNavigation(target, "href");
   }
 
   function getSlideHref(slideId: string) {
@@ -2240,9 +2380,36 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     )}`;
   }
 
-  function handleTrackSidebarSlideClick() {
+  function handleTrackSidebarSlideClick(
+    event: MouseEvent<HTMLAnchorElement>,
+    slideId: string
+  ) {
+    if (shouldWarnBeforeCommerceExit(slideId, "slide")) {
+      event.preventDefault();
+      setIsAccountMenuOpen(false);
+      setIsTrackSidebarOpen(false);
+      setPendingCommerceExit({ target: slideId, mode: "slide" });
+      return;
+    }
+
     setIsTrackSidebarOpen(false);
     setIsAccountMenuOpen(false);
+  }
+
+  function handleSidebarHrefClick(
+    event: MouseEvent<HTMLAnchorElement>,
+    target: string
+  ) {
+    if (!shouldWarnBeforeCommerceExit(target, "href")) {
+      setIsTrackSidebarOpen(false);
+      setIsAccountMenuOpen(false);
+      return;
+    }
+
+    event.preventDefault();
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
+    setPendingCommerceExit({ target, mode: "href" });
   }
 
   function handleSidebarAlbumDownload(itemId: string, format: "wav" | "mp3") {
@@ -4014,6 +4181,14 @@ async function handleNext() {
         color: theme.colors.text,
       }}
     >
+      {pendingCommerceExit ? (
+        <CommerceExitWarning
+          theme={theme}
+          onStay={() => setPendingCommerceExit(null)}
+          onLeave={confirmCommerceExit}
+        />
+      ) : null}
+
       <div className={styles.pageInner}>
         <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
@@ -4045,9 +4220,7 @@ async function handleNext() {
               }}
             >
               <div className={styles.overlayFrame}>
-                {currentSlide.showReturnHome ||
-                currentSlide.showCancel ||
-                shouldShowAccountMenu ? (
+                {hasLeftSidebarContent || shouldShowAccountMenu ? (
                   <div className={styles.topUtilityRow}>
                     {hasLeftSidebarContent ? (
                       <div className={styles.sidebarToggleWrap}>
@@ -4097,6 +4270,9 @@ async function handleNext() {
                                     key={link.href}
                                     className={styles.sidebarLink}
                                     href={link.href}
+                                    onClick={(event) =>
+                                      handleSidebarHrefClick(event, link.href)
+                                    }
                                   >
                                     {link.label}
                                   </a>
@@ -4114,7 +4290,9 @@ async function handleNext() {
                                   key={track.id}
                                   className={styles.sidebarLink}
                                   href={getSlideHref(track.id)}
-                                  onClick={handleTrackSidebarSlideClick}
+                                  onClick={(event) =>
+                                    handleTrackSidebarSlideClick(event, track.id)
+                                  }
                                 >
                                   {track.label}
                                 </a>
@@ -4229,6 +4407,16 @@ async function handleNext() {
                                 </label>
                               </div>
                             ) : null}
+
+                            <button
+                              type="button"
+                              className={styles.accountMenuItem}
+                              onClick={() =>
+                                handleAccountMenuLink(getPermanentHomeTarget())
+                              }
+                            >
+                              Home
+                            </button>
 
                             <button
                               type="button"
@@ -4396,25 +4584,6 @@ async function handleNext() {
                       </div>
                     ) : null}
 
-                    {currentSlide.showReturnHome ? (
-                      <button
-                        type="button"
-                        className={styles.linkButton}
-                        onClick={handleReturnHome}
-                      >
-                        Return Home
-                      </button>
-                    ) : null}
-
-                    {currentSlide.showCancel ? (
-                      <button
-                        type="button"
-                        className={styles.linkButton}
-                        onClick={handleCancel}
-                      >
-                        Cancel
-                      </button>
-                    ) : null}
                   </div>
                 ) : null}
               
@@ -4799,6 +4968,7 @@ async function handleNext() {
                           currencyCode={
                             sharedShopDisplayCatalog?.currencyCode ?? "USD"
                           }
+                          usdToCurrencyRate={usdToActiveCurrencyRate}
                           ticketLines={sharedTicketOrderLines}
                           addOnLines={sharedOrderLines}
                           catalog={sharedShopDisplayCatalog}
@@ -5550,6 +5720,7 @@ function TicketDetailsRenderer({
   assignments,
   menu,
   currencyCode,
+  usdToCurrencyRate,
   ticketLines,
   addOnLines,
   catalog,
@@ -5563,6 +5734,7 @@ function TicketDetailsRenderer({
   assignments: TicketAssignments;
   menu: MealMenu | null;
   currencyCode: string;
+  usdToCurrencyRate: number;
   ticketLines: ShopResolvedCartLine[];
   addOnLines: ShopResolvedCartLine[];
   catalog: ShopCatalog | null;
@@ -5576,6 +5748,9 @@ function TicketDetailsRenderer({
   const [expandedTicketCode, setExpandedTicketCode] = useState<string | null>(
     null
   );
+  const [customBudgetTicketCodes, setCustomBudgetTicketCodes] = useState<
+    Record<string, boolean>
+  >({});
 
   if (!assignments.length) {
     return <p className={styles.body}>No ticket details needed yet.</p>;
@@ -5649,7 +5824,7 @@ function TicketDetailsRenderer({
           assignment.isPurchaserTicket !== true &&
           assignment.emailTicketToOwner === true;
         const shouldShowOwnerAccess =
-          shouldShowOwnerInputs && ownerEmailIsValid;
+          assignment.isPurchaserTicket !== true && ownerEmailIsValid;
         const detailsAreExpanded =
           expandedTicketCode === assignment.ticketCode;
         const canSelectMealForThisTicket =
@@ -5657,6 +5832,18 @@ function TicketDetailsRenderer({
           selectedPaymentMode === "purchaser_pays_ticket_and_addons";
 
         const addonBudgetValue = addonBudget > 0 ? String(addonBudget) : "";
+        const budgetChoices = getTicketOwnerAddonBudgetChoices(
+          usdToCurrencyRate
+        );
+        const customBudgetMinimum = budgetChoices[1]?.value ?? 10;
+        const selectedBudgetChoice =
+          customBudgetTicketCodes[assignment.ticketCode] === true
+            ? "custom"
+            : selectedPaymentMode === "owner_pays_addons"
+            ? "owner-pays"
+            : budgetChoices.find((choice) =>
+                Math.abs(choice.value - addonBudget) < 0.01
+              )?.id ?? (addonBudget >= customBudgetMinimum ? "custom" : "owner-pays");
         const sourceTicketAssignments = assignments
           .filter((item) => item.lineKey === assignment.lineKey)
           .sort((first, second) => first.ticketIndex - second.ticketIndex);
@@ -5884,7 +6071,8 @@ function TicketDetailsRenderer({
                           }
                         />
                           <span>
-                            I&apos;ll select add-ons and pay for {ticketOwnerName}'s ticket.
+                            I&apos;ll select {ticketOwnerName}&apos;s meals and extra
+                            add-ons, and also pay for everything.
                           </span>
                       </label>
 
@@ -5893,12 +6081,14 @@ function TicketDetailsRenderer({
                         style={{
                           borderColor:
                             selectedPaymentMode ===
-                            "owner_selects_sender_pays_addons"
+                            "owner_selects_sender_pays_addons" ||
+                            selectedPaymentMode === "owner_pays_addons"
                               ? theme.colors.primary
                               : theme.colors.border,
                           background:
                             selectedPaymentMode ===
-                            "owner_selects_sender_pays_addons"
+                            "owner_selects_sender_pays_addons" ||
+                            selectedPaymentMode === "owner_pays_addons"
                               ? withOpacity(theme.colors.primary, 0.12)
                               : "#FFFFFF",
                         }}
@@ -5908,25 +6098,35 @@ function TicketDetailsRenderer({
                           name={`ticket-owner-payment-${assignment.ticketCode}`}
                           checked={
                             selectedPaymentMode ===
-                            "owner_selects_sender_pays_addons"
+                              "owner_selects_sender_pays_addons" ||
+                            selectedPaymentMode === "owner_pays_addons"
                           }
                           onChange={() =>
                             onChange(
                               updateTicketOwnerPaymentMode({
-                                assignments,
+                                assignments: assignments.map((item) =>
+                                  item.ticketCode === assignment.ticketCode
+                                    ? {
+                                        ...item,
+                                        ticketOwnerAddonBudget: 0,
+                                      }
+                                    : item
+                                ),
                                 ticketCode: assignment.ticketCode,
-                                value: "owner_selects_sender_pays_addons",
+                                value: "owner_pays_addons",
                               })
                             )
                           }
                         />
                         <span>
-                          {ticketOwnerName}&nbsp;will select add-ons, and I&apos;ll pay.
+                          {ticketOwnerName} will select their own meals and
+                          add-ons. I&apos;ll pay for ticket and put:
                         </span>
                       </label>
 
                     </div>
-                      {selectedPaymentMode === "owner_selects_sender_pays_addons" ? (
+                      {selectedPaymentMode === "owner_selects_sender_pays_addons" ||
+                      selectedPaymentMode === "owner_pays_addons" ? (
                     <div
                       style={{
                         display: "grid",
@@ -5938,57 +6138,179 @@ function TicketDetailsRenderer({
                       }}
                     >
                       <label style={{ fontWeight: 600 }}>
-                        The budget I&apos;ll put for {ticketOwnerName}&apos;s add-ons is:
+                        Add-on budget for {ticketOwnerName}
                       </label>
 
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "auto minmax(0, 1fr)",
-                          alignItems: "center",
-                          gap: "10px",
-                          width: "100%",
-                        }}
-                      >
-                        <span
-                          id="currencySymbol"
-                          style={{
-                            fontWeight: 800,
-                            fontSize: "1.15rem",
-                            lineHeight: 1,
-                          }}
-                        >
-                          $
-                        </span>
+                      <div className={styles.ticketBudgetChoices}>
+                        <label className={styles.ticketOwnerAccessOption}>
+                          <input
+                            type="radio"
+                            name={`ticket-owner-budget-${assignment.ticketCode}`}
+                            checked={selectedBudgetChoice === "owner-pays"}
+                            onChange={() => {
+                              setCustomBudgetTicketCodes((prev) => ({
+                                ...prev,
+                                [assignment.ticketCode]: false,
+                              }));
 
-                        <input
-                          className={styles.input}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={addonBudgetValue}
-                          onChange={(event) =>
-                            onChange(
-                              updateTicketAssignmentField({
-                                assignments,
-                                ticketCode: assignment.ticketCode,
-                                field: "ticketOwnerAddonBudget",
-                                value: Number(event.target.value || 0),
-                              })
-                            )
-                          }
-                          placeholder="0.00"
-                          style={{
-                            borderColor: theme.colors.border,
-                            width: "100%",
-                            minWidth: 0,
-                          }}
-                        />
+                              onChange(
+                                updateTicketOwnerPaymentMode({
+                                  assignments: assignments.map((item) =>
+                                    item.ticketCode === assignment.ticketCode
+                                      ? {
+                                          ...item,
+                                          ticketOwnerAddonBudget: 0,
+                                        }
+                                      : item
+                                  ),
+                                  ticketCode: assignment.ticketCode,
+                                  value: "owner_pays_addons",
+                                })
+                              );
+                            }}
+                          />
+                          <span>
+                            {formatCurrency(0, currencyCode)}, {ticketOwnerName} will
+                            pay for own add-ons in full
+                          </span>
+                        </label>
+
+                        {budgetChoices.slice(1).map((choice) => (
+                          <label
+                            key={choice.id}
+                            className={styles.ticketOwnerAccessOption}
+                          >
+                            <input
+                              type="radio"
+                              name={`ticket-owner-budget-${assignment.ticketCode}`}
+                              checked={selectedBudgetChoice === choice.id}
+                              onChange={() => {
+                                setCustomBudgetTicketCodes((prev) => ({
+                                  ...prev,
+                                  [assignment.ticketCode]: false,
+                                }));
+
+                                onChange(
+                                  updateTicketOwnerPaymentMode({
+                                    assignments: assignments.map((item) =>
+                                      item.ticketCode === assignment.ticketCode
+                                        ? {
+                                            ...item,
+                                            ticketOwnerAddonBudget: choice.value,
+                                          }
+                                        : item
+                                    ),
+                                    ticketCode: assignment.ticketCode,
+                                    value: "owner_selects_sender_pays_addons",
+                                  })
+                                );
+                              }}
+                            />
+                            <span>{formatCurrency(choice.value, currencyCode)}</span>
+                          </label>
+                        ))}
+
+                        <label className={styles.ticketOwnerAccessOption}>
+                          <input
+                            type="radio"
+                            name={`ticket-owner-budget-${assignment.ticketCode}`}
+                            checked={selectedBudgetChoice === "custom"}
+                            onChange={() => {
+                              setCustomBudgetTicketCodes((prev) => ({
+                                ...prev,
+                                [assignment.ticketCode]: true,
+                              }));
+
+                              onChange(
+                                updateTicketOwnerPaymentMode({
+                                  assignments: assignments.map((item) =>
+                                    item.ticketCode === assignment.ticketCode
+                                      ? {
+                                          ...item,
+                                          ticketOwnerAddonBudget: Math.max(
+                                            addonBudget,
+                                            customBudgetMinimum
+                                          ),
+                                        }
+                                      : item
+                                  ),
+                                  ticketCode: assignment.ticketCode,
+                                  value: "owner_selects_sender_pays_addons",
+                                })
+                              );
+                            }}
+                          />
+                          <span className={styles.ticketBudgetCustomField}>
+                            <span>Custom budget</span>
+                            <input
+                              className={styles.input}
+                              type="number"
+                              min={customBudgetMinimum}
+                              step="0.01"
+                              value={
+                                selectedBudgetChoice === "custom"
+                                  ? addonBudgetValue
+                                  : ""
+                              }
+                              onFocus={() => {
+                                setCustomBudgetTicketCodes((prev) => ({
+                                  ...prev,
+                                  [assignment.ticketCode]: true,
+                                }));
+
+                                onChange(
+                                  updateTicketOwnerPaymentMode({
+                                    assignments: assignments.map((item) =>
+                                      item.ticketCode === assignment.ticketCode
+                                        ? {
+                                            ...item,
+                                            ticketOwnerAddonBudget: Math.max(
+                                              addonBudget,
+                                              customBudgetMinimum
+                                            ),
+                                          }
+                                        : item
+                                    ),
+                                    ticketCode: assignment.ticketCode,
+                                    value: "owner_selects_sender_pays_addons",
+                                  })
+                                );
+                              }}
+                              onChange={(event) => {
+                                setCustomBudgetTicketCodes((prev) => ({
+                                  ...prev,
+                                  [assignment.ticketCode]: true,
+                                }));
+
+                                onChange(
+                                  updateTicketAssignmentField({
+                                    assignments,
+                                    ticketCode: assignment.ticketCode,
+                                    field: "ticketOwnerAddonBudget",
+                                    value: Math.max(
+                                      customBudgetMinimum,
+                                      Number(event.target.value || 0)
+                                    ),
+                                  })
+                                );
+                              }}
+                              placeholder={`Minimum ${formatCurrency(
+                                customBudgetMinimum,
+                                currencyCode
+                              )}`}
+                              style={{
+                                borderColor: theme.colors.border,
+                                width: "100%",
+                                minWidth: 0,
+                              }}
+                            />
+                          </span>
+                        </label>
                       </div>
 
                       <p className={styles.contactNote} style={{ margin: 0 }}>
-                        P.S. leave blank or 0 if {ticketOwnerName} should pay for their own
-                        add-ons in full.
+                        Custom budgets must be at least{" "}
+                        {formatCurrency(customBudgetMinimum, currencyCode)}.
                       </p>
                     </div>
                   ) : null}
@@ -6062,8 +6384,9 @@ function TicketDetailsRenderer({
                                     item.ticketCode === assignment.ticketCode
                                       ? {
                                           ...item,
-                                          purchaseModeId: undefined,
-                                          purchaseModeLabel: undefined,
+                                          purchaseModeId: "standard-invitation",
+                                          purchaseModeLabel: "Standard Invitation",
+                                          ticketUpgradeOverride: true,
                                         }
                                       : item
                                   )
@@ -6597,53 +6920,6 @@ function CartBundledAddOnsSummary({
   );
 }
 
-function EmptyCartStoreChoices({
-  theme,
-  onTicketStore,
-  onMerchStore,
-}: {
-  theme: ThemeConfig;
-  onTicketStore: () => void;
-  onMerchStore: () => void;
-}) {
-  return (
-    <div
-      className={styles.emptyCartPanel}
-      style={{ borderColor: theme.colors.border }}
-    >
-      <div>
-        <h2 className={styles.emptyCartTitle}>Cart</h2>
-        <p className={styles.emptyCartText}>Your cart is empty.</p>
-      </div>
-      <div className={styles.emptyCartActions}>
-        <button
-          type="button"
-          className={styles.emptyCartButton}
-          onClick={onTicketStore}
-          style={{
-            background: theme.colors.primary,
-            color: getContrastTextColor(theme.colors.primary),
-          }}
-        >
-          Ticket store
-        </button>
-        <button
-          type="button"
-          className={styles.emptyCartButton}
-          onClick={onMerchStore}
-          style={{
-            borderColor: theme.colors.border,
-            background: "#FFFFFF",
-            color: theme.colors.text,
-          }}
-        >
-          Music and merch store
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function CartReviewSectionHeading({
   sectionRank,
   unselectedCount,
@@ -6911,6 +7187,19 @@ function getTicketAssignmentUpgradePrice(
   );
 
   return Math.max(0, purchaseMode?.priceAdjustment ?? 0);
+}
+
+function getTicketOwnerAddonBudgetChoices(usdToCurrencyRate: number) {
+  const rate =
+    Number.isFinite(usdToCurrencyRate) && usdToCurrencyRate > 0
+      ? usdToCurrencyRate
+      : 1;
+
+  return [0, 10, 25, 50, 100].map((usdAmount) => ({
+    id: usdAmount === 0 ? "owner-pays" : `usd-${usdAmount}`,
+    usdAmount,
+    value: usdAmount === 0 ? 0 : convertMoney(usdAmount, rate),
+  }));
 }
 
 function isInternalTicketUpgradeMode(modeId: string) {

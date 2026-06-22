@@ -1372,6 +1372,46 @@
   cursor: pointer;
 }
 
+.checkoutExitOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.checkoutExitPanel {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 520px);
+  padding: 22px;
+  border: 1px solid;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+}
+
+.checkoutExitTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.checkoutExitText {
+  margin: 8px 0 0;
+  font-size: 0.96rem;
+  line-height: 1.5;
+  opacity: 0.78;
+}
+
+.checkoutExitActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .cartSectionHeader {
   display: flex;
   align-items: center;
@@ -1937,6 +1977,10 @@
     grid-template-columns: 1fr;
   }
 
+  .checkoutExitActions {
+    grid-template-columns: 1fr;
+  }
+
   .cartItemPanel {
     gap: 12px;
     padding: 14px;
@@ -2036,6 +2080,17 @@
 .ticketOwnerAccessOptions {
   display: grid;
   gap: 10px;
+}
+
+.ticketBudgetChoices {
+  display: grid;
+  gap: 8px;
+}
+
+.ticketBudgetCustomField {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 .ticketOwnerAccessOption {

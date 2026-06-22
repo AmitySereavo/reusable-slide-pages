@@ -71,6 +71,7 @@ export function normalizeTicketAssignments(input: unknown): TicketAssignments {
           typeof record.purchaseModeLabel === "string"
             ? record.purchaseModeLabel
             : undefined,
+        ticketUpgradeOverride: record.ticketUpgradeOverride === true,
         invitationDeliveryMode:
           record.invitationDeliveryMode === "physical" ? "physical" : "digital",
         ticketIndex,
@@ -183,11 +184,15 @@ export function buildTicketAssignmentsFromLines(params: {
       const ownerName = ownerSlot.ownerName || existing?.ownerName || "";
       const ownerEmail = ownerSlot.ownerEmail || existing?.ownerEmail || "";
       const purchaseModeId =
-        ownerSlot.purchaseModeId ?? existing?.purchaseModeId ?? line.purchaseModeId;
+        ownerSlot.purchaseModeId ??
+        (existing?.ticketUpgradeOverride === true
+          ? existing.purchaseModeId
+          : line.purchaseModeId);
       const purchaseModeLabel =
         ownerSlot.purchaseModeLabel ??
-        existing?.purchaseModeLabel ??
-        line.purchaseModeLabel;
+        (existing?.ticketUpgradeOverride === true
+          ? existing.purchaseModeLabel
+          : line.purchaseModeLabel);
 
       nextAssignments.push({
         ticketCode,
@@ -196,6 +201,7 @@ export function buildTicketAssignmentsFromLines(params: {
         sizeOptionId: line.sizeOptionId,
         purchaseModeId,
         purchaseModeLabel,
+        ticketUpgradeOverride: existing?.ticketUpgradeOverride === true,
         invitationDeliveryMode: existing?.invitationDeliveryMode ?? "digital",
         ticketIndex: index,
         ticketSelectionTimestamp,

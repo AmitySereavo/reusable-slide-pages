@@ -162,6 +162,7 @@ export type TicketAssignment = {
   sizeOptionId: string;
   purchaseModeId?: string;
   purchaseModeLabel?: string;
+  ticketUpgradeOverride?: boolean;
   invitationDeliveryMode?: "digital" | "physical";
   ticketIndex: number;
   ticketSelectionTimestamp?: string;
