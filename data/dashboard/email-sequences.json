@@ -1,0 +1,91 @@
+{
+  "sequences": [
+    {
+      "id": "local-amity-live-nurture",
+      "sequenceKey": "amity-live-nurture",
+      "name": "Amity Live Nurture",
+      "description": "For potential patrons to see if they align with the views and activities of Amity Sereavo and his community.",
+      "active": true,
+      "audience": "all_users",
+      "triggerEvent": "signup",
+      "defaultTimezone": "user",
+      "sendWindowStart": "09:00",
+      "sendWindowEnd": null,
+      "consentRequired": true,
+      "unsubscribeGroup": "marketing",
+      "createdAt": "2026-07-01T17:40:03.976Z",
+      "updatedAt": "2026-07-01T17:40:03.976Z",
+      "steps": [
+        {
+          "id": "local-amity-live-nurture-itasl1",
+          "sequenceId": "local-amity-live-nurture",
+          "sortOrder": 0,
+          "createdAt": "2026-07-01T17:40:03.976Z",
+          "updatedAt": "2026-07-01T17:40:03.976Z",
+          "stepKey": "itasl1",
+          "name": "itasl1",
+          "subject": "He said he wanted a years worth of rest",
+          "previewText": "Is success embedded in being entertained?",
+          "bodyText": "there's no clients if you don't meet people. \n\nif we don't let go and interact with each other when we are the most relaxed and entertain.\n\nthat's when we truly get to know each other. and know who has the viewpoints we want to support.\n\nbe yourself without the business, without the tactics to make profit. \nLet others see the person they want to spend their time and money with.\n\nBe entertained in the midst of a group of high quality people.\nyou come to be entertained, not network.",
+          "ctaLabel": "Watch Good Morning",
+          "ctaUrl": "http://localhost:3000/questionnaire/invitation?slide=good-morning",
+          "sendTimingMode": "immediate",
+          "delayAmount": 0,
+          "delayUnit": "minutes",
+          "timezoneMode": "user",
+          "activityDelayAmount": 1,
+          "activityDelayUnit": "days",
+          "skipIfAlreadySent": true,
+          "requirePreviousStep": false,
+          "active": true,
+          "conditions": [
+            {
+              "id": "local-amity-live-nurture-itasl1-condition-0",
+              "stepId": "local-amity-live-nurture-itasl1",
+              "createdAt": "2026-07-01T17:40:03.976Z",
+              "updatedAt": "2026-07-01T17:40:03.976Z",
+              "conditionType": "always",
+              "operator": "is",
+              "lookbackAmount": 7,
+              "lookbackUnit": "days"
+            }
+          ]
+        },
+        {
+          "id": "local-amity-live-nurture-email-2",
+          "sequenceId": "local-amity-live-nurture",
+          "sortOrder": 1,
+          "createdAt": "2026-07-01T17:40:03.976Z",
+          "updatedAt": "2026-07-01T17:40:03.976Z",
+          "stepKey": "email-2",
+          "name": "Email 2",
+          "subject": "you opened email 1",
+          "previewText": "this is email 2",
+          "bodyText": "you opened email one, this is email 2.",
+          "sendTimingMode": "immediate",
+          "delayAmount": 0,
+          "delayUnit": "days",
+          "timezoneMode": "user",
+          "activityDelayAmount": 1,
+          "activityDelayUnit": "days",
+          "skipIfAlreadySent": true,
+          "requirePreviousStep": true,
+          "active": true,
+          "conditions": [
+            {
+              "id": "local-amity-live-nurture-email-2-condition-0",
+              "stepId": "local-amity-live-nurture-email-2",
+              "createdAt": "2026-07-01T17:40:03.976Z",
+              "updatedAt": "2026-07-01T17:40:03.976Z",
+              "conditionType": "opened_email",
+              "operator": "is",
+              "referenceKey": "itasl1",
+              "lookbackAmount": 7,
+              "lookbackUnit": "days"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

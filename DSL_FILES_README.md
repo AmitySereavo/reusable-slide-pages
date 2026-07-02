@@ -177,11 +177,25 @@ Auth/forms/conditions:
 ```txt
 @showauthcontrols:
 @authform:
+@signuptags:
+@signupsource:
 @fields:
 @when:
 @backwhen:
 @showif:
 ```
+
+Signup/account flows can tag users when they sign up through a specific slide:
+
+```txt
+@signuptags: escape-good-morning, warm-lead
+@signupsource: escape-album-good-morning
+```
+
+Those tags are stored as `UserTag` records and can trigger Email Sequences
+using the `Tag added` trigger with a `Has tag` condition. Keep tags reusable and
+project-readable; avoid one-off code branches for campaign-specific signup
+routing.
 
 ## Timed Text
 
@@ -235,3 +249,8 @@ Do not create duplicate downloader systems for one project. Reuse:
 
 Reusable behavior belongs in shared code. Project wording, sequence decisions,
 and campaign-specific flows belong in DSL/config/database records.
+
+Website-operation email wording belongs in protected Email Sequence records
+tagged `Permanent Website Op` or in their shared default template file. Do not
+add email-channel wording for auth, ticket, album, password-reset, or recipient
+operations into DSL files or the shared shell.

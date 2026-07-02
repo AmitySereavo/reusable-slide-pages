@@ -10,6 +10,9 @@ cart can still review all selected items together.
 Users can browse a shop slide, open product details, choose product variants,
 adjust quantities, and continue to cart review.
 
+Selecting a product checkbox updates the shared cart directly. The older
+separate Add to cart button is no longer part of the browse flow.
+
 Some products can be purchased for other people. Purchase-for-someone now uses
 the account's verified recipient list instead of free-entering names during a
 rushed checkout moment.
@@ -163,6 +166,16 @@ Important routes:
 - `GET /api/account/purchase-recipients/accept?token=...`
 - `POST /api/account/purchase-recipients/accept`
 - `/purchase-for-others/accept?token=...`
+
+Purchase recipient invite emails use the shared email sender and the protected
+website-operation email template:
+
+```txt
+website-op-purchase-recipient-invite-link-email
+```
+
+That template appears in the admin Email Sequences dashboard with the
+`Permanent Website Op` tag and can be updated there.
 
 Quantity rules are enforced in `src/lib/questionnaire/shop.ts` so cart state
 remains consistent even if UI behavior changes. The main product quantity is

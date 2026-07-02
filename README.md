@@ -25,13 +25,19 @@ Current reusable foundations:
 - reusable footer content labels, footer actions, and expandable text panels
 - timed text parsing with `[00:00.000 --> 00:00.000]` ranges
 - reusable auth, account, verification, and gated-access helpers
+- signup-slide tagging for tag-triggered email sequences
 - account email history and verified email switching
 - protected download API for private files
 - reusable shop/cart engine with database-backed inventory support
 - verified purchase-for-others recipient flow
 - ticket assignment and meal-selection primitives
 - account/shop currency display with USD, JMD, and GBP support
-- dashboard surfaces for projects, tickets, inventory, and currencies
+- admin-gated dashboard surfaces for projects, tickets, inventory, currencies,
+  and email sequences
+- shared email sender for auth, ticket, album, recipient, password-reset, and
+  sequence emails
+- protected website-operation email templates that are editable in the
+  dashboard and tagged `Permanent Website Op`
 
 Project-specific flows such as invitation, Escape album, nursery operations,
 plant/seed shop, and profile forms should remain separable from the shared
@@ -120,9 +126,31 @@ Dashboard sections currently include:
 - reusable ticket publishing
 - reusable inventory management
 - currency exchange-rate settings
+- email sequences and protected website-operation email templates
 
-The dashboard is intentionally ungated in local development. Restore
-main-admin-only access before production launch.
+The dashboard requires a logged-in user with `adminLevel >= 1`. The first
+user-created account is assigned admin level 1 by the signup route.
+
+Dashboard API routes also require admin level 1:
+
+- `/api/dashboard/projects`
+- `/api/dashboard/inventory`
+- `/api/dashboard/currencies`
+- `/api/dashboard/email-sequences`
+
+Protected website-operation emails are seeded into Email Sequences with the
+metadata tag `Permanent Website Op`. They are editable but not exposed through
+a delete UI/endpoint. If an admin leaves the saved subject/body blank, the
+sender falls back to the default text in:
+
+```txt
+src/lib/verification/websiteOperationEmailTemplates.js
+```
+
+Email wording for email-channel website operations should live in those saved
+records/defaults, not in the older verification content config. SMS/WhatsApp
+content still uses the existing verification content config until those
+channels receive editable operation-message templates.
 
 ## Protected Media Rule
 
@@ -158,7 +186,9 @@ npm run dev
    records.
 2. Continue improving dashboard authoring for DSLs, tickets, inventory, and
    currency settings.
-3. Restore main-admin access control to dashboard/admin tools before production.
-4. Move purchased-item grants to payment-completed webhooks when real payment
+3. Move purchased-item grants to payment-completed webhooks when real payment
    processing is added.
+4. Continue moving website-operation email copy into protected editable
+   templates and keep the old verification content config for non-email
+   channels only until those channels are migrated.
 5. Continue separating reusable systems from project-specific flows.

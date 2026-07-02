@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 
 type InventoryPurchaseModeInput = {
   modeId?: string;
@@ -74,8 +75,9 @@ type NormalizedSizeOption = {
 };
 
 export async function GET(request: Request) {
-  // Dev mode: dashboard APIs are intentionally ungated while the inventory
-  // manager is being built. Restore main-admin auth before production launch.
+  const guard = await requireAdminSessionJson();
+  if (guard.response) return guard.response;
+
   const url = new URL(request.url);
   const catalogKey = normalizeCatalogKey(url.searchParams.get("catalogKey"));
 
@@ -109,8 +111,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // Dev mode: dashboard APIs are intentionally ungated while the inventory
-  // manager is being built. Restore main-admin auth before production launch.
+  const guard = await requireAdminSessionJson();
+  if (guard.response) return guard.response;
+
   const body = (await request.json().catch(() => null)) as
     | InventoryProductInput
     | null;

@@ -9,15 +9,42 @@ import {
   rateLimitResponse,
 } from "@/lib/auth/rateLimit";
 import { validatePasswordPolicy } from "@/customerAccess/utils/passwordPolicy";
+import { enrollEmailSequencesForTrigger } from "@/lib/verification/emailSequences";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function normalizeTagKey(tag) {
+  return String(tag || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeSignupTags(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return [
+    ...new Set(input.map(normalizeTagKey).filter((tagKey) => tagKey.length > 0)),
+  ];
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { identifier, password, fullName, country, city } = body;
+    const {
+      identifier,
+      password,
+      fullName,
+      country,
+      city,
+      signupSource,
+    } = body;
+    const signupTags = normalizeSignupTags(body.signupTags);
 
     const rateLimit = checkRateLimit({
       key: getRateLimitKey(request, "signup", identifier),
@@ -160,8 +187,69 @@ export async function POST(request) {
         });
       }
 
+      for (const tagKey of signupTags) {
+        await tx.userTag.upsert({
+          where: {
+            userId_tagKey: {
+              userId: createdUser.id,
+              tagKey,
+            },
+          },
+          create: {
+            userId: createdUser.id,
+            tagKey,
+            label: tagKey,
+            source: String(signupSource || "signup").trim() || "signup",
+            metadata: {
+              signupSource: signupSource || null,
+            },
+          },
+          update: {
+            source: String(signupSource || "signup").trim() || "signup",
+          },
+        });
+      }
+
       return createdUser;
     });
+
+    if (email) {
+      try {
+        await enrollEmailSequencesForTrigger({
+          triggerEvent: "signup",
+          user,
+          email,
+          name: fullName || user.name,
+          context: {
+            source: "account-signup",
+            country: country || null,
+            city: city || null,
+          },
+        });
+      } catch (sequenceError) {
+        console.error("EMAIL SEQUENCE SIGNUP ENROLLMENT ERROR:", sequenceError);
+      }
+
+      for (const tagKey of signupTags) {
+        try {
+          await enrollEmailSequencesForTrigger({
+            triggerEvent: "tag_added",
+            user,
+            email,
+            name: fullName || user.name,
+            context: {
+              source: signupSource || "signup",
+              tagKey,
+              signupTags,
+              country: country || null,
+              city: city || null,
+            },
+          });
+        } catch (sequenceError) {
+          console.error("EMAIL SEQUENCE TAG ENROLLMENT ERROR:", sequenceError);
+        }
+      }
+    }
 
     return Response.json({
       message: AUTH_MESSAGES.signup.accountCreated,

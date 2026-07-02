@@ -623,6 +623,8 @@ export type Slide = {
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
   authFormKey?: string;
+  signupTags?: string[];
+  signupSource?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;
@@ -756,6 +758,8 @@ export type ParsedSlideDraft = {
   gotoIfIncomplete?: string;
   contactMode?: ContactMode;
   authFormKey?: string;
+  signupTags?: string[];
+  signupSource?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;

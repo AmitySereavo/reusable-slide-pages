@@ -5,10 +5,12 @@ import {
   normalizeCurrencyCode,
 } from "@/lib/currency/currencies";
 import { DEFAULT_USD_RATES } from "@/lib/currency/rates";
+import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 
 export async function GET() {
-  // Dev mode: dashboard currency settings are ungated while this admin surface
-  // is being built. Restore main-admin auth before production launch.
+  const guard = await requireAdminSessionJson();
+  if (guard.response) return guard.response;
+
   if (!("currencyExchangeRate" in prisma) || !prisma.currencyExchangeRate) {
     return NextResponse.json({
       baseCurrencyCode: "USD",
@@ -38,8 +40,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  // Dev mode: dashboard currency settings are ungated while this admin surface
-  // is being built. Restore main-admin auth before production launch.
+  const guard = await requireAdminSessionJson();
+  if (guard.response) return guard.response;
+
   const body = await request.json().catch(() => null);
   const quoteCurrencyCode = normalizeCurrencyCode(body?.quoteCurrencyCode);
   const rate = Number(body?.rate);

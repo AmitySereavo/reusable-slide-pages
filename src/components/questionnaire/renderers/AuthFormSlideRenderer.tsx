@@ -12,6 +12,8 @@ type AuthFormSlideRendererProps = {
   questionnaireSlug: string;
   answers: QuestionnaireAnswers;
   loginHref?: string;
+  signupTags?: string[];
+  signupSource?: string;
   onSuccess: () => void;
 };
 
@@ -22,6 +24,8 @@ export default function AuthFormSlideRenderer({
   questionnaireSlug,
   answers,
   loginHref,
+  signupTags = [],
+  signupSource,
   onSuccess,
 }: AuthFormSlideRendererProps) {
   const isGatedLeadCapture = formKey === "gatedLeadCapture";
@@ -118,6 +122,8 @@ export default function AuthFormSlideRenderer({
                 fullName: String(formData.fullName ?? "").trim(),
                 identifier,
                 updatesOptIn: formData.updatesOptIn === true,
+                signupTags,
+                signupSource: signupSource || questionnaireSlug,
                 answers: {
                   ...answers,
                   gatedLeadCapture: formData,
@@ -131,6 +137,8 @@ export default function AuthFormSlideRenderer({
                 email: isEmail ? identifier : "",
                 phone: isEmail ? "" : identifier,
                 whatsappOptIn: formData.updatesOptIn === true,
+                signupTags,
+                signupSource: signupSource || questionnaireSlug,
                 answers: {
                   ...answers,
                   leadCapture: formData,

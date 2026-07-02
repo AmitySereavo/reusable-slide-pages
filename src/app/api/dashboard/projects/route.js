@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { parseQuestionnaireDsl } from "@/lib/questionnaire/parser";
+import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 
 const questionnairesDir = path.join(
   process.cwd(),
@@ -11,8 +12,9 @@ const questionnairesDir = path.join(
 );
 
 export async function POST(request) {
-  // Dev mode: project builder writes are intentionally ungated while the
-  // dashboard is being built. Restore main-admin auth before production launch.
+  const guard = await requireAdminSessionJson();
+  if (guard.response) return guard.response;
+
   const body = await request.json().catch(() => null);
   const slug = sanitizeSlug(body?.slug);
   const dsl = typeof body?.dsl === "string" ? body.dsl : "";

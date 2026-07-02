@@ -6,11 +6,30 @@ import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
 import { syncEngagementForUser } from "@/app/api/questionnaires/engagement/sync/route";
+import { enrollEmailSequencesForTrigger } from "@/lib/verification/emailSequences";
 
 const TARGET = "gatedLeadAccess";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function normalizeTagKey(tag) {
+  return String(tag || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeSignupTags(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return [
+    ...new Set(input.map(normalizeTagKey).filter((tagKey) => tagKey.length > 0)),
+  ];
 }
 
 function generateRawToken() {
@@ -66,6 +85,8 @@ export async function POST(request) {
     const goto = String(body.goto || "second-video").trim();
     const defaultStartAtSeconds = Number(body.defaultStartAtSeconds ?? 0);
     const source = String(body.source || "embedded-authform").trim();
+    const signupSource = String(body.signupSource || source).trim();
+    const signupTags = normalizeSignupTags(body.signupTags);
     const answers = body.answers && typeof body.answers === "object" ? body.answers : {};
     const updatesOptIn = body.updatesOptIn === true;
     const engagementSnapshot =
@@ -135,6 +156,31 @@ export async function POST(request) {
           },
           data: {
             name: fullName,
+          },
+        });
+      }
+
+      for (const tagKey of signupTags) {
+        await tx.userTag.upsert({
+          where: {
+            userId_tagKey: {
+              userId: workingUser.id,
+              tagKey,
+            },
+          },
+          create: {
+            userId: workingUser.id,
+            tagKey,
+            label: tagKey,
+            source: signupSource || "embedded-authform",
+            metadata: {
+              signupSource,
+              questionnaireSlug,
+              goto,
+            },
+          },
+          update: {
+            source: signupSource || "embedded-authform",
           },
         });
       }
@@ -220,6 +266,29 @@ export async function POST(request) {
         snapshot: engagementSnapshot,
         source: "lead-signup",
       });
+    }
+
+    if (normalizedEmail) {
+      for (const tagKey of signupTags) {
+        try {
+          await enrollEmailSequencesForTrigger({
+            triggerEvent: "tag_added",
+            user: result.user,
+            email: normalizedEmail,
+            name: fullName || result.user.name,
+            context: {
+              source: signupSource || source,
+              tagKey,
+              signupTags,
+              questionnaireSlug,
+              goto,
+              leadId: result.lead.id,
+            },
+          });
+        } catch (sequenceError) {
+          console.error("EMAIL SEQUENCE TAG ENROLLMENT ERROR:", sequenceError);
+        }
+      }
     }
 
     const rawToken = generateRawToken();

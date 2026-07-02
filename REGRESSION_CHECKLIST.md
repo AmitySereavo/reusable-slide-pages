@@ -47,32 +47,34 @@
 ## 4. Hamburger auth menu
 
 ```txt
-- Hamburger menu appears on slides with @showauthcontrols: true.
+- Side panel/account menu appears where reusable sidebars/account links are enabled.
 - Logged-out menu shows Login.
-- Logged-out menu shows Clear Visitor State.
+- Logged-out menu shows Reset dev progress.
 - Logged-in menu shows Account.
 - Logged-in menu shows Answered Questions if configured/available.
 - Logged-in menu shows Logout.
-- Logged-in menu shows Clear Visitor State.
+- Logged-in menu shows Reset dev progress.
 - Logout clears session and returns user to logged-out state.
 - Menu closes after clicking menu actions.
 - Menu does not block video controls unexpectedly.
+- Dashboard/admin links show only for users with adminLevel >= 1.
 ```
 
 ---
 
-## 5. Clear Visitor State
+## 5. Reset dev progress / visitor state
 
 ```txt
-- Clear Visitor State is visible in development/testing menu.
-- Clicking Clear Visitor State calls /api/questionnaires/visitor-state/clear.
+- Reset dev progress is visible in the account side panel for dev/testing.
+- Clicking Reset dev progress calls /api/questionnaires/visitor-state/clear.
 - Session/auth cookie is cleared.
 - gated access cookie is cleared.
 - local engagement snapshot is cleared.
 - local/session resume decisions are cleared.
+- checkout draft and cart reservation state are cleared.
 - page reloads as a fresh visitor.
-- After clearing visitor state, invitation starts as a new visitor.
-- After clearing visitor state, gated form appears again when the flow reaches it.
+- After resetting dev progress, invitation starts as a new visitor.
+- After resetting dev progress, gated form appears again when the flow reaches it.
 ```
 
 ---
@@ -88,6 +90,9 @@
 - Login link routes to auth-login with returnTo back to the current questionnaire slide.
 - Non-gated lead forms still work.
 - Unsupported authform keys show a helpful unsupported-form message.
+- Signup slides can pass @signuptags and @signupsource.
+- Signup-created users receive UserTag records for configured signup tags.
+- Tag-added email sequences can target those signup tags with a Has tag condition.
 ```
 
 ---
@@ -352,7 +357,9 @@
 - Product quantity updates still work.
 - Product size options still work.
 - Purchase mode selection still works.
-- Add to cart / Update cart is required before inventory reservation.
+- Selecting/unselecting a product checkbox updates the shared cart directly.
+- Product browse flow does not require a separate Add to cart button.
+- Inventory reservation is based on selected cart lines.
 - Reservation countdown appears in cart/review after items are in cart.
 - Reservation countdown does not cover left/right side panels.
 - Expired reservation message appears after countdown reaches zero.
@@ -476,6 +483,11 @@
 - EMAIL_DEV_TEST_MODE=false sends to real recipient.
 - SMTP config uses smtp.gmail.com, not smtp@gmail.com.
 - Environment changes require dev server restart.
+- All email-channel website operation sends use sendEmailMessage.
+- Auth verification, password reset, ticket owner access, album access, and purchase-recipient invite emails use shared sender path.
+- Email-channel wording comes from protected website-operation Email Sequence records when available.
+- If a protected website-operation saved subject/body is blank, sender falls back to websiteOperationEmailTemplates.js defaults.
+- Email-channel website operations do not fall back to old verificationContent email copy.
 ```
 
 ---
@@ -550,13 +562,42 @@ ORDER BY "createdAt" DESC
 LIMIT 20;
 ```
 
+```sql
+SELECT
+  "userId",
+  "tagKey",
+  "source",
+  "createdAt"
+FROM "UserTag"
+ORDER BY "createdAt" DESC
+LIMIT 20;
+```
+
+```sql
+SELECT
+  "sequenceKey",
+  "name",
+  "triggerEvent",
+  "metadata",
+  "updatedAt"
+FROM "EmailSequence"
+WHERE "metadata" ->> 'systemTag' = 'Permanent Website Op'
+ORDER BY "sequenceKey";
+```
+
 ---
 
-## 25. Dashboard project builder
+## 25. Admin dashboard
 
 ```txt
-- /dashboard loads directly in dev mode without login redirect.
-- Dashboard clearly marks auth gate disabled for dev.
+- /dashboard redirects non-logged-in users to /login.
+- /dashboard is accessible to logged-in users with adminLevel >= 1.
+- /dashboard is not accessible to logged-in users with adminLevel 0.
+- /api/dashboard/projects returns 403 for non-admin users.
+- /api/dashboard/inventory returns 403 for non-admin users.
+- /api/dashboard/currencies returns 403 for non-admin users.
+- /api/dashboard/email-sequences returns 403 for non-admin users.
+- Admin dashboard header shows the active admin level.
 - Project name updates slug safely.
 - Theme preset selector updates generated registry snippet.
 - Adding each supported slide type creates a slide in the slide list.
@@ -570,7 +611,11 @@ LIMIT 20;
 - Save DSL File refuses to overwrite an existing DSL file.
 - Saved DSL parses through the existing parser.
 - Registry snippet is generated but registry.ts is not edited automatically.
-- Before production, dashboard and /api/dashboard/projects must be restored behind main-admin access.
+- Email Sequences section loads protected Permanent Website Op records.
+- Protected website operation records show a Permanent Website Op badge.
+- Protected website operation records can be edited and saved.
+- No delete UI/endpoint is exposed for protected website operation records.
+- Send due emails button still runs due sequence jobs for admin users.
 ```
 
 ---
@@ -694,9 +739,11 @@ LIMIT 20;
 - @syncurl refreshes deep video slide.
 - Return Home clears deep slide URL.
 - auth-login returnTo still works.
-- Clear Visitor State resets visitor to fresh state.
-- /dashboard loads in dev mode.
+- Reset dev progress resets visitor to fresh state.
+- /dashboard requires admin level 1.
 - Dashboard can generate DSL for a media/video slide with text panel enabled.
+- Dashboard Email Sequences shows Permanent Website Op templates.
+- Website operation email defaults are available if edited subject/body is blank.
 - Escape album gate blocks users without purchased item.
 - Escape album opens for users with purchased item.
 - Good Morning lyrics panel opens from footer content label.

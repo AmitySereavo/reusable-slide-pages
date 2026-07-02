@@ -368,6 +368,19 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@signuptags:")) {
+        draft.signupTags = readValue(line, "@signuptags:")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+        continue;
+      }
+
+      if (line.startsWith("@signupsource:")) {
+        draft.signupSource = readValue(line, "@signupsource:");
+        continue;
+      }
+
       if (line.startsWith("@source:")) {
         const sourceKey = readValue(line, "@source:");
         draft.recordSourceKey = sourceKey;
@@ -878,6 +891,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     gotoIfIncomplete: draft.gotoIfIncomplete,
     contactMode: draft.contactMode,
     authFormKey: draft.authFormKey,
+    signupTags: draft.signupTags,
+    signupSource: draft.signupSource,
     progressOverlayBackgroundColor: draft.progressOverlayBackgroundColor,
     actionBarBackgroundColor: draft.actionBarBackgroundColor,
     progressOverlayTextColor: draft.progressOverlayTextColor,

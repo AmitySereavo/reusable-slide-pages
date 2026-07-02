@@ -7,6 +7,7 @@ export type QuestionnaireAuthSessionUser = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  adminLevel?: number;
   preferredCurrencyCode?: string;
   storeCreditBalance?: number;
   storeCreditPurchasedBalance?: number;
@@ -43,6 +44,8 @@ export function useAuthSession() {
           name: typeof data.user.name === "string" ? data.user.name : null,
           email: typeof data.user.email === "string" ? data.user.email : null,
           phone: typeof data.user.phone === "string" ? data.user.phone : null,
+          adminLevel:
+            typeof data.user.adminLevel === "number" ? data.user.adminLevel : 0,
           preferredCurrencyCode:
             typeof data.user.preferredCurrencyCode === "string"
               ? data.user.preferredCurrencyCode

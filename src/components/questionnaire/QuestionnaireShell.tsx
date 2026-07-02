@@ -14,9 +14,20 @@ import VerificationCodePanel from "@/customerAccess/components/VerificationCodeP
 import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
 import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
 import {
+  CartBundledAddOnsSummary,
+  CartItemCountdown,
+  CartReviewSectionHeading,
+  CartTicketMealSummary,
+  ReviewTotalsRenderer,
+  cleanCartMealLabel,
+  getCartFulfillmentLabel,
+} from "./renderers/CartReviewRenderers";
+import {
   CommerceExitWarning,
   EmptyCartStoreChoices,
 } from "./renderers/CommerceFlowPanels";
+import { QuantityControl, ShopSizeDescription } from "./renderers/ShopControls";
+import RecordListRenderer from "./renderers/RecordListRenderer";
 import SlideFooterActions from "./renderers/SlideFooterActions";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
@@ -168,11 +179,12 @@ import {
 
 import {
   buildPromotionDiscountDefinition,
-  hasPhoneNote,
   isContactInfoComplete,
   normalizePromotionEligibleItems,
   resolvePromotionItem,
 } from "@/lib/questionnaire/contactAndPromotion";
+
+import { formatCurrency, formatWeight } from "@/lib/questionnaire/formatters";
 
 import {
   getQuestionnaireDownloadUrl,
@@ -895,16 +907,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return null;
   }, [visibleSlides]);
 
-  const dashboardSidebarLinks = useMemo(
-    () => [
+  const dashboardSidebarLinks = useMemo(() => {
+    if (Number(authSessionUser?.adminLevel || 0) < 1) {
+      return [];
+    }
+
+    return [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard#dashboard-projects", label: "Projects" },
       { href: "/dashboard#dashboard-tickets", label: "Tickets" },
       { href: "/dashboard#dashboard-inventory", label: "Inventory" },
       { href: "/dashboard#dashboard-currencies", label: "Currencies" },
-    ],
-    []
-  );
+      { href: "/dashboard#dashboard-email-sequences", label: "Email Sequences" },
+    ];
+  }, [authSessionUser?.adminLevel]);
 
   const hasLeftSidebarContent =
     dashboardSidebarLinks.length > 0 ||
@@ -2700,15 +2716,25 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
 
-  function resetQuestionnaireSession() {
+  async function resetQuestionnaireSession() {
     clearCheckoutDraft(config.slug);
     checkoutDraftCompletedRef.current = false;
+    resetCheckoutReservation();
+    setCartInventoryNotices([]);
     setAnswers({});
     setHistory([]);
     setSubmitError(null);
     setDeleteBatchError(null);
     setDeleteBatchConfirmation("");
     setCurrentIndex(0);
+
+    try {
+      await clearQuestionnaireVisitorState({
+        questionnaireSlug: config.slug,
+      });
+    } catch (error) {
+      console.warn("Visitor state reset failed.", error);
+    }
   }
 
   function handleReturnHome() {
@@ -3151,6 +3177,10 @@ async function next() {
       addressLine2: String(answers.addressLine2 ?? "").trim(),
       parishOrRegion: String(answers.parishOrRegion ?? "").trim(),
       postalCode: String(answers.postalCode ?? "").trim(),
+      signupTags: Array.isArray(currentSlide.signupTags)
+        ? currentSlide.signupTags
+        : [],
+      signupSource: currentSlide.signupSource || config.slug,
     };
   }
 
@@ -4516,6 +4546,19 @@ async function handleNext() {
                                 >
                                   Logout
                                 </button>
+
+                                <div className={styles.sidebarDivider} />
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() => {
+                                    void resetQuestionnaireSession();
+                                    setIsTrackSidebarOpen(false);
+                                  }}
+                                >
+                                  Reset dev progress
+                                </button>
                               </>
                             ) : (
                               <>
@@ -4576,6 +4619,18 @@ async function handleNext() {
                                   Receipts
                                 </button>
 
+                                <div className={styles.sidebarDivider} />
+
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() => {
+                                    void resetQuestionnaireSession();
+                                    setIsTrackSidebarOpen(false);
+                                  }}
+                                >
+                                  Reset dev progress
+                                </button>
                               </>
                             )}
                           </div>
@@ -5313,6 +5368,8 @@ async function handleNext() {
                             questionnaireSlug={config.slug}
                             answers={answers}
                             loginHref={getAuthLoginHref()}
+                            signupTags={currentSlide.signupTags}
+                            signupSource={currentSlide.signupSource}
                             onSuccess={() => {
                               if (currentSlide.goto) {
                                 goToTarget(currentSlide.goto);
@@ -6808,209 +6865,6 @@ function MealSelectionSummaryRenderer({
       </div>
     </div>
   );
-}
-
-function cleanCartMealLabel(label: string) {
-  return label
-    .replace(/^choose\s+your\s+/i, "")
-    .replace(/^choose\s+/i, "")
-    .trim();
-}
-
-function CartTicketMealSummary({
-  assignment,
-  menu,
-  currencyCode,
-  onAdjustMeals,
-}: {
-  assignment: TicketAssignment;
-  menu: MealMenu;
-  currencyCode: string;
-  onAdjustMeals?: (ticketCode: string) => void;
-}) {
-  const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
-  const hasSelectedMealItems = mealSummary.length > 0;
-
-  return (
-    <div className={styles.cartTicketMealBlock}>
-      <div className={styles.cartTicketMealTopLine}>
-        <strong>{assignment.ownerName?.trim() || assignment.ticketLabel}</strong>
-        {onAdjustMeals ? (
-          <button
-            type="button"
-            className={styles.adjustLinkButton}
-            onClick={() => onAdjustMeals(assignment.ticketCode)}
-          >
-            Adjust meal
-          </button>
-        ) : null}
-      </div>
-      <div className={styles.cartTicketMealMeta}>Code: {assignment.ticketCode}</div>
-      {assignment.mealMode === "required" && !hasSelectedMealItems ? (
-        <div className={styles.ticketMealRequiredWarning}>
-          Meal selection required for this ticket.
-        </div>
-      ) : null}
-      {mealSummary.map((item) => (
-        <div
-          key={`${assignment.ticketCode}-${item.groupLabel}-${item.optionLabel}`}
-          className={styles.cartTicketMealLine}
-        >
-          <span>{cleanCartMealLabel(item.groupLabel)}</span>
-          <span>
-            {cleanCartMealLabel(item.optionLabel)} x {item.quantity}
-            {item.extraTotal > 0
-              ? ` +${formatCurrency(item.extraTotal, currencyCode)}`
-              : ""}
-          </span>
-        </div>
-      ))}
-      {assignment.wantsExtraFood === true ? (
-        <div className={styles.cartTicketMealMeta}>
-          May order extra food at event.
-        </div>
-      ) : null}
-      {assignment.hasMealNotes === true &&
-      String(assignment.mealNotes ?? "").trim().length > 0 ? (
-        <div className={styles.cartTicketMealMeta}>
-          Notes: {String(assignment.mealNotes ?? "").trim()}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function CartBundledAddOnsSummary({
-  lines,
-  currencyCode,
-  purchasedForLabels,
-}: {
-  lines: ShopResolvedCartLine[];
-  currencyCode?: string;
-  purchasedForLabels?: string[];
-}) {
-  if (!lines.length) {
-    return null;
-  }
-
-  return (
-    <div className={styles.cartTicketMealStack}>
-      <div className={styles.cartBundledAddOnsHeader}>Add-ons</div>
-      {lines.map((line) => (
-        <Fragment key={line.lineKey}>
-          <div className={styles.cartTicketMealLine}>
-            <span>
-              {line.productTitle}
-              {line.sizeLabel ? ` - ${line.sizeLabel}` : ""}
-            </span>
-            <span>{formatCurrency(line.lineTotal, currencyCode ?? "USD")}</span>
-          </div>
-          {purchasedForLabels?.length ? (
-            <div className={styles.cartTicketMealMeta}>
-              {purchasedForLabels.map((label, index) => (
-                <div key={`${line.lineKey}-purchased-for-${index}`}>
-                  Purchased for {label}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </Fragment>
-      ))}
-    </div>
-  );
-}
-
-function CartReviewSectionHeading({
-  sectionRank,
-  unselectedCount,
-  unavailableCount,
-  onRemoveUnavailable,
-}: {
-  sectionRank: number;
-  unselectedCount: number;
-  unavailableCount: number;
-  onRemoveUnavailable: () => void;
-}) {
-  if (sectionRank === 0) {
-    return null;
-  }
-
-  if (sectionRank === 2) {
-    return (
-      <div className={styles.cartReviewSectionHeading}>
-        <span>Unavailable items ({unavailableCount})</span>
-        {unavailableCount > 0 ? (
-          <button type="button" onClick={onRemoveUnavailable}>
-            Remove all
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.cartReviewSectionHeading}>
-      <span>Below are other items in your cart ({unselectedCount})</span>
-    </div>
-  );
-}
-
-function CartItemCountdown({
-  secondsRemaining,
-}: {
-  secondsRemaining: number;
-}) {
-  if (secondsRemaining <= 0) {
-    return (
-      <div className={styles.cartItemCountdown}>
-        <strong>00:00</strong>
-        <span>Returned to stock</span>
-      </div>
-    );
-  }
-
-  const minutes = Math.floor(secondsRemaining / 60);
-  const seconds = secondsRemaining % 60;
-
-  return (
-    <div className={styles.cartItemCountdown}>
-      <strong>
-        {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-      </strong>
-      <span>Until cart hold ends</span>
-    </div>
-  );
-}
-
-function getCartFulfillmentLabel(line: ShopResolvedCartLine) {
-  const text = [
-    line.productTitle,
-    line.sizeLabel,
-    line.purchaseModeLabel,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  const hasDigitalSignal =
-    line.fulfillmentType === "digital" ||
-    text.includes("digital") ||
-    text.includes("download") ||
-    text.includes("mp3") ||
-    text.includes("wav");
-  const hasPhysicalSignal =
-    line.requiresPhysicalFulfillment === true ||
-    line.fulfillmentType === "physical" ||
-    line.fulfillmentType === "ticket";
-
-  if (hasPhysicalSignal && hasDigitalSignal) {
-    return "Physical and digital delivery";
-  }
-
-  if (hasPhysicalSignal) {
-    return "Physical delivery";
-  }
-
-  return "Digital delivery";
 }
 
 function updatePurchaseRecipient(
@@ -9035,126 +8889,6 @@ function ShopSlideRenderer({
   );
 }
 
-function ReviewTotalsRenderer({
-  catalog,
-  totalWeight,
-  deliveryFee,
-  discountTotal,
-  grandTotal,
-  ticketOwnerAddonBudgetTotal,
-  ticketUpgradeTotal,
-  activeDiscountLabel,
-  showDeliveryFee,
-  showDiscountTotal,
-  showTotalWeight,
-}: {
-  catalog: ShopCatalog | null;
-  totalWeight: number;
-  deliveryFee: number;
-  discountTotal: number;
-  grandTotal: number;
-  ticketOwnerAddonBudgetTotal?: number;
-  ticketUpgradeTotal?: number;
-  activeDiscountLabel?: string;
-  showDeliveryFee?: boolean;
-  showDiscountTotal?: boolean;
-  showTotalWeight?: boolean;
-}) {
-  if (!catalog) {
-    return null;
-  }
-
-  return (
-    <div className={styles.reviewTotals}>
-      {activeDiscountLabel && showDiscountTotal ? (
-        <div>
-          Discount: {activeDiscountLabel}
-          {String(activeDiscountLabel).toLowerCase().includes("questionnaire")
-            ? hasPhoneNote()
-            : null}
-        </div>
-      ) : null}
-
-      {showDeliveryFee ? (
-        <div>
-          Delivery fee: {formatCurrency(deliveryFee, catalog.currencyCode)}
-        </div>
-      ) : null}
-
-      {showDiscountTotal ? (
-        <div>
-          Discount total: -{formatCurrency(discountTotal, catalog.currencyCode)}
-        </div>
-      ) : null}
-
-      {ticketOwnerAddonBudgetTotal && ticketOwnerAddonBudgetTotal > 0 ? (
-        <div>
-          Ticket owner add-on budgets:{" "}
-          {formatCurrency(ticketOwnerAddonBudgetTotal, catalog.currencyCode)}
-        </div>
-      ) : null}
-
-      {ticketUpgradeTotal && ticketUpgradeTotal > 0 ? (
-        <div>
-          Ticket upgrades: {formatCurrency(ticketUpgradeTotal, catalog.currencyCode)}
-        </div>
-      ) : null}
-
-      {showTotalWeight ? (
-        <div>
-          Total order weight: {formatWeight(totalWeight, catalog.weightUnit)}
-        </div>
-      ) : null}
-
-      <div style={{ fontWeight: 700 }}>
-        Total due: {formatCurrency(grandTotal, catalog.currencyCode)}
-      </div>
-    </div>
-  );
-}
-
-function QuantityControl({
-  quantity,
-  minQuantity = 1,
-  maxQuantity,
-  disabled,
-  onDecrease,
-  onIncrease,
-  theme,
-}: {
-  quantity: number;
-  minQuantity?: number;
-  maxQuantity?: number;
-  disabled?: boolean;
-  onDecrease: () => void;
-  onIncrease: () => void;
-  theme: ThemeConfig;
-}) {
-  return (
-    <div className={styles.quantityControl}>
-      <button
-        type="button"
-        disabled={disabled || quantity <= minQuantity}
-        onClick={onDecrease}
-        className={styles.quantityButton}
-        style={{ borderColor: theme.colors.border }}
-      >
-        -
-      </button>
-      <span className={styles.quantityValue}>{quantity}</span>
-      <button
-        type="button"
-        disabled={disabled || (maxQuantity !== undefined && quantity >= maxQuantity)}
-        onClick={onIncrease}
-        className={styles.quantityButton}
-        style={{ borderColor: theme.colors.border }}
-      >
-        +
-      </button>
-    </div>
-  );
-}
-
 function convertMealMenuCurrency(menu: MealMenu | null, rate: number) {
   if (!menu) {
     return null;
@@ -9220,98 +8954,6 @@ function pluralizeSubject(subject: string, quantity: number) {
   }
 
   return subject;
-}
-
-function ShopSizeDescription({ text }: { text: string }) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const listItems = lines
-    .map((line) => line.replace(/^[-*]\s*/, "").trim())
-    .filter(Boolean);
-
-  if (listItems.length > 1 || lines.some((line) => /^[-*]\s*/.test(line))) {
-    return (
-      <ul className={styles.sizeDescriptionList}>
-        {listItems.map((line, index) => (
-          <li key={`${line}-${index}`}>{line}</li>
-        ))}
-      </ul>
-    );
-  }
-
-  return <div className={styles.sizeDescription}>{text}</div>;
-}
-
-function RecordListRenderer({
-  items,
-  emptyText,
-  selectedValue,
-  onSelect,
-  onOpenItem,
-  theme,
-}: {
-  items: RecordListItem[];
-  emptyText: string;
-  selectedValue: string;
-  onSelect: (value: string) => void;
-  onOpenItem?: (value: string) => void;
-  theme: ThemeConfig;
-}) {
-  if (!items.length) {
-    return <p className={styles.body}>{emptyText}</p>;
-  }
-
-  return (
-    <div className={styles.recordListStack}>
-                  {items.map((item) => {
-        const selected = selectedValue === item.value;
-
-        return (
-          <div
-            key={item.value}
-            className={styles.recordCard}
-            style={{
-              borderColor: selected ? theme.colors.primary : theme.colors.border,
-              background: selected
-                ? theme.colors.cardAlt ?? withOpacity(theme.colors.primary, 0.12)
-                : theme.colors.card,
-              color: theme.colors.text,
-            }}
-          >
-            <div className={styles.recordCardHeader}>
-              <button
-                type="button"
-                onClick={() => onOpenItem?.(item.value)}
-                className={styles.recordCardTitleButton}
-              >
-                <div className={styles.recordCardTitle}>{item.title}</div>
-              </button>
-
-              {item.childCount !== undefined ? (
-                <div className={styles.recordCardCount}>
-                  {item.childCount}
-                </div>
-              ) : null}
-            </div>
-
-            {item.subtitle ? (
-              <div className={styles.recordCardSubtitle}>{item.subtitle}</div>
-            ) : null}
-
-            {item.meta?.length ? (
-              <div className={styles.recordCardMeta}>
-                {item.meta.map((metaLine, index) => (
-                  <div key={`${item.value}-meta-${index}`}>{metaLine}</div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function DataBlockRenderer({
@@ -10298,18 +9940,6 @@ function isDisplayTokenValue(
   );
 }
 
-function formatCurrency(amount: number, currencyCode = "USD") {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currencyCode,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toLocaleString()}`;
-  }
-}
-
 type AccountProfileUser = {
   id?: string;
   name?: string | null;
@@ -11000,6 +10630,3 @@ function AccountSummaryRenderer({
   );
 }
 
-function formatWeight(weight: number, weightUnit = "lb") {
-  return `${weight.toLocaleString()} ${weightUnit}`;
-}

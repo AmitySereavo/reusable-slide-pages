@@ -378,6 +378,204 @@ model ReusableShopPurchaseMode {
   @@index([sku])
 }
 
+model EmailSequence {
+  id          String  @id @default(cuid())
+  sequenceKey String  @unique
+  name        String
+  description String?
+
+  active          Boolean @default(false)
+  audience        String  @default("all_users")
+  triggerEvent    String  @default("signup")
+  defaultTimezone String  @default("user")
+  sendWindowStart String?
+  sendWindowEnd   String?
+  consentRequired Boolean @default(true)
+  unsubscribeGroup String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps       EmailSequenceStep[]
+  enrollments EmailSequenceEnrollment[]
+  jobs        EmailSequenceJob[]
+  events      EmailSequenceEvent[]
+
+  @@index([active, triggerEvent])
+}
+
+model EmailSequenceStep {
+  id         String        @id @default(cuid())
+  sequenceId String
+  sequence   EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  stepKey   String
+  sortOrder Int    @default(0)
+  name      String
+
+  subject       String
+  previewText   String?
+  fromName      String?
+  fromEmail     String?
+  replyToEmail  String?
+  bodyText      String
+  ctaLabel      String?
+  ctaUrl        String?
+
+  sendTimingMode        String @default("delay")
+  delayAmount           Int    @default(0)
+  delayUnit             String @default("minutes")
+  sendAtLocalTime       String?
+  timezoneMode          String @default("user")
+  activityDelayAmount   Int?
+  activityDelayUnit     String?
+  skipIfAlreadySent     Boolean @default(true)
+  requirePreviousStep   Boolean @default(true)
+
+  active Boolean @default(true)
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conditions EmailSequenceStepCondition[]
+  jobs       EmailSequenceJob[]
+  events     EmailSequenceEvent[]
+
+  @@unique([sequenceId, stepKey])
+  @@index([sequenceId, sortOrder])
+  @@index([active, sendTimingMode])
+}
+
+model EmailSequenceStepCondition {
+  id     String            @id @default(cuid())
+  stepId String
+  step   EmailSequenceStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  conditionType String
+  operator      String @default("is")
+  referenceKey  String?
+  value         String?
+  lookbackAmount Int?
+  lookbackUnit   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stepId, conditionType])
+}
+
+model EmailSequenceEnrollment {
+  id         String        @id @default(cuid())
+  sequenceId String
+  sequence   EmailSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  recipientEmail String
+  recipientName  String?
+
+  triggerEvent String
+  status       String @default("ACTIVE")
+  context      Json?
+
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  jobs   EmailSequenceJob[]
+  events EmailSequenceEvent[]
+
+  @@unique([sequenceId, recipientEmail])
+  @@index([userId, status])
+  @@index([triggerEvent, status])
+}
+
+model EmailSequenceJob {
+  id           String                  @id @default(cuid())
+  sequenceId   String
+  sequence     EmailSequence           @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  stepId       String
+  step         EmailSequenceStep       @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   EmailSequenceEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  recipientEmail String
+  recipientName  String?
+
+  subject      String
+  previewText  String?
+  fromName     String?
+  fromEmail    String?
+  replyToEmail String?
+  bodyText     String
+  bodyHtml     String?
+  ctaLabel     String?
+  ctaUrl       String?
+
+  status            String    @default("PENDING")
+  scheduledFor      DateTime
+  attempts          Int       @default(0)
+  sentAt            DateTime?
+  failedAt          DateTime?
+  canceledAt        DateTime?
+  lastError         String?
+  provider          String?
+  providerMessageId String?
+  metadata          Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events EmailSequenceEvent[]
+
+  @@unique([enrollmentId, stepId])
+  @@index([status, scheduledFor])
+  @@index([sequenceId, status])
+  @@index([userId, status])
+  @@index([recipientEmail, status])
+}
+
+model EmailSequenceEvent {
+  id String @id @default(cuid())
+
+  sequenceId String?
+  sequence   EmailSequence? @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+
+  stepId String?
+  step   EmailSequenceStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  enrollmentId String?
+  enrollment   EmailSequenceEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  jobId String?
+  job   EmailSequenceJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  recipientEmail String?
+  eventType      String
+  eventKey       String?
+  metadata       Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([sequenceId, eventType])
+  @@index([enrollmentId, eventType])
+  @@index([jobId, eventType])
+  @@index([userId, eventType])
+  @@index([recipientEmail, eventType])
+}
+
 enum PlantKind {
   SEED
   SEEDLING
@@ -1169,6 +1367,27 @@ model User {
   recipientGiftClaims        StoreGiftClaim[]              @relation("StoreGiftClaimRecipient")
   purchaseRecipients         PurchaseRecipient[]           @relation("PurchaseRecipientPurchaser")
   acceptedPurchaseRecipients PurchaseRecipient[]           @relation("PurchaseRecipientUser")
+  emailSequenceEnrollments   EmailSequenceEnrollment[]
+  emailSequenceJobs          EmailSequenceJob[]
+  emailSequenceEvents        EmailSequenceEvent[]
+  tags                       UserTag[]
+}
+
+model UserTag {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tagKey String
+  label  String?
+  source String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tagKey])
+  @@index([tagKey])
+  @@index([source])
 }
 
 model StoreCreditLedgerEntry {

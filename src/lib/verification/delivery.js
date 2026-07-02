@@ -1,13 +1,16 @@
 import { verificationProviders } from "@/customerAccess/config/verificationProviders";
 import { verificationContent } from "@/customerAccess/config/verificationContent";
-import { sendEmailVerification } from "./providers/emailConsole";
-import { sendEmailVerificationWithResend } from "./providers/emailResend";
-import { sendEmailVerificationWithSmtp } from "./providers/emailSmtp";
+import { prisma } from "@/lib/prisma";
 import { sendSmsVerification } from "./providers/smsConsole";
 import { sendSmsVerificationWithTwilio } from "./providers/smsTwilio";
 import { sendWhatsAppVerificationWithMeta } from "./providers/whatsappMeta";
 import { createVerificationDeliveryAttempt } from "./audit";
 import { buildDeliveryErrorResult, normalizeProviderError } from "./result";
+import { sendEmailMessage } from "./emailMessage";
+import {
+  PERMANENT_WEBSITE_OP_TAG,
+  getWebsiteOperationEmailTemplate,
+} from "./websiteOperationEmailTemplates";
 
 function isEmailIdentifier(identifier) {
   return typeof identifier === "string" && identifier.includes("@");
@@ -64,7 +67,106 @@ function resolveContentConfig({ delivery, channel, target = null }) {
   );
 }
 
-function getResolvedContent({
+function toKebabKey(value) {
+  return String(value || "default")
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function renderTemplate(value, context) {
+  return String(value || "").replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_, key) => {
+    const parts = String(key).split(".");
+    let current = context;
+
+    for (const part of parts) {
+      if (!current || typeof current !== "object") {
+        return "";
+      }
+
+      current = current[part];
+    }
+
+    return current == null ? "" : String(current);
+  });
+}
+
+function buildHtmlFromText(text) {
+  return String(text || "")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph) => `<p>${paragraph.replace(/\n/g, "<br />")}</p>`)
+    .join("");
+}
+
+async function getOperationalEmailContent({
+  delivery,
+  channel,
+  target = null,
+  contentContext,
+}) {
+  if (channel !== "email") {
+    return null;
+  }
+
+  const sequenceKey = `website-op-${toKebabKey(target)}-${delivery}-email`;
+  const fallbackSequenceKey = `website-op-default-${delivery}-email`;
+  const defaultTemplate =
+    getWebsiteOperationEmailTemplate(sequenceKey) ||
+    getWebsiteOperationEmailTemplate(fallbackSequenceKey);
+
+  try {
+    const sequence = await prisma.emailSequence.findUnique({
+      where: { sequenceKey },
+      include: {
+        steps: {
+          where: { active: true },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1,
+        },
+      },
+    });
+
+    const metadata = sequence?.metadata || {};
+    const step =
+      metadata.systemTag === PERMANENT_WEBSITE_OP_TAG ? sequence?.steps?.[0] : null;
+    const subjectTemplate =
+      String(step?.subject || "").trim() || defaultTemplate?.subject || "";
+    const bodyTemplate =
+      String(step?.bodyText || "").trim() || defaultTemplate?.bodyText || "";
+
+    if (!subjectTemplate || !bodyTemplate) {
+      throw new Error(`Missing website operation email template: ${sequenceKey}`);
+    }
+
+    const text = renderTemplate(bodyTemplate, contentContext);
+
+    return {
+      subject: renderTemplate(subjectTemplate, contentContext),
+      text,
+      html: buildHtmlFromText(text),
+    };
+  } catch (error) {
+    console.warn("Operational email template lookup failed.", error);
+
+    if (!defaultTemplate) {
+      throw error;
+    }
+
+    const text = renderTemplate(defaultTemplate.bodyText, contentContext);
+
+    return {
+      subject: renderTemplate(defaultTemplate.subject, contentContext),
+      text,
+      html: buildHtmlFromText(text),
+    };
+  }
+}
+
+async function getResolvedContent({
   identifier,
   delivery,
   phoneChannel = null,
@@ -74,12 +176,6 @@ function getResolvedContent({
   contextMetadata = null,
 }) {
   const channel = resolveChannel({ identifier, phoneChannel });
-  const config = resolveContentConfig({
-    delivery,
-    channel,
-    target,
-  });
-
   const contentContext = {
     code,
     verifyUrl,
@@ -88,6 +184,25 @@ function getResolvedContent({
       ? contextMetadata
       : {}),
   };
+  const operationalContent = await getOperationalEmailContent({
+    delivery,
+    channel,
+    target,
+    contentContext,
+  });
+
+  if (operationalContent) {
+    return {
+      channel,
+      ...operationalContent,
+    };
+  }
+
+  const config = resolveContentConfig({
+    delivery,
+    channel,
+    target,
+  });
 
   return {
     channel,
@@ -100,101 +215,25 @@ function getResolvedContent({
   };
 }
 
-function isResendTestInbox(email) {
-  return typeof email === "string" && email.toLowerCase().endsWith("@resend.dev");
-}
-
-function resolveDevSafeEmailRecipient(provider, identifier) {
-  if (!provider.devTestMode) {
-    return {
-      to: identifier,
-      rewritten: false,
-      originalTo: identifier,
-    };
-  }
-
-  if (isResendTestInbox(identifier)) {
-    return {
-      to: identifier,
-      rewritten: false,
-      originalTo: identifier,
-    };
-  }
-
-  return {
-    to: provider.devTestInbox,
-    rewritten: true,
-    originalTo: identifier,
-  };
-}
-
 async function sendEmailViaProvider({
-  provider,
   identifier,
   subject,
   text,
   html,
+  target = null,
+  delivery = null,
+  contextMetadata = null,
 }) {
-  if (provider.mode === "console") {
-    return sendEmailVerification({
-      to: identifier,
-      originalTo: identifier,
-      rewritten: false,
-      from: provider.from,
-      subject,
-      text,
-      html,
-    });
-  }
-
-  if (provider.mode === "resend") {
-    const recipient = resolveDevSafeEmailRecipient(provider, identifier);
-
-    const finalText = recipient.rewritten
-      ? `[DEV TEST MODE] Original recipient: ${recipient.originalTo}\n\n${text}`
-      : text;
-
-    const finalHtml =
-      recipient.rewritten && html
-        ? `<p><strong>[DEV TEST MODE]</strong> Original recipient: ${recipient.originalTo}</p>${html}`
-        : html;
-
-    return sendEmailVerificationWithResend({
-      to: recipient.to,
-      originalTo: recipient.originalTo,
-      rewritten: recipient.rewritten,
-      from: provider.from,
-      subject,
-      text: finalText,
-      html: finalHtml,
-    });
-  }
-
-  if (provider.mode === "smtp") {
-    const recipient = resolveDevSafeEmailRecipient(provider, identifier);
-
-    const finalText = recipient.rewritten
-      ? `[DEV TEST MODE] Original recipient: ${recipient.originalTo}\n\n${text}`
-      : text;
-
-    const finalHtml =
-      recipient.rewritten && html
-        ? `<p><strong>[DEV TEST MODE]</strong> Original recipient: ${recipient.originalTo}</p>${html}`
-        : html;
-
-    return sendEmailVerificationWithSmtp({
-      to: recipient.to,
-      originalTo: recipient.originalTo,
-      rewritten: recipient.rewritten,
-      from: provider.from,
-      subject,
-      text: finalText,
-      html: finalHtml,
-      smtp: provider.smtp,
-    });
-  }
-
-  throw new Error(`Unsupported email provider mode: ${provider.mode}`);
+  return sendEmailMessage({
+    to: identifier,
+    subject,
+    text,
+    html,
+    purpose:
+      contextMetadata?.purpose ||
+      [target, delivery].filter(Boolean).join(":") ||
+      "verification-delivery",
+  });
 }
 
 async function sendSmsLikeViaProvider({
@@ -308,7 +347,7 @@ export async function sendVerificationDelivery({
     throw new Error("Missing verification URL for link delivery.");
   }
 
-  const content = getResolvedContent({
+  const content = await getResolvedContent({
     identifier,
     delivery,
     phoneChannel,
@@ -324,11 +363,13 @@ export async function sendVerificationDelivery({
     const result =
       content.channel === "email"
         ? await sendEmailViaProvider({
-            provider,
             identifier,
             subject: content.subject,
             text: content.text,
             html: content.html,
+            target,
+            delivery,
+            contextMetadata,
           })
           : await sendSmsLikeViaProvider({
             provider,

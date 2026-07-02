@@ -2,8 +2,17 @@ import DslBuilder from "./DslBuilder";
 import InventoryManager from "./InventoryManager";
 import TicketManager from "./TicketManager";
 import CurrencyManager from "./CurrencyManager";
+import EmailSequenceManager from "./EmailSequenceManager";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth/adminGuard";
 
 export default async function DashboardPage() {
+  const session = await getAdminSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
   return (
     <main style={{ minHeight: "100vh", background: "#f5f2ee", color: "#201c1d" }}>
       <div style={{ padding: "24px clamp(16px, 3vw, 40px)" }}>
@@ -23,7 +32,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <span style={{ fontSize: "12px", fontWeight: 800, opacity: 0.65 }}>
-            Dev mode: auth gate disabled
+            Admin level {session.user.adminLevel}
           </span>
         </div>
 
@@ -48,6 +57,9 @@ export default async function DashboardPage() {
           <a href="#dashboard-currencies" style={dashboardLinkStyle}>
             Currencies
           </a>
+          <a href="#dashboard-email-sequences" style={dashboardLinkStyle}>
+            Email Sequences
+          </a>
         </nav>
 
         <section id="dashboard-projects">
@@ -57,6 +69,7 @@ export default async function DashboardPage() {
         <TicketManager />
         <InventoryManager />
         <CurrencyManager />
+        <EmailSequenceManager />
       </div>
     </main>
   );
