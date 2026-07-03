@@ -1122,6 +1122,15 @@
     left: var(--sidebar-width);
     right: var(--sidebar-width);
   }
+
+  .slideBody:not(.slideBodyMedia) {
+    padding-left: calc(var(--sidebar-width) + 32px);
+    padding-right: calc(var(--sidebar-width) + 32px);
+  }
+
+  .slideBody:not(.slideBodyMedia) .slideContentFrame {
+    max-width: 860px;
+  }
 }
 
 @media (max-width: 899px) {
@@ -1167,6 +1176,10 @@
   justify-items: stretch;
 }
 
+.actionBarNavFirst .navRow {
+  order: -1;
+}
+
 .actionButton {
   width: 100%;
   max-width: 100%;
@@ -1210,6 +1223,36 @@
   color: #b42318;
   font-size: 0.95rem;
   line-height: 1.4;
+}
+
+.dripCountdownPanel {
+  width: min(100%, 680px);
+  margin: 26px auto;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid;
+  border-radius: 8px;
+  text-align: center;
+  display: grid;
+  gap: 12px;
+}
+
+.dripCountdownLabel {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.dripCountdownTime {
+  font-size: clamp(2.4rem, 7vw, 5.8rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.dripCountdownMeta {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  opacity: 0.72;
 }
 
 .authFooter {

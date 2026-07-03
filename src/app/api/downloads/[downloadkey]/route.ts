@@ -5,6 +5,7 @@ import { Readable } from "node:stream";
 import { getDownloadCatalogItem } from "@/config/downloads/downloadCatalog";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
 import {
+  ensureAdminPurchasedItems,
   getRequiredPurchasedItemForDownload,
   userHasPurchasedItem,
 } from "@/lib/entitlements/purchasedItems";
@@ -97,6 +98,8 @@ export async function GET(
     if (!session?.userId) {
       return new Response("Log in to access this download.", { status: 401 });
     }
+
+    await ensureAdminPurchasedItems(session.userId, session.user.adminLevel);
 
     const hasPurchasedItem = await userHasPurchasedItem(
       session.userId,

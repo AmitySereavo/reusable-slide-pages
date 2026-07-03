@@ -73,6 +73,7 @@ export async function GET() {
 
   try {
     await ensurePermanentWebsiteOperationSequences();
+    await ensureItaslLeadNurtureSequence();
 
     const sequences = await prisma.emailSequence.findMany({
       orderBy: [{ updatedAt: "desc" }],
@@ -85,10 +86,33 @@ export async function GET() {
             },
           },
         },
+        enrollments: {
+          orderBy: [{ enrolledAt: "desc" }],
+          take: 100,
+          include: {
+            jobs: {
+              orderBy: [{ scheduledFor: "asc" }],
+              include: {
+                step: {
+                  select: {
+                    stepKey: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+            events: {
+              orderBy: [{ createdAt: "desc" }],
+              take: 100,
+            },
+          },
+        },
       },
     });
 
-    return NextResponse.json({ sequences });
+    return NextResponse.json({
+      sequences: sequences.map(serializeSequenceForDashboard),
+    });
   } catch (error) {
     const sequences = await readFallbackSequences();
 
@@ -98,6 +122,90 @@ export async function GET() {
       warning: getErrorMessage(error, "Database unavailable."),
     });
   }
+}
+
+function serializeSequenceForDashboard(sequence: any) {
+  const enrollments = Array.isArray(sequence.enrollments)
+    ? sequence.enrollments
+    : [];
+
+  return {
+    ...sequence,
+    recipientActivity: enrollments.map((enrollment: any) => {
+      const events = Array.isArray(enrollment.events) ? enrollment.events : [];
+      const jobs = Array.isArray(enrollment.jobs) ? enrollment.jobs : [];
+      const sentEvents = events.filter((event: any) => event.eventType === "sent");
+      const openedEvents = events.filter(
+        (event: any) =>
+          event.eventType === "opened_email" ||
+          event.eventType === "opened_slide"
+      );
+      const clickedEvents = events.filter(
+        (event: any) => event.eventType === "clicked_link"
+      );
+      const failedEvents = events.filter(
+        (event: any) => event.eventType === "failed" || event.eventType === "bounced"
+      );
+      const failedJobs = jobs.filter(
+        (job: any) => job.status === "FAILED" || Boolean(job.failedAt)
+      );
+
+      return {
+        enrollmentId: enrollment.id,
+        userId: enrollment.userId,
+        recipientEmail: enrollment.recipientEmail,
+        recipientName: enrollment.recipientName,
+        status: enrollment.status,
+        enrolledAt: enrollment.enrolledAt,
+        lastSentAt: getLatestDate([
+          ...sentEvents.map((event: any) => event.createdAt),
+          ...jobs.map((job: any) => job.sentAt),
+        ]),
+        lastOpenedAt: getLatestDate(
+          openedEvents.map((event: any) => event.createdAt)
+        ),
+        lastClickedAt: getLatestDate(
+          clickedEvents.map((event: any) => event.createdAt)
+        ),
+        lastFailedAt: getLatestDate([
+          ...failedEvents.map((event: any) => event.createdAt),
+          ...failedJobs.map((job: any) => job.failedAt),
+        ]),
+        sentCount: sentEvents.length || jobs.filter((job: any) => job.sentAt).length,
+        openedCount: openedEvents.length,
+        clickedCount: clickedEvents.length,
+        failedCount: failedEvents.length || failedJobs.length,
+        jobs: jobs.map((job: any) => ({
+          id: job.id,
+          stepKey: job.step?.stepKey ?? null,
+          stepName: job.step?.name ?? null,
+          status: job.status,
+          scheduledFor: job.scheduledFor,
+          sentAt: job.sentAt,
+          failedAt: job.failedAt,
+          lastError: job.lastError,
+          provider: job.provider,
+        })),
+        events: events.map((event: any) => ({
+          id: event.id,
+          eventType: event.eventType,
+          eventKey: event.eventKey,
+          createdAt: event.createdAt,
+          metadata: event.metadata,
+        })),
+      };
+    }),
+  };
+}
+
+function getLatestDate(values: unknown[]) {
+  const latest = values
+    .filter(Boolean)
+    .map((value) => new Date(String(value)))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((left, right) => right.getTime() - left.getTime())[0];
+
+  return latest ? latest.toISOString() : null;
 }
 
 export async function POST(request: Request) {
@@ -409,6 +517,128 @@ async function ensurePermanentWebsiteOperationSequences() {
       },
     });
   }
+}
+
+async function ensureItaslLeadNurtureSequence() {
+  const sequenceKey = "itasl-lead-nurture";
+  const existing = await prisma.emailSequence.findUnique({
+    where: { sequenceKey },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await prisma.emailSequence.update({
+      where: { id: existing.id },
+      data: {
+        active: true,
+        triggerEvent: "tag_added",
+        metadata: {
+          dripSequenceKey: "itasl",
+          editable: true,
+        },
+      },
+    });
+
+    await prisma.emailSequenceStep.updateMany({
+      where: {
+        sequenceId: existing.id,
+      },
+      data: {
+        active: true,
+      },
+    });
+
+    await prisma.emailSequenceStep.updateMany({
+      where: {
+        sequenceId: existing.id,
+        stepKey: "itasl-day-01",
+      },
+      data: {
+        sendTimingMode: "delay",
+        delayAmount: 1,
+        delayUnit: "minutes",
+        requirePreviousStep: false,
+      },
+    });
+
+    return;
+  }
+
+  await prisma.emailSequence.create({
+    data: {
+      sequenceKey,
+      name: "ITASL lead nurture",
+      description:
+        "Daily invitation-to-Amity-Sereavo-Live slide links. Each slide opens for the user before its email is sent.",
+      active: true,
+      audience: "itasl-leads",
+      triggerEvent: "tag_added",
+      defaultTimezone: "user",
+      consentRequired: true,
+      unsubscribeGroup: "lead-nurture",
+      metadata: {
+        dripSequenceKey: "itasl",
+        editable: true,
+      },
+      steps: {
+        create: Array.from({ length: 15 }, (_, index) => {
+          const day = index + 1;
+          const dayKey = `itasl-day-${String(day).padStart(2, "0")}`;
+          const previousDayKey =
+            index > 0
+              ? `itasl-day-${String(day - 1).padStart(2, "0")}`
+              : null;
+
+          return {
+            stepKey: dayKey,
+            sortOrder: index,
+            name: `Day ${day} slide`,
+            subject:
+              day === 1
+                ? "Your first invitation video is ready"
+                : `Your invitation video ${day} is ready`,
+            previewText: "Open today's private Amity Sereavo Live invitation slide.",
+            bodyText:
+              day === 1
+                ? "Here is the first private invitation video in the Amity Sereavo Live sequence."
+                : "Here is the next private invitation video in the Amity Sereavo Live sequence.",
+            ctaLabel: "Open today's video",
+            ctaUrl: `http://localhost:3000/questionnaire/itasl?slide=${dayKey}&unlockKey=${dayKey}&dripSequenceKey=itasl`,
+            sendTimingMode: "delay",
+            delayAmount: index === 0 ? 1 : index,
+            delayUnit: index === 0 ? "minutes" : "days",
+            timezoneMode: "user",
+            skipIfAlreadySent: true,
+            requirePreviousStep: index > 0,
+            active: true,
+            metadata: {
+              dripSequenceKey: "itasl",
+              dripUnlockKey: dayKey,
+              slideId: dayKey,
+            },
+            conditions: {
+              create: [
+                {
+                  conditionType: "has_tag",
+                  operator: "is",
+                  referenceKey: "itasl-lead",
+                },
+                ...(previousDayKey
+                  ? [
+                      {
+                        conditionType: "clicked_link",
+                        operator: "is",
+                        referenceKey: previousDayKey,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          };
+        }),
+      },
+    },
+  });
 }
 
 function getSequenceMetadata(

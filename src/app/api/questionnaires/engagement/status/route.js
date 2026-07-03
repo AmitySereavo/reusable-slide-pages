@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
+import {
+  ensureItaslLeadNurtureSequence,
+  scheduleNextDripSequenceJob,
+} from "@/lib/verification/emailSequences";
 
 function asString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -28,7 +32,13 @@ export async function GET(request) {
       });
     }
 
-    const [questionAnswers, videoProgress] = await Promise.all([
+    const dripSequenceKey = asString(url.searchParams.get("dripSequenceKey"));
+
+    if (dripSequenceKey === "itasl") {
+      await ensureItaslLeadNurtureSequence();
+    }
+
+    const [questionAnswers, videoProgress, dripEvents, initialDripNextJob] = await Promise.all([
       prisma.userMarketingQuestionAnswer.findMany({
         where: {
           userId: session.userId,
@@ -47,7 +57,97 @@ export async function GET(request) {
           updatedAt: "desc",
         },
       }),
+      dripSequenceKey
+        ? prisma.emailSequenceEvent.findMany({
+            where: {
+              userId: session.userId,
+              eventType: {
+                in: ["slide_unlocked", "opened_slide", "clicked_link"],
+              },
+              metadata: {
+                path: ["dripSequenceKey"],
+                equals: dripSequenceKey,
+              },
+            },
+            select: {
+              eventType: true,
+              eventKey: true,
+              createdAt: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          })
+        : Promise.resolve([]),
+      dripSequenceKey
+        ? prisma.emailSequenceJob.findFirst({
+            where: {
+              userId: session.userId,
+              status: "PENDING",
+              sequence: {
+                metadata: {
+                  path: ["dripSequenceKey"],
+                  equals: dripSequenceKey,
+                },
+              },
+            },
+            orderBy: {
+              scheduledFor: "asc",
+            },
+            select: {
+              id: true,
+              scheduledFor: true,
+              step: {
+                select: {
+                  stepKey: true,
+                  name: true,
+                },
+              },
+            },
+          })
+        : Promise.resolve(null),
     ]);
+
+    const dripUnlockKeys = new Set();
+    const dripOpenedKeys = new Set();
+    let dripNextJob = initialDripNextJob;
+
+    for (const event of dripEvents) {
+      if (!event.eventKey) continue;
+
+      if (event.eventType === "slide_unlocked") {
+        dripUnlockKeys.add(event.eventKey);
+      }
+
+      if (event.eventType === "opened_slide" || event.eventType === "clicked_link") {
+        dripUnlockKeys.add(event.eventKey);
+        dripOpenedKeys.add(event.eventKey);
+      }
+    }
+
+    if (!dripNextJob && dripSequenceKey) {
+      const latestOpenedEvent = dripEvents.find(
+        (event) =>
+          event.eventKey &&
+          (event.eventType === "opened_slide" || event.eventType === "clicked_link")
+      );
+
+      if (latestOpenedEvent) {
+        dripNextJob = await scheduleNextDripSequenceJob({
+          userId: session.userId,
+          dripSequenceKey,
+          currentUnlockKey: latestOpenedEvent.eventKey,
+          openedAt: latestOpenedEvent.createdAt || new Date(),
+        });
+      } else if (dripSequenceKey === "itasl") {
+        dripNextJob = await scheduleNextDripSequenceJob({
+          userId: session.userId,
+          dripSequenceKey,
+          currentUnlockKey: "itasl-day-01",
+          openedAt: new Date(),
+        });
+      }
+    }
 
     return Response.json({
       ok: true,
@@ -69,6 +169,16 @@ export async function GET(request) {
         watchedAt: item.watchedAt,
         updatedAt: item.updatedAt,
       })),
+      dripUnlockKeys: Array.from(dripUnlockKeys),
+      dripOpenedKeys: Array.from(dripOpenedKeys),
+      dripNextJob: dripNextJob
+        ? {
+            id: dripNextJob.id,
+            scheduledFor: dripNextJob.scheduledFor,
+            stepKey: dripNextJob.step?.stepKey || null,
+            stepName: dripNextJob.step?.name || null,
+          }
+        : null,
     });
   } catch (error) {
     console.error("ENGAGEMENT STATUS ERROR:", error);

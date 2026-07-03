@@ -10,27 +10,19 @@ import {
 } from "@/lib/auth/rateLimit";
 import { validatePasswordPolicy } from "@/customerAccess/utils/passwordPolicy";
 import { enrollEmailSequencesForTrigger } from "@/lib/verification/emailSequences";
+import {
+  ITASL_LEAD_TAG,
+  normalizeUserTagKey,
+  normalizeUserTagKeys,
+  upsertUserTag,
+} from "@/lib/userTags";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function normalizeTagKey(tag) {
-  return String(tag || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function normalizeSignupTags(input) {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-
-  return [
-    ...new Set(input.map(normalizeTagKey).filter((tagKey) => tagKey.length > 0)),
-  ];
+  return normalizeUserTagKeys(input);
 }
 
 export async function POST(request) {
@@ -45,6 +37,13 @@ export async function POST(request) {
       signupSource,
     } = body;
     const signupTags = normalizeSignupTags(body.signupTags);
+    const normalizedSignupSource = normalizeUserTagKey(signupSource);
+    const effectiveSignupTags = [
+      ...new Set([
+        ...signupTags,
+        ...(normalizedSignupSource === "invitation" ? [ITASL_LEAD_TAG] : []),
+      ]),
+    ];
 
     const rateLimit = checkRateLimit({
       key: getRateLimitKey(request, "signup", identifier),
@@ -187,25 +186,13 @@ export async function POST(request) {
         });
       }
 
-      for (const tagKey of signupTags) {
-        await tx.userTag.upsert({
-          where: {
-            userId_tagKey: {
-              userId: createdUser.id,
-              tagKey,
-            },
-          },
-          create: {
-            userId: createdUser.id,
-            tagKey,
-            label: tagKey,
-            source: String(signupSource || "signup").trim() || "signup",
-            metadata: {
-              signupSource: signupSource || null,
-            },
-          },
-          update: {
-            source: String(signupSource || "signup").trim() || "signup",
+      for (const tagKey of effectiveSignupTags) {
+        await upsertUserTag(tx, {
+          userId: createdUser.id,
+          tagKey,
+          source: String(signupSource || "signup").trim() || "signup",
+          metadata: {
+            signupSource: signupSource || null,
           },
         });
       }
@@ -230,7 +217,7 @@ export async function POST(request) {
         console.error("EMAIL SEQUENCE SIGNUP ENROLLMENT ERROR:", sequenceError);
       }
 
-      for (const tagKey of signupTags) {
+      for (const tagKey of effectiveSignupTags) {
         try {
           await enrollEmailSequencesForTrigger({
             triggerEvent: "tag_added",
@@ -240,7 +227,7 @@ export async function POST(request) {
             context: {
               source: signupSource || "signup",
               tagKey,
-              signupTags,
+              signupTags: effectiveSignupTags,
               country: country || null,
               city: city || null,
             },

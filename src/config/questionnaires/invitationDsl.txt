@@ -82,6 +82,8 @@ BR
 @id: whatsapp-subscription
 @type: authform
 @authform: gatedLeadCapture
+@signuptags: itasl-lead
+@signupsource: invitation
 @shownext: false
 @countstep: false
 @showsteptext: false

@@ -2,6 +2,11 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import {
+  ITASL_LEAD_TAG,
+  enrollTagSequencesForUser,
+  upsertUserTag,
+} from "@/lib/userTags";
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
@@ -292,10 +297,34 @@ export async function POST(request) {
         },
       });
 
+      await upsertUserTag(tx, {
+        userId: recipientUser.id,
+        tagKey: ITASL_LEAD_TAG,
+        source: "purchase-recipient-accepted",
+        metadata: {
+          role: "purchase-recipient",
+          purchaserUserId: existingRecipient.purchaserUser?.id || null,
+          purchaseRecipientId: acceptedRecipient.id,
+        },
+      });
+
       return {
         recipient: acceptedRecipient,
         recipientUser,
       };
+    });
+
+    await enrollTagSequencesForUser({
+      user: result.recipientUser,
+      email: result.recipientUser.email,
+      name: result.recipientUser.name,
+      tagKey: ITASL_LEAD_TAG,
+      source: "purchase-recipient-accepted",
+      context: {
+        role: "purchase-recipient",
+        purchaserUserId: existingRecipient.purchaserUser?.id || null,
+        purchaseRecipientId: result.recipient.id,
+      },
     });
 
     return NextResponse.json({

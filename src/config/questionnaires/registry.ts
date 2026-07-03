@@ -120,6 +120,23 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  itasl: {
+    slug: "itasl",
+    name: "Invitation to Amity Sereavo Live",
+    themeKey: "itasl",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/itaslDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {
+      dripSequence: {
+        sequenceKey: "itasl",
+        days: 14,
+      },
+    },
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "nursery-ops": {
   slug: "nursery-ops",
   name: "Nursery Operations",

@@ -3,6 +3,7 @@ import InventoryManager from "./InventoryManager";
 import TicketManager from "./TicketManager";
 import CurrencyManager from "./CurrencyManager";
 import EmailSequenceManager from "./EmailSequenceManager";
+import DashboardSidePanels from "./DashboardSidePanels";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth/adminGuard";
 
@@ -15,6 +16,7 @@ export default async function DashboardPage() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#f5f2ee", color: "#201c1d" }}>
+      <DashboardSidePanels adminLevel={session.user.adminLevel} />
       <div style={{ padding: "24px clamp(16px, 3vw, 40px)" }}>
         <div
           style={{

@@ -7,6 +7,12 @@ import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
 import { syncEngagementForUser } from "@/app/api/questionnaires/engagement/sync/route";
 import { enrollEmailSequencesForTrigger } from "@/lib/verification/emailSequences";
+import {
+  ITASL_LEAD_TAG,
+  normalizeUserTagKey,
+  normalizeUserTagKeys,
+  upsertUserTag,
+} from "@/lib/userTags";
 
 const TARGET = "gatedLeadAccess";
 
@@ -14,22 +20,8 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function normalizeTagKey(tag) {
-  return String(tag || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function normalizeSignupTags(input) {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-
-  return [
-    ...new Set(input.map(normalizeTagKey).filter((tagKey) => tagKey.length > 0)),
-  ];
+  return normalizeUserTagKeys(input);
 }
 
 function generateRawToken() {
@@ -87,6 +79,17 @@ export async function POST(request) {
     const source = String(body.source || "embedded-authform").trim();
     const signupSource = String(body.signupSource || source).trim();
     const signupTags = normalizeSignupTags(body.signupTags);
+    const normalizedSignupSource = normalizeUserTagKey(signupSource);
+    const normalizedQuestionnaireSlug = normalizeUserTagKey(questionnaireSlug);
+    const effectiveSignupTags = [
+      ...new Set([
+        ...signupTags,
+        ...(normalizedSignupSource === "invitation" ||
+        normalizedQuestionnaireSlug === "invitation"
+          ? [ITASL_LEAD_TAG]
+          : []),
+      ]),
+    ];
     const answers = body.answers && typeof body.answers === "object" ? body.answers : {};
     const updatesOptIn = body.updatesOptIn === true;
     const engagementSnapshot =
@@ -160,27 +163,15 @@ export async function POST(request) {
         });
       }
 
-      for (const tagKey of signupTags) {
-        await tx.userTag.upsert({
-          where: {
-            userId_tagKey: {
-              userId: workingUser.id,
-              tagKey,
-            },
-          },
-          create: {
-            userId: workingUser.id,
-            tagKey,
-            label: tagKey,
-            source: signupSource || "embedded-authform",
-            metadata: {
-              signupSource,
-              questionnaireSlug,
-              goto,
-            },
-          },
-          update: {
-            source: signupSource || "embedded-authform",
+      for (const tagKey of effectiveSignupTags) {
+        await upsertUserTag(tx, {
+          userId: workingUser.id,
+          tagKey,
+          source: signupSource || "embedded-authform",
+          metadata: {
+            signupSource,
+            questionnaireSlug,
+            goto,
           },
         });
       }
@@ -269,7 +260,7 @@ export async function POST(request) {
     }
 
     if (normalizedEmail) {
-      for (const tagKey of signupTags) {
+      for (const tagKey of effectiveSignupTags) {
         try {
           await enrollEmailSequencesForTrigger({
             triggerEvent: "tag_added",
@@ -279,7 +270,7 @@ export async function POST(request) {
             context: {
               source: signupSource || source,
               tagKey,
-              signupTags,
+              signupTags: effectiveSignupTags,
               questionnaireSlug,
               goto,
               leadId: result.lead.id,

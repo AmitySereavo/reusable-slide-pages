@@ -5,6 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const MAX_JOBS_PER_RUN = 25;
+const scheduledDueRuns = new Map();
 const fallbackSequencePath = path.join(
   process.cwd(),
   "data",
@@ -17,6 +18,128 @@ const fallbackJobsPath = path.join(
   "dashboard",
   "email-sequence-jobs.json"
 );
+
+export async function ensureItaslLeadNurtureSequence() {
+  const sequenceKey = "itasl-lead-nurture";
+  const existing = await prisma.emailSequence.findUnique({
+    where: { sequenceKey },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await prisma.emailSequence.update({
+      where: { id: existing.id },
+      data: {
+        active: true,
+        triggerEvent: "tag_added",
+        metadata: {
+          dripSequenceKey: "itasl",
+          editable: true,
+        },
+      },
+    });
+
+    await prisma.emailSequenceStep.updateMany({
+      where: {
+        sequenceId: existing.id,
+      },
+      data: {
+        active: true,
+      },
+    });
+
+    await prisma.emailSequenceStep.updateMany({
+      where: {
+        sequenceId: existing.id,
+        stepKey: "itasl-day-01",
+      },
+      data: {
+        sendTimingMode: "delay",
+        delayAmount: 1,
+        delayUnit: "minutes",
+        requirePreviousStep: false,
+      },
+    });
+
+    return existing;
+  }
+
+  return prisma.emailSequence.create({
+    data: {
+      sequenceKey,
+      name: "ITASL lead nurture",
+      description:
+        "Daily invitation-to-Amity-Sereavo-Live slide links. Each slide opens for the user before its email is sent.",
+      active: true,
+      audience: "itasl-leads",
+      triggerEvent: "tag_added",
+      defaultTimezone: "user",
+      consentRequired: true,
+      unsubscribeGroup: "lead-nurture",
+      metadata: {
+        dripSequenceKey: "itasl",
+        editable: true,
+      },
+      steps: {
+        create: Array.from({ length: 15 }, (_, index) => {
+          const day = index + 1;
+          const dayKey = `itasl-day-${String(day).padStart(2, "0")}`;
+          const previousDayKey =
+            index > 0
+              ? `itasl-day-${String(day - 1).padStart(2, "0")}`
+              : null;
+
+          return {
+            stepKey: dayKey,
+            sortOrder: index,
+            name: `Day ${day} slide`,
+            subject:
+              day === 1
+                ? "Your first invitation video is ready"
+                : `Your invitation video ${day} is ready`,
+            previewText: "Open today's private Amity Sereavo Live invitation slide.",
+            bodyText:
+              day === 1
+                ? "Here is the first private invitation video in the Amity Sereavo Live sequence."
+                : "Here is the next private invitation video in the Amity Sereavo Live sequence.",
+            ctaLabel: "Open today's video",
+            ctaUrl: `http://localhost:3000/questionnaire/itasl?slide=${dayKey}&unlockKey=${dayKey}&dripSequenceKey=itasl`,
+            sendTimingMode: "delay",
+            delayAmount: index === 0 ? 1 : index,
+            delayUnit: index === 0 ? "minutes" : "days",
+            timezoneMode: "user",
+            skipIfAlreadySent: true,
+            requirePreviousStep: index > 0,
+            active: true,
+            metadata: {
+              dripSequenceKey: "itasl",
+              dripUnlockKey: dayKey,
+              slideId: dayKey,
+            },
+            conditions: {
+              create: [
+                {
+                  conditionType: "has_tag",
+                  operator: "is",
+                  referenceKey: "itasl-lead",
+                },
+                ...(previousDayKey
+                  ? [
+                      {
+                        conditionType: "clicked_link",
+                        operator: "is",
+                        referenceKey: previousDayKey,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          };
+        }),
+      },
+    },
+  });
+}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -64,6 +187,39 @@ function getScheduledFor(step, enrolledAt) {
   return addDelay(enrolledAt, step.delayAmount, step.delayUnit);
 }
 
+function scheduleDueEmailSequenceRunAt(runAt) {
+  if (!runAt) {
+    return;
+  }
+
+  const scheduledAt = new Date(runAt);
+  const timestamp = scheduledAt.getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return;
+  }
+
+  const key = String(timestamp);
+
+  if (scheduledDueRuns.has(key)) {
+    return;
+  }
+
+  const delayMs = Math.max(0, timestamp - Date.now()) + 1000;
+  const timeout = setTimeout(() => {
+    scheduledDueRuns.delete(key);
+    void sendDueEmailSequenceJobs({ limit: MAX_JOBS_PER_RUN }).catch((error) => {
+      console.warn("Scheduled email sequence run failed.", error);
+    });
+  }, delayMs);
+
+  if (typeof timeout.unref === "function") {
+    timeout.unref();
+  }
+
+  scheduledDueRuns.set(key, timeout);
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -87,6 +243,49 @@ function buildHtmlFromText(text, ctaLabel, ctaUrl) {
       : "";
 
   return `${paragraphs}${cta}`;
+}
+
+function getDripUnlockFromUrl(ctaUrl) {
+  if (!ctaUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(String(ctaUrl), "http://localhost");
+    const unlockKey = url.searchParams.get("unlockKey");
+    const slideId = url.searchParams.get("slide");
+    const sequenceKey =
+      url.searchParams.get("dripSequenceKey") ||
+      url.pathname.split("/").filter(Boolean).pop();
+
+    if (!unlockKey || !sequenceKey) {
+      return null;
+    }
+
+    return {
+      dripSequenceKey: sequenceKey,
+      unlockKey,
+      slideId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function appendSequenceJobIdToCtaUrl(ctaUrl, jobId) {
+  if (!ctaUrl || !jobId) {
+    return ctaUrl;
+  }
+
+  try {
+    const isAbsolute = /^https?:\/\//i.test(String(ctaUrl));
+    const url = new URL(String(ctaUrl), "http://localhost");
+    url.searchParams.set("sequenceJobId", jobId);
+
+    return isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return ctaUrl;
+  }
 }
 
 function renderTemplate(value, context) {
@@ -208,6 +407,7 @@ async function enrollLocalEmailSequencesForTrigger({
   const now = new Date();
   let enrolled = 0;
   let jobsCreated = 0;
+  let soonestScheduledFor = null;
 
   for (const sequence of sequences) {
     enrolled += 1;
@@ -269,11 +469,20 @@ async function enrollLocalEmailSequencesForTrigger({
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       });
+      const scheduledFor = getScheduledFor(step, now);
+      soonestScheduledFor =
+        !soonestScheduledFor || scheduledFor < soonestScheduledFor
+          ? scheduledFor
+          : soonestScheduledFor;
       jobsCreated += 1;
     }
   }
 
   await writeLocalJobs(jobs);
+
+  if (soonestScheduledFor) {
+    scheduleDueEmailSequenceRunAt(soonestScheduledFor);
+  }
 
   return {
     enrolled,
@@ -378,7 +587,7 @@ async function sendLocalDueEmailSequenceJobs({ limit = MAX_JOBS_PER_RUN } = {}) 
 
 async function stepCanSend(job) {
   if (!job.step.requirePreviousStep || job.step.sortOrder <= 0) {
-    return true;
+    return stepConditionsPass(job);
   }
 
   const previousJobs = await prisma.emailSequenceJob.findMany({
@@ -396,7 +605,82 @@ async function stepCanSend(job) {
     (left, right) => right.step.sortOrder - left.step.sortOrder
   )[0];
 
-  return !previousJob || previousJob.status === "SENT";
+  if (previousJob && previousJob.status !== "SENT") {
+    return false;
+  }
+
+  return stepConditionsPass(job);
+}
+
+async function stepConditionsPass(job) {
+  const conditions = Array.isArray(job.step.conditions)
+    ? job.step.conditions
+    : [];
+  const actionableConditions = conditions.filter(
+    (condition) => condition.conditionType && condition.conditionType !== "always"
+  );
+
+  if (!actionableConditions.length) {
+    return true;
+  }
+
+  for (const condition of actionableConditions) {
+    const referenceKey = condition.referenceKey || condition.value || null;
+
+    if (condition.conditionType === "opened_email") {
+      const event = await prisma.emailSequenceEvent.findFirst({
+        where: {
+          enrollmentId: job.enrollmentId,
+          eventType: "opened_email",
+          ...(referenceKey ? { eventKey: referenceKey } : {}),
+        },
+      });
+
+      if (!event) return false;
+    }
+
+    if (condition.conditionType === "clicked_link") {
+      const event = await prisma.emailSequenceEvent.findFirst({
+        where: {
+          enrollmentId: job.enrollmentId,
+          eventType: {
+            in: ["clicked_link", "opened_slide"],
+          },
+          ...(referenceKey ? { eventKey: referenceKey } : {}),
+        },
+      });
+
+      if (!event) return false;
+    }
+
+    if (condition.conditionType === "did_not_open_email") {
+      const event = await prisma.emailSequenceEvent.findFirst({
+        where: {
+          enrollmentId: job.enrollmentId,
+          eventType: "opened_email",
+          ...(referenceKey ? { eventKey: referenceKey } : {}),
+        },
+      });
+
+      if (event) return false;
+    }
+
+    if (condition.conditionType === "did_not_click_link") {
+      const event = await prisma.emailSequenceEvent.findFirst({
+        where: {
+          enrollmentId: job.enrollmentId,
+          eventType: {
+            in: ["clicked_link", "opened_slide"],
+          },
+          ...(referenceKey ? { eventKey: referenceKey } : {}),
+        },
+      });
+
+      if (event) return false;
+    }
+  }
+
+  return true;
 }
 
 async function createSequenceEvent({
@@ -423,6 +707,32 @@ async function createSequenceEvent({
       metadata,
     },
   });
+}
+
+async function unlockDripSlideForJob(job) {
+  const dripUnlock = getDripUnlockFromUrl(job.ctaUrl);
+
+  if (!dripUnlock || !job.userId) {
+    return null;
+  }
+
+  await createSequenceEvent({
+    sequenceId: job.sequenceId,
+    stepId: job.stepId,
+    enrollmentId: job.enrollmentId,
+    jobId: job.id,
+    userId: job.userId,
+    recipientEmail: job.recipientEmail,
+    eventType: "slide_unlocked",
+    eventKey: dripUnlock.unlockKey,
+    metadata: {
+      dripSequenceKey: dripUnlock.dripSequenceKey,
+      slideId: dripUnlock.slideId,
+      source: "email-sequence-send",
+    },
+  });
+
+  return dripUnlock;
 }
 
 export async function enrollEmailSequencesForTrigger({
@@ -487,6 +797,7 @@ async function enrollDatabaseEmailSequencesForTrigger({
 
   let enrolled = 0;
   let jobsCreated = 0;
+  let soonestScheduledFor = null;
 
   for (const sequence of sequences) {
     if (!sequenceMatchesTriggerContext(sequence, triggerEvent, context)) {
@@ -585,8 +896,16 @@ async function enrollDatabaseEmailSequencesForTrigger({
 
       if (job.status === "PENDING") {
         jobsCreated += 1;
+        soonestScheduledFor =
+          !soonestScheduledFor || job.scheduledFor < soonestScheduledFor
+            ? job.scheduledFor
+            : soonestScheduledFor;
       }
     }
+  }
+
+  if (soonestScheduledFor) {
+    scheduleDueEmailSequenceRunAt(soonestScheduledFor);
   }
 
   return {
@@ -603,6 +922,201 @@ export async function sendDueEmailSequenceJobs({ limit = MAX_JOBS_PER_RUN } = {}
 
     return sendLocalDueEmailSequenceJobs({ limit });
   }
+}
+
+export async function scheduleNextDripSequenceJob({
+  userId,
+  dripSequenceKey,
+  currentUnlockKey,
+  openedAt = new Date(),
+}) {
+  if (!userId || !dripSequenceKey || !currentUnlockKey) {
+    return null;
+  }
+
+  if (dripSequenceKey === "itasl") {
+    await ensureItaslLeadNurtureSequence();
+  }
+
+  const sequence = await prisma.emailSequence.findFirst({
+    where: {
+      active: true,
+      metadata: {
+        path: ["dripSequenceKey"],
+        equals: dripSequenceKey,
+      },
+    },
+    include: {
+      steps: {
+        where: { active: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
+    },
+  });
+
+  if (!sequence?.steps?.length) {
+    return null;
+  }
+
+  const currentStep = sequence.steps.find(
+    (step) =>
+      step.stepKey === currentUnlockKey ||
+      step.metadata?.dripUnlockKey === currentUnlockKey ||
+      step.metadata?.slideId === currentUnlockKey
+  );
+
+  if (!currentStep) {
+    return null;
+  }
+
+  const nextStep = sequence.steps.find(
+    (step) => step.sortOrder > currentStep.sortOrder
+  );
+
+  if (!nextStep) {
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+  const recipientEmail = normalizeEmail(user?.email);
+
+  if (!recipientEmail) {
+    return null;
+  }
+
+  const enrollment =
+    (await prisma.emailSequenceEnrollment.findFirst({
+    where: {
+      sequenceId: sequence.id,
+      userId,
+      status: "ACTIVE",
+    },
+    include: {
+      user: true,
+    },
+    orderBy: {
+      enrolledAt: "desc",
+    },
+  })) ||
+    (await prisma.emailSequenceEnrollment.upsert({
+      where: {
+        sequenceId_recipientEmail: {
+          sequenceId: sequence.id,
+          recipientEmail,
+        },
+      },
+      create: {
+        sequenceId: sequence.id,
+        userId,
+        recipientEmail,
+        recipientName: user?.name || null,
+        triggerEvent: "drip-preview",
+        status: "ACTIVE",
+        context: {
+          source: "drip-countdown",
+        },
+      },
+      update: {
+        userId,
+        recipientName: user?.name || null,
+        status: "ACTIVE",
+      },
+      include: {
+        user: true,
+      },
+    }));
+
+  const existingJob = await prisma.emailSequenceJob.findUnique({
+    where: {
+      enrollmentId_stepId: {
+        enrollmentId: enrollment.id,
+        stepId: nextStep.id,
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+      scheduledFor: true,
+      step: {
+        select: {
+          stepKey: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (existingJob) {
+    return existingJob;
+  }
+
+  const recipientName = enrollment.recipientName || enrollment.user?.name || null;
+  const templateContext = buildContext({
+    user: enrollment.user,
+    recipientEmail,
+    recipientName,
+    context: enrollment.context,
+  });
+  const subject = renderTemplate(nextStep.subject, templateContext);
+  const bodyText = renderTemplate(nextStep.bodyText, templateContext);
+  const ctaUrl = nextStep.ctaUrl
+    ? renderTemplate(nextStep.ctaUrl, templateContext)
+    : null;
+  const ctaLabel = nextStep.ctaLabel
+    ? renderTemplate(nextStep.ctaLabel, templateContext)
+    : null;
+  const scheduledFor = getScheduledFor(nextStep, openedAt);
+
+  const job = await prisma.emailSequenceJob.create({
+    data: {
+      sequenceId: sequence.id,
+      stepId: nextStep.id,
+      enrollmentId: enrollment.id,
+      userId,
+      recipientEmail,
+      recipientName,
+      subject,
+      previewText: nextStep.previewText
+        ? renderTemplate(nextStep.previewText, templateContext)
+        : null,
+      fromName: nextStep.fromName,
+      fromEmail: nextStep.fromEmail,
+      replyToEmail: nextStep.replyToEmail,
+      bodyText,
+      bodyHtml: buildHtmlFromText(bodyText, ctaLabel, ctaUrl),
+      ctaLabel,
+      ctaUrl,
+      status: "PENDING",
+      scheduledFor,
+      metadata: {
+        sequenceKey: sequence.sequenceKey,
+        stepKey: nextStep.stepKey,
+        scheduledAfterUnlockKey: currentUnlockKey,
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+      scheduledFor: true,
+      step: {
+        select: {
+          stepKey: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  scheduleDueEmailSequenceRunAt(scheduledFor);
+
+  return job;
 }
 
 async function sendDatabaseDueEmailSequenceJobs({ limit = MAX_JOBS_PER_RUN } = {}) {
@@ -624,7 +1138,11 @@ async function sendDatabaseDueEmailSequenceJobs({ limit = MAX_JOBS_PER_RUN } = {
       },
     },
     include: {
-      step: true,
+      step: {
+        include: {
+          conditions: true,
+        },
+      },
       sequence: true,
       enrollment: true,
     },
@@ -655,11 +1173,16 @@ async function sendDatabaseDueEmailSequenceJobs({ limit = MAX_JOBS_PER_RUN } = {
       },
     });
 
+    await unlockDripSlideForJob(job);
+
+    const ctaUrl = appendSequenceJobIdToCtaUrl(job.ctaUrl, job.id);
+    const bodyHtml = buildHtmlFromText(job.bodyText, job.ctaLabel, ctaUrl);
+
     const deliveryResult = await sendEmailMessage({
       to: job.recipientEmail,
       subject: job.subject,
       text: job.bodyText,
-      html: job.bodyHtml,
+      html: bodyHtml,
       fromEmail: job.fromEmail,
       fromName: job.fromName,
       replyTo: job.replyToEmail,

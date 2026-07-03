@@ -779,6 +779,7 @@ function editSequence(sequence) {
                   {(sequence.steps?.length ?? 0) === 1 ? "" : "s"} ·{" "}
                   {sequence.active ? "active" : "draft"}
                 </span>
+                <SequenceRecipientActivity sequence={sequence} />
               </button>
             ))
           ) : (
@@ -808,6 +809,76 @@ async function readJsonResponse(response) {
         : text.slice(0, 240) || "The server returned an error.",
     };
   }
+}
+
+function SequenceRecipientActivity({ sequence }) {
+  const recipients = Array.isArray(sequence.recipientActivity)
+    ? sequence.recipientActivity
+    : [];
+  const sentCount = recipients.reduce(
+    (sum, recipient) => sum + Number(recipient.sentCount || 0),
+    0
+  );
+  const openedCount = recipients.reduce(
+    (sum, recipient) => sum + Number(recipient.openedCount || 0),
+    0
+  );
+  const clickedCount = recipients.reduce(
+    (sum, recipient) => sum + Number(recipient.clickedCount || 0),
+    0
+  );
+  const failedCount = recipients.reduce(
+    (sum, recipient) => sum + Number(recipient.failedCount || 0),
+    0
+  );
+
+  return (
+    <div style={recipientActivityStyle}>
+      <div style={recipientSummaryStyle}>
+        <span>{recipients.length} recipients</span>
+        <span>{sentCount} sent</span>
+        <span>{openedCount} opened</span>
+        <span>{clickedCount} clicked</span>
+        <span>{failedCount} bounced/failed</span>
+      </div>
+
+      {recipients.length ? (
+        <div style={recipientListStyle}>
+          {recipients.slice(0, 8).map((recipient) => (
+            <div key={recipient.enrollmentId} style={recipientRowStyle}>
+              <strong>{recipient.recipientEmail}</strong>
+              <span>{recipient.recipientName || "No name saved"}</span>
+              <span>Sent: {formatDateTime(recipient.lastSentAt)}</span>
+              <span>Opened: {formatDateTime(recipient.lastOpenedAt)}</span>
+              <span>Clicked: {formatDateTime(recipient.lastClickedAt)}</span>
+              <span>
+                Bounced/failed: {formatDateTime(recipient.lastFailedAt)}
+              </span>
+            </div>
+          ))}
+          {recipients.length > 8 ? (
+            <span style={helperStyle}>
+              Showing 8 of {recipients.length} recipients.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (!Number.isFinite(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleString();
 }
 
 const sectionStyle = {
@@ -985,6 +1056,39 @@ const sequenceButtonStyle = {
   gap: "4px",
   padding: "12px",
   textAlign: "left",
+};
+
+const recipientActivityStyle = {
+  borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+  display: "grid",
+  gap: "8px",
+  marginTop: "8px",
+  paddingTop: "8px",
+};
+
+const recipientSummaryStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px 10px",
+  fontSize: "12px",
+  fontWeight: 800,
+  opacity: 0.78,
+};
+
+const recipientListStyle = {
+  display: "grid",
+  gap: "6px",
+};
+
+const recipientRowStyle = {
+  background: "#fbfaf7",
+  border: "1px solid rgba(32, 28, 29, 0.08)",
+  borderRadius: "6px",
+  display: "grid",
+  gap: "2px",
+  fontSize: "12px",
+  lineHeight: 1.35,
+  padding: "8px",
 };
 
 const primaryButtonStyle = {

@@ -381,6 +381,29 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@dripsequence:")) {
+        draft.dripSequenceKey = readValue(line, "@dripsequence:");
+        continue;
+      }
+
+      if (line.startsWith("@dripunlock:")) {
+        draft.dripUnlockKey = readValue(line, "@dripunlock:");
+        continue;
+      }
+
+      if (line.startsWith("@requiresdripunlock:")) {
+        draft.requiresDripUnlock = parseBooleanValue(
+          readValue(line, "@requiresdripunlock:"),
+          true
+        );
+        continue;
+      }
+
+      if (line.startsWith("@dripcountdown:")) {
+        draft.dripCountdownSequenceKey = readValue(line, "@dripcountdown:");
+        continue;
+      }
+
       if (line.startsWith("@source:")) {
         const sourceKey = readValue(line, "@source:");
         draft.recordSourceKey = sourceKey;
@@ -553,6 +576,22 @@ inDownloadFormatsBlock = false;
 
       if (line.startsWith("@footercontentlabel:")) {
         draft.footerContentLabel = readValue(line, "@footercontentlabel:");
+        continue;
+      }
+
+      if (line.startsWith("@textpanelsongmodelabel:")) {
+        draft.textPanelSongModeLabel = readValue(
+          line,
+          "@textpanelsongmodelabel:"
+        );
+        continue;
+      }
+
+      if (line.startsWith("@actionbarorder:")) {
+        draft.actionBarOrder = readValue(
+          line,
+          "@actionbarorder:"
+        ) as ParsedSlideDraft["actionBarOrder"];
         continue;
       }
 
@@ -845,6 +884,8 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       : undefined,
     footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
     footerContentLabel: draft.footerContentLabel,
+    textPanelSongModeLabel: draft.textPanelSongModeLabel,
+    actionBarOrder: draft.actionBarOrder,
     sections: draft.sections,
     feature: draft.feature,
     fields: draft.fields?.length ? draft.fields : undefined,
@@ -893,6 +934,10 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     authFormKey: draft.authFormKey,
     signupTags: draft.signupTags,
     signupSource: draft.signupSource,
+    dripSequenceKey: draft.dripSequenceKey,
+    dripUnlockKey: draft.dripUnlockKey,
+    requiresDripUnlock: draft.requiresDripUnlock,
+    dripCountdownSequenceKey: draft.dripCountdownSequenceKey,
     progressOverlayBackgroundColor: draft.progressOverlayBackgroundColor,
     actionBarBackgroundColor: draft.actionBarBackgroundColor,
     progressOverlayTextColor: draft.progressOverlayTextColor,

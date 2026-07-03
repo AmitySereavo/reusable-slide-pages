@@ -5,6 +5,11 @@ import { parseIdentifier } from "@/customerAccess/utils/identifier";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
 import { ESCAPE_ALBUM_ITEM_KEY } from "@/lib/entitlements/purchasedItems";
+import {
+  ITASL_LEAD_TAG,
+  enrollTagSequencesForUser,
+  upsertUserTag,
+} from "@/lib/userTags";
 
 const TICKET_OWNER_ACCESS_TARGET = "ticketOwnerAccess";
 const ESCAPE_ALBUM_ACCESS_TARGET = "escapeAlbumAccess";
@@ -575,6 +580,19 @@ export async function POST(request) {
         name: fullName,
       });
 
+      if (purchaserUserResult?.user?.id) {
+        await upsertUserTag(tx, {
+          userId: purchaserUserResult.user.id,
+          tagKey: ITASL_LEAD_TAG,
+          source: "invitation-order",
+          metadata: {
+            role: "purchaser",
+            questionnaireSlug,
+            orderRequestKey: orderRequestKey || null,
+          },
+        });
+      }
+
       const order = await tx.invitationOrder.create({
         data: {
           questionnaireSlug,
@@ -649,6 +667,19 @@ export async function POST(request) {
             })
           : null;
 
+        if (ownerUserResult?.user?.id) {
+          await upsertUserTag(tx, {
+            userId: ownerUserResult.user.id,
+            tagKey: ITASL_LEAD_TAG,
+            source: "invitation-order-ticket-owner",
+            metadata: {
+              role: "ticket-owner",
+              questionnaireSlug,
+              orderCode: order.orderCode,
+            },
+          });
+        }
+
         const ticket = await tx.invitationOrderTicket.create({
           data: {
             orderId: order.id,
@@ -711,6 +742,7 @@ export async function POST(request) {
         order,
         tickets: createdTickets,
         purchaserUserId: purchaserUserResult?.user?.id ?? null,
+        purchaserUser: purchaserUserResult?.user ?? null,
         purchaserTemporaryPassword: purchaserUserResult?.temporaryPassword ?? null,
         purchaserAccountWasCreated: purchaserUserResult?.created === true,
         purchaserTemporaryPasswordWasIssued:
@@ -722,6 +754,22 @@ export async function POST(request) {
     const deliveryResults = [];
     let albumDeliveryResult = null;
     const ticketsByOwnerEmail = new Map();
+
+    if (transactionResult.purchaserUser?.id && purchaserEmail) {
+      await enrollTagSequencesForUser({
+        user: transactionResult.purchaserUser,
+        email: purchaserEmail,
+        name: fullName || transactionResult.purchaserUser.name,
+        tagKey: ITASL_LEAD_TAG,
+        source: "invitation-order",
+        context: {
+          questionnaireSlug,
+          orderId: transactionResult.order.id,
+          orderCode: transactionResult.order.orderCode,
+          role: "purchaser",
+        },
+      });
+    }
 
     for (const item of transactionResult.tickets) {
       if (
@@ -757,6 +805,24 @@ export async function POST(request) {
       }
 
       ticketsByOwnerEmail.set(item.ownerEmail, existingGroup);
+
+      await enrollTagSequencesForUser({
+        user: {
+          id: item.ownerUserId,
+          email: item.ownerEmail,
+          name: item.ownerName,
+        },
+        email: item.ownerEmail,
+        name: item.ownerName,
+        tagKey: ITASL_LEAD_TAG,
+        source: "invitation-order-ticket-owner",
+        context: {
+          questionnaireSlug,
+          orderId: transactionResult.order.id,
+          orderCode: transactionResult.order.orderCode,
+          role: "ticket-owner",
+        },
+      });
     }
 
     for (const group of ticketsByOwnerEmail.values()) {

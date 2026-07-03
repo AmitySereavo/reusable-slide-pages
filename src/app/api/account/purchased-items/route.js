@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
+import { ensureAdminPurchasedItems } from "@/lib/entitlements/purchasedItems";
 
 export async function GET() {
   try {
@@ -8,6 +9,8 @@ export async function GET() {
     if (!session?.userId) {
       return Response.json({ error: "You must be logged in." }, { status: 401 });
     }
+
+    await ensureAdminPurchasedItems(session.userId, session.user.adminLevel);
 
     const items = await prisma.userPurchasedItem.findMany({
       where: {

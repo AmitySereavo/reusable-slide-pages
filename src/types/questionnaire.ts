@@ -32,6 +32,7 @@ export type SlideFooterActionKind =
 export type SlideFooterActionVisibility = "always" | "logged-in" | "logged-out";
 
 export type TextPanelMode = "lines" | "song" | "learn" | "shop";
+export type ActionBarOrder = "choices-first" | "nav-first";
 
 export type SlideFooterAction = {
   kind: SlideFooterActionKind;
@@ -560,6 +561,8 @@ export type Slide = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  textPanelSongModeLabel?: string;
+  actionBarOrder?: ActionBarOrder;
   nextLabel?: string;
   backLabel?: string;
   backGoto?: string;
@@ -625,6 +628,10 @@ export type Slide = {
   authFormKey?: string;
   signupTags?: string[];
   signupSource?: string;
+  dripSequenceKey?: string;
+  dripUnlockKey?: string;
+  requiresDripUnlock?: boolean;
+  dripCountdownSequenceKey?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;
@@ -715,6 +722,8 @@ export type ParsedSlideDraft = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  textPanelSongModeLabel?: string;
+  actionBarOrder?: ActionBarOrder;
   fields?: FormField[];
   choices?: ChoiceItem[];
   choicePlacement?: ChoicePlacement;
@@ -760,6 +769,10 @@ export type ParsedSlideDraft = {
   authFormKey?: string;
   signupTags?: string[];
   signupSource?: string;
+  dripSequenceKey?: string;
+  dripUnlockKey?: string;
+  requiresDripUnlock?: boolean;
+  dripCountdownSequenceKey?: string;
   progressOverlayBackgroundColor?: string;
   actionBarBackgroundColor?: string;
   progressOverlayTextColor?: string;

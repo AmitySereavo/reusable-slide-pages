@@ -419,6 +419,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [pendingCommerceExit, setPendingCommerceExit] =
     useState<PendingCommerceExit | null>(null);
   const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("USD");
+  const [dripUnlockKeys, setDripUnlockKeys] = useState<string[]>([]);
+  const [dripOpenedKeys, setDripOpenedKeys] = useState<string[]>([]);
+  const [dripNextAvailableAtBySequence, setDripNextAvailableAtBySequence] =
+    useState<Record<string, string>>({});
   const [activeFooterTextPanel, setActiveFooterTextPanel] = useState<{
     id: string;
     label: string;
@@ -856,6 +860,24 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   });
 
   const currentSlide = visibleSlides[currentIndex];
+  const isAdminUser = Number(authSessionUser?.adminLevel || 0) >= 1;
+  const dripSequenceKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          visibleSlides
+            .map((slide) => slide.dripSequenceKey)
+            .filter((key): key is string => Boolean(key))
+        )
+      ),
+    [visibleSlides]
+  );
+  const isCurrentDripSlideLocked = Boolean(
+    currentSlide?.requiresDripUnlock &&
+      currentSlide.dripUnlockKey &&
+      !isAdminUser &&
+      !dripUnlockKeys.includes(currentSlide.dripUnlockKey)
+  );
   const activeFooterPanelSlide = useMemo<Slide | null>(() => {
     if (!activeFooterTextPanel || !currentSlide) {
       return null;
@@ -874,19 +896,154 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setActiveFooterTextPanel(null);
   }, [currentSlide?.id]);
 
+  useEffect(() => {
+    if (!isAuthSessionLoaded || !authSessionUser?.id || !dripSequenceKeys.length) {
+      setDripUnlockKeys([]);
+      setDripOpenedKeys([]);
+      return;
+    }
+
+    let canceled = false;
+
+    async function loadDripAccess() {
+      const unlockKeys = new Set<string>();
+      const openedKeys = new Set<string>();
+
+      for (const dripSequenceKey of dripSequenceKeys) {
+        const response = await fetch(
+          `/api/questionnaires/engagement/status?questionnaireSlug=${encodeURIComponent(
+            config.slug
+          )}&dripSequenceKey=${encodeURIComponent(dripSequenceKey)}`,
+          {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        ).catch(() => null);
+
+        const data = response ? await response.json().catch(() => null) : null;
+
+        if (!response?.ok || !data?.hasUser) {
+          continue;
+        }
+
+        if (Array.isArray(data.dripUnlockKeys)) {
+          for (const key of data.dripUnlockKeys) {
+            if (typeof key === "string") unlockKeys.add(key);
+          }
+        }
+
+        if (Array.isArray(data.dripOpenedKeys)) {
+          for (const key of data.dripOpenedKeys) {
+            if (typeof key === "string") openedKeys.add(key);
+          }
+        }
+
+        if (typeof data.dripNextJob?.scheduledFor === "string") {
+          setDripNextAvailableAtBySequence((prev) => ({
+            ...prev,
+            [dripSequenceKey]: data.dripNextJob.scheduledFor,
+          }));
+        }
+      }
+
+      if (!canceled) {
+        setDripUnlockKeys([...unlockKeys]);
+        setDripOpenedKeys([...openedKeys]);
+      }
+    }
+
+    void loadDripAccess();
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    authSessionUser?.id,
+    config.slug,
+    dripSequenceKeys,
+    isAuthSessionLoaded,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthSessionLoaded || !authSessionUser?.id || !currentSlide) {
+      return;
+    }
+
+    if (!currentSlide.dripSequenceKey || !currentSlide.dripUnlockKey) {
+      return;
+    }
+
+    const unlockKeyFromUrl = searchParams.get("unlockKey");
+    const jobIdFromUrl = searchParams.get("sequenceJobId");
+    const alreadyUnlocked = dripUnlockKeys.includes(currentSlide.dripUnlockKey);
+    const shouldRecordOpen =
+      (isAdminUser && currentSlide.requiresDripUnlock) ||
+      alreadyUnlocked ||
+      (unlockKeyFromUrl === currentSlide.dripUnlockKey && Boolean(jobIdFromUrl));
+
+    if (!shouldRecordOpen || dripOpenedKeys.includes(currentSlide.dripUnlockKey)) {
+      return;
+    }
+
+    const unlockKey = currentSlide.dripUnlockKey;
+
+    setDripUnlockKeys((prev) =>
+      prev.includes(unlockKey) ? prev : [...prev, unlockKey]
+    );
+    setDripOpenedKeys((prev) =>
+      prev.includes(unlockKey) ? prev : [...prev, unlockKey]
+    );
+
+    fetch("/api/questionnaires/engagement/sync", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        questionnaireSlug: config.slug,
+        source: "drip-slide-open",
+        snapshot: {
+          dripUnlock: {
+            sequenceKey: currentSlide.dripSequenceKey,
+            unlockKey,
+            slideId: currentSlide.id,
+            jobId: jobIdFromUrl || undefined,
+          },
+        },
+      }),
+    }).catch(() => null);
+  }, [
+    authSessionUser?.id,
+    config.slug,
+    currentSlide,
+    dripOpenedKeys,
+    dripUnlockKeys,
+    isAdminUser,
+    isAuthSessionLoaded,
+    searchParams,
+  ]);
+
   const sidebarSlideLinks = useMemo(
     () =>
       visibleSlides
         .filter(
           (slide) =>
             (slide.type === "media" || slide.type === "video") &&
-            (slide.mediaType === "video" || Boolean(slide.mediaUrl))
+            (slide.mediaType === "video" || Boolean(slide.mediaUrl)) &&
+            (!slide.requiresDripUnlock ||
+              !slide.dripUnlockKey ||
+              isAdminUser ||
+              dripUnlockKeys.includes(slide.dripUnlockKey))
         )
         .map((slide) => ({
           id: slide.id,
           label: slide.title || slide.id,
         })),
-    [visibleSlides]
+    [dripUnlockKeys, isAdminUser, visibleSlides]
   );
 
   const sidebarAlbumDownloadItemId = useMemo(() => {
@@ -919,6 +1076,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       { href: "/dashboard#dashboard-inventory", label: "Inventory" },
       { href: "/dashboard#dashboard-currencies", label: "Currencies" },
       { href: "/dashboard#dashboard-email-sequences", label: "Email Sequences" },
+      { href: "/questionnaire/escape-album", label: "Escape Album" },
+      { href: "/questionnaire/itasl", label: "ITASL Sequence" },
     ];
   }, [authSessionUser?.adminLevel]);
 
@@ -1001,9 +1160,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return;
     }
 
-    const hasPurchasedItem = purchasedItemKeys.includes(
-      purchaseAccessConfig.itemKey
-    );
+    const hasPurchasedItem =
+      isAdminUser || purchasedItemKeys.includes(purchaseAccessConfig.itemKey);
 
     const gateIndex = getSlideIndexById(
       visibleSlides,
@@ -1040,6 +1198,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     currentIndex,
     currentSlide,
     isPurchaseAccessLoaded,
+    isAdminUser,
     purchaseAccessConfig,
     purchasedItemKeys,
     visibleSlides,
@@ -2523,7 +2682,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     if (target.startsWith("/")) {
-      window.location.href = target;
+      window.location.href = withQuestionnaireReturnTarget(target);
       return;
     }
 
@@ -2576,6 +2735,33 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       setHistory((prev) => [...prev, currentIndex]);
       setCurrentIndex(targetIndex);
     }
+  }
+
+  function withQuestionnaireReturnTarget(target: string) {
+    if (!currentSlide || !target.startsWith("/questionnaire/")) {
+      return target;
+    }
+
+    const targetUrl = new URL(target, window.location.origin);
+
+    if (targetUrl.pathname === window.location.pathname) {
+      return target;
+    }
+
+    if (!targetUrl.searchParams.has("returnTo")) {
+      const returnUrl = new URL(window.location.href);
+
+      if (currentSlide.syncUrl) {
+        returnUrl.searchParams.set("slide", currentSlide.id);
+      }
+
+      targetUrl.searchParams.set(
+        "returnTo",
+        `${returnUrl.pathname}${returnUrl.search}`
+      );
+    }
+
+    return `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
   }
 
   function handleVideoProgressInput(value: string) {
@@ -3076,6 +3262,13 @@ async function next() {
       return;
     }
 
+    const returnTo = searchParams.get("returnTo");
+
+    if (returnTo) {
+      window.location.href = returnTo;
+      return;
+    }
+
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
     }
@@ -3083,6 +3276,10 @@ async function next() {
 
   function canGoNext() {
     if (!currentSlide) return false;
+
+    if (isCurrentDripSlideLocked) {
+      return false;
+    }
 
     if (currentSlide.type === "shop") {
       return currentShopSelectedLines.length > 0;
@@ -4685,7 +4882,13 @@ async function handleNext() {
                   exit={{ x: -40, opacity: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  {isMediaSlide ? (
+                  {isCurrentDripSlideLocked ? (
+                    <div className={styles.contactNote}>
+                      {authSessionUser?.id
+                        ? "This slide has not opened for your account yet. Use the email link when it arrives, then the slide will stay available here."
+                        : "Log in with the account that received this email to open this slide."}
+                    </div>
+                  ) : isMediaSlide ? (
                     <>
                       <MediaRenderer
                       slide={{
@@ -4832,6 +5035,17 @@ async function handleNext() {
                         currentSlide.storeAs,
                         setAnswer
                       )}
+
+                      {currentSlide.dripCountdownSequenceKey ? (
+                        <DripCountdownPanel
+                          availableAt={
+                            dripNextAvailableAtBySequence[
+                              currentSlide.dripCountdownSequenceKey
+                            ]
+                          }
+                          theme={theme}
+                        />
+                      ) : null}
 
                       {inlineChoices?.length ? (
                         <div className={styles.inlineChoiceStack}>
@@ -5480,6 +5694,7 @@ async function handleNext() {
                     isFooterEdgeProgress ? progressControl : undefined
                   }
                   textPanelMode={textPanelMode}
+                  textPanelSongModeLabel={currentSlide.textPanelSongModeLabel}
                   panelContent={
                     activeFooterPanelSlide ? (
                       <AnnotatedTextSlideRenderer
@@ -5514,6 +5729,10 @@ async function handleNext() {
               <div
                 className={`${styles.actionBarOverlay} ${
                   actionBarHidden ? styles.actionBarShifted : ""
+                } ${
+                  currentSlide.actionBarOrder === "nav-first"
+                    ? styles.actionBarNavFirst
+                    : ""
                 }`}
                 style={{
                   background: resolvedActionBarBackground,
@@ -9658,6 +9877,69 @@ function MediaRenderer({
   }
 
   return null;
+}
+
+function DripCountdownPanel({
+  availableAt,
+  theme,
+}: {
+  availableAt?: string;
+  theme: ThemeConfig;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const targetTime = availableAt ? new Date(availableAt).getTime() : Number.NaN;
+  const remainingMs = Number.isFinite(targetTime)
+    ? Math.max(0, targetTime - now)
+    : null;
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div
+      className={styles.dripCountdownPanel}
+      style={{
+        borderColor: theme.colors.border,
+        background: theme.colors.card,
+        color: theme.colors.text,
+      }}
+    >
+      <div className={styles.dripCountdownLabel}>Next content opens in</div>
+      <div className={styles.dripCountdownTime}>
+        {remainingMs === null ? "Scheduling..." : formatDuration(remainingMs)}
+      </div>
+      <div className={styles.dripCountdownMeta}>
+        {remainingMs === 0
+          ? "Refresh this page or open the next email link when it arrives."
+          : availableAt
+            ? `Available ${new Date(availableAt).toLocaleString()}`
+            : "Your next chapter will appear here after the next email is scheduled."}
+      </div>
+    </div>
+  );
+}
+
+function formatDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+
+  return `${minutes}m ${seconds}s`;
 }
 
 function appendYouTubeInlineParams(

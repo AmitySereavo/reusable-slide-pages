@@ -19,6 +19,7 @@ type Props = {
   progressControl?: ReactNode;
   panelContent?: ReactNode;
   textPanelMode: TextPanelMode;
+  textPanelSongModeLabel?: string;
   onAction: (action: SlideFooterAction) => void;
   onTextPanelModeChange: (mode: TextPanelMode) => void;
 };
@@ -33,6 +34,7 @@ export default function SlideFooterActions({
   progressControl,
   panelContent,
   textPanelMode,
+  textPanelSongModeLabel,
   onAction,
   onTextPanelModeChange,
 }: Props) {
@@ -55,6 +57,9 @@ export default function SlideFooterActions({
   const panelAction = visibleActions.find(
     (action) => action.kind === "textpanel"
   );
+  const resolvedSongModeLabel =
+    textPanelSongModeLabel?.trim() ||
+    (panelAction && !isLyricsAction(panelAction) ? "Article" : undefined);
 
   const lyricsActions = visibleActions.filter((action) =>
     isLyricsAction(action) && action.kind !== "textpanel"
@@ -127,10 +132,11 @@ export default function SlideFooterActions({
                   onTextPanelModeChange(getNextTextPanelMode(textPanelMode))
                 }
                 aria-label={`Text panel mode: ${getTextPanelModeLabel(
-                  textPanelMode
+                  textPanelMode,
+                  resolvedSongModeLabel
                 )}`}
               >
-                {getTextPanelModeLabel(textPanelMode)}
+                {getTextPanelModeLabel(textPanelMode, resolvedSongModeLabel)}
               </button>
             ) : undefined
           }
@@ -147,10 +153,11 @@ export default function SlideFooterActions({
               onTextPanelModeChange(getNextTextPanelMode(textPanelMode))
             }
             aria-label={`Text panel mode: ${getTextPanelModeLabel(
-              textPanelMode
+              textPanelMode,
+              resolvedSongModeLabel
             )}`}
           >
-            {getTextPanelModeLabel(textPanelMode)}
+            {getTextPanelModeLabel(textPanelMode, resolvedSongModeLabel)}
           </button>
         </div>
       ) : null}
@@ -291,9 +298,9 @@ function isLyricsAction(action: SlideFooterAction) {
   );
 }
 
-function getTextPanelModeLabel(mode: TextPanelMode) {
+function getTextPanelModeLabel(mode: TextPanelMode, songModeLabel?: string) {
   if (mode === "lines") return "Lines";
-  if (mode === "song") return "Song";
+  if (mode === "song") return songModeLabel?.trim() || "Song";
   if (mode === "learn") return "Learn";
   return "Shop";
 }
