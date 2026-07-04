@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { AUTH_MESSAGES } from "@/customerAccess/config/authMessages";
 import { buildGatedAccessCookie } from "@/lib/questionnaire/gatedAccessCookie";
+import { enrollVerifiedEmailTagSequencesForUser } from "@/lib/verification/emailSequences";
 
 function hashToken(rawToken) {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
@@ -109,6 +110,21 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
       },
       { status: 404 }
     );
+  }
+
+  if (result.user?.id && identifier.includes("@")) {
+    try {
+      await enrollVerifiedEmailTagSequencesForUser({
+        user: result.user,
+        email: identifier,
+        source: "gated-lead-email-verification",
+        context: {
+          target: record.target || null,
+        },
+      });
+    } catch (sequenceError) {
+      console.error("VERIFIED EMAIL TAG SEQUENCE ENROLLMENT ERROR:", sequenceError);
+    }
   }
 
     const metadata =
@@ -232,6 +248,35 @@ export async function POST(request) {
 
     const redirectTo = record.successRedirect || null;
     const target = record.target || null;
+
+    if (isEmail && userResult.count > 0) {
+      try {
+        const verifiedUser = await prisma.user.findFirst({
+          where: {
+            email: identifier,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        });
+
+        if (verifiedUser) {
+          await enrollVerifiedEmailTagSequencesForUser({
+            user: verifiedUser,
+            email: identifier,
+            source: "email-link-verification",
+            context: {
+              target,
+              successRedirect: redirectTo,
+            },
+          });
+        }
+      } catch (sequenceError) {
+        console.error("VERIFIED EMAIL TAG SEQUENCE ENROLLMENT ERROR:", sequenceError);
+      }
+    }
 
     await prisma.verificationToken.delete({
       where: { tokenHash },

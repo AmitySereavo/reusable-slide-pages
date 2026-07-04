@@ -49,6 +49,8 @@ runtime.
   flows, slide directives, media/download rules, and project-specific flow notes.
 - [SHOPS_README.md](SHOPS_README.md): reusable shop, cart, ticket, gift,
   recipient, inventory, currency, and store-credit behavior.
+- [EMAIL_SEQUENCES_README.md](EMAIL_SEQUENCES_README.md): email sequence
+  architecture, operational templates, lead nurture scheduling, and admin usage.
 - [REGRESSION_CHECKLIST.md](REGRESSION_CHECKLIST.md): manual regression checks
   for build, auth, media, shops, tickets, meals, dashboard, and account flows.
 - [Project Notes.txt](Project%20Notes.txt): next-step planning and deferred
@@ -114,19 +116,23 @@ wording into reusable shell code.
 
 ## Dashboard
 
-Local dashboard route:
+Local dashboard index route:
 
 ```txt
 /dashboard
 ```
 
-Dashboard sections currently include:
+The dashboard index is intentionally lightweight. Heavy admin sections live on
+separate routes so each section loads its own data only when an admin visits it:
 
-- project/DSL builder
-- reusable ticket publishing
-- reusable inventory management
-- currency exchange-rate settings
-- email sequences and protected website-operation email templates
+- `/dashboard/projects`: project/DSL builder
+- `/dashboard/people`: leads, accounts, purchases, content activity, answers,
+  and email engagement
+- `/dashboard/tickets`: reusable ticket publishing
+- `/dashboard/inventory`: reusable inventory management
+- `/dashboard/currencies`: currency exchange-rate settings
+- `/dashboard/email-sequences`: email sequences and protected
+  website-operation email templates
 
 The dashboard requires a logged-in user with `adminLevel >= 1`. The first
 user-created account is assigned admin level 1 by the signup route.
@@ -134,6 +140,7 @@ user-created account is assigned admin level 1 by the signup route.
 Dashboard API routes also require admin level 1:
 
 - `/api/dashboard/projects`
+- `/api/dashboard/people`
 - `/api/dashboard/inventory`
 - `/api/dashboard/currencies`
 - `/api/dashboard/email-sequences`

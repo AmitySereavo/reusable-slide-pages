@@ -217,25 +217,6 @@ export async function POST(request) {
         console.error("EMAIL SEQUENCE SIGNUP ENROLLMENT ERROR:", sequenceError);
       }
 
-      for (const tagKey of effectiveSignupTags) {
-        try {
-          await enrollEmailSequencesForTrigger({
-            triggerEvent: "tag_added",
-            user,
-            email,
-            name: fullName || user.name,
-            context: {
-              source: signupSource || "signup",
-              tagKey,
-              signupTags: effectiveSignupTags,
-              country: country || null,
-              city: city || null,
-            },
-          });
-        } catch (sequenceError) {
-          console.error("EMAIL SEQUENCE TAG ENROLLMENT ERROR:", sequenceError);
-        }
-      }
     }
 
     return Response.json({

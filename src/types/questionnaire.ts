@@ -41,6 +41,7 @@ export type SlideFooterAction = {
   target?: string;
   href?: string;
   visibility?: SlideFooterActionVisibility;
+  disabled?: boolean;
 };
 
 export type DownloadRequestTarget = {
@@ -561,6 +562,7 @@ export type Slide = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  footerTransparentUntilExpanded?: boolean;
   textPanelSongModeLabel?: string;
   actionBarOrder?: ActionBarOrder;
   nextLabel?: string;
@@ -722,6 +724,7 @@ export type ParsedSlideDraft = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  footerTransparentUntilExpanded?: boolean;
   textPanelSongModeLabel?: string;
   actionBarOrder?: ActionBarOrder;
   fields?: FormField[];

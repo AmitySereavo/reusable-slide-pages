@@ -9,6 +9,7 @@ import {
   getRateLimitKey,
   rateLimitResponse,
 } from "@/lib/auth/rateLimit";
+import { enrollVerifiedEmailTagSequencesForUser } from "@/lib/verification/emailSequences";
 
 const MAX_VERIFICATION_CODE_ATTEMPTS =
   Number(AUTH_RULES?.verification?.maxCodeAttempts) || 5;
@@ -118,7 +119,7 @@ export async function POST(request) {
     if (accountEmailAddress) {
       const now = new Date();
 
-      await prisma.$transaction(async (tx) => {
+      const updatedUser = await prisma.$transaction(async (tx) => {
         await tx.userEmailAddress.updateMany({
           where: {
             userId: accountEmailAddress.userId,
@@ -139,13 +140,18 @@ export async function POST(request) {
           },
         });
 
-        await tx.user.update({
+        const user = await tx.user.update({
           where: {
             id: accountEmailAddress.userId,
           },
           data: {
             email: verifiedEmailAddress.email,
             emailVerifiedAt: now,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
           },
         });
 
@@ -156,7 +162,22 @@ export async function POST(request) {
             userId: accountEmailAddress.userId,
           },
         });
+
+        return user;
       });
+
+      try {
+        await enrollVerifiedEmailTagSequencesForUser({
+          user: updatedUser,
+          email: updatedUser.email,
+          source: "account-email-code-verification",
+          context: {
+            target: latestRecord.target || null,
+          },
+        });
+      } catch (sequenceError) {
+        console.error("VERIFIED EMAIL TAG SEQUENCE ENROLLMENT ERROR:", sequenceError);
+      }
 
       return Response.json({
         message: "Email verified and set as your active email.",
@@ -190,7 +211,7 @@ export async function POST(request) {
         ? { emailVerifiedAt: now }
         : { phoneVerifiedAt: now };
 
-      if (user) {
+    if (user) {
       await prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: user.id },
@@ -217,6 +238,21 @@ export async function POST(request) {
           });
         }
       });
+
+      if (type === "email") {
+        try {
+          await enrollVerifiedEmailTagSequencesForUser({
+            user,
+            email,
+            source: "email-code-verification",
+            context: {
+              target: latestRecord.target || null,
+            },
+          });
+        } catch (sequenceError) {
+          console.error("VERIFIED EMAIL TAG SEQUENCE ENROLLMENT ERROR:", sequenceError);
+        }
+      }
     }
 
     if (lead) {

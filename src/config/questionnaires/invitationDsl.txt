@@ -7,6 +7,7 @@
 @mediaaspect: vertical
 @autoplay: true
 @progressmode: video
+@progressplacement: footer-edge
 @videostart: 00:00
 @videogoto: 00:45|performance-rating
 @videoresume: prompt-once
@@ -15,6 +16,11 @@
 @showauthcontrols: true
 @next: Get Tickets
 @goto: invitation-shop
+@footercontentlabel: Invitation Video 1
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Previous video|not-available
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next video|performance-rating
 //escape-album-download
 
 
@@ -127,6 +133,7 @@ BR
 @mediaaspect: vertical
 @autoplay: true
 @progressmode: video
+@progressplacement: footer-edge
 @videostart: 14:18
 @videoresume: auto
 @syncurl: true
@@ -137,6 +144,11 @@ BR
 @showauthcontrols: true
 @next: Visit Shop
 @goto: invitation-shop
+@footercontentlabel: Invitation Video 2
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Previous video|home
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next video|invitation-shop
 
 ===
 // INVITATION SHOP

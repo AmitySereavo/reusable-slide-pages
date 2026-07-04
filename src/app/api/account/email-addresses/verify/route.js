@@ -5,6 +5,7 @@ import { parseIdentifier } from "@/customerAccess/utils/identifier";
 import { AUTH_MESSAGES } from "@/customerAccess/config/authMessages";
 import { AUTH_RULES } from "@/customerAccess/config/authRules";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
+import { enrollVerifiedEmailTagSequencesForUser } from "@/lib/verification/emailSequences";
 
 const EMAIL_UPDATE_TARGET = "accountEmailUpdate";
 
@@ -162,6 +163,7 @@ export async function POST(request) {
         select: {
           id: true,
           email: true,
+          name: true,
           emailVerifiedAt: true,
           updatedAt: true,
         },
@@ -180,6 +182,19 @@ export async function POST(request) {
         emailAddress: verifiedEmailAddress,
       };
     });
+
+    try {
+      await enrollVerifiedEmailTagSequencesForUser({
+        user: result.user,
+        email: result.user.email,
+        source: "account-email-code-verification",
+        context: {
+          target: EMAIL_UPDATE_TARGET,
+        },
+      });
+    } catch (sequenceError) {
+      console.error("VERIFIED EMAIL TAG SEQUENCE ENROLLMENT ERROR:", sequenceError);
+    }
 
     return Response.json({
       ok: true,

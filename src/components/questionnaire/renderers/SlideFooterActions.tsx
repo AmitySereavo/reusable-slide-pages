@@ -197,7 +197,9 @@ function FooterActionRow({
       {actions.map((action, index) => {
         const isAuthAction = action.kind === "auth";
         const disabled =
-          isSubmitting || (isAuthAction && !isAuthSessionLoaded);
+          action.disabled ||
+          isSubmitting ||
+          (isAuthAction && !isAuthSessionLoaded);
         const mediaAction = action.target ?? action.key;
         const isMuteAction =
           action.kind === "media" && mediaAction === "toggle-mute";
@@ -231,7 +233,7 @@ function FooterActionRow({
                   isMuteAction && mediaState.isMuted
                     ? styles.slideFooterTextLinkAlert
                     : ""
-                }`}
+                } ${disabled ? styles.slideFooterTextLinkDisabled : ""}`}
                 disabled={disabled}
                 onClick={() => onAction(action)}
                 aria-label={isIconOnly ? label : undefined}

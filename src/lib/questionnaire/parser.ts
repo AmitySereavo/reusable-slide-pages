@@ -579,6 +579,14 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@footertransparentuntilexpanded:")) {
+        draft.footerTransparentUntilExpanded = parseBooleanValue(
+          readValue(line, "@footertransparentuntilexpanded:"),
+          true
+        );
+        continue;
+      }
+
       if (line.startsWith("@textpanelsongmodelabel:")) {
         draft.textPanelSongModeLabel = readValue(
           line,
@@ -884,6 +892,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       : undefined,
     footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
     footerContentLabel: draft.footerContentLabel,
+    footerTransparentUntilExpanded: draft.footerTransparentUntilExpanded,
     textPanelSongModeLabel: draft.textPanelSongModeLabel,
     actionBarOrder: draft.actionBarOrder,
     sections: draft.sections,

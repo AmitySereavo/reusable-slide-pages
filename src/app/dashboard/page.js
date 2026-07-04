@@ -1,11 +1,39 @@
-import DslBuilder from "./DslBuilder";
-import InventoryManager from "./InventoryManager";
-import TicketManager from "./TicketManager";
-import CurrencyManager from "./CurrencyManager";
-import EmailSequenceManager from "./EmailSequenceManager";
-import DashboardSidePanels from "./DashboardSidePanels";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth/adminGuard";
+import DashboardFrame, { dashboardLinkStyle } from "./DashboardFrame";
+
+const dashboardSections = [
+  {
+    href: "/dashboard/projects",
+    label: "Projects",
+    description: "Create questionnaire projects, DSL files, and reusable slide flows.",
+  },
+  {
+    href: "/dashboard/people",
+    label: "People",
+    description: "Review leads, accounts, purchases, answers, content activity, and email engagement.",
+  },
+  {
+    href: "/dashboard/tickets",
+    label: "Tickets",
+    description: "Create reusable event tickets, ticket types, and admin-defined upgrades.",
+  },
+  {
+    href: "/dashboard/inventory",
+    label: "Inventory",
+    description: "Manage music, merch, gift cards, store credit, and reusable shop products.",
+  },
+  {
+    href: "/dashboard/currencies",
+    label: "Currencies",
+    description: "Manage account/shop currencies and exchange-rate settings.",
+  },
+  {
+    href: "/dashboard/email-sequences",
+    label: "Email Sequences",
+    description: "Edit operational emails, nurture sequences, delivery timing, and activity tracking.",
+  },
+];
 
 export default async function DashboardPage() {
   const session = await getAdminSession();
@@ -15,75 +43,36 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "#f5f2ee", color: "#201c1d" }}>
-      <DashboardSidePanels adminLevel={session.user.adminLevel} />
-      <div style={{ padding: "24px clamp(16px, 3vw, 40px)" }}>
-        <div
-          style={{
-            alignItems: "center",
-            display: "flex",
-            gap: "16px",
-            justifyContent: "space-between",
-            marginBottom: "20px",
-          }}
-        >
-          <div>
-            <h1 style={{ fontSize: "28px", margin: 0 }}>Project Dashboard</h1>
-            <p style={{ margin: "6px 0 0", opacity: 0.72 }}>
-              Create questionnaire projects, DSL files, and reusable slide flows.
-            </p>
-          </div>
-          <span style={{ fontSize: "12px", fontWeight: 800, opacity: 0.65 }}>
-            Admin level {session.user.adminLevel}
-          </span>
-        </div>
-
-        <nav
-          aria-label="Dashboard sections"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            marginBottom: "18px",
-          }}
-        >
-          <a href="#dashboard-projects" style={dashboardLinkStyle}>
-            Projects
+    <DashboardFrame
+      adminLevel={session.user.adminLevel}
+      title="Project Dashboard"
+      description="Choose one dashboard section. Each section loads its own data only when opened."
+    >
+      <nav aria-label="Dashboard sections" style={gridStyle}>
+        {dashboardSections.map((section) => (
+          <a key={section.href} href={section.href} style={cardLinkStyle}>
+            <strong style={{ fontSize: "18px" }}>{section.label}</strong>
+            <span style={{ color: "#6b625c", lineHeight: 1.45 }}>
+              {section.description}
+            </span>
           </a>
-          <a href="#dashboard-tickets" style={dashboardLinkStyle}>
-            Tickets
-          </a>
-          <a href="#dashboard-inventory" style={dashboardLinkStyle}>
-            Inventory
-          </a>
-          <a href="#dashboard-currencies" style={dashboardLinkStyle}>
-            Currencies
-          </a>
-          <a href="#dashboard-email-sequences" style={dashboardLinkStyle}>
-            Email Sequences
-          </a>
-        </nav>
-
-        <section id="dashboard-projects">
-          <DslBuilder />
-        </section>
-
-        <TicketManager />
-        <InventoryManager />
-        <CurrencyManager />
-        <EmailSequenceManager />
-      </div>
-    </main>
+        ))}
+      </nav>
+    </DashboardFrame>
   );
 }
 
-const dashboardLinkStyle = {
-  background: "#fffdfa",
-  border: "1px solid rgba(32, 28, 29, 0.14)",
-  borderRadius: "6px",
-  color: "inherit",
-  fontSize: "14px",
-  fontWeight: 800,
-  padding: "9px 12px",
-  textDecoration: "none",
+const gridStyle = {
+  display: "grid",
+  gap: "12px",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+};
+
+const cardLinkStyle = {
+  ...dashboardLinkStyle,
+  alignContent: "start",
+  display: "grid",
+  gap: "8px",
+  minHeight: "120px",
+  padding: "16px",
 };

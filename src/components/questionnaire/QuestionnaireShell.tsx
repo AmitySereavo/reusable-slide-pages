@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   Fragment,
   type MouseEvent,
   useEffect,
@@ -866,7 +867,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       Array.from(
         new Set(
           visibleSlides
-            .map((slide) => slide.dripSequenceKey)
+            .flatMap((slide) => [
+              slide.dripSequenceKey,
+              slide.dripCountdownSequenceKey,
+            ])
             .filter((key): key is string => Boolean(key))
         )
       ),
@@ -1071,11 +1075,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     return [
       { href: "/dashboard", label: "Dashboard" },
-      { href: "/dashboard#dashboard-projects", label: "Projects" },
-      { href: "/dashboard#dashboard-tickets", label: "Tickets" },
-      { href: "/dashboard#dashboard-inventory", label: "Inventory" },
-      { href: "/dashboard#dashboard-currencies", label: "Currencies" },
-      { href: "/dashboard#dashboard-email-sequences", label: "Email Sequences" },
+      { href: "/dashboard/projects", label: "Projects" },
+      { href: "/dashboard/people", label: "People" },
+      { href: "/dashboard/tickets", label: "Tickets" },
+      { href: "/dashboard/inventory", label: "Inventory" },
+      { href: "/dashboard/currencies", label: "Currencies" },
+      { href: "/dashboard/email-sequences", label: "Email Sequences" },
       { href: "/questionnaire/escape-album", label: "Escape Album" },
       { href: "/questionnaire/itasl", label: "ITASL Sequence" },
     ];
@@ -2912,7 +2917,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setSubmitError(null);
     setDeleteBatchError(null);
     setDeleteBatchConfirmation("");
-    setCurrentIndex(0);
+    setAuthSessionUser(null);
+    setIsAuthSessionLoaded(true);
+    setGatedAccessState(null);
+    setActiveFooterTextPanel(null);
+    setIsAccountMenuOpen(false);
+    setIsTrackSidebarOpen(false);
 
     try {
       await clearQuestionnaireVisitorState({
@@ -2921,6 +2931,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     } catch (error) {
       console.warn("Visitor state reset failed.", error);
     }
+
+    const resetUrl = new URL(window.location.href);
+    resetUrl.search = "";
+    resetUrl.hash = "";
+    window.location.replace(resetUrl.pathname);
   }
 
   function handleReturnHome() {
@@ -4052,6 +4067,10 @@ function handleDownloadButtonClick(downloadButton: DownloadButton) {
 }
 
 function handleFooterAction(action: SlideFooterAction) {
+  if (action.disabled) {
+    return;
+  }
+
   if (action.kind === "media") {
     const mediaAction = action.target ?? action.key;
 
@@ -4243,9 +4262,13 @@ async function handleNext() {
         value={videoProgress}
         aria-label="Video progress"
         onChange={(event) => handleVideoProgressInput(event.target.value)}
-        style={{
+        style={
+          {
           accentColor: theme.colors.primary,
-        }}
+          "--video-progress-percent": `${videoProgress}%`,
+          color: theme.colors.primary,
+          } as CSSProperties & Record<"--video-progress-percent", string>
+        }
       />
     ) : (
       <div className={styles.progressBar}>
@@ -4261,7 +4284,25 @@ async function handleNext() {
   ) : null;
   const hasPinnedChoices = Boolean(pinnedChoices?.length);
   const hasDownloadButtons = Boolean(currentSlide.downloadButtons?.length);
-  const footerActions = currentSlide.footerActions ?? [];
+  const footerActions =
+    currentSlide.footerActions?.map((action) => {
+      if (action.kind !== "goto") {
+        return action;
+      }
+
+      const target = action.target ?? action.key;
+      const targetSlide = visibleSlides.find((slide) => slide.id === target);
+      const targetIsLocked =
+        Boolean(targetSlide?.requiresDripUnlock) &&
+        Boolean(targetSlide?.dripUnlockKey) &&
+        !isAdminUser &&
+        !dripUnlockKeys.includes(String(targetSlide?.dripUnlockKey));
+
+      return {
+        ...action,
+        disabled: action.disabled || !targetSlide || targetIsLocked,
+      };
+    }) ?? [];
   const hasFooterActions = footerActions.length > 0;
   const shouldShowAccountMenu = true;
   const backButtonStyle = resolveButtonStyle(
@@ -5038,6 +5079,8 @@ async function handleNext() {
 
                       {currentSlide.dripCountdownSequenceKey ? (
                         <DripCountdownPanel
+                          questionnaireSlug={config.slug}
+                          sequenceKey={currentSlide.dripCountdownSequenceKey}
                           availableAt={
                             dripNextAvailableAtBySequence[
                               currentSlide.dripCountdownSequenceKey
@@ -5679,6 +5722,14 @@ async function handleNext() {
                 className={`${styles.slideFooterTextActionsOverlay} ${
                   activeFooterPanelSlide
                     ? styles.slideFooterTextActionsOverlayPanelOpen
+                    : ""
+                } ${
+                  currentSlide.footerTransparentUntilExpanded
+                    ? styles.slideFooterTextActionsOverlayTransparentCollapsed
+                    : ""
+                } ${
+                  currentSlide.mediaAspect === "vertical"
+                    ? styles.slideFooterTextActionsOverlayVerticalMedia
                     : ""
                 }`}
               >
@@ -9880,17 +9931,68 @@ function MediaRenderer({
 }
 
 function DripCountdownPanel({
+  questionnaireSlug,
+  sequenceKey,
   availableAt,
   theme,
 }: {
+  questionnaireSlug: string;
+  sequenceKey: string;
   availableAt?: string;
   theme: ThemeConfig;
 }) {
   const [now, setNow] = useState(() => Date.now());
-  const targetTime = availableAt ? new Date(availableAt).getTime() : Number.NaN;
+  const [fallbackAvailableAt, setFallbackAvailableAt] = useState<string | undefined>(
+    availableAt
+  );
+  const resolvedAvailableAt = availableAt || fallbackAvailableAt;
+  const targetTime = resolvedAvailableAt
+    ? new Date(resolvedAvailableAt).getTime()
+    : Number.NaN;
   const remainingMs = Number.isFinite(targetTime)
     ? Math.max(0, targetTime - now)
     : null;
+
+  useEffect(() => {
+    setFallbackAvailableAt(availableAt);
+  }, [availableAt]);
+
+  useEffect(() => {
+    if (availableAt || !questionnaireSlug || !sequenceKey) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadCountdownStatus() {
+      const response = await fetch(
+        `/api/questionnaires/engagement/status?questionnaireSlug=${encodeURIComponent(
+          questionnaireSlug
+        )}&dripSequenceKey=${encodeURIComponent(sequenceKey)}`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+          },
+          signal: controller.signal,
+        }
+      ).catch(() => null);
+
+      const data = response ? await response.json().catch(() => null) : null;
+      const scheduledFor = data?.dripNextJob?.scheduledFor;
+
+      if (typeof scheduledFor === "string") {
+        setFallbackAvailableAt(scheduledFor);
+      }
+    }
+
+    void loadCountdownStatus();
+
+    return () => {
+      controller.abort();
+    };
+  }, [availableAt, questionnaireSlug, sequenceKey]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -9911,13 +10013,17 @@ function DripCountdownPanel({
     >
       <div className={styles.dripCountdownLabel}>Next content opens in</div>
       <div className={styles.dripCountdownTime}>
-        {remainingMs === null ? "Scheduling..." : formatDuration(remainingMs)}
+        {remainingMs === null ? (
+          <span className={styles.dripCountdownPending}>Scheduling...</span>
+        ) : (
+          formatDuration(remainingMs)
+        )}
       </div>
       <div className={styles.dripCountdownMeta}>
         {remainingMs === 0
           ? "Refresh this page or open the next email link when it arrives."
-          : availableAt
-            ? `Available ${new Date(availableAt).toLocaleString()}`
+          : resolvedAvailableAt
+            ? `Available ${new Date(resolvedAvailableAt).toLocaleString()}`
             : "Your next chapter will appear here after the next email is scheduled."}
       </div>
     </div>

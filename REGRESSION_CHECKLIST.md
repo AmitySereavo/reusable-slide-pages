@@ -74,6 +74,10 @@
 - checkout draft and cart reservation state are cleared.
 - page reloads as a fresh visitor.
 - After resetting dev progress, invitation starts as a new visitor.
+- After resetting dev progress from `?slide=second-video`, the URL no longer
+  contains the stale `slide` parameter.
+- After resetting dev progress from invitation second video, the first video
+  loads and the second video is gated again.
 - After resetting dev progress, gated form appears again when the flow reaches it.
 ```
 
@@ -412,6 +416,12 @@
 - USD, JMD, and GBP are available.
 - Ticket meal selection and cart meal summaries reflect the selected/account currency.
 - Dashboard currency section can show/edit exchange rates.
+- /dashboard is a lightweight section index and does not mount every manager at once.
+- /dashboard/people loads leads/accounts only when the People page is visited.
+- /dashboard/projects, /dashboard/tickets, /dashboard/inventory,
+  /dashboard/currencies, and /dashboard/email-sequences load their own sections.
+- Dashboard/admin side panel links use separate dashboard section pages, not
+  hash anchors.
 - Shop products load from DB-backed reusable inventory when available.
 - Dashboard inventory section can seed/load product records.
 - Dashboard tickets section can author reusable ticket products and optional paid upgrades.
@@ -612,6 +622,7 @@ ORDER BY "sequenceKey";
 - Saved DSL parses through the existing parser.
 - Registry snippet is generated but registry.ts is not edited automatically.
 - Email Sequences section loads protected Permanent Website Op records.
+- EMAIL_SEQUENCES_README.md documents developer and admin usage.
 - Protected website operation records show a Permanent Website Op badge.
 - Protected website operation records can be edited and saved.
 - No delete UI/endpoint is exposed for protected website operation records.
@@ -637,6 +648,14 @@ ORDER BY "sequenceKey";
 - If textpanel footer action exists, clicking content label expands/retracts footer panel.
 - Footer panel is scrollable with mouse wheel, scrollbar drag, trackpad, and touch.
 - Sticky headings stay under footer controls and are pushed away by the next heading.
+- `@footertransparentuntilexpanded: true` makes the collapsed footer transparent
+  and restores panel background when expanded.
+- Footer previous/next transport actions show as disabled when their target
+  slide is unavailable or drip-locked.
+- Video footer-edge progress bars are thin, have no visible knob, and remain
+  draggable/clickable.
+- Vertical video footer-edge progress spans the video frame width instead of the
+  full footer width.
 ```
 
 ---
@@ -740,6 +759,8 @@ ORDER BY "sequenceKey";
 - Return Home clears deep slide URL.
 - auth-login returnTo still works.
 - Reset dev progress resets visitor to fresh state.
+- Reset dev progress clears stale URL slide params and returns invitation to the
+  first video.
 - /dashboard requires admin level 1.
 - Dashboard can generate DSL for a media/video slide with text panel enabled.
 - Dashboard Email Sequences shows Permanent Website Op templates.

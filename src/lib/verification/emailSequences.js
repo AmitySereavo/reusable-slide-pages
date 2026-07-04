@@ -763,6 +763,66 @@ export async function enrollEmailSequencesForTrigger({
   }
 }
 
+export async function enrollVerifiedEmailTagSequencesForUser({
+  user = null,
+  email,
+  name = null,
+  source = "email-verification",
+  context = {},
+}) {
+  const recipientEmail = normalizeEmail(email || user?.email);
+
+  if (!user?.id || !recipientEmail) {
+    return {
+      enrolled: 0,
+      jobsCreated: 0,
+    };
+  }
+
+  await ensureItaslLeadNurtureSequence();
+
+  const tags = await prisma.userTag.findMany({
+    where: {
+      userId: user.id,
+    },
+    select: {
+      tagKey: true,
+    },
+  });
+
+  let enrolled = 0;
+  let jobsCreated = 0;
+
+  for (const tag of tags) {
+    const tagKey = String(tag.tagKey || "").trim();
+
+    if (!tagKey) {
+      continue;
+    }
+
+    const result = await enrollEmailSequencesForTrigger({
+      triggerEvent: "tag_added",
+      user,
+      email: recipientEmail,
+      name: name || user.name,
+      context: {
+        ...context,
+        source,
+        tagKey,
+        emailVerified: true,
+      },
+    });
+
+    enrolled += Number(result?.enrolled) || 0;
+    jobsCreated += Number(result?.jobsCreated) || 0;
+  }
+
+  return {
+    enrolled,
+    jobsCreated,
+  };
+}
+
 async function enrollDatabaseEmailSequencesForTrigger({
   triggerEvent,
   user = null,

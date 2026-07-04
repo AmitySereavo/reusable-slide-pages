@@ -17,7 +17,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-001-text
 @footercontentlabel: Email 1 - ultimate and necessary entertainment
+@footeraction: goto|previous|Previous chapter|itasl-day-00
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-02
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-001-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -25,7 +27,9 @@
 @dripunlock: itasl-day-01
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-02
 @type: media
 @title: Email 2 - after party contrast
@@ -45,7 +49,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-002-text
 @footercontentlabel: Email 2 - after party contrast
+@footeraction: goto|previous|Previous chapter|itasl-day-01
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-03
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-002-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -53,7 +59,9 @@
 @dripunlock: itasl-day-02
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-03
 @type: media
 @title: Email 3 - phrases - gratitude
@@ -73,7 +81,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-003-text
 @footercontentlabel: Email 3 - phrases - gratitude
+@footeraction: goto|previous|Previous chapter|itasl-day-02
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-04
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-003-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -81,7 +91,9 @@
 @dripunlock: itasl-day-03
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-04
 @type: media
 @title: Email 4 Respect - powerful people
@@ -101,7 +113,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-004-text
 @footercontentlabel: Email 4 Respect - powerful people
+@footeraction: goto|previous|Previous chapter|itasl-day-03
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-05
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-004-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -109,7 +123,9 @@
 @dripunlock: itasl-day-04
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-05
 @type: media
 @title: Email 5 - Caught up in feelings
@@ -129,7 +145,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-005-text
 @footercontentlabel: Email 5 - Caught up in feelings
+@footeraction: goto|previous|Previous chapter|itasl-day-04
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-06
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-005-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -137,7 +155,9 @@
 @dripunlock: itasl-day-05
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-06
 @type: media
 @title: Email 6 - impact of stories
@@ -157,7 +177,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-006-text
 @footercontentlabel: Email 6 - impact of stories
+@footeraction: goto|previous|Previous chapter|itasl-day-05
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-07
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-006-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -165,7 +187,9 @@
 @dripunlock: itasl-day-06
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-07
 @type: media
 @title: Email 007 - carving out a path (Believe)
@@ -185,7 +209,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-007-text
 @footercontentlabel: Email 007 - carving out a path (Believe)
+@footeraction: goto|previous|Previous chapter|itasl-day-06
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-08
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-007-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -193,7 +219,9 @@
 @dripunlock: itasl-day-07
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-08
 @type: media
 @title: Email 008 - Music, the confidence
@@ -213,7 +241,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-008-text
 @footercontentlabel: Email 008 - Music, the confidence
+@footeraction: goto|previous|Previous chapter|itasl-day-07
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-09
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-008-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -221,7 +251,9 @@
 @dripunlock: itasl-day-08
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-09
 @type: media
 @title: Email 009 - Endure
@@ -241,7 +273,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-009-text
 @footercontentlabel: Email 009 - Endure
+@footeraction: goto|previous|Previous chapter|itasl-day-08
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-10
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-009-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -249,7 +283,9 @@
 @dripunlock: itasl-day-09
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-10
 @type: media
 @title: Email 010 - marketing did for me
@@ -269,7 +305,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-010-text
 @footercontentlabel: Email 010 - marketing did for me
+@footeraction: goto|previous|Previous chapter|itasl-day-09
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-11
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-010-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -277,7 +315,9 @@
 @dripunlock: itasl-day-10
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-11
 @type: media
 @title: Email 011 - perfect marketing
@@ -297,7 +337,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-011-text
 @footercontentlabel: Email 011 - perfect marketing
+@footeraction: goto|previous|Previous chapter|itasl-day-10
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-12
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-011-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -305,7 +347,9 @@
 @dripunlock: itasl-day-11
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-12
 @type: media
 @title: Email 012 - luxury and premium
@@ -325,7 +369,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-012-text
 @footercontentlabel: Email 012 - luxury and premium
+@footeraction: goto|previous|Previous chapter|itasl-day-11
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-13
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-012-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -333,7 +379,9 @@
 @dripunlock: itasl-day-12
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-13
 @type: media
 @title: Email 013 - special
@@ -353,7 +401,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-013-text
 @footercontentlabel: Email 013 - special
+@footeraction: goto|previous|Previous chapter|itasl-day-12
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-14
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-013-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -361,7 +411,9 @@
 @dripunlock: itasl-day-13
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-14
 @type: media
 @title: Email 014 - Trust
@@ -381,7 +433,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-014-text
 @footercontentlabel: Email 014 - Trust
+@footeraction: goto|previous|Previous chapter|itasl-day-13
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-15
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-014-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -389,7 +443,9 @@
 @dripunlock: itasl-day-14
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-day-15
 @type: media
 @title: Email 015 - Brands, Impact and loyalty
@@ -409,7 +465,9 @@
 @textpanel: true
 @textsource: /api/downloads/itasl-email-015-text
 @footercontentlabel: Email 015 - Brands, Impact and loyalty
+@footeraction: goto|previous|Previous chapter|itasl-day-14
 @footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next chapter|itasl-day-16
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-015-text
 @choices:
 - tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
@@ -417,7 +475,9 @@
 @dripunlock: itasl-day-15
 @requiresdripunlock: true
 
+
 ===
+
 @id: itasl-next-countdown
 @type: content
 @title: Next Chapter

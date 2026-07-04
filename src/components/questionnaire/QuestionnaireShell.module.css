@@ -378,6 +378,17 @@
   z-index: 60;
 }
 
+.slideFooterTextActionsOverlayTransparentCollapsed:not(.slideFooterTextActionsOverlayPanelOpen) .slideFooterTextActions {
+  background: transparent;
+  box-shadow: none;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.72);
+}
+
+.slideFooterTextActionsOverlayTransparentCollapsed:not(.slideFooterTextActionsOverlayPanelOpen) .slideFooterTextActions::after {
+  display: none;
+}
+
 .slideFooterTextActionsOverlay .overlayFrame {
   width: 100%;
   max-width: none;
@@ -400,7 +411,7 @@
   justify-items: center;
   padding: 18px 18px 16px;
   border-radius: 24px 24px 0 0;
-  background: rgba(255, 255, 255, 100);
+  background: rgba(255, 255, 255, 0.96);
   color: #231f20;
   text-shadow: none;
   box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.18);
@@ -446,22 +457,28 @@
 
 .slideFooterEdgeProgress {
   position: absolute;
-  left: 18px;
-  right: 18px;
+  left: 50%;
+  width: calc(100% - 36px);
+  max-width: calc(100% - 36px);
   top: 0;
   z-index: 2;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   pointer-events: auto;
+}
+
+.slideFooterTextActionsOverlayVerticalMedia .slideFooterEdgeProgress {
+  width: min(calc(100vw - 36px), 56.25vh);
+  max-width: min(calc(100vw - 36px), 56.25vh);
 }
 
 .slideFooterEdgeProgress .videoProgressInput {
   display: block;
   width: 100%;
-  height: 18px;
+  height: 10px;
 }
 
 .slideFooterEdgeProgress .progressBar {
-  height: 6px;
+  height: 3px;
   background: rgba(35, 31, 32, 0.16);
 }
 
@@ -575,6 +592,11 @@
   cursor: not-allowed;
 }
 
+.slideFooterTextLinkDisabled .slideFooterActionIcon {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
 .slideFooterTextDivider {
   display: inline-block;
   padding: 0 8px;
@@ -598,8 +620,53 @@
 
 .videoProgressInput {
   width: 100%;
-  height: 20px;
+  height: 10px;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    linear-gradient(
+      to right,
+      currentColor 0 var(--video-progress-percent, 0%),
+      rgba(255, 255, 255, 0.62) var(--video-progress-percent, 0%) 100%
+    )
+    center / 100% 3px no-repeat;
+  border-radius: 999px;
+}
+
+.videoProgressInput::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.videoProgressInput::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -7.5px;
+  border: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+
+.videoProgressInput::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.videoProgressInput::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+}
+
+.videoProgressInput::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: transparent;
 }
 
 .slideBody {
@@ -1244,9 +1311,17 @@
 }
 
 .dripCountdownTime {
-  font-size: clamp(2.4rem, 7vw, 5.8rem);
+  max-width: 100%;
+  font-size: clamp(2rem, 5vw, 4rem);
   font-weight: 900;
   line-height: 1;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.dripCountdownPending {
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
 }
 
 .dripCountdownMeta {
