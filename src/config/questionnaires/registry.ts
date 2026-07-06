@@ -101,6 +101,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "ticket-purchase-assistant": {
+    slug: "ticket-purchase-assistant",
+    name: "Ticket Purchase Assistant",
+    themeKey: "invitation",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/ticketPurchaseAssistantDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "escape-album": {
     slug: "escape-album",
     name: "Escape Album",
@@ -332,7 +344,7 @@ export async function getQuestionnaireBySlug(slug: string) {
     };
   }
 
-  if (entry.slug === "invitation") {
+  if (entry.slug === "invitation" || entry.slug === "ticket-purchase-assistant") {
     const shopCatalog = await getReusableShopCatalog({
       catalogKey: "invitationTickets",
       currencyCode: "USD",

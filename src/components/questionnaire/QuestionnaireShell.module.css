@@ -3000,6 +3000,55 @@
   opacity: 0.76;
 }
 
+.accountVerificationForm {
+  display: grid;
+  gap: 10px;
+}
+
+.accountFieldLabel {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+  opacity: 0.82;
+  text-transform: uppercase;
+}
+
+.accountTextInput {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(32, 28, 29, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: inherit;
+  font: inherit;
+  padding: 9px 10px;
+  box-sizing: border-box;
+}
+
+.accountTextInput[type="file"] {
+  padding: 8px;
+}
+
+.accountFormError,
+.accountFormSuccess {
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 9px 10px;
+}
+
+.accountFormError {
+  background: rgba(180, 35, 24, 0.09);
+  color: #b42318;
+}
+
+.accountFormSuccess {
+  background: rgba(46, 125, 74, 0.11);
+  color: #2f7d4a;
+}
+
 .purchaseRecipientForm {
   display: grid;
   gap: 10px;

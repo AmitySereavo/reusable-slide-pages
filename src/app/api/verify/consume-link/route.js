@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { AUTH_MESSAGES } from "@/customerAccess/config/authMessages";
 import { buildGatedAccessCookie } from "@/lib/questionnaire/gatedAccessCookie";
 import { enrollVerifiedEmailTagSequencesForUser } from "@/lib/verification/emailSequences";
+import { createSession } from "@/lib/auth/sessionServer";
+import { getRequestIdentity } from "@/lib/security/requestIdentity";
 
 function hashToken(rawToken) {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
@@ -169,6 +171,98 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
   return response;
 }
 
+async function consumeSequenceDeviceAccess({ record, tokenHash }) {
+  const identifier = String(record.identifier || "").trim().toLowerCase();
+  const redirectUrl = new URL(
+    record.successRedirect || "http://localhost/questionnaire/itasl"
+  );
+  const sequenceJobId = redirectUrl.searchParams.get("sequenceJobId");
+  const unlockKey = redirectUrl.searchParams.get("unlockKey");
+  const dripSequenceKey = redirectUrl.searchParams.get("dripSequenceKey");
+
+  if (!sequenceJobId || !unlockKey || !dripSequenceKey) {
+    return NextResponse.json(
+      { error: "This device verification link is incomplete." },
+      { status: 400 }
+    );
+  }
+
+  const job = await prisma.emailSequenceJob.findUnique({
+    where: { id: sequenceJobId },
+    include: {
+      enrollment: {
+        select: {
+          recipientEmail: true,
+          userId: true,
+        },
+      },
+    },
+  });
+
+  const recipientEmail = String(
+    job?.recipientEmail || job?.enrollment?.recipientEmail || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (!job || !recipientEmail || recipientEmail !== identifier) {
+    return NextResponse.json(
+      { error: "This device verification link does not match the email sequence." },
+      { status: 403 }
+    );
+  }
+
+  const userId = job.userId || job.enrollment?.userId || record.userId;
+
+  if (!userId) {
+    return NextResponse.json(
+      { error: "This device verification link is not attached to an account." },
+      { status: 409 }
+    );
+  }
+
+  const requestIdentity = await getRequestIdentity();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.emailSequenceEvent.create({
+      data: {
+        sequenceId: job.sequenceId,
+        stepId: job.stepId,
+        enrollmentId: job.enrollmentId,
+        jobId: job.id,
+        userId,
+        recipientEmail,
+        eventType: "sequence_link_device_authorized",
+        eventKey: unlockKey,
+        metadata: {
+          dripSequenceKey,
+          source: "device-verification-email",
+          deviceKey: requestIdentity.deviceKey,
+          ipHash: requestIdentity.ipHash,
+          userAgent: requestIdentity.userAgent,
+          acceptLanguage: requestIdentity.acceptLanguage,
+          platform: requestIdentity.platform,
+          location: requestIdentity.location,
+        },
+      },
+    });
+
+    await tx.verificationToken.delete({
+      where: { tokenHash },
+    });
+  });
+
+  await createSession(userId);
+
+  return NextResponse.json({
+    success: true,
+    message: "Device verified.",
+    identifier,
+    successRedirect: record.successRedirect || null,
+    target: record.target || null,
+  });
+}
+
 export async function POST(request) {
   try {
     const { token } = await request.json();
@@ -206,6 +300,10 @@ export async function POST(request) {
 
     if (record.target === "gatedLeadAccess") {
       return consumeGatedLeadAccess({ record, tokenHash });
+    }
+
+    if (record.target === "sequenceDeviceAccess") {
+      return consumeSequenceDeviceAccess({ record, tokenHash });
     }
 
     const identifier = record.identifier;

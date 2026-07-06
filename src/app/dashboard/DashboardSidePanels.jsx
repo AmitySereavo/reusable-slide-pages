@@ -10,17 +10,19 @@ const adminLinks = [
   { href: "/dashboard/tickets", label: "Tickets" },
   { href: "/dashboard/inventory", label: "Inventory" },
   { href: "/dashboard/currencies", label: "Currencies" },
+  { href: "/dashboard/identity-verifications", label: "ID Verifications" },
   { href: "/dashboard/email-sequences", label: "Email Sequences" },
   { href: "/questionnaire/invitation", label: "Invitation" },
+  { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
   { href: "/questionnaire/escape-album", label: "Escape Album" },
   { href: "/questionnaire/itasl", label: "ITASL Sequence" },
 ];
 
 const accountLinks = [
   { href: "/questionnaire/auth-account", label: "Account" },
-  { href: "/questionnaire/auth-account?section=purchased-items", label: "Purchased Items" },
-  { href: "/questionnaire/auth-account?section=my-tickets", label: "My Tickets" },
-  { href: "/questionnaire/auth-account?section=receipts", label: "Receipts" },
+  { href: "/questionnaire/auth-account?slide=purchased-items", label: "Purchased Items" },
+  { href: "/questionnaire/auth-account?slide=my-tickets", label: "My Tickets" },
+  { href: "/questionnaire/auth-account?slide=receipts", label: "Receipts" },
   { href: "/questionnaire/invitation?slide=review-order", label: "Cart" },
 ];
 

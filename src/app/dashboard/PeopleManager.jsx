@@ -266,6 +266,9 @@ function AccountDetails({ record }) {
           <>
             <strong>{event.eventType}</strong>
             <span>{event.eventKey || event.recipientEmail || "No key"} · {formatDate(event.createdAt)}</span>
+            {getDeviceActivityLine(event.metadata) ? (
+              <span>{getDeviceActivityLine(event.metadata)}</span>
+            ) : null}
           </>
         )}
       />
@@ -332,6 +335,22 @@ function InfoLine({ label, value }) {
       <span style={styles.infoValue}>{value || "Not recorded"}</span>
     </p>
   );
+}
+
+function getDeviceActivityLine(metadata) {
+  if (!metadata || typeof metadata !== "object") return "";
+
+  const device = metadata.deviceKey
+    ? `device ${String(metadata.deviceKey).slice(0, 10)}`
+    : "";
+  const location = metadata.location && typeof metadata.location === "object"
+    ? [metadata.location.city, metadata.location.region, metadata.location.country]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+  const status = metadata.reason ? `reason: ${metadata.reason}` : "";
+
+  return [device, location, status].filter(Boolean).join(" · ");
 }
 
 const styles = {

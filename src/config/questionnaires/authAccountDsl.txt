@@ -53,9 +53,8 @@ BR
 ===
 @id: my-tickets
 @type: content
-@shownext: true
-@next: Buy Tickets
-@goto: /questionnaire/invitation?slide=invitation-shop
+@block: my-tickets-dashboard
+@shownext: false
 @showback: true
 @back: Back
 @backgoto: account-home
@@ -64,7 +63,7 @@ BR
 BR
 # [c1] My Tickets
 BR
-[c3] Your ticket links and event access will be listed here.
+[c3] View ticket purchase progress, purchased tickets, and ticket purchase options.
 
 ===
 @id: receipts

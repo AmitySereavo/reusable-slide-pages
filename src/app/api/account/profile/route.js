@@ -70,6 +70,21 @@ export async function GET() {
             updatedAt: true,
           },
         },
+        identityVerifications: {
+          orderBy: { submittedAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            documentType: true,
+            instagramUrl: true,
+            tiktokUrl: true,
+            facebookUrl: true,
+            status: true,
+            adminNotes: true,
+            reviewedAt: true,
+            submittedAt: true,
+          },
+        },
       },
     });
 
@@ -119,6 +134,17 @@ export async function GET() {
         storeCreditReturnedBalance: storeCreditBalance.returned,
         storeCreditCurrencyCode: storeCreditBalance.currencyCode,
         preferredCurrencyCode,
+        identityVerification: user.identityVerifications?.[0]
+          ? {
+              ...user.identityVerifications[0],
+              reviewedAt:
+                user.identityVerifications[0].reviewedAt?.toISOString?.() ??
+                user.identityVerifications[0].reviewedAt,
+              submittedAt:
+                user.identityVerifications[0].submittedAt?.toISOString?.() ??
+                user.identityVerifications[0].submittedAt,
+            }
+          : null,
       },
     });
   } catch (error) {

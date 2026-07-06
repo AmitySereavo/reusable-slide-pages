@@ -1,0 +1,477 @@
+===
+// TICKET PURCHASE ASSISTANT
+@id: ticket-assistant-home
+@type: content
+@title: Ticket Purchase Assistant
+@subtitle: A guided way to buy valid event tickets
+@shownext: true
+@next: Start
+@goto: choose-event
+@showback: false
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Ticket Purchase Assistant
+BR
+[c3] This is another valid route to the same ticket purchase destination.
+BR
+[c3] The ticket rules, limits, meals, add-ons, cart, and checkout still come from the existing ticket system.
+
+===
+// CHOOSE EVENT
+@id: choose-event
+@type: content
+@block: ticket-assistant-event
+@shownext: true
+@next: Continue
+@goto: ticket-quantity
+@showback: true
+@back: Back
+@backgoto: ticket-assistant-home
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Choose the event you want to attend
+BR
+[c3] Events are loaded from the ticket database.
+
+===
+// QUANTITY
+@id: ticket-quantity
+@type: content
+@block: ticket-assistant-quantity
+@shownext: true
+@next: Continue
+@goto: before-you-continue
+@showback: true
+@back: Back
+@backgoto: choose-event
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] How many tickets are you purchasing?
+BR
+[c3] Quantity limits come from the selected event settings.
+
+===
+// BEFORE YOU CONTINUE
+@id: before-you-continue
+@type: content
+@block: ticket-assistant-prep
+@shownext: true
+@next: Continue
+@goto: how-ticket-purchasing-works
+@showback: true
+@back: Back
+@backgoto: ticket-quantity
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Before You Continue
+BR
+[c3] Collecting attendee information now will make checkout faster.
+
+===
+// HOW TICKET PURCHASING WORKS
+@id: how-ticket-purchasing-works
+@type: content
+@block: ticket-assistant-how-works
+@shownext: true
+@next: Continue
+@goto: account-holder-info
+@showback: true
+@back: Back
+@backgoto: before-you-continue
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] How Ticket Purchasing Works
+BR
+[c3] Watch the quick introduction, or open the footer text and read the same information by section.
+
+===
+// ACCOUNT HOLDER INFORMATION
+@id: account-holder-info
+@type: content
+@block: ticket-assistant-account-holder
+@shownext: true
+@next: Continue
+@goto: attendee-details
+@showback: true
+@back: Back
+@backgoto: how-ticket-purchasing-works
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Enter Your Information
+BR
+[c3] Your legal name remains the administrative identity for verification purposes.
+
+===
+// ATTENDEE DETAILS
+@id: attendee-details
+@type: content
+@block: ticket-assistant-owner-loop
+@shownext: true
+@next: Continue
+@goto: ticket-type-loop
+@showback: true
+@back: Back
+@backgoto: account-holder-info
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Enter attendee details
+BR
+[c3] These answers will become the ticket owner details used by the existing ticket order flow.
+
+===
+// TICKET TYPE LOOP
+@id: ticket-type-loop
+@type: content
+@block: ticket-assistant-ticket-types
+@shownext: true
+@next: Continue
+@goto: invitation-upgrades
+@showback: true
+@back: Back
+@backgoto: attendee-details
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Choose ticket types
+BR
+[c3] Ticket type choices are pulled from the selected event.
+
+===
+// INVITATION UPGRADES
+@id: invitation-upgrades
+@type: content
+@block: ticket-assistant-upgrades
+@shownext: true
+@next: Continue
+@goto: meal-intro
+@showback: true
+@back: Back
+@backgoto: ticket-type-loop
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Choose invitation options
+BR
+[c3] Upgrade choices and pricing are pulled from the selected ticket settings.
+
+===
+// MEAL INTRO
+@id: meal-intro
+@type: content
+@block: ticket-assistant-meal-intro
+@shownext: true
+@next: Continue
+@showback: true
+@back: Back
+@backgoto: invitation-upgrades
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Select Your Meal
+BR
+[c3] On the next page, you will choose a meal for this attendee.
+
+===
+// MEAL RESPONSIBILITY
+@id: meal-responsibility
+@type: content
+@block: ticket-assistant-meal-responsibility
+@shownext: false
+@showback: true
+@back: Back
+@backgoto: meal-intro
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Meals & Add-ons
+BR
+[c3] Choose whether you will select meals and add-ons now, or whether this attendee will complete them later.
+
+===
+// MEAL CONFIRMATION
+@id: meal-confirmation
+@type: content
+@block: ticket-assistant-meal-confirmation
+@shownext: true
+@next: Continue
+@showback: true
+@back: Back to Meal Selection
+@backgoto: meal-selection
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Your Meal Has Been Saved
+BR
+[c3] Next, you may choose optional collectibles, souvenirs, merchandise, music, and other event add-ons.
+
+===
+// INVITATION SHOP
+@id: invitation-shop
+@type: shop
+@title: Choose the event you want to attend
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@ticketgoto: ticket-details
+@mealgoto: meal-selection
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@backgoto: ticket-assistant-home
+@next: Continue
+---
+BR
+# [c1] Choose the event you want to attend
+BR
+[c3] Available events, ticket types, limits, upgrades, meal rules, and purchase rules are pulled from the existing ticket database settings.
+BR
+[c3] Select the ticket type and quantity. If purchasing for others, use the purchase-for-someone controls where the ticket allows it.
+
+===
+// MUSIC AND MERCH SHOP
+@id: music-merch-shop
+@type: shop
+@store: orderCart
+@catalog: musicMerchShopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@backgoto: ticket-details
+@next: Checkout
+@choiceplacement: inline
+---
+BR
+# [c1] Music and Merch
+BR
+[c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
+[c3] Physical items are currently set up for event collection while we test the flow.
+
+===
+// TICKET DETAILS
+@id: ticket-details
+@type: tickets
+@store: ticketAssignments
+@mealgoto: meal-selection
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@backgoto: meal-intro
+@next: Continue
+@choiceplacement: inline
+---
+BR
+# [c1] Ticket Details
+BR
+[c2] - Confirm who owns each ticket.
+[c2] - Review ticket upgrades, owner access, meal responsibility, and add-on budgets.
+@choices:
+- ticket-help|Need help with tickets?|ticket-details-help|secondary
+
+===
+// TICKET DETAILS HELP
+@id: ticket-details-help
+@type: media
+@title: Ticket Help
+@subtitle: Ticket Details
+@media: /media/invitation/YYSSLYX.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
+@back: Back
+@next: Back to Ticket Details
+@goto: ticket-details
+@footercontentlabel: Ticket Help
+@footeraction: media|mute|Mute|toggle-mute
+---
+BR
+# [c1] Ticket Help
+BR
+[c3] For guest tickets, use verified recipients where available so their ticket and meal links can be sent after checkout.
+[c3] Use each ticket owner's access section to decide who selects and pays for meals and extra add-ons.
+
+===
+// MEAL SELECTION
+@id: meal-selection
+@type: meal
+@store: mealSelections
+@mealmenu: mealMenus
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@showback: false
+@next: Save Meal
+---
+BR
+# [c1] Select Meals
+BR
+[c2] Choose the meal quantities for tickets you are handling now.
+[c3] Ticket owners who will handle their own meals or add-ons will receive their own access flow after checkout.
+
+===
+// DELIVERY OPTIONS
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: contact-details
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+---
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive any physical items in this order.
+
+===
+// CONTACT DETAILS
+@id: contact-details
+@type: form
+@contactmode: order
+@showauthcontrols: false
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Contact Details
+BR
+[c2] Enter your contact details so we can process your tickets.
+BR
+@fields:
+- fullName|text|Full name|required|Full name
+- email|email|Email address|required|Email address for ticket, invitation, or download access
+- phone|tel|Phone number|optional|Optional
+- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
+---
+@run: submitLead
+@back: Back
+@next: Continue to Ticket Details
+@goto: ticket-details
+
+===
+// REVIEW ORDER
+@id: review-order
+@type: shop
+@title: Cart
+@store: orderCart
+@catalog: orderCatalog
+@shopmode: review
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@run: submitInvitationOrder
+@back: Back
+@next: Complete
+@goto: confirmation-message
+---
+BR
+# [c1] Cart
+BR
+[c3] Review what is paid now, what each ticket owner handles later, any budget-covered amount, and the final amount due.
+
+===
+// CONFIRMATION MESSAGE
+@id: confirmation-message
+@type: content
+@countstep: false
+@syncurl: true
+---
+BR
+# [c1] Respect.
+BR
+[c2] Your order info was received.
+BR
+[c3] If guest ticket owners were added with email addresses, their private ticket links were sent.

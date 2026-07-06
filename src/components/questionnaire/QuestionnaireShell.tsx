@@ -2,7 +2,9 @@
 
 import {
   type CSSProperties,
+  type FormEvent,
   Fragment,
+  type KeyboardEvent,
   type MouseEvent,
   useEffect,
   useMemo,
@@ -24,7 +26,6 @@ import {
   getCartFulfillmentLabel,
 } from "./renderers/CartReviewRenderers";
 import {
-  CommerceExitWarning,
   EmptyCartStoreChoices,
 } from "./renderers/CommerceFlowPanels";
 import { QuantityControl, ShopSizeDescription } from "./renderers/ShopControls";
@@ -90,6 +91,7 @@ import {
   getDiscountDefinitionByCode,
   getShopCartTotalWeight,
   getShopCatalog,
+  makeShopLineKey,
   normalizeDiscountDefinitions,
   normalizeShopCart,
   removeShopLine,
@@ -213,7 +215,14 @@ type Props = {
   theme: ThemeConfig;
 };
 
-const CHECKOUT_DRAFT_SLUG = "invitation";
+const CHECKOUT_DRAFT_SLUGS = new Set([
+  "invitation",
+  "ticket-purchase-assistant",
+]);
+
+function isCheckoutDraftSlug(slug: string) {
+  return CHECKOUT_DRAFT_SLUGS.has(slug);
+}
 const CHECKOUT_DRAFT_KEYS = [
   "fullName",
   "email",
@@ -226,6 +235,13 @@ const CHECKOUT_DRAFT_KEYS = [
   "selectedMealTicketCode",
   "appliedDiscountCode",
   "invitationOrderRequestKey",
+  "ticketAssistantEventProductId",
+  "ticketAssistantQuantity",
+  "guidedTicketPurchaseType",
+  "ticketAssistantSlots",
+  "ticketAssistantActiveOwnerIndex",
+  "ticketAssistantActiveMealIndex",
+  "ticketAssistantLastSlide",
 ] as const;
 const CHECKOUT_RESERVATION_SECONDS = 25;
 
@@ -375,10 +391,536 @@ const COMMERCE_WORKSPACE_SLIDE_IDS = new Set([
   "purchase-for-others",
 ]);
 
-type PendingCommerceExit = {
-  target: string;
-  mode: "href" | "slide";
+type TicketAssistantOwnerMode =
+  | "purchaser_pays_ticket_and_addons"
+  | "owner_pays_addons"
+  | "owner_selects_sender_pays_addons";
+
+type TicketAssistantSlot = {
+  name: string;
+  printedName: string;
+  email: string;
+  phone: string;
+  isPlusOne: boolean;
+  isPurchaser: boolean;
+  sizeOptionId: string;
+  purchaseModeId?: string;
+  deliveryModeId?: string;
+  mailingAddressLine1: string;
+  mailingAddressLine2: string;
+  mailingCity: string;
+  mailingRegion: string;
+  mailingPostalCode: string;
+  mailingCountry: string;
+  ownerMode: TicketAssistantOwnerMode;
+  mealResponsibilitySelected: boolean;
+  budgetChoiceId?: string;
+  budget: number;
+  skipMealForNow: boolean;
+  skipCollectiblesForNow: boolean;
 };
+
+function getTicketAssistantEventProducts(catalog: ShopCatalog | null) {
+  return (catalog?.products ?? []).filter(
+    (product) => product.fulfillmentType === "ticket"
+  );
+}
+
+function getTicketAssistantProduct(
+  catalog: ShopCatalog | null,
+  productId: unknown
+) {
+  const id = String(productId ?? "").trim();
+  return getTicketAssistantEventProducts(catalog).find(
+    (product) => product.id === id
+  );
+}
+
+function getTicketAssistantMaxQuantity(product: ShopCatalogProduct | undefined) {
+  if (!product) {
+    return 1;
+  }
+
+  const configuredCaps = [
+    product.maxOrderQuantity,
+    product.maxAccountHolderQuantity !== undefined ||
+    product.maxPurchaseForOthers !== undefined ||
+    product.maxRecipientQuantity !== undefined
+      ? (product.maxAccountHolderQuantity ?? 1) +
+        (product.enablePurchaseForOthers === false
+          ? 0
+          : (product.maxPurchaseForOthers ?? 0) *
+            (product.maxRecipientQuantity ?? 1))
+      : undefined,
+  ]
+    .filter(
+      (value): value is number =>
+        typeof value === "number" && Number.isFinite(value) && value > 0
+    )
+    .map((value) => Math.floor(value));
+
+  if (!configuredCaps.length) {
+    return 1;
+  }
+
+  return Math.max(1, Math.min(...configuredCaps));
+}
+
+function getTicketAssistantQuantity(answers: QuestionnaireAnswers) {
+  const quantity = Number(answers.ticketAssistantQuantity ?? 1);
+  return Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+}
+
+function getTicketAssistantActiveOwnerIndex(
+  answers: QuestionnaireAnswers,
+  quantity = getTicketAssistantQuantity(answers)
+) {
+  const rawIndex = Number(answers.ticketAssistantActiveOwnerIndex ?? 1);
+  const index = Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 1;
+  return Math.min(Math.max(1, index), Math.max(1, quantity - 1));
+}
+
+function getTicketAssistantActiveMealIndex(
+  answers: QuestionnaireAnswers,
+  quantity = getTicketAssistantQuantity(answers)
+) {
+  const rawIndex = Number(answers.ticketAssistantActiveMealIndex ?? 0);
+  const index = Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0;
+  return Math.min(Math.max(0, index), Math.max(0, quantity - 1));
+}
+
+function getTicketAssistantAccountHolderAllowance(
+  product: ShopCatalogProduct | undefined
+) {
+  return Math.max(1, Math.floor(product?.maxAccountHolderQuantity ?? 1));
+}
+
+function canTicketAssistantSlotBePlusOne(params: {
+  product: ShopCatalogProduct | undefined;
+  slots?: TicketAssistantSlot[];
+  index: number;
+}) {
+  const { product, slots, index } = params;
+
+  if (index <= 0) {
+    return false;
+  }
+
+  if (index < getTicketAssistantAccountHolderAllowance(product)) {
+    return true;
+  }
+
+  const previousSlot = slots?.[index - 1];
+
+  if (!previousSlot || previousSlot.isPlusOne) {
+    return false;
+  }
+
+  return isTicketAssistantEmailRequired({
+    product,
+    slot: previousSlot,
+    index: index - 1,
+  });
+}
+
+function isTicketAssistantEmailRequired(params: {
+  product: ShopCatalogProduct | undefined;
+  slots?: TicketAssistantSlot[];
+  slot: TicketAssistantSlot;
+  index: number;
+}) {
+  const { product, slots, slot, index } = params;
+
+  if (
+    slot.isPlusOne &&
+    canTicketAssistantSlotBePlusOne({ product, slots, index })
+  ) {
+    return false;
+  }
+
+  return index !== 0;
+}
+
+function getTicketAssistantPlusOneHostIndex(params: {
+  product: ShopCatalogProduct | undefined;
+  slots: TicketAssistantSlot[];
+  index: number;
+}) {
+  const { product, slots, index } = params;
+
+  if (
+    index <= 0 ||
+    !slots[index]?.isPlusOne ||
+    !canTicketAssistantSlotBePlusOne({ product, slots, index })
+  ) {
+    return null;
+  }
+
+  return index < getTicketAssistantAccountHolderAllowance(product)
+    ? 0
+    : index - 1;
+}
+
+function getTicketAssistantDisplayName(
+  slot: TicketAssistantSlot | undefined,
+  fallback: string
+) {
+  if (!slot) {
+    return fallback;
+  }
+
+  return [slot.name || fallback, slot.printedName ? `(${slot.printedName})` : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function getTicketAssistantSlots(
+  answers: QuestionnaireAnswers,
+  quantity = getTicketAssistantQuantity(answers)
+): TicketAssistantSlot[] {
+  const rawSlots = Array.isArray(answers.ticketAssistantSlots)
+    ? answers.ticketAssistantSlots
+    : [];
+  const slots: TicketAssistantSlot[] = [];
+
+  for (let index = 0; index < quantity; index += 1) {
+    const raw = rawSlots[index];
+    const record =
+      raw && typeof raw === "object" && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
+
+    slots.push({
+      name: String(record.name ?? ""),
+      printedName: String(record.printedName ?? ""),
+      email: String(record.email ?? ""),
+      phone: String(record.phone ?? ""),
+      isPlusOne: record.isPlusOne === true,
+      isPurchaser: index === 0 ? record.isPurchaser !== false : record.isPurchaser === true,
+      sizeOptionId: String(record.sizeOptionId ?? "").trim(),
+      purchaseModeId: String(record.purchaseModeId ?? "").trim() || undefined,
+      deliveryModeId: String(record.deliveryModeId ?? "").trim() || undefined,
+      mailingAddressLine1: String(record.mailingAddressLine1 ?? ""),
+      mailingAddressLine2: String(record.mailingAddressLine2 ?? ""),
+      mailingCity: String(record.mailingCity ?? ""),
+      mailingRegion: String(record.mailingRegion ?? ""),
+      mailingPostalCode: String(record.mailingPostalCode ?? ""),
+      mailingCountry: String(record.mailingCountry ?? ""),
+      ownerMode:
+        record.ownerMode === "owner_pays_addons" ||
+        record.ownerMode === "owner_selects_sender_pays_addons"
+          ? record.ownerMode
+          : "purchaser_pays_ticket_and_addons",
+      mealResponsibilitySelected: record.mealResponsibilitySelected === true,
+      budgetChoiceId: String(record.budgetChoiceId ?? "").trim() || undefined,
+      budget:
+        typeof record.budget === "number" && Number.isFinite(record.budget)
+          ? Math.max(0, record.budget)
+          : 0,
+      skipMealForNow: record.skipMealForNow === true,
+      skipCollectiblesForNow: record.skipCollectiblesForNow === true,
+    });
+  }
+
+  return slots;
+}
+
+function updateTicketAssistantSlot(
+  answers: QuestionnaireAnswers,
+  index: number,
+  patch: Partial<TicketAssistantSlot>
+) {
+  const quantity = getTicketAssistantQuantity(answers);
+  const slots = getTicketAssistantSlots(answers, quantity);
+  slots[index] = {
+    ...slots[index],
+    ...patch,
+  };
+
+  return slots;
+}
+
+function getTicketAssistantSizeOption(
+  product: ShopCatalogProduct | undefined,
+  sizeOptionId: string | undefined
+) {
+  return (
+    product?.sizeOptions.find((option) => option.id === sizeOptionId) ??
+    product?.sizeOptions[0]
+  );
+}
+
+function getTicketAssistantPurchaseMode(
+  sizeOption: ShopCatalogSizeOption | undefined,
+  purchaseModeId: string | undefined
+) {
+  return (
+    sizeOption?.purchaseModes?.find(
+      (mode) =>
+        mode.id === purchaseModeId && !isHiddenTicketDeliveryPurchaseMode(mode.id)
+    ) ??
+    sizeOption?.purchaseModes?.find(
+      (mode) =>
+        mode.id !== "digital-invitation" &&
+        mode.id !== "physical-invitation"
+    ) ??
+    sizeOption?.purchaseModes?.[0]
+  );
+}
+
+function getTicketAssistantUpgradeModes(
+  sizeOption: ShopCatalogSizeOption | undefined
+) {
+  return (sizeOption?.purchaseModes ?? []).filter(
+    (mode) => !isHiddenTicketDeliveryPurchaseMode(mode.id)
+  );
+}
+
+function getTicketAssistantDeliveryModes(
+  sizeOption: ShopCatalogSizeOption | undefined
+) {
+  return (sizeOption?.purchaseModes ?? []).filter((mode) =>
+    isHiddenTicketDeliveryPurchaseMode(mode.id)
+  );
+}
+
+function getTicketAssistantDeliveryMode(
+  sizeOption: ShopCatalogSizeOption | undefined,
+  deliveryModeId: string | undefined
+) {
+  const deliveryModes = getTicketAssistantDeliveryModes(sizeOption);
+
+  return (
+    deliveryModes.find((mode) => mode.id === deliveryModeId) ??
+    deliveryModes.find((mode) => mode.id === "digital-invitation") ??
+    deliveryModes[0]
+  );
+}
+
+function getTicketAssistantTotal(params: {
+  catalog: ShopCatalog | null;
+  answers: QuestionnaireAnswers;
+}) {
+  const { catalog, answers } = params;
+  const product = getTicketAssistantProduct(
+    catalog,
+    answers.ticketAssistantEventProductId
+  );
+
+  if (!product) {
+    return 0;
+  }
+
+  const slots = getTicketAssistantSlots(answers);
+
+  return slots.reduce((sum, slot, index) => {
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product,
+      slots,
+      index,
+    });
+    const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+    const sizeOption = getTicketAssistantSizeOption(
+      product,
+      hostSlot?.sizeOptionId ?? slot.sizeOptionId
+    );
+    const upgradeMode = getTicketAssistantPurchaseMode(
+      sizeOption,
+      slot.purchaseModeId
+    );
+    const deliveryMode = getTicketAssistantDeliveryMode(
+      sizeOption,
+      hostSlot?.deliveryModeId ?? slot.deliveryModeId
+    );
+
+    return (
+      sum +
+      (sizeOption?.price ?? 0) +
+      (upgradeMode?.priceAdjustment ?? 0) +
+      (deliveryMode?.priceAdjustment ?? 0)
+    );
+  }, 0);
+}
+
+function buildTicketAssistantCheckoutState(params: {
+  catalog: ShopCatalog | null;
+  answers: QuestionnaireAnswers;
+}) {
+  const { catalog, answers } = params;
+  const product = getTicketAssistantProduct(
+    catalog,
+    answers.ticketAssistantEventProductId
+  );
+
+  if (!product) {
+    return null;
+  }
+
+  const quantity = getTicketAssistantQuantity(answers);
+  const rawSlots = getTicketAssistantSlots(answers, quantity);
+  const slots = rawSlots.map((slot, index) => {
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product,
+      slots: rawSlots,
+      index,
+    });
+    const hostSlot = hostIndex === null ? undefined : rawSlots[hostIndex];
+    const sizeOption = getTicketAssistantSizeOption(
+      product,
+      hostSlot?.sizeOptionId ?? slot.sizeOptionId
+    );
+    const purchaseMode = getTicketAssistantPurchaseMode(
+      sizeOption,
+      slot.purchaseModeId
+    );
+    const deliveryMode = getTicketAssistantDeliveryMode(
+      sizeOption,
+      hostSlot?.deliveryModeId ?? slot.deliveryModeId
+    );
+
+    return {
+      ...slot,
+      isPurchaser: index === 0 ? true : slot.isPurchaser,
+      ownerMode:
+        index === 0
+          ? "purchaser_pays_ticket_and_addons"
+          : hostIndex !== null
+            ? hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons"
+            : slot.ownerMode,
+      budget:
+        index === 0
+          ? 0
+          : hostIndex !== null
+            ? hostSlot?.budget ?? 0
+            : slot.budget,
+      sizeOptionId: sizeOption?.id ?? "",
+      purchaseModeId: purchaseMode?.id,
+      deliveryModeId: deliveryMode?.id,
+      mailingAddressLine1:
+        hostSlot?.mailingAddressLine1 ?? slot.mailingAddressLine1,
+      mailingAddressLine2:
+        hostSlot?.mailingAddressLine2 ?? slot.mailingAddressLine2,
+      mailingCity: hostSlot?.mailingCity ?? slot.mailingCity,
+      mailingRegion: hostSlot?.mailingRegion ?? slot.mailingRegion,
+      mailingPostalCode:
+        hostSlot?.mailingPostalCode ?? slot.mailingPostalCode,
+      mailingCountry: hostSlot?.mailingCountry ?? slot.mailingCountry,
+    };
+  });
+  const groupedSlots = new Map<string, TicketAssistantSlot[]>();
+
+  for (const slot of slots) {
+    if (!slot.sizeOptionId) continue;
+    const key = makeShopLineKey(product.id, slot.sizeOptionId);
+    groupedSlots.set(key, [...(groupedSlots.get(key) ?? []), slot]);
+  }
+
+  const orderCart: ShopCart = {};
+
+  for (const [lineKey, lineSlots] of groupedSlots.entries()) {
+    const firstSlot = lineSlots[0];
+    const sizeOption = product.sizeOptions.find(
+      (option) => option.id === firstSlot.sizeOptionId
+    );
+    const recipients: ShopPurchaseRecipient[] = lineSlots
+      .filter((slot) => !slot.isPurchaser)
+      .map((slot) => {
+        const purchaseMode = getTicketAssistantPurchaseMode(
+          sizeOption,
+          slot.purchaseModeId
+        );
+
+        return {
+          name: slot.name,
+          email: slot.email,
+          quantity: 1,
+          purchaseModeId: purchaseMode?.id,
+          purchaseModeLabel: purchaseMode?.label,
+        };
+      })
+      .filter((recipient) => recipient.name && recipient.email);
+
+    orderCart[lineKey] = {
+      productId: product.id,
+      sizeOptionId: firstSlot.sizeOptionId,
+      selected: true,
+      quantity: lineSlots.length,
+      purchaseModeId: getDefaultPurchaseModeId(sizeOption),
+      purchaseRecipients: recipients,
+    };
+  }
+
+  const resolvedTicketLines = resolveShopSelectedLines(catalog, orderCart).filter(
+    (line) => line.fulfillmentType === "ticket"
+  );
+  let assignments = buildTicketAssignmentsFromLines({
+    lines: resolvedTicketLines,
+    existingAssignments: normalizeTicketAssignments(answers.ticketAssignments),
+  });
+
+  for (const line of resolvedTicketLines) {
+    const lineSlots = groupedSlots.get(line.lineKey) ?? [];
+    const purchaserSlots = lineSlots.filter((slot) => slot.isPurchaser);
+    const recipientSlots = lineSlots.filter((slot) => !slot.isPurchaser);
+    const orderedSlots = [...purchaserSlots, ...recipientSlots];
+
+    assignments = assignments.map((assignment) => {
+      if (assignment.lineKey !== line.lineKey) {
+        return assignment;
+      }
+
+      const slot = orderedSlots[assignment.ticketIndex];
+      if (!slot) {
+        return assignment;
+      }
+
+      const sizeOption = product.sizeOptions.find(
+        (option) => option.id === assignment.sizeOptionId
+      );
+      const purchaseMode = getTicketAssistantPurchaseMode(
+        sizeOption,
+        slot.purchaseModeId
+      );
+
+      return {
+        ...assignment,
+        ownerName: slot.name || assignment.ownerName,
+        printedTicketName: slot.printedName || slot.name || assignment.ownerName,
+        ownerEmail: slot.email || assignment.ownerEmail,
+        ownerPhone: slot.phone || assignment.ownerPhone,
+        isPurchaserTicket: slot.isPurchaser,
+        ownerLockedFromRecipient: !slot.isPurchaser,
+        emailTicketToOwner: !slot.isPurchaser,
+        purchaseModeId: purchaseMode?.id,
+        purchaseModeLabel: purchaseMode?.label,
+        ticketUpgradeOverride: Boolean(purchaseMode?.id),
+        invitationDeliveryMode:
+          slot.deliveryModeId === "physical-invitation" ? "physical" : "digital",
+        invitationMailingAddress:
+          slot.deliveryModeId === "physical-invitation"
+            ? {
+                addressLine1: slot.mailingAddressLine1,
+                addressLine2: slot.mailingAddressLine2,
+                city: slot.mailingCity,
+                region: slot.mailingRegion,
+                postalCode: slot.mailingPostalCode,
+                country: slot.mailingCountry,
+              }
+            : undefined,
+        ticketOwnerPaymentMode: slot.ownerMode,
+        ticketOwnerAddonBudget:
+          slot.ownerMode === "owner_selects_sender_pays_addons"
+            ? slot.budget
+            : 0,
+      };
+    });
+  }
+
+  return {
+    orderCart,
+    ticketAssignments: assignments,
+  };
+}
 
 
 export default function QuestionnaireShell({ config, theme }: Props) {
@@ -417,13 +959,20 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
-  const [pendingCommerceExit, setPendingCommerceExit] =
-    useState<PendingCommerceExit | null>(null);
   const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("USD");
   const [dripUnlockKeys, setDripUnlockKeys] = useState<string[]>([]);
   const [dripOpenedKeys, setDripOpenedKeys] = useState<string[]>([]);
   const [dripNextAvailableAtBySequence, setDripNextAvailableAtBySequence] =
     useState<Record<string, string>>({});
+  const [sequenceAccessBlock, setSequenceAccessBlock] = useState<{
+    message: string;
+    signupHref?: string;
+    canVerifyDevice?: boolean;
+    verifySent?: boolean;
+    sequenceJobId?: string;
+    unlockKey?: string;
+    dripSequenceKey?: string;
+  } | null>(null);
   const [activeFooterTextPanel, setActiveFooterTextPanel] = useState<{
     id: string;
     label: string;
@@ -518,9 +1067,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   useEffect(() => {
-    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+    if (!isCheckoutDraftSlug(config.slug)) {
       checkoutDraftHydratedRef.current = true;
       shouldSkipNextCheckoutDraftWriteRef.current = false;
+      return;
+    }
+
+    if (
+      config.slug === "ticket-purchase-assistant" &&
+      searchParams.get("resumePurchase") !== "1"
+    ) {
+      checkoutDraftHydratedRef.current = true;
+      shouldSkipNextCheckoutDraftWriteRef.current = true;
       return;
     }
 
@@ -552,11 +1110,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       ...prev,
       ...draft,
     }));
-  }, [config.slug]);
+  }, [config.slug, searchParams]);
 
   useEffect(() => {
     if (
-      config.slug !== CHECKOUT_DRAFT_SLUG ||
+      !isCheckoutDraftSlug(config.slug) ||
       !checkoutDraftHydratedRef.current ||
       checkoutDraftCompletedRef.current
     ) {
@@ -950,6 +1508,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             ...prev,
             [dripSequenceKey]: data.dripNextJob.scheduledFor,
           }));
+        } else {
+          setDripNextAvailableAtBySequence((prev) => {
+            if (!(dripSequenceKey in prev)) {
+              return prev;
+            }
+
+            const next = { ...prev };
+            delete next[dripSequenceKey];
+            return next;
+          });
         }
       }
 
@@ -960,9 +1528,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
 
     void loadDripAccess();
+    const intervalId = window.setInterval(() => {
+      void loadDripAccess();
+    }, 10000);
 
     return () => {
       canceled = true;
+      window.clearInterval(intervalId);
     };
   }, [
     authSessionUser?.id,
@@ -970,6 +1542,178 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     dripSequenceKeys,
     isAuthSessionLoaded,
   ]);
+
+  useEffect(() => {
+    if (!isAuthSessionLoaded || authSessionUser?.id || !currentSlide) {
+      return;
+    }
+
+    const sequenceJobId = searchParams.get("sequenceJobId");
+    const unlockKey = searchParams.get("unlockKey");
+    const dripSequenceKey =
+      searchParams.get("dripSequenceKey") || currentSlide.dripSequenceKey;
+
+    if (
+      !sequenceJobId ||
+      !unlockKey ||
+      !dripSequenceKey ||
+      unlockKey !== currentSlide.dripUnlockKey
+    ) {
+      return;
+    }
+
+    const sequenceJobIdValue = sequenceJobId;
+    const unlockKeyValue = unlockKey;
+    const dripSequenceKeyValue = dripSequenceKey;
+    let canceled = false;
+
+    async function openSequenceEmailAccess() {
+      const response = await fetch(
+        "/api/questionnaires/engagement/sequence-access",
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            sequenceJobId: sequenceJobIdValue,
+            unlockKey: unlockKeyValue,
+            dripSequenceKey: dripSequenceKeyValue,
+          }),
+        }
+      ).catch(() => null);
+
+      const data = response ? await response.json().catch(() => null) : null;
+
+      if (canceled) {
+        return;
+      }
+
+      if (!response?.ok || !data?.authenticated || !data?.user?.id) {
+        if (data?.blocked) {
+          setSequenceAccessBlock({
+            message:
+              typeof data.error === "string"
+                ? data.error
+                : "This private link is already assigned to another device.",
+            signupHref:
+              typeof data.signupHref === "string" ? data.signupHref : undefined,
+            canVerifyDevice: data.canVerifyDevice === true,
+            sequenceJobId: sequenceJobIdValue,
+            unlockKey: unlockKeyValue,
+            dripSequenceKey: dripSequenceKeyValue,
+          });
+        }
+        return;
+      }
+
+      setSequenceAccessBlock(null);
+      setAuthSessionUser({
+        id: String(data.user.id),
+        name: typeof data.user.name === "string" ? data.user.name : null,
+        email: typeof data.user.email === "string" ? data.user.email : null,
+        phone: typeof data.user.phone === "string" ? data.user.phone : null,
+        adminLevel:
+          typeof data.user.adminLevel === "number" ? data.user.adminLevel : 0,
+        preferredCurrencyCode:
+          typeof data.user.preferredCurrencyCode === "string"
+            ? data.user.preferredCurrencyCode
+            : "USD",
+      });
+      setIsAuthSessionLoaded(true);
+      setDripUnlockKeys((prev) =>
+        prev.includes(unlockKeyValue) ? prev : [...prev, unlockKeyValue]
+      );
+    }
+
+    void openSequenceEmailAccess();
+
+    return () => {
+      canceled = true;
+    };
+  }, [
+    authSessionUser?.id,
+    currentSlide,
+    isAuthSessionLoaded,
+    searchParams,
+    setAuthSessionUser,
+    setIsAuthSessionLoaded,
+  ]);
+
+  useEffect(() => {
+    if (config.slug !== "ticket-purchase-assistant" || !currentSlide?.id) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      if (prev.ticketAssistantLastSlide === currentSlide.id) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ticketAssistantLastSlide: currentSlide.id,
+      };
+    });
+  }, [config.slug, currentSlide?.id]);
+
+  async function requestSequenceDeviceVerification() {
+    if (
+      !sequenceAccessBlock?.sequenceJobId ||
+      !sequenceAccessBlock.unlockKey ||
+      !sequenceAccessBlock.dripSequenceKey
+    ) {
+      return;
+    }
+
+    const response = await fetch(
+      "/api/questionnaires/engagement/sequence-access",
+      {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          action: "requestDeviceVerification",
+          sequenceJobId: sequenceAccessBlock.sequenceJobId,
+          unlockKey: sequenceAccessBlock.unlockKey,
+          dripSequenceKey: sequenceAccessBlock.dripSequenceKey,
+        }),
+      }
+    ).catch(() => null);
+
+    const data = response ? await response.json().catch(() => null) : null;
+
+    if (response?.ok && data?.code === "DEVICE_VERIFICATION_SENT") {
+      setSequenceAccessBlock((current) =>
+        current
+          ? {
+              ...current,
+              verifySent: true,
+              message:
+                data.message ||
+                "We sent a device verification link to the original email address.",
+            }
+          : current
+      );
+      return;
+    }
+
+    setSequenceAccessBlock((current) =>
+      current
+        ? {
+            ...current,
+            message:
+              data?.error ||
+              "We could not send the device verification email. Please try again.",
+          }
+        : current
+    );
+  }
 
   useEffect(() => {
     if (!isAuthSessionLoaded || !authSessionUser?.id || !currentSlide) {
@@ -1080,7 +1824,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       { href: "/dashboard/tickets", label: "Tickets" },
       { href: "/dashboard/inventory", label: "Inventory" },
       { href: "/dashboard/currencies", label: "Currencies" },
+      { href: "/dashboard/identity-verifications", label: "ID Verifications" },
       { href: "/dashboard/email-sequences", label: "Email Sequences" },
+      { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
       { href: "/questionnaire/escape-album", label: "Escape Album" },
       { href: "/questionnaire/itasl", label: "ITASL Sequence" },
     ];
@@ -1558,7 +2304,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   useEffect(() => {
-    if (config.slug !== CHECKOUT_DRAFT_SLUG || sharedOrderLines.length === 0) {
+    if (!isCheckoutDraftSlug(config.slug) || sharedOrderLines.length === 0) {
       setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
       return;
     }
@@ -1574,7 +2320,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   useEffect(() => {
     if (
-      config.slug !== CHECKOUT_DRAFT_SLUG ||
+      !isCheckoutDraftSlug(config.slug) ||
       sharedOrderLines.length === 0 ||
       checkoutReservationSecondsRemaining !== 0
     ) {
@@ -1636,7 +2382,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }, [currentTicketAssignments]);
 
   useEffect(() => {
-    if (config.slug !== CHECKOUT_DRAFT_SLUG || isTicketOwnerPortalFlow) {
+    if (!isCheckoutDraftSlug(config.slug) || isTicketOwnerPortalFlow) {
       return;
     }
 
@@ -2186,7 +2932,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function resetCheckoutReservation() {
-    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+    if (!isCheckoutDraftSlug(config.slug)) {
       return;
     }
 
@@ -2210,7 +2956,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     cart: ShopCart,
     catalogKey?: string
   ) {
-    if (config.slug !== CHECKOUT_DRAFT_SLUG) {
+    if (!isCheckoutDraftSlug(config.slug)) {
       return cart;
     }
 
@@ -2453,50 +3199,124 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }
   }
 
-  function isCommerceWorkspaceTarget(target: string, mode: "href" | "slide") {
-    if (mode === "slide") {
-      return isCommerceWorkspaceSlideId(target);
+  function commitTicketAssistantCheckout(options: {
+    target?: string;
+    attendeeIndex?: number;
+  } = {}) {
+    const checkoutState = buildTicketAssistantCheckoutState({
+      catalog: sharedShopDisplayCatalog,
+      answers,
+    });
+
+    if (!checkoutState || Object.keys(checkoutState.orderCart).length === 0) {
+      setSubmitError("Choose an event and at least one ticket before continuing.");
+      return false;
     }
 
-    return isCommerceWorkspaceSlideId(getSlideIdFromQuestionnaireHref(target));
-  }
-
-  function hasCommerceWorkspaceProgress() {
-    return (
-      Object.keys(sharedOrderCart).length > 0 ||
-      currentTicketAssignments.length > 0 ||
-      Boolean(answers.selectedMealTicketCode) ||
-      Boolean(answers.shopEntrySource)
+    const nextTicketAssignments = prefillFirstTicketFromContact(
+      checkoutState.ticketAssignments,
+      answers
     );
+    const selectedAssignment =
+      typeof options.attendeeIndex === "number"
+        ? nextTicketAssignments[options.attendeeIndex]
+        : undefined;
+    const nextAnswers = {
+      ...answers,
+      orderCart: checkoutState.orderCart,
+      ticketAssignments: nextTicketAssignments,
+      ...(selectedAssignment
+        ? {
+            selectedMealTicketCode: selectedAssignment.ticketCode,
+            mealReturnTarget:
+              options.target === "meal-selection"
+                ? "meal-confirmation"
+                : "ticket-details",
+            cartReturnTarget: options.target === "review-order" ? "review-order" : undefined,
+            shopEntrySource:
+              options.target === "music-merch-shop"
+                ? "ticket-assistant-collectibles"
+                : answers.shopEntrySource,
+            ticketAssistantActiveMealIndex: options.attendeeIndex,
+          }
+        : {}),
+    };
+
+    setAnswers(nextAnswers);
+    resetCheckoutReservation();
+    return true;
   }
 
-  function shouldWarnBeforeCommerceExit(target: string, mode: "href" | "slide") {
-    return (
-      isCommerceWorkspaceSlideId(currentSlide?.id) &&
-      hasCommerceWorkspaceProgress() &&
-      !isCommerceWorkspaceTarget(target, mode)
+  function advanceTicketAssistantMealLoop() {
+    const quantity = getTicketAssistantQuantity(answers);
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
     );
+    const slots = getTicketAssistantSlots(answers, quantity);
+
+    for (let nextIndex = activeIndex + 1; nextIndex < quantity; nextIndex += 1) {
+      const hostIndex = getTicketAssistantPlusOneHostIndex({
+        product: selectedProduct,
+        slots,
+        index: nextIndex,
+      });
+      const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+      const isAccountHolderPlusOne =
+        hostIndex === 0 &&
+        slots[0]?.ownerMode === "purchaser_pays_ticket_and_addons";
+      const isPurchaserHandledPlusOne =
+        hostIndex !== null &&
+        (hostIndex === 0 ||
+          hostSlot?.mealResponsibilitySelected === true) &&
+        (hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons") ===
+          "purchaser_pays_ticket_and_addons";
+      const nextMealSlide =
+        nextIndex === 0 || isAccountHolderPlusOne || isPurchaserHandledPlusOne
+          ? "meal-intro"
+          : hostIndex !== null
+            ? null
+            : !slots[nextIndex]?.mealResponsibilitySelected
+              ? "meal-responsibility"
+              : slots[nextIndex]?.ownerMode === "purchaser_pays_ticket_and_addons"
+                ? "meal-intro"
+                : null;
+
+      if (!nextMealSlide) {
+        continue;
+      }
+
+      setAnswers((prev) => ({
+        ...prev,
+        ticketAssistantActiveMealIndex: nextIndex,
+        selectedMealTicketCode: undefined,
+        mealReturnTarget: undefined,
+        shopEntrySource: undefined,
+      }));
+
+      goToTarget(nextMealSlide);
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      selectedMealTicketCode: undefined,
+      mealReturnTarget: undefined,
+      shopEntrySource: undefined,
+    }));
+    goToTarget("review-order");
   }
 
-  function clearCommerceWorkspaceProgress() {
-    clearCheckoutDraft(config.slug);
-    checkoutDraftCompletedRef.current = false;
-    setCartInventoryNotices([]);
-    setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
-    setAnswers((prev) => {
-      const next = { ...prev };
-
-      delete next.orderCart;
-      delete next.ticketAssignments;
-      delete next.selectedMealTicketCode;
-      delete next.mealReturnTarget;
-      delete next.cartReturnTarget;
-      delete next.shopEntrySource;
-      delete next.shopReservationKey;
-      delete next.deliverySelection;
-
-      return next;
-    });
+  function beginTicketAssistantMealLoop() {
+    setAnswers((prev) => ({
+      ...prev,
+      ticketAssistantActiveMealIndex: 0,
+      selectedMealTicketCode: undefined,
+      mealReturnTarget: undefined,
+      shopEntrySource: undefined,
+    }));
+    goToTarget("meal-intro");
   }
 
   function requestCommerceAwareNavigation(
@@ -2506,35 +3326,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setIsAccountMenuOpen(false);
     setIsTrackSidebarOpen(false);
 
-    if (shouldWarnBeforeCommerceExit(target, mode)) {
-      setPendingCommerceExit({ target, mode });
-      return;
-    }
-
     if (mode === "slide") {
       goToTarget(target);
       return;
     }
 
     window.location.href = target;
-  }
-
-  function confirmCommerceExit() {
-    const pending = pendingCommerceExit;
-
-    if (!pending) {
-      return;
-    }
-
-    setPendingCommerceExit(null);
-    clearCommerceWorkspaceProgress();
-
-    if (pending.mode === "slide") {
-      goToTarget(pending.target);
-      return;
-    }
-
-    window.location.href = pending.target;
   }
 
   function getPermanentHomeTarget() {
@@ -2554,6 +3351,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     requestCommerceAwareNavigation(target, "href");
   }
 
+  function getMyTicketsTarget() {
+    return "/questionnaire/auth-account?slide=my-tickets";
+  }
+
   function getSlideHref(slideId: string) {
     return `/questionnaire/${encodeURIComponent(config.slug)}?slide=${encodeURIComponent(
       slideId
@@ -2564,14 +3365,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     event: MouseEvent<HTMLAnchorElement>,
     slideId: string
   ) {
-    if (shouldWarnBeforeCommerceExit(slideId, "slide")) {
-      event.preventDefault();
-      setIsAccountMenuOpen(false);
-      setIsTrackSidebarOpen(false);
-      setPendingCommerceExit({ target: slideId, mode: "slide" });
-      return;
-    }
-
     setIsTrackSidebarOpen(false);
     setIsAccountMenuOpen(false);
   }
@@ -2580,16 +3373,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     event: MouseEvent<HTMLAnchorElement>,
     target: string
   ) {
-    if (!shouldWarnBeforeCommerceExit(target, "href")) {
-      setIsTrackSidebarOpen(false);
-      setIsAccountMenuOpen(false);
-      return;
-    }
-
-    event.preventDefault();
     setIsAccountMenuOpen(false);
     setIsTrackSidebarOpen(false);
-    setPendingCommerceExit({ target, mode: "href" });
   }
 
   function handleSidebarAlbumDownload(itemId: string, format: "wav" | "mp3") {
@@ -3134,6 +3919,14 @@ async function next() {
         return;
       }
 
+      if (
+        currentSlide.id === "music-merch-shop" &&
+        String(answers.shopEntrySource ?? "") === "ticket-assistant-collectibles"
+      ) {
+        advanceTicketAssistantMealLoop();
+        return;
+      }
+
       if (currentSlide.contactGoto && !contactInfoComplete) {
         goToTarget(currentSlide.contactGoto);
         return;
@@ -3223,9 +4016,13 @@ async function next() {
         return;
       }
 
+      const requestedMealReturnTarget = String(
+        answers.mealReturnTarget ?? ""
+      ).trim();
       const mealReturnTarget =
-        String(answers.mealReturnTarget ?? "") === "review-order"
-          ? "review-order"
+        requestedMealReturnTarget === "review-order" ||
+        requestedMealReturnTarget === "meal-confirmation"
+          ? requestedMealReturnTarget
           : "ticket-details";
 
       if (mealReturnTarget === "review-order") {
@@ -3309,6 +4106,76 @@ async function next() {
 
     if (currentSlide.type === "meal") {
       return true;
+    }
+
+    if (currentSlide.blockKey === "ticket-assistant-quantity") {
+      const purchaseType = String(answers.guidedTicketPurchaseType ?? "");
+      return purchaseType === "single" || purchaseType === "multiple";
+    }
+
+    if (currentSlide.blockKey === "ticket-assistant-owner-loop") {
+      const selectedProduct = getTicketAssistantProduct(
+        sharedShopDisplayCatalog,
+        answers.ticketAssistantEventProductId
+      );
+      const quantity = getTicketAssistantQuantity(answers);
+      const activeIndex = getTicketAssistantActiveOwnerIndex(answers, quantity);
+      const slots = getTicketAssistantSlots(answers, quantity);
+
+      if (quantity <= 1) {
+        return true;
+      }
+
+      if (activeIndex < quantity - 1) {
+        return false;
+      }
+
+      for (let index = 1; index < quantity; index += 1) {
+        const slot = slots[index];
+
+        if (!slot.name.trim()) {
+          return false;
+        }
+
+        if (
+          isTicketAssistantEmailRequired({
+            product: selectedProduct,
+            slots,
+            slot,
+            index,
+          }) &&
+          !slot.email.trim()
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    if (currentSlide.blockKey === "ticket-assistant-ticket-types") {
+      const selectedProduct = getTicketAssistantProduct(
+        sharedShopDisplayCatalog,
+        answers.ticketAssistantEventProductId
+      );
+      const quantity = getTicketAssistantQuantity(answers);
+      const slots = getTicketAssistantSlots(answers, quantity);
+
+      return slots.every((slot, index) => {
+        const hostIndex = getTicketAssistantPlusOneHostIndex({
+          product: selectedProduct,
+          slots,
+          index,
+        });
+        const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+
+        return Boolean(
+          getTicketAssistantSizeOption(
+            selectedProduct,
+            hostSlot?.sizeOptionId ?? slot.sizeOptionId
+          )
+        );
+      });
     }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
@@ -4206,6 +5073,201 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
 async function handleNext() {
   if (!currentSlide || !canGoNext() || isSubmitting) return;
 
+  if (
+    currentSlide.blockKey === "ticket-assistant-event" &&
+    !String(answers.ticketAssistantEventProductId ?? "").trim()
+  ) {
+    setSubmitError("Choose an event before continuing.");
+    return;
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-quantity") {
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
+    );
+    const purchaseType = String(answers.guidedTicketPurchaseType ?? "");
+    const maxQuantity = getTicketAssistantMaxQuantity(selectedProduct);
+    const requestedQuantity = getTicketAssistantQuantity(answers);
+
+    if (purchaseType !== "single" && purchaseType !== "multiple") {
+      setSubmitError("Choose Single Ticket or Multiple Tickets before continuing.");
+      return;
+    }
+
+    if (purchaseType === "multiple" && requestedQuantity > maxQuantity) {
+      setSubmitError(`This event allows up to ${maxQuantity} tickets for this flow.`);
+      return;
+    }
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-account-holder") {
+    const slot = getTicketAssistantSlots(answers, getTicketAssistantQuantity(answers))[0];
+
+    if (!String(slot?.name || answers.fullName || "").trim()) {
+      setSubmitError("Enter your legal name before continuing.");
+      return;
+    }
+
+    if (!String(slot?.email || answers.email || "").trim()) {
+      setSubmitError("Enter your email address before continuing.");
+      return;
+    }
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-owner-loop") {
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
+    );
+    const quantity = getTicketAssistantQuantity(answers);
+    const slots = getTicketAssistantSlots(answers, quantity);
+
+    for (let index = 1; index < quantity; index += 1) {
+      const slot = slots[index];
+
+      if (!slot.name.trim()) {
+        setSubmitError(`Enter the legal name for attendee ${index + 1}.`);
+        return;
+      }
+
+      if (
+        isTicketAssistantEmailRequired({
+          product: selectedProduct,
+          slots,
+          slot,
+          index,
+        }) &&
+        !slot.email.trim()
+      ) {
+        setSubmitError(`Enter the email address for attendee ${index + 1}.`);
+        return;
+      }
+    }
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-ticket-types") {
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
+    );
+    const quantity = getTicketAssistantQuantity(answers);
+    const slots = getTicketAssistantSlots(answers, quantity);
+
+    for (let index = 0; index < quantity; index += 1) {
+      const slot = slots[index];
+      const hostIndex = getTicketAssistantPlusOneHostIndex({
+        product: selectedProduct,
+        slots,
+        index,
+      });
+      const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+      const selectedSizeOption = getTicketAssistantSizeOption(
+        selectedProduct,
+        hostSlot?.sizeOptionId ?? slot.sizeOptionId
+      );
+
+      if (!selectedSizeOption) {
+        setSubmitError(`Choose a ticket type for attendee ${index + 1}.`);
+        return;
+      }
+    }
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-upgrades") {
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
+    );
+    const quantity = getTicketAssistantQuantity(answers);
+    const slots = getTicketAssistantSlots(answers, quantity);
+
+    for (let index = 0; index < quantity; index += 1) {
+      const slot = slots[index];
+      const hostIndex = getTicketAssistantPlusOneHostIndex({
+        product: selectedProduct,
+        slots,
+        index,
+      });
+
+      if (hostIndex !== null || slot.deliveryModeId !== "physical-invitation") {
+        continue;
+      }
+
+      if (
+        !slot.mailingAddressLine1.trim() ||
+        !slot.mailingCity.trim() ||
+        !slot.mailingRegion.trim() ||
+        !slot.mailingCountry.trim()
+      ) {
+        setSubmitError(
+          `Enter the mailing address for attendee ${index + 1}'s physical invitation.`
+        );
+        return;
+      }
+    }
+
+    beginTicketAssistantMealLoop();
+    return;
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-meal-intro") {
+    const quantity = getTicketAssistantQuantity(answers);
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const slots = getTicketAssistantSlots(answers, quantity);
+    const slot = slots[activeIndex];
+    const selectedProduct = getTicketAssistantProduct(
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId
+    );
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product: selectedProduct,
+      slots,
+      index: activeIndex,
+    });
+    const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+    const isPurchaserHandled =
+      activeIndex === 0 ||
+      (slot.mealResponsibilitySelected &&
+        slot.ownerMode === "purchaser_pays_ticket_and_addons") ||
+      (hostIndex !== null &&
+        (hostIndex === 0 ||
+          hostSlot?.mealResponsibilitySelected === true) &&
+        (hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons") ===
+          "purchaser_pays_ticket_and_addons");
+
+    if (!isPurchaserHandled && hostIndex === null) {
+      goToTarget("meal-responsibility");
+      return;
+    }
+
+    if (!isPurchaserHandled || slot.skipMealForNow) {
+      advanceTicketAssistantMealLoop();
+      return;
+    }
+
+    if (commitTicketAssistantCheckout({ target: "meal-selection", attendeeIndex: activeIndex })) {
+      goToTarget("meal-selection");
+    }
+    return;
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-meal-confirmation") {
+    const quantity = getTicketAssistantQuantity(answers);
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
+
+    if (slot?.skipCollectiblesForNow) {
+      advanceTicketAssistantMealLoop();
+      return;
+    }
+
+    if (commitTicketAssistantCheckout({ target: "music-merch-shop", attendeeIndex: activeIndex })) {
+      goToTarget("music-merch-shop");
+    }
+    return;
+  }
+
   if (config.slug === "auth-login" && currentSlide.id === "login-success") {
     const returnTo = getLoginReturnToTarget();
 
@@ -4338,13 +5400,26 @@ async function handleNext() {
     String(answers.mealReturnTarget ?? "") === "review-order"
       ? "Back to cart"
       : currentSlide.nextLabel ?? "Back to ticket details";
+  const ticketAssistantNextTotal =
+    currentSlide.blockKey === "ticket-assistant-ticket-types" ||
+    currentSlide.blockKey === "ticket-assistant-upgrades"
+      ? getTicketAssistantTotal({
+          catalog: sharedShopDisplayCatalog,
+          answers,
+        })
+      : 0;
 
   const cartReturnActive =
     String(answers.cartReturnTarget ?? "") === "review-order" &&
     currentSlide.id !== "review-order";
 
   const nextLabel =
-    cartReturnActive && currentSlide.type === "shop"
+    ticketAssistantNextTotal > 0
+      ? `${currentSlide.nextLabel ?? "Continue"} - ${formatCurrency(
+          ticketAssistantNextTotal,
+          sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
+        )}`
+      : cartReturnActive && currentSlide.type === "shop"
       ? `Back to cart Â· ${formatCurrency(
           sharedOrderGrandTotalWithMeals,
           sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
@@ -4449,14 +5524,6 @@ async function handleNext() {
         color: theme.colors.text,
       }}
     >
-      {pendingCommerceExit ? (
-        <CommerceExitWarning
-          theme={theme}
-          onStay={() => setPendingCommerceExit(null)}
-          onLeave={confirmCommerceExit}
-        />
-      ) : null}
-
       <div className={styles.pageInner}>
         <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
@@ -4746,9 +5813,7 @@ async function handleNext() {
                                   type="button"
                                   className={styles.accountMenuItem}
                                   onClick={() =>
-                                    handleAccountMenuLink(
-                                      "/questionnaire/auth-account?slide=my-tickets"
-                                    )
+                                    handleAccountMenuLink(getMyTicketsTarget())
                                   }
                                 >
                                   My Tickets
@@ -4837,9 +5902,7 @@ async function handleNext() {
                                   type="button"
                                   className={styles.accountMenuItem}
                                   onClick={() =>
-                                    handleAccountMenuLink(
-                                      "/questionnaire/auth-account?slide=my-tickets"
-                                    )
+                                    handleAccountMenuLink(getMyTicketsTarget())
                                   }
                                 >
                                   My Tickets
@@ -4925,9 +5988,39 @@ async function handleNext() {
                 >
                   {isCurrentDripSlideLocked ? (
                     <div className={styles.contactNote}>
-                      {authSessionUser?.id
-                        ? "This slide has not opened for your account yet. Use the email link when it arrives, then the slide will stay available here."
-                        : "Log in with the account that received this email to open this slide."}
+                      {sequenceAccessBlock ? (
+                        <>
+                          <p>{sequenceAccessBlock.message}</p>
+                          {sequenceAccessBlock.canVerifyDevice ? (
+                            <button
+                              type="button"
+                              className={`${styles.primaryButton} ${styles.actionButton}`}
+                              onClick={() => void requestSequenceDeviceVerification()}
+                              disabled={sequenceAccessBlock.verifySent === true}
+                            >
+                              {sequenceAccessBlock.verifySent
+                                ? "Check your email"
+                                : "Verify this device"}
+                            </button>
+                          ) : null}
+                          {sequenceAccessBlock.signupHref ? (
+                            <button
+                              type="button"
+                              className={`${styles.secondaryButton} ${styles.actionButton}`}
+                              onClick={() => {
+                                window.location.href =
+                                  sequenceAccessBlock.signupHref || "/";
+                              }}
+                            >
+                              Sign up for your own access
+                            </button>
+                          ) : null}
+                        </>
+                      ) : authSessionUser?.id ? (
+                        "This slide has not opened for your account yet. Use the email link when it arrives, then the slide will stay available here."
+                      ) : (
+                        "Opening your private email link..."
+                      )}
                     </div>
                   ) : isMediaSlide ? (
                     <>
@@ -5143,6 +6236,52 @@ async function handleNext() {
 
                       {currentSlide.type === "purchaserecipients" ? (
                         <PurchaseRecipientsRenderer theme={theme} />
+                      ) : null}
+
+                      {currentSlide.blockKey === "my-tickets-dashboard" ? (
+                        <MyTicketsDashboardRenderer
+                          theme={theme}
+                          onGoto={goToTarget}
+                        />
+                      ) : null}
+
+                      {currentSlide.blockKey?.startsWith("ticket-assistant-") ? (
+                        <TicketPurchaseAssistantRenderer
+                          step={currentSlide.blockKey}
+                          catalog={sharedShopDisplayCatalog}
+                          mealMenu={currentMealMenu}
+                          answers={answers}
+                          currencyCode={sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode}
+                          usdToCurrencyRate={usdToActiveCurrencyRate}
+                          purchaserName={String(answers.fullName ?? authSessionUser?.name ?? "").trim()}
+                          purchaserEmail={String(answers.email ?? authSessionUser?.email ?? "").trim()}
+                          theme={theme}
+                          onPatch={(patch) => {
+                            resetCheckoutReservation();
+                            setSubmitError(null);
+                            setAnswers((prev) => ({
+                              ...prev,
+                              ...patch,
+                            }));
+                          }}
+                          onCommit={() => {
+                            if (commitTicketAssistantCheckout()) {
+                              goToTarget("ticket-details");
+                            }
+                          }}
+                          onCommitTarget={(target, attendeeIndex) => {
+                            if (
+                              commitTicketAssistantCheckout({
+                                target,
+                                attendeeIndex,
+                              })
+                            ) {
+                              goToTarget(target);
+                            }
+                          }}
+                          onAdvanceMealLoop={advanceTicketAssistantMealLoop}
+                          onGoto={goToTarget}
+                        />
                       ) : null}
 
                       {currentSlide.type === "shop" ? (
@@ -10359,6 +11498,17 @@ type AccountProfileUser = {
   deletionScheduledAt?: string | null;
   deletedAt?: string | null;
   deletionStatus?: string | null;
+  identityVerification?: {
+    id: string;
+    documentType?: string | null;
+    instagramUrl?: string | null;
+    tiktokUrl?: string | null;
+    facebookUrl?: string | null;
+    status: string;
+    adminNotes?: string | null;
+    reviewedAt?: string | null;
+    submittedAt?: string | null;
+  } | null;
 };
 
 type NameUpdateStatus = {
@@ -10658,6 +11808,1672 @@ function PurchaseRecipientsRenderer({ theme }: { theme: ThemeConfig }) {
   );
 }
 
+function TicketPurchaseAssistantRenderer({
+  step,
+  catalog,
+  mealMenu,
+  answers,
+  currencyCode,
+  usdToCurrencyRate,
+  purchaserName,
+  purchaserEmail,
+  theme,
+  onPatch,
+  onCommit,
+  onCommitTarget,
+  onAdvanceMealLoop,
+  onGoto,
+}: {
+  step: string;
+  catalog: ShopCatalog | null;
+  mealMenu: MealMenu | null;
+  answers: QuestionnaireAnswers;
+  currencyCode: string;
+  usdToCurrencyRate: number;
+  purchaserName: string;
+  purchaserEmail: string;
+  theme: ThemeConfig;
+  onPatch: (patch: QuestionnaireAnswers) => void;
+  onCommit: () => void;
+  onCommitTarget: (target: string, attendeeIndex?: number) => void;
+  onAdvanceMealLoop: () => void;
+  onGoto: (target: string) => void;
+}) {
+  const products = getTicketAssistantEventProducts(catalog);
+  const selectedProduct = getTicketAssistantProduct(
+    catalog,
+    answers.ticketAssistantEventProductId
+  );
+  const quantity = getTicketAssistantQuantity(answers);
+  const slots = getTicketAssistantSlots(answers, quantity);
+  const selectedEventProductId = String(
+    answers.ticketAssistantEventProductId ?? ""
+  );
+
+  function patchSlot(index: number, patch: Partial<TicketAssistantSlot>) {
+    onPatch({
+      ticketAssistantSlots: updateTicketAssistantSlot(answers, index, patch),
+    });
+  }
+
+  function stopAssistantInputKeyPropagation(
+    event: KeyboardEvent<HTMLInputElement>
+  ) {
+    event.stopPropagation();
+  }
+
+  function renderSaveProgress() {
+    return (
+      <div style={ticketAssistantStyles.savePanel}>
+        <span>Progress is saved as you go. You can return later from My Tickets.</span>
+        <button
+          type="button"
+          style={ticketAssistantStyles.linkButton}
+          onClick={() => writeCheckoutDraft("ticket-purchase-assistant", answers)}
+        >
+          Save Progress
+        </button>
+      </div>
+    );
+  }
+
+  function getActiveMealAssignment() {
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const assignments = normalizeTicketAssignments(answers.ticketAssignments);
+
+    return assignments[activeIndex] ?? null;
+  }
+
+  function getMealSummaryLines() {
+    const assignment = getActiveMealAssignment();
+    const selection = assignment?.mealSelection;
+
+    if (!selection || !mealMenu) {
+      return [];
+    }
+
+    return mealMenu.groups.flatMap((group) => {
+      const groupSelection = selection[group.id] ?? {};
+
+      return group.options
+        .map((option) => {
+          const quantity = Number(groupSelection[option.id] ?? 0);
+
+          if (!Number.isFinite(quantity) || quantity <= 0) {
+            return null;
+          }
+
+          return `${group.label}: ${option.label} x ${quantity}`;
+        })
+        .filter(Boolean) as string[];
+    });
+  }
+
+  if (!products.length) {
+    return (
+      <div style={ticketAssistantStyles.panel}>
+        <strong>No ticket events are available yet.</strong>
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-event") {
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.eventGrid}>
+          {products.map((product) => {
+            const isSelected = selectedEventProductId === product.id;
+            const maxQuantity = getTicketAssistantMaxQuantity(product);
+            const eventDescription =
+              product.detailsDescription ?? product.description ?? "";
+
+            return (
+              <div
+                key={product.id}
+                style={{
+                  ...ticketAssistantStyles.eventCard,
+                  borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                }}
+              >
+                <div style={ticketAssistantStyles.eventHeroWrap}>
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.title}
+                      style={ticketAssistantStyles.eventHeroImage}
+                    />
+                  ) : (
+                    <div style={ticketAssistantStyles.eventHeroFallback}>
+                      {product.title.slice(0, 1)}
+                    </div>
+                  )}
+                </div>
+                <div style={ticketAssistantStyles.eventCardBody}>
+                  <strong style={ticketAssistantStyles.eventTitle}>
+                    {product.title}
+                  </strong>
+                  {product.eventVenueLabel ? (
+                    <span>{product.eventVenueLabel}</span>
+                  ) : null}
+                  {product.eventAddress ? <span>{product.eventAddress}</span> : null}
+                  {product.eventDateLabel ? <span>{product.eventDateLabel}</span> : null}
+                  {product.eventTimeLabel ? (
+                    <span>Show starts at {product.eventTimeLabel}</span>
+                  ) : null}
+                  {eventDescription ? (
+                    <p style={ticketAssistantStyles.eventDescription}>
+                      {eventDescription}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onPatch({
+                        ticketAssistantEventProductId: product.id,
+                        ticketAssistantQuantity: Math.min(quantity, maxQuantity),
+                        guidedTicketPurchaseType:
+                          quantity > 1 ? "multiple" : "single",
+                        ticketAssistantSlots: getTicketAssistantSlots(
+                          answers,
+                          Math.min(quantity, maxQuantity)
+                        ).map((slot) => ({
+                          ...slot,
+                          sizeOptionId: product.sizeOptions[0]?.id ?? "",
+                          purchaseModeId: getTicketAssistantPurchaseMode(
+                            product.sizeOptions[0],
+                            undefined
+                          )?.id,
+                          deliveryModeId: getTicketAssistantDeliveryMode(
+                            product.sizeOptions[0],
+                            undefined
+                          )?.id,
+                        })),
+                      })
+                    }
+                    style={{
+                      ...ticketAssistantStyles.chooseButton,
+                      background: isSelected ? theme.colors.primary : "#fffdfa",
+                      borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                      color: isSelected ? "#fff" : theme.colors.text,
+                    }}
+                  >
+                    {isSelected ? "Chosen Event" : "Choose This Event"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (!selectedProduct) {
+    return (
+      <div style={ticketAssistantStyles.panel}>
+        Choose an event before continuing.
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-quantity") {
+    const maxQuantity = getTicketAssistantMaxQuantity(selectedProduct);
+    const purchaseType = String(answers.guidedTicketPurchaseType ?? "");
+    const isMultiple = purchaseType === "multiple";
+    const canBuyMultiple = maxQuantity > 1;
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <button
+          type="button"
+          style={{
+            ...ticketAssistantStyles.option,
+            borderColor:
+              purchaseType === "single"
+                ? theme.colors.primary
+                : theme.colors.border,
+          }}
+          onClick={() =>
+            onPatch({
+              guidedTicketPurchaseType: "single",
+              ticketAssistantQuantity: 1,
+            })
+          }
+        >
+          <span style={ticketAssistantStyles.radioLine}>
+            <input
+              type="radio"
+              readOnly
+              checked={purchaseType === "single"}
+            />
+            <strong>Single Ticket</strong>
+          </span>
+          <span>One ticket for the account holder.</span>
+        </button>
+
+        <button
+          type="button"
+          disabled={!canBuyMultiple}
+          style={{
+            ...ticketAssistantStyles.option,
+            borderColor:
+              purchaseType === "multiple"
+                ? theme.colors.primary
+                : theme.colors.border,
+            opacity: canBuyMultiple ? 1 : 0.55,
+          }}
+          onClick={() =>
+            canBuyMultiple
+              ? onPatch({
+                  guidedTicketPurchaseType: "multiple",
+                  ticketAssistantQuantity: Math.max(2, quantity),
+                })
+              : undefined
+          }
+        >
+          <span style={ticketAssistantStyles.radioLine}>
+            <input
+              type="radio"
+              readOnly
+              checked={purchaseType === "multiple"}
+              disabled={!canBuyMultiple}
+            />
+            <strong>Multiple Tickets</strong>
+          </span>
+          <span>
+            You may purchase up to {maxQuantity} tickets for this event.
+          </span>
+        </button>
+
+        {isMultiple ? (
+          <div style={ticketAssistantStyles.panel}>
+            <div style={ticketAssistantStyles.row}>
+              <strong>Ticket quantity</strong>
+              <div style={ticketAssistantStyles.quantityRow}>
+                <button
+                  type="button"
+                  style={ticketAssistantStyles.smallButton}
+                  onClick={() =>
+                    onPatch({
+                      ticketAssistantQuantity: Math.max(2, quantity - 1),
+                    })
+                  }
+                >
+                  -
+                </button>
+                <strong>{Math.max(2, quantity)}</strong>
+                <button
+                  type="button"
+                  style={ticketAssistantStyles.smallButton}
+                  onClick={() =>
+                    onPatch({
+                      ticketAssistantQuantity: Math.min(maxQuantity, quantity + 1),
+                    })
+                  }
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div style={ticketAssistantStyles.meta}>
+              This limit is calculated from the selected event's purchase rules.
+            </div>
+          </div>
+        ) : null}
+
+        {purchaseType === "single" ? (
+          <div style={ticketAssistantStyles.meta}>
+            Continue will use the logged-in/account holder details for this
+            ticket.
+          </div>
+        ) : null}
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-prep") {
+    const maxAccountHolderQuantity = selectedProduct.maxAccountHolderQuantity ?? 1;
+    const needsSeparateAttendeeDetails = quantity > maxAccountHolderQuantity;
+    const hasPhoneRequirement = false;
+    const hasIdentitySensitiveOptions =
+      selectedProduct.sizeOptions.some((sizeOption) =>
+        (sizeOption.purchaseModes ?? []).some((mode) =>
+          /vip|meet|greet|alcohol|restricted|age/i.test(mode.label)
+        )
+      ) || /vip|meet|greet|alcohol|restricted|age/i.test(selectedProduct.title);
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>Collecting attendee information now makes checkout faster.</strong>
+          <div style={ticketAssistantStyles.checkList}>
+            <span>✓ The correct name for each attendee.</span>
+            <span>✓ The email address for every attendee that requires one.</span>
+            <span>
+              ✓ A telephone number {hasPhoneRequirement ? "if required." : "if the event requires it."}
+            </span>
+          </div>
+          <div style={ticketAssistantStyles.meta}>
+            {needsSeparateAttendeeDetails
+              ? "Based on this event's settings, some attendee slots may need their own name or email address."
+              : "Based on this event's settings, this order may be allowed under the account holder without a separate email for every ticket."}
+          </div>
+        </div>
+
+        <div style={ticketAssistantStyles.panel}>
+          <strong>Identity verification</strong>
+          <div style={ticketAssistantStyles.meta}>
+            Some event features can require identity verification, including
+            alcohol purchases, VIP access, Meet & Greet verification, and other
+            age-restricted or identity-restricted features.
+          </div>
+          <div style={ticketAssistantStyles.checkList}>
+            <span>✓ Attendee names should match government-issued ID.</span>
+            <span>✓ Attendees may be asked to present ID at the event.</span>
+            <span>✓ ID upload is optional during purchase unless the event requires it.</span>
+          </div>
+          <div style={ticketAssistantStyles.meta}>
+            {hasIdentitySensitiveOptions
+              ? "This event has options that may use identity verification. If ID is not provided during checkout, the attendee can complete verification later when that workflow is available."
+              : "If identity verification is needed later, the attendee can complete it after checkout when the event supports that workflow."}
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-how-works") {
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <ol style={ticketAssistantStyles.orderedList}>
+            <li>Enter attendee information.</li>
+            <li>Choose ticket types.</li>
+            <li>Choose invitation upgrades.</li>
+            <li>Decide who will select and pay for meals and add-ons.</li>
+            <li>Review your cart.</li>
+            <li>Complete payment.</li>
+          </ol>
+          <div style={ticketAssistantStyles.meta}>
+            If you are not ready to finish now, save your progress and continue
+            later from My Tickets.
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-account-holder") {
+    const slot = slots[0];
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>This is your ticket</strong>
+          <div style={ticketAssistantStyles.meta}>
+            Your legal name should match your government-issued identification
+            if you intend to use event features that require identity verification.
+          </div>
+          <label style={ticketAssistantStyles.label}>
+            Legal name
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              required
+              value={slot.name || purchaserName}
+              onChange={(event) => {
+                const value = event.target.value;
+                onPatch({
+                  fullName: value,
+                  ticketAssistantSlots: updateTicketAssistantSlot(answers, 0, {
+                    name: value,
+                    isPurchaser: true,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label style={ticketAssistantStyles.label}>
+            Email address
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              type="email"
+              required
+              value={slot.email || purchaserEmail}
+              onChange={(event) => {
+                const value = event.target.value;
+                onPatch({
+                  email: value,
+                  ticketAssistantSlots: updateTicketAssistantSlot(answers, 0, {
+                    email: value,
+                    isPurchaser: true,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label style={ticketAssistantStyles.label}>
+            Telephone number
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              type="tel"
+              value={slot.phone || ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                onPatch({
+                  phone: value,
+                  ticketAssistantSlots: updateTicketAssistantSlot(answers, 0, {
+                    phone: value,
+                    isPurchaser: true,
+                  }),
+                });
+              }}
+            />
+          </label>
+          <label style={ticketAssistantStyles.label}>
+            Name to print on ticket
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              value={slot.printedName || ""}
+              placeholder={slot.name || purchaserName || "Optional"}
+              onChange={(event) =>
+                patchSlot(0, {
+                  printedName: event.target.value,
+                  isPurchaser: true,
+                })
+              }
+            />
+          </label>
+          <div style={ticketAssistantStyles.meta}>
+            The printed ticket name may be different from the legal name.
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-owner-loop") {
+    if (quantity <= 1) {
+      return (
+        <div style={ticketAssistantStyles.stack}>
+          <div style={ticketAssistantStyles.panel}>
+            <strong>Attendee information complete.</strong>
+            <div style={ticketAssistantStyles.meta}>
+              Continue to choose the ticket type for this attendee.
+            </div>
+          </div>
+          {renderSaveProgress()}
+        </div>
+      );
+    }
+
+    const activeIndex = getTicketAssistantActiveOwnerIndex(answers, quantity);
+    const slot = slots[activeIndex];
+    const canBePlusOne = canTicketAssistantSlotBePlusOne({
+      product: selectedProduct,
+      slots,
+      index: activeIndex,
+    });
+    const plusOneHostSlot =
+      activeIndex < getTicketAssistantAccountHolderAllowance(selectedProduct)
+        ? slots[0]
+        : slots[activeIndex - 1];
+    const plusOneHostName = [
+      plusOneHostSlot?.name ||
+        (plusOneHostSlot?.isPurchaser ? purchaserName : "") ||
+        "this attendee",
+      plusOneHostSlot?.printedName
+        ? `(${plusOneHostSlot.printedName})`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const emailRequired = isTicketAssistantEmailRequired({
+      product: selectedProduct,
+      slots,
+      slot,
+      index: activeIndex,
+    });
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>Ticket #{activeIndex + 1} Attendee</strong>
+          {canBePlusOne ? (
+            <label style={ticketAssistantStyles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={slot.isPlusOne}
+                onChange={(event) =>
+                  patchSlot(activeIndex, {
+                    isPlusOne: event.target.checked,
+                    isPurchaser: false,
+                  })
+                }
+              />
+              This is {plusOneHostName}'s plus one
+            </label>
+          ) : null}
+          <label style={ticketAssistantStyles.label}>
+            Legal name
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              required
+              value={slot.name}
+              onChange={(event) =>
+                patchSlot(activeIndex, {
+                  name: event.target.value,
+                  isPurchaser: false,
+                })
+              }
+            />
+          </label>
+          <label style={ticketAssistantStyles.label}>
+            Name to print on ticket
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              value={slot.printedName}
+              placeholder={slot.name || "Optional"}
+              onChange={(event) =>
+                patchSlot(activeIndex, {
+                  printedName: event.target.value,
+                  isPurchaser: false,
+                })
+              }
+            />
+          </label>
+          {emailRequired ? (
+            <label style={ticketAssistantStyles.label}>
+              Email address
+              <input
+                style={ticketAssistantStyles.input}
+                onKeyDown={stopAssistantInputKeyPropagation}
+                type="email"
+                required
+                value={slot.email}
+                onChange={(event) =>
+                  patchSlot(activeIndex, {
+                    email: event.target.value,
+                    isPurchaser: false,
+                  })
+                }
+              />
+            </label>
+          ) : (
+            <div style={ticketAssistantStyles.meta}>
+              This plus-one slot does not require an email address unless the
+              event settings require one later.
+            </div>
+          )}
+          <label style={ticketAssistantStyles.label}>
+            Telephone number
+            <input
+              style={ticketAssistantStyles.input}
+              onKeyDown={stopAssistantInputKeyPropagation}
+              type="tel"
+              value={slot.phone}
+              onChange={(event) =>
+                patchSlot(activeIndex, {
+                  phone: event.target.value,
+                  isPurchaser: false,
+                })
+              }
+            />
+          </label>
+          <div style={ticketAssistantStyles.row}>
+            <button
+              type="button"
+              style={ticketAssistantStyles.secondaryAction}
+              disabled={activeIndex <= 1}
+              onClick={() =>
+                onPatch({
+                  ticketAssistantActiveOwnerIndex: Math.max(1, activeIndex - 1),
+                })
+              }
+            >
+              Previous Attendee
+            </button>
+            {activeIndex < quantity - 1 ? (
+              <button
+                type="button"
+                style={ticketAssistantStyles.secondaryAction}
+                onClick={() =>
+                  onPatch({
+                    ticketAssistantActiveOwnerIndex: Math.min(
+                      quantity - 1,
+                      activeIndex + 1
+                    ),
+                  })
+                }
+              >
+                Next Attendee
+              </button>
+            ) : null}
+          </div>
+          <div style={ticketAssistantStyles.meta}>
+            Attendee {activeIndex} of {quantity - 1} additional attendees.
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-ticket-types") {
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        {slots.map((slot, index) => {
+          const hostIndex = getTicketAssistantPlusOneHostIndex({
+            product: selectedProduct,
+            slots,
+            index,
+          });
+          const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+          const hostName = getTicketAssistantDisplayName(
+            hostSlot,
+            hostIndex === null
+              ? "this attendee"
+              : hostIndex === 0
+                ? purchaserName || "you"
+                : `Attendee ${hostIndex + 1}`
+          );
+          const inheritedSizeOption = getTicketAssistantSizeOption(
+            selectedProduct,
+            hostSlot?.sizeOptionId
+          );
+
+          return (
+            <div key={index} style={ticketAssistantStyles.panel}>
+              <strong>{getTicketAssistantDisplayName(slot, index === 0 ? purchaserName : `Attendee ${index + 1}`)}</strong>
+              {hostIndex !== null ? (
+                <div style={ticketAssistantStyles.inheritedPanel}>
+                  <ul style={ticketAssistantStyles.inheritedList}>
+                    <li>This attendee is {hostName}'s plus one.</li>
+                    <li>
+                      Ticket type:{" "}
+                      <strong>
+                        {inheritedSizeOption?.label ?? "Match host attendee"}
+                      </strong>
+                    </li>
+                  </ul>
+                </div>
+              ) : (
+                selectedProduct.sizeOptions.map((sizeOption) => (
+                  <button
+                    key={sizeOption.id}
+                    type="button"
+                    style={{
+                      ...ticketAssistantStyles.option,
+                      borderColor:
+                        slot.sizeOptionId === sizeOption.id
+                          ? theme.colors.primary
+                          : theme.colors.border,
+                    }}
+                    onClick={() =>
+                      patchSlot(index, {
+                        sizeOptionId: sizeOption.id,
+                        purchaseModeId: getTicketAssistantPurchaseMode(
+                          sizeOption,
+                          undefined
+                        )?.id,
+                        deliveryModeId: getTicketAssistantDeliveryMode(
+                          sizeOption,
+                          undefined
+                        )?.id,
+                      })
+                    }
+                  >
+                    <span style={ticketAssistantStyles.radioLine}>
+                      <input
+                        type="radio"
+                        readOnly
+                        checked={slot.sizeOptionId === sizeOption.id}
+                      />
+                      <strong>{sizeOption.label}</strong>
+                    </span>
+                    <span>{formatCurrency(sizeOption.price, currencyCode)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          );
+        })}
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-upgrades") {
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        {slots.map((slot, index) => {
+          const hostIndex = getTicketAssistantPlusOneHostIndex({
+            product: selectedProduct,
+            slots,
+            index,
+          });
+          const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+          const sizeOption = getTicketAssistantSizeOption(
+            selectedProduct,
+            hostSlot?.sizeOptionId ?? slot.sizeOptionId
+          );
+          const upgradeModes = getTicketAssistantUpgradeModes(sizeOption);
+          const deliveryModes = getTicketAssistantDeliveryModes(sizeOption);
+          const selectedUpgradeId =
+            slot.purchaseModeId ||
+            getTicketAssistantPurchaseMode(sizeOption, slot.purchaseModeId)?.id;
+          const selectedDeliveryId =
+            hostSlot?.deliveryModeId ||
+            slot.deliveryModeId ||
+            getTicketAssistantDeliveryMode(sizeOption, slot.deliveryModeId)?.id;
+          const hostName = getTicketAssistantDisplayName(
+            hostSlot,
+            hostIndex === null
+              ? "this attendee"
+              : hostIndex === 0
+                ? purchaserName || "you"
+                : `Attendee ${hostIndex + 1}`
+          );
+
+          return (
+            <div key={index} style={ticketAssistantStyles.panel}>
+              <strong>{getTicketAssistantDisplayName(slot, index === 0 ? purchaserName : `Attendee ${index + 1}`)}</strong>
+              {hostIndex !== null ? (
+                <div style={ticketAssistantStyles.inheritedPanel}>
+                  <ul style={ticketAssistantStyles.inheritedList}>
+                    <li>This attendee is {hostName}'s plus one.</li>
+                    <li>Invitation format follows {hostName}'s selection.</li>
+                    <li>Mailing address follows {hostName}'s selection.</li>
+                  </ul>
+                </div>
+              ) : null}
+              {!upgradeModes.length ? (
+                <div style={ticketAssistantStyles.meta}>No invitation upgrade choices for this ticket.</div>
+              ) : (
+                <div style={ticketAssistantStyles.optionGroup}>
+                  <strong>Invitation upgrade</strong>
+                  {upgradeModes.map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      style={{
+                        ...ticketAssistantStyles.option,
+                        borderColor:
+                          selectedUpgradeId === mode.id
+                            ? theme.colors.primary
+                            : theme.colors.border,
+                      }}
+                      onClick={() => patchSlot(index, { purchaseModeId: mode.id })}
+                    >
+                      <span style={ticketAssistantStyles.radioLine}>
+                        <input
+                          type="radio"
+                          readOnly
+                          checked={selectedUpgradeId === mode.id}
+                        />
+                        <strong>{mode.label}</strong>
+                      </span>
+                      {mode.priceAdjustment > 0 ? (
+                        <span>+{formatCurrency(mode.priceAdjustment, currencyCode)}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {hostIndex === null && deliveryModes.length ? (
+                <div style={ticketAssistantStyles.optionGroup}>
+                  <strong>Invitation format</strong>
+                  {deliveryModes.map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      style={{
+                        ...ticketAssistantStyles.option,
+                        borderColor:
+                          selectedDeliveryId === mode.id
+                            ? theme.colors.primary
+                            : theme.colors.border,
+                      }}
+                      onClick={() => patchSlot(index, { deliveryModeId: mode.id })}
+                    >
+                      <span style={ticketAssistantStyles.radioLine}>
+                        <input
+                          type="radio"
+                          readOnly
+                          checked={selectedDeliveryId === mode.id}
+                        />
+                        <strong>{mode.label}</strong>
+                      </span>
+                      {mode.priceAdjustment > 0 ? (
+                        <span>+{formatCurrency(mode.priceAdjustment, currencyCode)}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {hostIndex === null && selectedDeliveryId === "physical-invitation" ? (
+                <div style={ticketAssistantStyles.addressGrid}>
+                  <label style={ticketAssistantStyles.label}>
+                    Mailing address
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingAddressLine1}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingAddressLine1: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label style={ticketAssistantStyles.label}>
+                    Address line 2
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingAddressLine2}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingAddressLine2: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label style={ticketAssistantStyles.label}>
+                    City / Town
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingCity}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingCity: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label style={ticketAssistantStyles.label}>
+                    Parish / Region
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingRegion}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingRegion: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label style={ticketAssistantStyles.label}>
+                    Postal code
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingPostalCode}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingPostalCode: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label style={ticketAssistantStyles.label}>
+                    Country
+                    <input
+                      style={ticketAssistantStyles.input}
+                      onKeyDown={stopAssistantInputKeyPropagation}
+                      value={slot.mailingCountry}
+                      onChange={(event) =>
+                        patchSlot(index, {
+                          mailingCountry: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-meal-confirmation") {
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const assignment = getActiveMealAssignment();
+    const slot = slots[activeIndex];
+    const label =
+      assignment?.ownerName ||
+      getTicketAssistantDisplayName(
+        slot,
+        activeIndex === 0
+          ? purchaserName || "your ticket"
+          : `Attendee ${activeIndex + 1}`
+      );
+    const mealSummaryLines = getMealSummaryLines();
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>{label}'s Ticket</strong>
+          <div style={ticketAssistantStyles.inheritedPanel}>
+            <ul style={ticketAssistantStyles.inheritedList}>
+              <li>Your meal selection has been saved successfully.</li>
+              <li>
+                You may change your meal until the event meal change deadline.
+              </li>
+            </ul>
+          </div>
+          {mealSummaryLines.length ? (
+            <div style={ticketAssistantStyles.optionGroup}>
+              <strong>Selected meal</strong>
+              <ul style={ticketAssistantStyles.inheritedList}>
+                {mealSummaryLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div style={ticketAssistantStyles.meta}>
+              No meal item is selected yet.
+            </div>
+          )}
+          <div style={ticketAssistantStyles.meta}>
+            Next, you may choose optional collectibles, souvenirs, merchandise,
+            music, and other event add-ons.
+          </div>
+          <label style={ticketAssistantStyles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={slot?.skipCollectiblesForNow === true}
+              onChange={(event) =>
+                patchSlot(activeIndex, {
+                  skipCollectiblesForNow: event.target.checked,
+                })
+              }
+            />
+            Skip collectibles and souvenirs for now
+          </label>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-meal-intro") {
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const slot = slots[activeIndex];
+    const label = getTicketAssistantDisplayName(
+      slot,
+      activeIndex === 0
+        ? purchaserName || "your ticket"
+        : `Attendee ${activeIndex + 1}`
+    );
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product: selectedProduct,
+      slots,
+      index: activeIndex,
+    });
+    const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+    const isPurchaserHandled =
+      activeIndex === 0 ||
+      (slot.mealResponsibilitySelected &&
+        slot.ownerMode === "purchaser_pays_ticket_and_addons") ||
+      (hostIndex !== null &&
+        (hostIndex === 0 ||
+          hostSlot?.mealResponsibilitySelected === true) &&
+        (hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons") ===
+          "purchaser_pays_ticket_and_addons");
+    const isDelegatedPlusOne = hostIndex !== null && !isPurchaserHandled;
+    const introText =
+      activeIndex === 0
+        ? "On the next page you will choose your meal."
+        : hostIndex === 0
+          ? "On the next page you will choose a meal for your plus one."
+          : hostIndex !== null
+            ? `On the next page you will choose a meal for ${getTicketAssistantDisplayName(
+                hostSlot,
+                "this attendee"
+              )}'s plus one.`
+            : `On the next page you will choose a meal for ${label}.`;
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>{label}'s Ticket</strong>
+          {isPurchaserHandled ? (
+            <>
+              <div style={ticketAssistantStyles.meta}>
+                {introText}
+              </div>
+              <label style={ticketAssistantStyles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={slot?.skipMealForNow === true}
+                  onChange={(event) =>
+                    patchSlot(activeIndex, {
+                      skipMealForNow: event.target.checked,
+                    })
+                  }
+                />
+                Skip meal selection for now
+              </label>
+            </>
+          ) : isDelegatedPlusOne ? (
+            <>
+              <div style={ticketAssistantStyles.inheritedPanel}>
+                <ul style={ticketAssistantStyles.inheritedList}>
+                  <li>This attendee is a plus one.</li>
+                  <li>Meal and add-on responsibility follows the main attendee.</li>
+                  <li>They can complete selections later from their attendee portal.</li>
+                </ul>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={ticketAssistantStyles.meta}>
+                First, choose who will handle meals and add-ons for this attendee.
+              </div>
+            </>
+          )}
+          <div style={ticketAssistantStyles.meta}>
+            Attendee {activeIndex + 1} of {quantity}.
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-meal-responsibility") {
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const slot = slots[activeIndex];
+    const label = getTicketAssistantDisplayName(
+      slot,
+      activeIndex === 0
+        ? purchaserName || "your ticket"
+        : `Attendee ${activeIndex + 1}`
+    );
+    const options: Array<[TicketAssistantOwnerMode, string]> = [
+      [
+        "purchaser_pays_ticket_and_addons",
+        "I will choose this attendee's meals and add-ons.",
+      ],
+      [
+        "owner_selects_sender_pays_addons",
+        "I will set a budget and let this attendee choose later.",
+      ],
+    ];
+    const budgetChoices = getTicketOwnerAddonBudgetChoices(usdToCurrencyRate);
+    const customBudgetMinimum = budgetChoices[1]?.value ?? 10;
+    const selectedBudgetChoice =
+      slot.budgetChoiceId ||
+      budgetChoices.find((choice) => Math.abs(choice.value - slot.budget) < 0.01)
+        ?.id ||
+      (slot.budget >= customBudgetMinimum ? "custom" : "owner-pays");
+    const isBudgetMode =
+      slot.ownerMode === "owner_selects_sender_pays_addons" ||
+      slot.ownerMode === "owner_pays_addons";
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>Meals & Add-ons for {label}</strong>
+          <div style={ticketAssistantStyles.optionGroup}>
+            {options.map(([value, text]) => (
+              <button
+                key={value}
+                type="button"
+                style={{
+                  ...ticketAssistantStyles.option,
+                  borderColor:
+                    slot.ownerMode === value
+                      ? theme.colors.primary
+                        : theme.colors.border,
+                }}
+                onClick={() => {
+                  patchSlot(activeIndex, {
+                    ownerMode: value,
+                    mealResponsibilitySelected:
+                      value === "purchaser_pays_ticket_and_addons",
+                    budget:
+                      value === "owner_selects_sender_pays_addons"
+                        ? slot.budget
+                        : 0,
+                    budgetChoiceId:
+                      value === "owner_selects_sender_pays_addons"
+                        ? selectedBudgetChoice
+                        : undefined,
+                  });
+
+                  if (value === "purchaser_pays_ticket_and_addons") {
+                    onGoto("meal-intro");
+                  }
+                }}
+              >
+                <span style={ticketAssistantStyles.radioLine}>
+                  <input
+                    type="radio"
+                    readOnly
+                    checked={
+                      value === "purchaser_pays_ticket_and_addons"
+                        ? slot.ownerMode === value &&
+                          slot.mealResponsibilitySelected
+                        : isBudgetMode
+                    }
+                  />
+                  <span>{text}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {isBudgetMode ? (
+            <div style={ticketAssistantStyles.budgetPanel}>
+              <strong>Add-on budget for {label}</strong>
+              <div style={ticketAssistantStyles.optionGroup}>
+                <button
+                  type="button"
+                  style={{
+                    ...ticketAssistantStyles.option,
+                    borderColor:
+                      selectedBudgetChoice === "owner-pays"
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                  }}
+                  onClick={() =>
+                    patchSlot(activeIndex, {
+                      ownerMode: "owner_pays_addons",
+                      mealResponsibilitySelected: true,
+                      budget: 0,
+                      budgetChoiceId: "owner-pays",
+                    })
+                  }
+                >
+                  <span style={ticketAssistantStyles.radioLine}>
+                    <input
+                      type="radio"
+                      readOnly
+                      checked={selectedBudgetChoice === "owner-pays"}
+                    />
+                    <span>
+                      {formatCurrency(0, currencyCode)}, {label} will pay for
+                      own add-ons in full
+                    </span>
+                  </span>
+                </button>
+
+                {budgetChoices.slice(1).map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    style={{
+                      ...ticketAssistantStyles.option,
+                      borderColor:
+                        selectedBudgetChoice === choice.id
+                          ? theme.colors.primary
+                          : theme.colors.border,
+                    }}
+                    onClick={() =>
+                      patchSlot(activeIndex, {
+                        ownerMode: "owner_selects_sender_pays_addons",
+                        mealResponsibilitySelected: true,
+                        budget: choice.value,
+                        budgetChoiceId: choice.id,
+                      })
+                    }
+                  >
+                    <span style={ticketAssistantStyles.radioLine}>
+                      <input
+                        type="radio"
+                        readOnly
+                        checked={selectedBudgetChoice === choice.id}
+                      />
+                      <span>{formatCurrency(choice.value, currencyCode)}</span>
+                    </span>
+                  </button>
+                ))}
+
+                <label
+                  style={{
+                    ...ticketAssistantStyles.option,
+                    borderColor:
+                      selectedBudgetChoice === "custom"
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                  }}
+                >
+                  <span style={ticketAssistantStyles.radioLine}>
+                    <input
+                      type="radio"
+                      readOnly
+                      checked={selectedBudgetChoice === "custom"}
+                      onFocus={() =>
+                        patchSlot(activeIndex, {
+                          ownerMode: "owner_selects_sender_pays_addons",
+                          mealResponsibilitySelected: true,
+                          budget: Math.max(slot.budget, customBudgetMinimum),
+                          budgetChoiceId: "custom",
+                        })
+                      }
+                      onClick={() =>
+                        patchSlot(activeIndex, {
+                          ownerMode: "owner_selects_sender_pays_addons",
+                          mealResponsibilitySelected: true,
+                          budget: Math.max(slot.budget, customBudgetMinimum),
+                          budgetChoiceId: "custom",
+                        })
+                      }
+                    />
+                    <span>Custom budget</span>
+                  </span>
+                  <input
+                    style={ticketAssistantStyles.input}
+                    type="number"
+                    min={customBudgetMinimum}
+                    step="0.01"
+                    value={
+                      selectedBudgetChoice === "custom" && slot.budget > 0
+                        ? slot.budget
+                        : ""
+                    }
+                    placeholder={`Minimum ${formatCurrency(
+                      customBudgetMinimum,
+                      currencyCode
+                    )}`}
+                    onFocus={() =>
+                      patchSlot(activeIndex, {
+                        ownerMode: "owner_selects_sender_pays_addons",
+                        mealResponsibilitySelected: true,
+                        budget: Math.max(slot.budget, customBudgetMinimum),
+                        budgetChoiceId: "custom",
+                      })
+                    }
+                    onKeyDown={stopAssistantInputKeyPropagation}
+                    onChange={(event) =>
+                      patchSlot(activeIndex, {
+                        ownerMode: "owner_selects_sender_pays_addons",
+                        mealResponsibilitySelected: true,
+                        budget: Math.max(
+                          customBudgetMinimum,
+                          Number(event.target.value || 0)
+                        ),
+                        budgetChoiceId: "custom",
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <div style={ticketAssistantStyles.meta}>
+                Custom budgets must be at least{" "}
+                {formatCurrency(customBudgetMinimum, currencyCode)}.
+              </div>
+              <button
+                type="button"
+                style={ticketAssistantStyles.primaryButton}
+                disabled={!slot.mealResponsibilitySelected}
+                onClick={onAdvanceMealLoop}
+              >
+                Continue
+              </button>
+            </div>
+          ) : null}
+          {!isBudgetMode ? (
+            <div style={ticketAssistantStyles.meta}>
+              Selecting the first option moves this attendee to meal selection.
+            </div>
+          ) : null}
+          <div style={ticketAssistantStyles.meta}>
+            Attendee {activeIndex + 1} of {quantity}.
+          </div>
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function MyTicketsDashboardRenderer({
+  theme,
+  onGoto,
+}: {
+  theme: ThemeConfig;
+  onGoto: (target: string) => void;
+}) {
+  const [draftVersion, setDraftVersion] = useState(0);
+  const draft = useMemo(
+    () => readCheckoutDraft("ticket-purchase-assistant"),
+    [draftVersion]
+  );
+  const lastSlide = String(draft.ticketAssistantLastSlide ?? "").trim();
+  const hasAssistantDraft = hasCheckoutDraftValue(draft) && Boolean(lastSlide);
+  const resumeHref = hasAssistantDraft
+    ? `/questionnaire/ticket-purchase-assistant?resumePurchase=1&slide=${encodeURIComponent(
+        lastSlide
+      )}`
+    : "";
+
+  function clearAssistantDraft() {
+    clearCheckoutDraft("ticket-purchase-assistant");
+    setDraftVersion((current) => current + 1);
+  }
+
+  return (
+    <div style={ticketAssistantStyles.stack}>
+      <div style={ticketAssistantStyles.panel}>
+        <strong>Ticket purchasing progress</strong>
+        {hasAssistantDraft ? (
+          <>
+            <div style={ticketAssistantStyles.meta}>
+              You have saved ticket purchasing progress.
+            </div>
+            <div style={ticketAssistantStyles.actionGrid}>
+              <button
+                type="button"
+                style={ticketAssistantStyles.primaryButton}
+                onClick={() => onGoto(resumeHref)}
+              >
+                Continue Ticket Purchase
+              </button>
+              <button
+                type="button"
+                style={ticketAssistantStyles.secondaryAction}
+                onClick={() => {
+                  clearAssistantDraft();
+                  onGoto("/questionnaire/ticket-purchase-assistant");
+                }}
+              >
+                Clear and Start From Beginning
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={ticketAssistantStyles.meta}>
+            No saved guided ticket purchase is waiting in this browser.
+          </div>
+        )}
+      </div>
+
+      <div style={ticketAssistantStyles.panel}>
+        <strong>Purchased tickets</strong>
+        <div style={ticketAssistantStyles.meta}>
+          Completed ticket purchases and event access links will be listed here.
+        </div>
+      </div>
+
+      <div style={ticketAssistantStyles.panel}>
+        <strong>Buy tickets</strong>
+        <div style={ticketAssistantStyles.actionGrid}>
+          <button
+            type="button"
+            style={ticketAssistantStyles.secondaryAction}
+            onClick={() => onGoto("/questionnaire/invitation?slide=invitation-shop")}
+          >
+            Ticket Shop
+          </button>
+          <button
+            type="button"
+            style={ticketAssistantStyles.secondaryAction}
+            onClick={() => onGoto("/questionnaire/ticket-purchase-assistant")}
+          >
+            Ticket Purchase Assistant
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ticketAssistantStyles: Record<string, CSSProperties> = {
+  stack: {
+    display: "grid",
+    gap: "12px",
+    marginTop: "14px",
+  },
+  eventGrid: {
+    display: "grid",
+    gap: "14px",
+    marginTop: "14px",
+  },
+  eventCard: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    background: "rgba(255, 255, 255, 0.9)",
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "minmax(84px, 132px) minmax(0, 1fr)",
+    padding: "14px",
+  },
+  eventHeroWrap: {
+    alignSelf: "start",
+    aspectRatio: "1 / 1",
+    borderRadius: "8px",
+    overflow: "hidden",
+    background: "#f4efe8",
+  },
+  eventHeroImage: {
+    display: "block",
+    height: "100%",
+    objectFit: "cover",
+    width: "100%",
+  },
+  eventHeroFallback: {
+    alignItems: "center",
+    color: "#6b625c",
+    display: "flex",
+    fontSize: "32px",
+    fontWeight: 900,
+    height: "100%",
+    justifyContent: "center",
+    width: "100%",
+  },
+  eventCardBody: {
+    display: "grid",
+    gap: "6px",
+    minWidth: 0,
+  },
+  eventTitle: {
+    fontSize: "clamp(20px, 3vw, 28px)",
+    lineHeight: 1.1,
+  },
+  eventDescription: {
+    color: "#4f4741",
+    lineHeight: 1.4,
+    margin: "4px 0 0",
+  },
+  chooseButton: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    justifySelf: "start",
+    marginTop: "6px",
+    minHeight: "42px",
+    padding: "9px 12px",
+  },
+  panel: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    background: "rgba(255, 255, 255, 0.82)",
+    display: "grid",
+    gap: "10px",
+    padding: "14px",
+  },
+  option: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    background: "#fffdfa",
+    color: "inherit",
+    cursor: "pointer",
+    display: "grid",
+    gap: "4px",
+    padding: "12px",
+    textAlign: "left",
+  },
+  optionGroup: {
+    display: "grid",
+    gap: "8px",
+    marginTop: "4px",
+  },
+  radioLine: {
+    alignItems: "center",
+    display: "flex",
+    gap: "9px",
+  },
+  addressGrid: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    display: "grid",
+    gap: "10px",
+    marginTop: "4px",
+    paddingTop: "12px",
+  },
+  actionGrid: {
+    display: "grid",
+    gap: "8px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  },
+  inheritedPanel: {
+    border: "1px solid rgba(47, 125, 74, 0.18)",
+    borderRadius: "8px",
+    background: "rgba(47, 125, 74, 0.08)",
+    color: "#214c31",
+    lineHeight: 1.45,
+    padding: "10px 12px",
+  },
+  inheritedList: {
+    display: "grid",
+    gap: "4px",
+    margin: 0,
+    paddingLeft: "18px",
+  },
+  budgetPanel: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    background: "#fffdfa",
+    display: "grid",
+    gap: "10px",
+    padding: "12px",
+  },
+  row: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+  quantityRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "12px",
+  },
+  smallButton: {
+    border: "1px solid rgba(32, 28, 29, 0.2)",
+    borderRadius: "999px",
+    background: "#fffdfa",
+    cursor: "pointer",
+    fontWeight: 800,
+    height: "36px",
+    width: "36px",
+  },
+  label: {
+    display: "grid",
+    gap: "6px",
+    fontSize: "12px",
+    fontWeight: 800,
+    textTransform: "uppercase",
+  },
+  input: {
+    border: "1px solid rgba(32, 28, 29, 0.16)",
+    borderRadius: "8px",
+    font: "inherit",
+    minHeight: "42px",
+    padding: "9px 10px",
+  },
+  meta: {
+    color: "#6b625c",
+    fontSize: "13px",
+    lineHeight: 1.45,
+  },
+  checkList: {
+    display: "grid",
+    gap: "6px",
+    lineHeight: 1.45,
+  },
+  orderedList: {
+    display: "grid",
+    gap: "8px",
+    lineHeight: 1.45,
+    margin: 0,
+    paddingLeft: "22px",
+  },
+  checkboxLabel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "9px",
+    fontWeight: 800,
+    lineHeight: 1.35,
+  },
+  savePanel: {
+    alignItems: "center",
+    border: "1px solid rgba(47, 125, 74, 0.22)",
+    borderRadius: "8px",
+    background: "rgba(47, 125, 74, 0.08)",
+    color: "#214c31",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    justifyContent: "space-between",
+    padding: "12px",
+  },
+  linkButton: {
+    border: "1px solid rgba(47, 125, 74, 0.3)",
+    borderRadius: "8px",
+    background: "#fffdfa",
+    color: "#214c31",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    minHeight: "38px",
+    padding: "8px 12px",
+  },
+  secondaryAction: {
+    border: "1px solid rgba(32, 28, 29, 0.18)",
+    borderRadius: "8px",
+    background: "#fffdfa",
+    color: "inherit",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    minHeight: "40px",
+    padding: "8px 12px",
+  },
+  primaryButton: {
+    border: 0,
+    borderRadius: "8px",
+    background: "#2f7d4a",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: 800,
+    minHeight: "48px",
+    padding: "12px 14px",
+  },
+};
+
 function AccountSummaryRenderer({
   theme,
   onGoto,
@@ -10670,6 +13486,18 @@ function AccountSummaryRenderer({
   const [accountError, setAccountError] = useState<string | null>(null);
   const [nameUpdateStatus, setNameUpdateStatus] =
     useState<NameUpdateStatus | null>(null);
+  const [identityDocumentType, setIdentityDocumentType] =
+    useState("drivers_license");
+  const [identityFrontFile, setIdentityFrontFile] = useState<File | null>(null);
+  const [identityBackFile, setIdentityBackFile] = useState<File | null>(null);
+  const [identitySocials, setIdentitySocials] = useState({
+    instagramUrl: "",
+    tiktokUrl: "",
+    facebookUrl: "",
+  });
+  const [identityMessage, setIdentityMessage] = useState<string | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [isSubmittingIdentity, setIsSubmittingIdentity] = useState(false);
   useEffect(() => {
     let isMounted = true;
 
@@ -10700,7 +13528,16 @@ function AccountSummaryRenderer({
         }
 
         if (isMounted) {
-          setUser(data?.user ?? null);
+          const nextUser = data?.user ?? null;
+          setUser(nextUser);
+          setIdentityDocumentType(
+            nextUser?.identityVerification?.documentType || "drivers_license"
+          );
+          setIdentitySocials({
+            instagramUrl: nextUser?.identityVerification?.instagramUrl || "",
+            tiktokUrl: nextUser?.identityVerification?.tiktokUrl || "",
+            facebookUrl: nextUser?.identityVerification?.facebookUrl || "",
+          });
         }
 
         const nameStatusResponse = await fetch(
@@ -10747,6 +13584,9 @@ function AccountSummaryRenderer({
   const maskedEmail = user?.maskedEmail || "No email added";
   const maskedPhone = user?.maskedPhone || "No phone added";
   const deletionStatus = String(user?.deletionStatus ?? "").trim();
+  const identityStatus = String(
+    user?.identityVerification?.status || "NOT SUBMITTED"
+  ).toUpperCase();
 
   async function handleLogout() {
     try {
@@ -10756,6 +13596,62 @@ function AccountSummaryRenderer({
       });
     } finally {
       window.location.href = "/questionnaire/auth-login";
+    }
+  }
+
+  async function handleIdentitySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIdentityError(null);
+    setIdentityMessage(null);
+
+    if (!identityFrontFile || !identityBackFile) {
+      setIdentityError("Please upload the front and back of your identification.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("documentType", identityDocumentType);
+    formData.set("frontFile", identityFrontFile);
+    formData.set("backFile", identityBackFile);
+    formData.set("instagramUrl", identitySocials.instagramUrl);
+    formData.set("tiktokUrl", identitySocials.tiktokUrl);
+    formData.set("facebookUrl", identitySocials.facebookUrl);
+
+    setIsSubmittingIdentity(true);
+
+    try {
+      const response = await fetch("/api/account/identity-verification", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData,
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || data?.message || "Could not submit verification."
+        );
+      }
+
+      setUser((previousUser) =>
+        previousUser
+          ? {
+              ...previousUser,
+              identityVerification: data?.verification ?? null,
+            }
+          : previousUser
+      );
+      setIdentityFrontFile(null);
+      setIdentityBackFile(null);
+      setIdentityMessage(data?.message || "Verification submitted.");
+    } catch (error) {
+      setIdentityError(
+        error instanceof Error
+          ? error.message
+          : "Could not submit verification."
+      );
+    } finally {
+      setIsSubmittingIdentity(false);
     }
   }
 
@@ -10812,7 +13708,7 @@ function AccountSummaryRenderer({
         Log Out
       </button>
 
-            <div className={styles.accountInfoCard}>
+      <div className={styles.accountInfoCard}>
         <div className={styles.accountCardHeader}>
           <div>
             <div className={styles.accountCardTitle}>Name</div>
@@ -10962,6 +13858,138 @@ function AccountSummaryRenderer({
         >
           Update Address
         </button>
+      </div>
+
+      <div className={styles.accountInfoCard}>
+        <div className={styles.accountCardHeader}>
+          <div>
+            <div className={styles.accountCardTitle}>Identity Verification</div>
+            <div className={styles.accountCardValue}>Status: {identityStatus}</div>
+          </div>
+        </div>
+        <div className={styles.accountCardMeta}>
+          Admin approval will allow access to age or identity restricted
+          purchases, items, and events.
+        </div>
+        {user?.identityVerification?.submittedAt ? (
+          <div className={styles.accountCardMeta}>
+            Submitted: {formatAccountDate(user.identityVerification.submittedAt)}
+          </div>
+        ) : null}
+        {user?.identityVerification?.adminNotes ? (
+          <div className={styles.accountCardMeta}>
+            Admin note: {user.identityVerification.adminNotes}
+          </div>
+        ) : null}
+
+        <form
+          className={styles.accountVerificationForm}
+          onSubmit={handleIdentitySubmit}
+        >
+          <label className={styles.accountFieldLabel}>
+            Identification type
+            <select
+              className={styles.accountTextInput}
+              value={identityDocumentType}
+              onChange={(event) => setIdentityDocumentType(event.target.value)}
+            >
+              <option value="drivers_license">Driver's license</option>
+              <option value="passport">Passport</option>
+              <option value="national_id">National ID</option>
+            </select>
+          </label>
+
+          <label className={styles.accountFieldLabel}>
+            ID front
+            <input
+              className={styles.accountTextInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={(event) =>
+                setIdentityFrontFile(event.target.files?.[0] ?? null)
+              }
+            />
+          </label>
+
+          <label className={styles.accountFieldLabel}>
+            ID back
+            <input
+              className={styles.accountTextInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={(event) =>
+                setIdentityBackFile(event.target.files?.[0] ?? null)
+              }
+            />
+          </label>
+
+          <label className={styles.accountFieldLabel}>
+            Instagram
+            <input
+              className={styles.accountTextInput}
+              type="url"
+              placeholder="https://instagram.com/username"
+              value={identitySocials.instagramUrl}
+              onChange={(event) =>
+                setIdentitySocials((previous) => ({
+                  ...previous,
+                  instagramUrl: event.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <label className={styles.accountFieldLabel}>
+            TikTok
+            <input
+              className={styles.accountTextInput}
+              type="url"
+              placeholder="https://tiktok.com/@username"
+              value={identitySocials.tiktokUrl}
+              onChange={(event) =>
+                setIdentitySocials((previous) => ({
+                  ...previous,
+                  tiktokUrl: event.target.value,
+                }))
+              }
+            />
+          </label>
+
+          <label className={styles.accountFieldLabel}>
+            Facebook
+            <input
+              className={styles.accountTextInput}
+              type="url"
+              placeholder="https://facebook.com/username"
+              value={identitySocials.facebookUrl}
+              onChange={(event) =>
+                setIdentitySocials((previous) => ({
+                  ...previous,
+                  facebookUrl: event.target.value,
+                }))
+              }
+            />
+          </label>
+
+          {identityError ? (
+            <div className={styles.accountFormError}>{identityError}</div>
+          ) : null}
+          {identityMessage ? (
+            <div className={styles.accountFormSuccess}>{identityMessage}</div>
+          ) : null}
+
+          <button
+            type="submit"
+            className={styles.secondaryButton}
+            disabled={isSubmittingIdentity}
+            style={{
+              borderColor: theme.colors.border,
+              color: theme.colors.text,
+            }}
+          >
+            {isSubmittingIdentity ? "Submitting..." : "Submit for Review"}
+          </button>
+        </form>
       </div>
 
       <div className={styles.accountInfoCard}>

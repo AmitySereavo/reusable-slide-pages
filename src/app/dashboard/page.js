@@ -29,6 +29,11 @@ const dashboardSections = [
     description: "Manage account/shop currencies and exchange-rate settings.",
   },
   {
+    href: "/dashboard/identity-verifications",
+    label: "ID Verifications",
+    description: "Review uploaded IDs, social profiles, and restricted-access approval status.",
+  },
+  {
     href: "/dashboard/email-sequences",
     label: "Email Sequences",
     description: "Edit operational emails, nurture sequences, delivery timing, and activity tracking.",

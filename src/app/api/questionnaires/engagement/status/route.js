@@ -3,6 +3,7 @@ import { getSessionFromCookie } from "@/lib/auth/sessionServer";
 import {
   ensureItaslLeadNurtureSequence,
   scheduleNextDripSequenceJob,
+  sendDueEmailSequenceJobs,
 } from "@/lib/verification/emailSequences";
 
 function asString(value) {
@@ -38,7 +39,7 @@ export async function GET(request) {
       await ensureItaslLeadNurtureSequence();
     }
 
-    const [questionAnswers, videoProgress, dripEvents, initialDripNextJob] = await Promise.all([
+    const [questionAnswers, videoProgress] = await Promise.all([
       prisma.userMarketingQuestionAnswer.findMany({
         where: {
           userId: session.userId,
@@ -57,56 +58,23 @@ export async function GET(request) {
           updatedAt: "desc",
         },
       }),
-      dripSequenceKey
-        ? prisma.emailSequenceEvent.findMany({
-            where: {
-              userId: session.userId,
-              eventType: {
-                in: ["slide_unlocked", "opened_slide", "clicked_link"],
-              },
-              metadata: {
-                path: ["dripSequenceKey"],
-                equals: dripSequenceKey,
-              },
-            },
-            select: {
-              eventType: true,
-              eventKey: true,
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: "desc",
-            },
-          })
-        : Promise.resolve([]),
-      dripSequenceKey
-        ? prisma.emailSequenceJob.findFirst({
-            where: {
-              userId: session.userId,
-              status: "PENDING",
-              sequence: {
-                metadata: {
-                  path: ["dripSequenceKey"],
-                  equals: dripSequenceKey,
-                },
-              },
-            },
-            orderBy: {
-              scheduledFor: "asc",
-            },
-            select: {
-              id: true,
-              scheduledFor: true,
-              step: {
-                select: {
-                  stepKey: true,
-                  name: true,
-                },
-              },
-            },
-          })
-        : Promise.resolve(null),
     ]);
+    let [dripEvents, initialDripNextJob] = await loadDripState({
+      userId: session.userId,
+      dripSequenceKey,
+    });
+
+    if (
+      dripSequenceKey &&
+      initialDripNextJob?.scheduledFor &&
+      new Date(initialDripNextJob.scheduledFor).getTime() <= Date.now()
+    ) {
+      await sendDueEmailSequenceJobs({ limit: 10 });
+      [dripEvents, initialDripNextJob] = await loadDripState({
+        userId: session.userId,
+        dripSequenceKey,
+      });
+    }
 
     const dripUnlockKeys = new Set();
     const dripOpenedKeys = new Set();
@@ -192,4 +160,58 @@ export async function GET(request) {
       { status: 500 }
     );
   }
+}
+
+async function loadDripState({ userId, dripSequenceKey }) {
+  if (!dripSequenceKey) {
+    return [[], null];
+  }
+
+  return Promise.all([
+    prisma.emailSequenceEvent.findMany({
+      where: {
+        userId,
+        eventType: {
+          in: ["slide_unlocked", "opened_slide", "clicked_link"],
+        },
+        metadata: {
+          path: ["dripSequenceKey"],
+          equals: dripSequenceKey,
+        },
+      },
+      select: {
+        eventType: true,
+        eventKey: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.emailSequenceJob.findFirst({
+      where: {
+        userId,
+        status: "PENDING",
+        sequence: {
+          metadata: {
+            path: ["dripSequenceKey"],
+            equals: dripSequenceKey,
+          },
+        },
+      },
+      orderBy: {
+        scheduledFor: "asc",
+      },
+      select: {
+        id: true,
+        scheduledFor: true,
+        step: {
+          select: {
+            stepKey: true,
+            name: true,
+          },
+        },
+      },
+    }),
+  ]);
 }

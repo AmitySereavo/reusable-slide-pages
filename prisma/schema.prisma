@@ -1371,6 +1371,33 @@ model User {
   emailSequenceJobs          EmailSequenceJob[]
   emailSequenceEvents        EmailSequenceEvent[]
   tags                       UserTag[]
+  identityVerifications      UserIdentityVerification[]
+}
+
+model UserIdentityVerification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  documentType  String
+  frontFilePath String
+  backFilePath  String
+
+  instagramUrl String?
+  tiktokUrl    String?
+  facebookUrl  String?
+
+  status           String    @default("PENDING")
+  adminNotes       String?
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status, submittedAt])
 }
 
 model UserTag {

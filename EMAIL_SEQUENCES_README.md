@@ -50,6 +50,21 @@ Each sent drip email can unlock a slide before or while sending. Engagement
 events such as enrolled, sent, opened, clicked, slide unlocked, and slide opened
 are stored in `EmailSequenceEvent` where available.
 
+Sequence slide links include `sequenceJobId`, `unlockKey`, and
+`dripSequenceKey`. For lead-nurture content such as ITASL, the link can create
+a normal session for the job's attached temporary/lead user without requiring
+the recipient to enter a password first. This lets activity collect under the
+same email-backed account while the UI can continue prompting the lead to set
+their own memorable password later.
+
+The first device that opens a private sequence job link is recorded as an
+authorized device for that specific email job. Later opens from a different
+device are paused and recorded as `sequence_link_device_blocked`, with
+available device, IP hash, user-agent, language/platform, and location headers
+stored in event metadata. The visitor can verify the new device by receiving a
+fresh link at the original recipient email address, or sign up as a lead with
+their own email address.
+
 The in-memory due-job timer is useful in local/dev mode, but production should
 use a persistent scheduler or cron worker that calls the due email job runner.
 The dashboard "Send due emails" action should remain available as a manual
