@@ -237,6 +237,8 @@ export type ShopCartLine = {
   purchaseModeId?: string;
   bundledFromLineKey?: string;
   bundledByPurchaseModeId?: string;
+  ticketAddOnAttendeeName?: string;
+  ticketAddOnTicketCode?: string;
   purchaseRecipients?: ShopPurchaseRecipient[];
   unitPriceOverride?: number;
   compareAtUnitPrice?: number;
@@ -277,6 +279,8 @@ export type ShopResolvedCartLine = {
   purchaseModeLabel?: string;
   bundledFromLineKey?: string;
   bundledByPurchaseModeId?: string;
+  ticketAddOnAttendeeName?: string;
+  ticketAddOnTicketCode?: string;
   sku?: string;
   purchaseRecipients?: ShopPurchaseRecipient[];
   mealSelection?: ShopMealSelectionRequirement;

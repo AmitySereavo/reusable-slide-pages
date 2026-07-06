@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const catalogOptions = [
   { id: "musicMerch", label: "Music + Merch" },
+  { id: "ticketAddOns", label: "Ticket Add-ons" },
   { id: "invitationTickets", label: "Invitation Tickets" },
   { id: "invitationOrder", label: "Combined Order Catalog" },
 ];

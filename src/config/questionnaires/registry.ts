@@ -355,6 +355,11 @@ export async function getQuestionnaireBySlug(slug: string) {
       currencyCode: "USD",
       weightUnit: "lb",
     });
+    const ticketAddOnCatalog = await getReusableShopCatalog({
+      catalogKey: "ticketAddOns",
+      currencyCode: "USD",
+      weightUnit: "lb",
+    });
     const orderCatalog = await getReusableShopCatalog({
       catalogKey: "invitationOrder",
       currencyCode: "USD",
@@ -365,6 +370,7 @@ export async function getQuestionnaireBySlug(slug: string) {
       ...resolvedVariables,
       shopCatalog,
       musicMerchShopCatalog,
+      ticketAddOnCatalog,
       orderCatalog,
       deliveryConfig,
       discountDefinitions,

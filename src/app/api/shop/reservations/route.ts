@@ -285,6 +285,7 @@ function normalizeCatalogKey(value: unknown) {
 
   if (key === "shopCatalog") return "invitationTickets";
   if (key === "musicMerchShopCatalog") return "musicMerch";
+  if (key === "ticketAddOnCatalog") return "ticketAddOns";
   if (key === "orderCatalog") return "invitationOrder";
 
   return key;

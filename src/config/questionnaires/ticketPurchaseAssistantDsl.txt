@@ -223,7 +223,8 @@ BR
 @id: meal-responsibility
 @type: content
 @block: ticket-assistant-meal-responsibility
-@shownext: false
+@shownext: true
+@next: Continue
 @showback: true
 @back: Back
 @backgoto: meal-intro
@@ -257,7 +258,28 @@ BR
 BR
 # [c1] Your Meal Has Been Saved
 BR
-[c3] Next, you may choose optional collectibles, souvenirs, merchandise, music, and other event add-ons.
+[c3] Review the saved meal, then continue to the optional event add-ons step.
+
+===
+// COLLECTIBLES INTRO
+@id: collectibles-intro
+@type: content
+@block: ticket-assistant-collectibles-intro
+@shownext: true
+@next: Continue
+@showback: true
+@back: Back to Meal Confirmation
+@backgoto: meal-confirmation
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Collectibles & Souvenirs
+BR
+[c3] Optional event add-ons are selected from inventory approved for this ticket flow.
 
 ===
 // INVITATION SHOP
@@ -293,7 +315,7 @@ BR
 @id: music-merch-shop
 @type: shop
 @store: orderCart
-@catalog: musicMerchShopCatalog
+@catalog: ticketAddOnCatalog
 @shopmode: browse
 @deliverygoto: delivery-options
 @contactgoto: contact-details
@@ -309,10 +331,10 @@ BR
 @choiceplacement: inline
 ---
 BR
-# [c1] Music and Merch
+# [c1] Collectibles & Souvenirs
 BR
-[c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
-[c3] Physical items are currently set up for event collection while we test the flow.
+[c2] Choose from optional items approved for ticket add-ons.
+[c3] Physical items may be collected at the event or mailed after the event when available.
 
 ===
 // TICKET DETAILS

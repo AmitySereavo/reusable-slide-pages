@@ -283,6 +283,14 @@ export function normalizeShopCart(input: unknown): ShopCart {
       typeof raw.bundledByPurchaseModeId === "string"
         ? raw.bundledByPurchaseModeId
         : undefined;
+    const ticketAddOnAttendeeName =
+      typeof raw.ticketAddOnAttendeeName === "string"
+        ? raw.ticketAddOnAttendeeName
+        : undefined;
+    const ticketAddOnTicketCode =
+      typeof raw.ticketAddOnTicketCode === "string"
+        ? raw.ticketAddOnTicketCode
+        : undefined;
     const purchaseRecipients = normalizeShopPurchaseRecipients(
       raw.purchaseRecipients
     );
@@ -303,6 +311,8 @@ export function normalizeShopCart(input: unknown): ShopCart {
       purchaseModeId,
       bundledFromLineKey,
       bundledByPurchaseModeId,
+      ticketAddOnAttendeeName,
+      ticketAddOnTicketCode,
       purchaseRecipients,
       lockedQuantity: raw.lockedQuantity === true,
       lockedPurchaseMode: raw.lockedPurchaseMode === true,
@@ -332,6 +342,8 @@ export function toggleShopLineSelected(
     unavailableReason: current?.unavailableReason,
     quantity: nextQuantity,
     purchaseModeId: current?.purchaseModeId ?? defaultPurchaseModeId,
+    ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
+    ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
     purchaseRecipients: current?.purchaseRecipients,
   };
 
@@ -370,6 +382,8 @@ export function setShopLineQuantity(
       purchaseModeId: current?.purchaseModeId,
       bundledFromLineKey: current?.bundledFromLineKey,
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
+      ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
+      ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
       purchaseRecipients: current?.purchaseRecipients,
     },
   }, key);
@@ -395,6 +409,8 @@ export function setShopLinePurchaseMode(
       purchaseModeId,
       bundledFromLineKey: current?.bundledFromLineKey,
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
+      ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
+      ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
       purchaseRecipients: current?.purchaseRecipients,
     },
   }, key);
@@ -446,6 +462,8 @@ export function setShopLinePurchaseRecipients(
       purchaseModeId: current?.purchaseModeId,
       bundledFromLineKey: current?.bundledFromLineKey,
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
+      ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
+      ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
       lockedQuantity: current?.lockedQuantity,
       lockedPurchaseMode: current?.lockedPurchaseMode,
       purchaseRecipients: normalizedRecipients,
@@ -850,6 +868,8 @@ function resolveShopLine(
     purchaseModeLabel: purchaseMode?.label,
     bundledFromLineKey: line.bundledFromLineKey,
     bundledByPurchaseModeId: line.bundledByPurchaseModeId,
+    ticketAddOnAttendeeName: line.ticketAddOnAttendeeName,
+    ticketAddOnTicketCode: line.ticketAddOnTicketCode,
     sku:
       purchaseMode?.sku ??
       sizeOption.sku ??

@@ -48,7 +48,7 @@ export function CartTicketMealSummary({
       <div className={styles.cartTicketMealMeta}>Code: {assignment.ticketCode}</div>
       {assignment.mealMode === "required" && !hasSelectedMealItems ? (
         <div className={styles.ticketMealRequiredWarning}>
-          Meal selection required for this ticket.
+          Attendee will select meal.
         </div>
       ) : null}
       {mealSummary.map((item) => (

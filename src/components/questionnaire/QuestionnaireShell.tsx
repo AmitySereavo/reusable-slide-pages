@@ -223,6 +223,32 @@ const CHECKOUT_DRAFT_SLUGS = new Set([
 function isCheckoutDraftSlug(slug: string) {
   return CHECKOUT_DRAFT_SLUGS.has(slug);
 }
+
+function mergeShopCatalogs(
+  primary: ShopCatalog | null,
+  extras: Array<ShopCatalog | null>
+): ShopCatalog | null {
+  const catalogs = [primary, ...extras].filter(Boolean) as ShopCatalog[];
+
+  if (!catalogs.length) {
+    return null;
+  }
+
+  const [baseCatalog] = catalogs;
+  const products = new Map<string, ShopCatalogProduct>();
+
+  for (const catalog of catalogs) {
+    for (const product of catalog.products) {
+      products.set(product.id, product);
+    }
+  }
+
+  return {
+    ...baseCatalog,
+    products: Array.from(products.values()),
+  };
+}
+
 const CHECKOUT_DRAFT_KEYS = [
   "fullName",
   "email",
@@ -242,10 +268,19 @@ const CHECKOUT_DRAFT_KEYS = [
   "ticketAssistantActiveOwnerIndex",
   "ticketAssistantActiveMealIndex",
   "ticketAssistantLastSlide",
+  "ticketAssistantDraftSavedAt",
 ] as const;
 const CHECKOUT_RESERVATION_SECONDS = 25;
+const SHARED_COMMERCE_DRAFT_KEY = "questionnaire:commerce:answers";
+const TICKET_ASSISTANT_EVENT_DRAFTS_KEY =
+  "questionnaire:ticket-purchase-assistant:event-drafts";
+const TICKET_ASSISTANT_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function getCheckoutDraftStorageKey(questionnaireSlug: string) {
+  if (isCheckoutDraftSlug(questionnaireSlug)) {
+    return SHARED_COMMERCE_DRAFT_KEY;
+  }
+
   return `questionnaire:${questionnaireSlug}:answers`;
 }
 
@@ -256,7 +291,7 @@ function readCheckoutDraft(questionnaireSlug: string): QuestionnaireAnswers {
 
   const raw = window.localStorage.getItem(
     getCheckoutDraftStorageKey(questionnaireSlug)
-  );
+  ) ?? window.localStorage.getItem(`questionnaire:${questionnaireSlug}:answers`);
 
   if (!raw) {
     return {};
@@ -309,6 +344,11 @@ function writeCheckoutDraft(
     return;
   }
 
+  if (questionnaireSlug === "ticket-purchase-assistant") {
+    draft.ticketAssistantDraftSavedAt = new Date().toISOString();
+    writeTicketAssistantEventDraft(draft);
+  }
+
   window.localStorage.setItem(storageKey, JSON.stringify(draft));
 }
 
@@ -318,6 +358,158 @@ function clearCheckoutDraft(questionnaireSlug: string) {
   }
 
   window.localStorage.removeItem(getCheckoutDraftStorageKey(questionnaireSlug));
+  window.localStorage.removeItem(`questionnaire:${questionnaireSlug}:answers`);
+
+  if (questionnaireSlug === "ticket-purchase-assistant") {
+    window.localStorage.removeItem(TICKET_ASSISTANT_EVENT_DRAFTS_KEY);
+  }
+}
+
+function readTicketAssistantEventDrafts(): Record<string, QuestionnaireAnswers> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = window.localStorage.getItem(TICKET_ASSISTANT_EVENT_DRAFTS_KEY);
+
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, QuestionnaireAnswers>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeTicketAssistantEventDraft(draft: QuestionnaireAnswers) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const eventId = String(draft.ticketAssistantEventProductId ?? "").trim();
+
+  if (!eventId) {
+    return;
+  }
+
+  const drafts = readTicketAssistantEventDrafts();
+  drafts[eventId] = draft;
+  window.localStorage.setItem(
+    TICKET_ASSISTANT_EVENT_DRAFTS_KEY,
+    JSON.stringify(drafts)
+  );
+}
+
+function clearTicketAssistantEventDraft(eventId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const normalizedEventId = String(eventId ?? "").trim();
+
+  if (!normalizedEventId) {
+    return;
+  }
+
+  const drafts = readTicketAssistantEventDrafts();
+  delete drafts[normalizedEventId];
+
+  if (Object.keys(drafts).length) {
+    window.localStorage.setItem(
+      TICKET_ASSISTANT_EVENT_DRAFTS_KEY,
+      JSON.stringify(drafts)
+    );
+  } else {
+    window.localStorage.removeItem(TICKET_ASSISTANT_EVENT_DRAFTS_KEY);
+  }
+
+  const activeDraft = readCheckoutDraft("ticket-purchase-assistant");
+
+  if (
+    String(activeDraft.ticketAssistantEventProductId ?? "").trim() ===
+    normalizedEventId
+  ) {
+    window.localStorage.removeItem(
+      getCheckoutDraftStorageKey("ticket-purchase-assistant")
+    );
+  }
+}
+
+function clearAllTicketAssistantEventDrafts() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(TICKET_ASSISTANT_EVENT_DRAFTS_KEY);
+  window.localStorage.removeItem(
+    getCheckoutDraftStorageKey("ticket-purchase-assistant")
+  );
+}
+
+function clearTicketAssistantEventDraftOrAll(eventId: string) {
+  const normalizedEventId = String(eventId ?? "").trim();
+
+  if (normalizedEventId) {
+    clearTicketAssistantEventDraft(normalizedEventId);
+    return;
+  }
+
+  clearAllTicketAssistantEventDrafts();
+}
+
+function isMeaningfulTicketAssistantDraft(draft: QuestionnaireAnswers) {
+  const eventId = String(draft.ticketAssistantEventProductId ?? "").trim();
+  const lastSlide = String(draft.ticketAssistantLastSlide ?? "").trim();
+  const slots = Array.isArray(draft.ticketAssistantSlots)
+    ? draft.ticketAssistantSlots
+    : [];
+  const hasTicketData =
+    Object.keys(normalizeShopCart(draft.orderCart)).length > 0 ||
+    normalizeTicketAssignments(draft.ticketAssignments).length > 0 ||
+    slots.some((slot) => {
+      if (!slot || typeof slot !== "object" || Array.isArray(slot)) {
+        return false;
+      }
+
+      const record = slot as Record<string, unknown>;
+      return Boolean(
+        String(record.name ?? "").trim() ||
+          String(record.email ?? "").trim() ||
+          String(record.sizeOptionId ?? "").trim()
+      );
+    });
+  const savedAt = String(draft.ticketAssistantDraftSavedAt ?? "").trim();
+  const savedAtTime = savedAt ? new Date(savedAt).getTime() : Date.now();
+  const isFresh =
+    Number.isFinite(savedAtTime) &&
+    Date.now() - savedAtTime <= TICKET_ASSISTANT_DRAFT_MAX_AGE_MS;
+
+  return Boolean(eventId && lastSlide && hasTicketData && isFresh);
+}
+
+function removeTicketAssistantProgressFields(answers: QuestionnaireAnswers) {
+  const next = { ...answers };
+
+  delete next.ticketAssignments;
+  delete next.selectedMealTicketCode;
+  delete next.mealReturnTarget;
+  delete next.cartReturnTarget;
+  delete next.shopEntrySource;
+  delete next.ticketAssistantEventProductId;
+  delete next.ticketAssistantQuantity;
+  delete next.guidedTicketPurchaseType;
+  delete next.ticketAssistantSlots;
+  delete next.ticketAssistantActiveOwnerIndex;
+  delete next.ticketAssistantActiveMealIndex;
+  delete next.ticketAssistantLastSlide;
+  delete next.ticketAssistantDraftSavedAt;
+
+  return next;
 }
 
 
@@ -467,8 +659,18 @@ function getTicketAssistantMaxQuantity(product: ShopCatalogProduct | undefined) 
 }
 
 function getTicketAssistantQuantity(answers: QuestionnaireAnswers) {
-  const quantity = Number(answers.ticketAssistantQuantity ?? 1);
-  return Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+  const requestedQuantity = Number(answers.ticketAssistantQuantity ?? 1);
+  const slotCount = Array.isArray(answers.ticketAssistantSlots)
+    ? answers.ticketAssistantSlots.length
+    : 0;
+  const assignmentCount = normalizeTicketAssignments(
+    answers.ticketAssignments
+  ).length;
+  const quantities = [requestedQuantity, slotCount, assignmentCount]
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => Math.floor(value));
+
+  return Math.max(1, ...quantities);
 }
 
 function getTicketAssistantActiveOwnerIndex(
@@ -487,6 +689,33 @@ function getTicketAssistantActiveMealIndex(
   const rawIndex = Number(answers.ticketAssistantActiveMealIndex ?? 0);
   const index = Number.isFinite(rawIndex) ? Math.floor(rawIndex) : 0;
   return Math.min(Math.max(0, index), Math.max(0, quantity - 1));
+}
+
+function getTicketAssistantSlotValidationError(params: {
+  product: ShopCatalogProduct | undefined;
+  slots: TicketAssistantSlot[];
+  index: number;
+}) {
+  const { product, slots, index } = params;
+  const slot = slots[index];
+
+  if (!slot?.name.trim()) {
+    return `Enter the legal name for attendee ${index + 1}.`;
+  }
+
+  if (
+    isTicketAssistantEmailRequired({
+      product,
+      slots,
+      slot,
+      index,
+    }) &&
+    !slot.email.trim()
+  ) {
+    return `Enter the email address for attendee ${index + 1}.`;
+  }
+
+  return "";
 }
 
 function getTicketAssistantAccountHolderAllowance(
@@ -559,6 +788,40 @@ function getTicketAssistantPlusOneHostIndex(params: {
   return index < getTicketAssistantAccountHolderAllowance(product)
     ? 0
     : index - 1;
+}
+
+function getTicketAssistantMealSlideForIndex(params: {
+  product: ShopCatalogProduct | undefined;
+  slots: TicketAssistantSlot[];
+  index: number;
+}) {
+  const { product, slots, index } = params;
+  const slot = slots[index];
+  const hostIndex = getTicketAssistantPlusOneHostIndex({
+    product,
+    slots,
+    index,
+  });
+  const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+
+  if (index === 0 || hostIndex === 0) {
+    return "meal-intro";
+  }
+
+  if (hostIndex !== null) {
+    return hostSlot?.mealResponsibilitySelected === true &&
+      hostSlot.ownerMode === "purchaser_pays_ticket_and_addons"
+      ? "meal-intro"
+      : null;
+  }
+
+  if (!slot?.mealResponsibilitySelected) {
+    return "meal-responsibility";
+  }
+
+  return slot.ownerMode === "purchaser_pays_ticket_and_addons"
+    ? "meal-intro"
+    : null;
 }
 
 function getTicketAssistantDisplayName(
@@ -860,16 +1123,13 @@ function buildTicketAssistantCheckoutState(params: {
 
   for (const line of resolvedTicketLines) {
     const lineSlots = groupedSlots.get(line.lineKey) ?? [];
-    const purchaserSlots = lineSlots.filter((slot) => slot.isPurchaser);
-    const recipientSlots = lineSlots.filter((slot) => !slot.isPurchaser);
-    const orderedSlots = [...purchaserSlots, ...recipientSlots];
 
     assignments = assignments.map((assignment) => {
       if (assignment.lineKey !== line.lineKey) {
         return assignment;
       }
 
-      const slot = orderedSlots[assignment.ticketIndex];
+      const slot = lineSlots[assignment.ticketIndex];
       if (!slot) {
         return assignment;
       }
@@ -956,6 +1216,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     isAuthSessionLoaded,
     setIsAuthSessionLoaded,
   } = useAuthSession();
+  const [accountIdentityVerified, setAccountIdentityVerified] = useState(false);
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
@@ -1106,10 +1367,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       shopReservationKeyRef.current = draftReservationKey;
     }
 
-    setAnswers((prev) => ({
-      ...prev,
-      ...draft,
-    }));
+    setAnswers((prev) => {
+      const next = {
+        ...prev,
+        ...draft,
+      };
+
+      if (config.slug === "ticket-purchase-assistant") {
+        next.ticketAssistantQuantity = getTicketAssistantQuantity(next);
+      }
+
+      return next;
+    });
   }, [config.slug, searchParams]);
 
   useEffect(() => {
@@ -1457,6 +1726,39 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   useEffect(() => {
     setActiveFooterTextPanel(null);
   }, [currentSlide?.id]);
+
+  useEffect(() => {
+    if (!isAuthSessionLoaded || !authSessionUser?.id) {
+      setAccountIdentityVerified(false);
+      return;
+    }
+
+    let canceled = false;
+
+    async function loadIdentityStatus() {
+      const response = await fetch("/api/account/profile", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+        },
+      }).catch(() => null);
+      const data = response ? await response.json().catch(() => null) : null;
+      const status = String(
+        data?.user?.identityVerification?.status ?? ""
+      ).toUpperCase();
+
+      if (!canceled) {
+        setAccountIdentityVerified(status === "APPROVED");
+      }
+    }
+
+    void loadIdentityStatus();
+
+    return () => {
+      canceled = true;
+    };
+  }, [authSessionUser?.id, isAuthSessionLoaded]);
 
   useEffect(() => {
     if (!isAuthSessionLoaded || !authSessionUser?.id || !dripSequenceKeys.length) {
@@ -2264,8 +2566,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const sharedShopCatalog = useMemo(
     () =>
-      getShopCatalog(mergedVariables, "orderCatalog") ??
-      getShopCatalog(mergedVariables, "shopCatalog"),
+      mergeShopCatalogs(
+        getShopCatalog(mergedVariables, "orderCatalog") ??
+          getShopCatalog(mergedVariables, "shopCatalog"),
+        [
+          getShopCatalog(mergedVariables, "ticketAddOnCatalog"),
+        ]
+      ),
     [mergedVariables]
   );
 
@@ -3022,6 +3329,17 @@ export default function QuestionnaireShell({ config, theme }: Props) {
             nextCart
           ).filter((line) => line.fulfillmentType === "ticket");
 
+          if (Object.keys(nextCart).length === 0 || nextTicketLines.length === 0) {
+            clearTicketAssistantEventDraftOrAll(
+              String(prev.ticketAssistantEventProductId ?? "")
+            );
+            return {
+              ...removeTicketAssistantProgressFields(nextAnswers),
+              orderCart: nextCart,
+              shopReservationKey: reservationKey,
+            };
+          }
+
           nextAnswers.ticketAssignments = prefillFirstTicketFromContact(
             buildTicketAssignmentsFromLines({
               lines: nextTicketLines,
@@ -3092,6 +3410,49 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }
 
+  function attachTicketAssistantAddOnMetadata(cart: ShopCart) {
+    if (
+      currentSlide?.id !== "music-merch-shop" ||
+      String(answers.shopEntrySource ?? "") !== "ticket-assistant-collectibles"
+    ) {
+      return cart;
+    }
+
+    const selectedTicketCode = String(answers.selectedMealTicketCode ?? "");
+    const activeIndex = getTicketAssistantActiveMealIndex(
+      answers,
+      getTicketAssistantQuantity(answers)
+    );
+    const selectedAssignment =
+      currentTicketAssignments.find(
+        (assignment) => assignment.ticketCode === selectedTicketCode
+      ) ?? currentTicketAssignments[activeIndex];
+
+    if (!selectedAssignment) {
+      return cart;
+    }
+
+    const attendeeName = String(
+      selectedAssignment.ownerName ||
+        selectedAssignment.ownerEmail ||
+        selectedAssignment.ticketLabel ||
+        "Attendee"
+    ).trim();
+
+    return Object.fromEntries(
+      Object.entries(cart).map(([lineKey, line]) => [
+        lineKey,
+        {
+          ...line,
+          ticketAddOnAttendeeName:
+            line.ticketAddOnAttendeeName ?? attendeeName,
+          ticketAddOnTicketCode:
+            line.ticketAddOnTicketCode ?? selectedAssignment.ticketCode,
+        },
+      ])
+    ) as ShopCart;
+  }
+
   function updateCurrentShopCart(
     updater: (cart: ShopCart) => ShopCart,
     options: { reserveInventory?: boolean } = {}
@@ -3099,7 +3460,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     if (currentSlide?.type !== "shop" || !currentSlide.storeAs) return;
 
     const storeKey = currentSlide.storeAs;
-    const nextCart = updater(currentShopCart);
+    const nextCart = attachTicketAssistantAddOnMetadata(updater(currentShopCart));
     resetCheckoutReservation();
 
     if (storeKey === "orderCart") {
@@ -3107,6 +3468,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         sharedShopDisplayCatalog,
         nextCart
       ).filter((line) => line.fulfillmentType === "ticket");
+
+      if (Object.keys(nextCart).length === 0 || nextTicketLines.length === 0) {
+        clearTicketAssistantEventDraftOrAll(
+          String(answers.ticketAssistantEventProductId ?? "")
+        );
+        setAnswers((prev) => ({
+          ...removeTicketAssistantProgressFields(prev),
+          [storeKey]: nextCart,
+        }));
+        return;
+      }
+
       const nextTicketAssignments = prefillFirstTicketFromContact(
         buildTicketAssignmentsFromLines({
           lines: nextTicketLines,
@@ -3257,31 +3630,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     const slots = getTicketAssistantSlots(answers, quantity);
 
     for (let nextIndex = activeIndex + 1; nextIndex < quantity; nextIndex += 1) {
-      const hostIndex = getTicketAssistantPlusOneHostIndex({
+      const nextMealSlide = getTicketAssistantMealSlideForIndex({
         product: selectedProduct,
         slots,
         index: nextIndex,
       });
-      const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
-      const isAccountHolderPlusOne =
-        hostIndex === 0 &&
-        slots[0]?.ownerMode === "purchaser_pays_ticket_and_addons";
-      const isPurchaserHandledPlusOne =
-        hostIndex !== null &&
-        (hostIndex === 0 ||
-          hostSlot?.mealResponsibilitySelected === true) &&
-        (hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons") ===
-          "purchaser_pays_ticket_and_addons";
-      const nextMealSlide =
-        nextIndex === 0 || isAccountHolderPlusOne || isPurchaserHandledPlusOne
-          ? "meal-intro"
-          : hostIndex !== null
-            ? null
-            : !slots[nextIndex]?.mealResponsibilitySelected
-              ? "meal-responsibility"
-              : slots[nextIndex]?.ownerMode === "purchaser_pays_ticket_and_addons"
-                ? "meal-intro"
-                : null;
 
       if (!nextMealSlide) {
         continue;
@@ -4054,6 +4407,36 @@ async function next() {
   function back() {
     if (!currentSlide) return;
 
+    if (currentSlide.blockKey === "ticket-assistant-meal-intro") {
+      const quantity = getTicketAssistantQuantity(answers);
+      const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+      const slots = getTicketAssistantSlots(answers, quantity);
+      const selectedProduct = getTicketAssistantProduct(
+        sharedShopDisplayCatalog,
+        answers.ticketAssistantEventProductId
+      );
+      const hostIndex = getTicketAssistantPlusOneHostIndex({
+        product: selectedProduct,
+        slots,
+        index: activeIndex,
+      });
+      const responsibilityIndex =
+        hostIndex !== null && hostIndex > 0 ? hostIndex : activeIndex;
+      const responsibilitySlot = slots[responsibilityIndex];
+
+      if (
+        responsibilityIndex > 0 &&
+        responsibilitySlot?.mealResponsibilitySelected === true
+      ) {
+        setAnswers((prev) => ({
+          ...prev,
+          ticketAssistantActiveMealIndex: responsibilityIndex,
+        }));
+        goToTarget("meal-responsibility");
+        return;
+      }
+    }
+
     if (currentSlide.backGoto) {
       goToTarget(currentSlide.backGoto);
       return;
@@ -4176,6 +4559,14 @@ async function next() {
           )
         );
       });
+    }
+
+    if (currentSlide.blockKey === "ticket-assistant-meal-responsibility") {
+      const quantity = getTicketAssistantQuantity(answers);
+      const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+      const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
+
+      return slot?.mealResponsibilitySelected === true;
     }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
@@ -5225,23 +5616,18 @@ async function handleNext() {
       slots,
       index: activeIndex,
     });
-    const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
-    const isPurchaserHandled =
-      activeIndex === 0 ||
-      (slot.mealResponsibilitySelected &&
-        slot.ownerMode === "purchaser_pays_ticket_and_addons") ||
-      (hostIndex !== null &&
-        (hostIndex === 0 ||
-          hostSlot?.mealResponsibilitySelected === true) &&
-        (hostSlot?.ownerMode ?? "purchaser_pays_ticket_and_addons") ===
-          "purchaser_pays_ticket_and_addons");
+    const expectedMealSlide = getTicketAssistantMealSlideForIndex({
+      product: selectedProduct,
+      slots,
+      index: activeIndex,
+    });
 
-    if (!isPurchaserHandled && hostIndex === null) {
+    if (expectedMealSlide === "meal-responsibility") {
       goToTarget("meal-responsibility");
       return;
     }
 
-    if (!isPurchaserHandled || slot.skipMealForNow) {
+    if (expectedMealSlide !== "meal-intro" || slot.skipMealForNow) {
       advanceTicketAssistantMealLoop();
       return;
     }
@@ -5252,7 +5638,31 @@ async function handleNext() {
     return;
   }
 
+  if (currentSlide.blockKey === "ticket-assistant-meal-responsibility") {
+    const quantity = getTicketAssistantQuantity(answers);
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
+
+    if (!slot?.mealResponsibilitySelected) {
+      setSubmitError("Choose how this attendee's meals and add-ons will be handled.");
+      return;
+    }
+
+    if (slot.ownerMode === "purchaser_pays_ticket_and_addons") {
+      goToTarget("meal-intro");
+      return;
+    }
+
+    advanceTicketAssistantMealLoop();
+    return;
+  }
+
   if (currentSlide.blockKey === "ticket-assistant-meal-confirmation") {
+    goToTarget("collectibles-intro");
+    return;
+  }
+
+  if (currentSlide.blockKey === "ticket-assistant-collectibles-intro") {
     const quantity = getTicketAssistantQuantity(answers);
     const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
     const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
@@ -6241,6 +6651,7 @@ async function handleNext() {
                       {currentSlide.blockKey === "my-tickets-dashboard" ? (
                         <MyTicketsDashboardRenderer
                           theme={theme}
+                          catalog={sharedShopDisplayCatalog}
                           onGoto={goToTarget}
                         />
                       ) : null}
@@ -6457,6 +6868,11 @@ async function handleNext() {
                               : ""
                           }
                           theme={theme}
+                          accountIdentityVerified={accountIdentityVerified}
+                          onVerifyIdentification={() => {
+                            window.location.href =
+                              "/questionnaire/auth-account?slide=account-home";
+                          }}
                           onChange={(nextAssignments) => {
                             latestTicketAssignmentsRef.current = nextAssignments;
                             setAnswer("ticketAssignments", nextAssignments);
@@ -7347,7 +7763,7 @@ function TicketDetailsRenderer({
               </div>
               {assignment.mealMode === "required" && !hasSelectedMealItems ? (
                 <div className={styles.ticketMealRequiredWarning}>
-                  Meal selection required for this ticket.
+                  Attendee will select meal.
                 </div>
               ) : null}
               {assignment.ownerLockedFromRecipient !== true ? (
@@ -7935,6 +8351,8 @@ function MealSelectionRenderer({
     currencyCode,
     selectedTicketCode,
     theme,
+    accountIdentityVerified,
+    onVerifyIdentification,
     onChange,
   }: {
     menu: MealMenu | null;
@@ -7942,11 +8360,54 @@ function MealSelectionRenderer({
     currencyCode: string;
     selectedTicketCode: string;
     theme: ThemeConfig;
+    accountIdentityVerified: boolean;
+    onVerifyIdentification: () => void;
     onChange: (nextAssignments: TicketAssignments) => void;
   }) {
     const mealAssignments = getTicketsNeedingMeal(assignments).filter(
       (assignment) => assignment.ticketCode === selectedTicketCode
     );
+  useEffect(() => {
+    let changed = false;
+    const nextAssignments = assignments.map((assignment) => {
+      if (assignment.ticketCode !== selectedTicketCode) {
+        return assignment;
+      }
+
+      const alcoholSelection =
+        assignment.mealSelection?.["alcoholic-beverage"];
+      const hasAlcoholSelection =
+        alcoholSelection &&
+        Object.values(alcoholSelection).some((quantity) => Number(quantity) > 0);
+      const canKeepAlcoholSelection =
+        assignment.isPurchaserTicket === true && accountIdentityVerified;
+
+      if (!hasAlcoholSelection || canKeepAlcoholSelection) {
+        return assignment;
+      }
+
+      changed = true;
+      const mealSelection = {
+        ...(assignment.mealSelection ?? {}),
+      };
+      delete mealSelection["alcoholic-beverage"];
+
+      return {
+        ...assignment,
+        mealSelection,
+      };
+    });
+
+    if (changed) {
+      onChange(nextAssignments);
+    }
+  }, [
+    accountIdentityVerified,
+    assignments,
+    onChange,
+    selectedTicketCode,
+  ]);
+
   if (!menu || !mealAssignments.length) {
     return (
       <p className={styles.body}>
@@ -7962,6 +8423,13 @@ function MealSelectionRenderer({
           menu,
           assignment,
         });
+        const regularGroups = menu.groups.filter(
+          (group) => group.id !== "alcoholic-beverage"
+        );
+        const alcoholGroups = menu.groups.filter(
+          (group) => group.id === "alcoholic-beverage"
+        );
+        const isAccountHolderTicket = assignment.isPurchaserTicket === true;
 
         return (
         <div key={assignment.ticketCode} className={styles.mealTicketPanel}>
@@ -7982,7 +8450,7 @@ function MealSelectionRenderer({
             <strong>{formatCurrency(mealExtraTotal, currencyCode)}</strong>
           </div>
 
-          {menu.groups.map((group) => {
+          {regularGroups.map((group) => {
             const groupTotal = getTicketMealGroupTotal(assignment, group.id);
             const includedServings =
               typeof group.includedServings === "number"
@@ -8172,6 +8640,126 @@ function MealSelectionRenderer({
               style={{ borderColor: theme.colors.border }}
             />
           ) : null}
+
+          {alcoholGroups.map((group) => {
+            const groupTotal = getTicketMealGroupTotal(assignment, group.id);
+
+            return (
+              <div
+                key={`${assignment.ticketCode}-${group.id}`}
+                className={`${styles.mealGroup} ${styles.mealGroupPaid} ${styles.mealGroupAlcohol}`}
+              >
+                <div className={styles.mealGroupHeader}>
+                  <div className={styles.mealGroupTitle}>{group.label}</div>
+                  <div className={styles.mealGroupCount}>
+                    {groupTotal} selected · Paid add-on
+                  </div>
+                </div>
+
+                <div className={styles.mealGroupLegalNote}>
+                  <span>Must meet the legal requirements.</span>
+                  <span>Identification must be uploaded.</span>
+                </div>
+
+                {!isAccountHolderTicket ? (
+                  <div className={styles.mealGroupRestrictionNote}>
+                    Alcoholic beverages can only be selected from the
+                    attendee&apos;s own account after their identification is
+                    approved. The account holder cannot purchase alcoholic
+                    beverages for a plus one or another attendee.
+                  </div>
+                ) : !accountIdentityVerified ? (
+                  <div className={styles.mealGroupRestrictionNote}>
+                    <span>
+                      Verify your identification to purchase alcoholic
+                      beverages.
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={onVerifyIdentification}
+                      style={{
+                        borderColor: theme.colors.border,
+                        background: "#FFFFFF",
+                        color: theme.colors.text,
+                      }}
+                    >
+                      Verify your identification
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.mealOptionStack}>
+                    {group.options.map((option) => {
+                      const currentQuantity =
+                        assignment.mealSelection?.[group.id]?.[option.id] ?? 0;
+
+                      return (
+                        <div
+                          key={`${assignment.ticketCode}-${group.id}-${option.id}`}
+                          className={styles.mealOptionRow}
+                        >
+                          <div className={styles.mealOptionLabel}>
+                            <span>{option.label}</span>
+                            {option.price ? (
+                              <span className={styles.mealOptionPrice}>
+                                {formatCurrency(option.price, currencyCode)} per
+                                extra serving
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className={styles.quantityControl}>
+                            <button
+                              type="button"
+                              className={styles.quantityButton}
+                              onClick={() =>
+                                onChange(
+                                  setTicketMealOptionQuantity({
+                                    assignments,
+                                    ticketCode: assignment.ticketCode,
+                                    groupId: group.id,
+                                    optionId: option.id,
+                                    quantity: currentQuantity - 1,
+                                  })
+                                )
+                              }
+                              disabled={currentQuantity <= 0}
+                              style={{ borderColor: theme.colors.border }}
+                            >
+                              -
+                            </button>
+
+                            <span className={styles.quantityValue}>
+                              {currentQuantity}
+                            </span>
+
+                            <button
+                              type="button"
+                              className={styles.quantityButton}
+                              onClick={() =>
+                                onChange(
+                                  setTicketMealOptionQuantity({
+                                    assignments,
+                                    ticketCode: assignment.ticketCode,
+                                    groupId: group.id,
+                                    optionId: option.id,
+                                    quantity: currentQuantity + 1,
+                                  })
+                                )
+                              }
+                              style={{ borderColor: theme.colors.border }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
                 </div>
         );
       })}
@@ -9540,6 +10128,10 @@ function ShopSlideRenderer({
                   slideMode === "review" && resolvedLine
                     ? getCartFulfillmentLabel(resolvedLine)
                     : "";
+                const ticketAddOnFootnote =
+                  slideMode === "review" && resolvedLine?.ticketAddOnAttendeeName
+                    ? `${resolvedLine.ticketAddOnAttendeeName} add-on`
+                    : "";
                 const shouldShowPurchaseModeLabel =
                   product.fulfillmentType !== "ticket" &&
                   !activePurchaseMode?.bundledCartItems?.length &&
@@ -9659,9 +10251,6 @@ function ShopSlideRenderer({
                           </span>
                         ) : null}
                       </div>
-                      <div className={styles.cartItemPriceRow}>
-                        <strong>{formatCurrency(unitPrice, catalog.currencyCode)}</strong>
-                      </div>
                       {lineMealAssignments.length > 0 && mealMenu ? (
                         <div className={styles.cartTicketMealStack}>
                           {lineMealAssignments.map((assignment) => (
@@ -9682,9 +10271,11 @@ function ShopSlideRenderer({
                           purchasedForLabels={bundledAddOnPurchasedForLabels}
                         />
                       ) : null}
-                      {fulfillmentLabel ? (
+                      {fulfillmentLabel || ticketAddOnFootnote ? (
                         <div className={styles.cartItemFootnote}>
-                          {fulfillmentLabel}
+                          {[fulfillmentLabel, ticketAddOnFootnote]
+                            .filter(Boolean)
+                            .join(" - ")}
                         </div>
                       ) : null}
                     </div>
@@ -10258,9 +10849,12 @@ function ShopSlideRenderer({
                     </div>
                   ) : null}
 
-                  {slideMode === "review" && fulfillmentLabel ? (
+                  {slideMode === "review" &&
+                  (fulfillmentLabel || ticketAddOnFootnote) ? (
                     <div className={styles.cartItemFootnote}>
-                      {fulfillmentLabel}
+                      {[fulfillmentLabel, ticketAddOnFootnote]
+                        .filter(Boolean)
+                        .join(" - ")}
                     </div>
                   ) : null}
                 </div>
@@ -12473,10 +13067,35 @@ function TicketPurchaseAssistantRenderer({
     return (
       <div style={ticketAssistantStyles.stack}>
         {slots.map((slot, index) => {
+          if (
+            getTicketAssistantPlusOneHostIndex({
+              product: selectedProduct,
+              slots,
+              index,
+            }) !== null
+          ) {
+            return null;
+          }
+
+          const plusOneIndex = slots.findIndex(
+            (_candidate, candidateIndex) =>
+              getTicketAssistantPlusOneHostIndex({
+                product: selectedProduct,
+                slots,
+                index: candidateIndex,
+              }) === index
+          );
+          const groupIndexes =
+            plusOneIndex >= 0 ? [index, plusOneIndex] : [index];
+
+          return (
+            <div key={index} style={ticketAssistantStyles.groupPanel}>
+              {groupIndexes.map((groupIndex) => {
+                const slot = slots[groupIndex];
           const hostIndex = getTicketAssistantPlusOneHostIndex({
             product: selectedProduct,
             slots,
-            index,
+            index: groupIndex,
           });
           const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
           const hostName = getTicketAssistantDisplayName(
@@ -12493,8 +13112,15 @@ function TicketPurchaseAssistantRenderer({
           );
 
           return (
-            <div key={index} style={ticketAssistantStyles.panel}>
-              <strong>{getTicketAssistantDisplayName(slot, index === 0 ? purchaserName : `Attendee ${index + 1}`)}</strong>
+            <div
+              key={groupIndex}
+              style={
+                hostIndex !== null
+                  ? ticketAssistantStyles.plusOnePanel
+                  : ticketAssistantStyles.groupMainPanel
+              }
+            >
+              <strong>{getTicketAssistantDisplayName(slot, groupIndex === 0 ? purchaserName : `Attendee ${groupIndex + 1}`)}</strong>
               {hostIndex !== null ? (
                 <div style={ticketAssistantStyles.inheritedPanel}>
                   <ul style={ticketAssistantStyles.inheritedList}>
@@ -12547,6 +13173,9 @@ function TicketPurchaseAssistantRenderer({
               )}
             </div>
           );
+              })}
+            </div>
+          );
         })}
         {renderSaveProgress()}
       </div>
@@ -12557,10 +13186,35 @@ function TicketPurchaseAssistantRenderer({
     return (
       <div style={ticketAssistantStyles.stack}>
         {slots.map((slot, index) => {
+          if (
+            getTicketAssistantPlusOneHostIndex({
+              product: selectedProduct,
+              slots,
+              index,
+            }) !== null
+          ) {
+            return null;
+          }
+
+          const plusOneIndex = slots.findIndex(
+            (_candidate, candidateIndex) =>
+              getTicketAssistantPlusOneHostIndex({
+                product: selectedProduct,
+                slots,
+                index: candidateIndex,
+              }) === index
+          );
+          const groupIndexes =
+            plusOneIndex >= 0 ? [index, plusOneIndex] : [index];
+
+          return (
+            <div key={index} style={ticketAssistantStyles.groupPanel}>
+              {groupIndexes.map((groupIndex) => {
+                const slot = slots[groupIndex];
           const hostIndex = getTicketAssistantPlusOneHostIndex({
             product: selectedProduct,
             slots,
-            index,
+            index: groupIndex,
           });
           const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
           const sizeOption = getTicketAssistantSizeOption(
@@ -12586,8 +13240,15 @@ function TicketPurchaseAssistantRenderer({
           );
 
           return (
-            <div key={index} style={ticketAssistantStyles.panel}>
-              <strong>{getTicketAssistantDisplayName(slot, index === 0 ? purchaserName : `Attendee ${index + 1}`)}</strong>
+            <div
+              key={groupIndex}
+              style={
+                hostIndex !== null
+                  ? ticketAssistantStyles.plusOnePanel
+                  : ticketAssistantStyles.groupMainPanel
+              }
+            >
+              <strong>{getTicketAssistantDisplayName(slot, groupIndex === 0 ? purchaserName : `Attendee ${groupIndex + 1}`)}</strong>
               {hostIndex !== null ? (
                 <div style={ticketAssistantStyles.inheritedPanel}>
                   <ul style={ticketAssistantStyles.inheritedList}>
@@ -12595,6 +13256,37 @@ function TicketPurchaseAssistantRenderer({
                     <li>Invitation format follows {hostName}'s selection.</li>
                     <li>Mailing address follows {hostName}'s selection.</li>
                   </ul>
+                </div>
+              ) : null}
+              {hostIndex === null && deliveryModes.length ? (
+                <div style={ticketAssistantStyles.optionGroup}>
+                  <strong>Invitation format</strong>
+                  {deliveryModes.map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      style={{
+                        ...ticketAssistantStyles.option,
+                        borderColor:
+                          selectedDeliveryId === mode.id
+                            ? theme.colors.primary
+                            : theme.colors.border,
+                      }}
+                      onClick={() => patchSlot(groupIndex, { deliveryModeId: mode.id })}
+                    >
+                      <span style={ticketAssistantStyles.radioLine}>
+                        <input
+                          type="radio"
+                          readOnly
+                          checked={selectedDeliveryId === mode.id}
+                        />
+                        <strong>{mode.label}</strong>
+                      </span>
+                      {mode.priceAdjustment > 0 ? (
+                        <span>+{formatCurrency(mode.priceAdjustment, currencyCode)}</span>
+                      ) : null}
+                    </button>
+                  ))}
                 </div>
               ) : null}
               {!upgradeModes.length ? (
@@ -12613,7 +13305,7 @@ function TicketPurchaseAssistantRenderer({
                             ? theme.colors.primary
                             : theme.colors.border,
                       }}
-                      onClick={() => patchSlot(index, { purchaseModeId: mode.id })}
+                      onClick={() => patchSlot(groupIndex, { purchaseModeId: mode.id })}
                     >
                       <span style={ticketAssistantStyles.radioLine}>
                         <input
@@ -12630,37 +13322,6 @@ function TicketPurchaseAssistantRenderer({
                   ))}
                 </div>
               )}
-              {hostIndex === null && deliveryModes.length ? (
-                <div style={ticketAssistantStyles.optionGroup}>
-                  <strong>Invitation format</strong>
-                  {deliveryModes.map((mode) => (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      style={{
-                        ...ticketAssistantStyles.option,
-                        borderColor:
-                          selectedDeliveryId === mode.id
-                            ? theme.colors.primary
-                            : theme.colors.border,
-                      }}
-                      onClick={() => patchSlot(index, { deliveryModeId: mode.id })}
-                    >
-                      <span style={ticketAssistantStyles.radioLine}>
-                        <input
-                          type="radio"
-                          readOnly
-                          checked={selectedDeliveryId === mode.id}
-                        />
-                        <strong>{mode.label}</strong>
-                      </span>
-                      {mode.priceAdjustment > 0 ? (
-                        <span>+{formatCurrency(mode.priceAdjustment, currencyCode)}</span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
               {hostIndex === null && selectedDeliveryId === "physical-invitation" ? (
                 <div style={ticketAssistantStyles.addressGrid}>
                   <label style={ticketAssistantStyles.label}>
@@ -12670,7 +13331,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingAddressLine1}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingAddressLine1: event.target.value,
                         })
                       }
@@ -12683,7 +13344,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingAddressLine2}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingAddressLine2: event.target.value,
                         })
                       }
@@ -12696,7 +13357,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingCity}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingCity: event.target.value,
                         })
                       }
@@ -12709,7 +13370,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingRegion}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingRegion: event.target.value,
                         })
                       }
@@ -12722,7 +13383,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingPostalCode}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingPostalCode: event.target.value,
                         })
                       }
@@ -12735,7 +13396,7 @@ function TicketPurchaseAssistantRenderer({
                       onKeyDown={stopAssistantInputKeyPropagation}
                       value={slot.mailingCountry}
                       onChange={(event) =>
-                        patchSlot(index, {
+                        patchSlot(groupIndex, {
                           mailingCountry: event.target.value,
                         })
                       }
@@ -12743,6 +13404,9 @@ function TicketPurchaseAssistantRenderer({
                   </label>
                 </div>
               ) : null}
+            </div>
+          );
+              })}
             </div>
           );
         })}
@@ -12791,9 +13455,49 @@ function TicketPurchaseAssistantRenderer({
               No meal item is selected yet.
             </div>
           )}
-          <div style={ticketAssistantStyles.meta}>
-            Next, you may choose optional collectibles, souvenirs, merchandise,
-            music, and other event add-ons.
+        </div>
+        {renderSaveProgress()}
+      </div>
+    );
+  }
+
+  if (step === "ticket-assistant-collectibles-intro") {
+    const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
+    const assignment = getActiveMealAssignment();
+    const slot = slots[activeIndex];
+    const label =
+      assignment?.ownerName ||
+      getTicketAssistantDisplayName(
+        slot,
+        activeIndex === 0
+          ? purchaserName || "your ticket"
+          : `Attendee ${activeIndex + 1}`
+      );
+
+    return (
+      <div style={ticketAssistantStyles.stack}>
+        <div style={ticketAssistantStyles.panel}>
+          <strong>{label}'s Collectibles & Souvenirs</strong>
+          <div style={ticketAssistantStyles.inheritedPanel}>
+            <ul style={ticketAssistantStyles.inheritedList}>
+              <li>
+                Next, you may choose optional collectibles, souvenirs,
+                merchandise, music, and other event add-ons.
+              </li>
+              <li>
+                Only inventory selected for ticket add-ons is shown in this
+                step.
+              </li>
+              <li>
+                For in-person events, items should be collected at the event.
+                Mailing after the event may be available and may incur delivery
+                costs if items are not picked up.
+              </li>
+              <li>
+                For livestream events, physical items will be delivered to the
+                attendee's mailing address and may incur delivery costs.
+              </li>
+            </ul>
           </div>
           <label style={ticketAssistantStyles.checkboxLabel}>
             <input
@@ -13121,14 +13825,6 @@ function TicketPurchaseAssistantRenderer({
                 Custom budgets must be at least{" "}
                 {formatCurrency(customBudgetMinimum, currencyCode)}.
               </div>
-              <button
-                type="button"
-                style={ticketAssistantStyles.primaryButton}
-                disabled={!slot.mealResponsibilitySelected}
-                onClick={onAdvanceMealLoop}
-              >
-                Continue
-              </button>
             </div>
           ) : null}
           {!isBudgetMode ? (
@@ -13150,26 +13846,50 @@ function TicketPurchaseAssistantRenderer({
 
 function MyTicketsDashboardRenderer({
   theme,
+  catalog,
   onGoto,
 }: {
   theme: ThemeConfig;
+  catalog: ShopCatalog | null;
   onGoto: (target: string) => void;
 }) {
   const [draftVersion, setDraftVersion] = useState(0);
-  const draft = useMemo(
-    () => readCheckoutDraft("ticket-purchase-assistant"),
+  const drafts = useMemo(
+    () =>
+      Object.entries(readTicketAssistantEventDrafts())
+        .map(([eventId, draft]) => ({ eventId, draft }))
+        .filter(({ draft }) => isMeaningfulTicketAssistantDraft(draft))
+        .filter(({ draft }) =>
+          resolveShopSelectedLines(catalog, normalizeShopCart(draft.orderCart)).some(
+            (line) => line.fulfillmentType === "ticket"
+          )
+        )
+        .sort((first, second) => {
+          const firstTime = new Date(
+            String(first.draft.ticketAssistantDraftSavedAt ?? "")
+          ).getTime();
+          const secondTime = new Date(
+            String(second.draft.ticketAssistantDraftSavedAt ?? "")
+          ).getTime();
+
+          return (secondTime || 0) - (firstTime || 0);
+        }),
     [draftVersion]
   );
-  const lastSlide = String(draft.ticketAssistantLastSlide ?? "").trim();
-  const hasAssistantDraft = hasCheckoutDraftValue(draft) && Boolean(lastSlide);
-  const resumeHref = hasAssistantDraft
-    ? `/questionnaire/ticket-purchase-assistant?resumePurchase=1&slide=${encodeURIComponent(
-        lastSlide
-      )}`
-    : "";
 
-  function clearAssistantDraft() {
-    clearCheckoutDraft("ticket-purchase-assistant");
+  function resumeAssistantDraft(draft: QuestionnaireAnswers) {
+    writeCheckoutDraft("ticket-purchase-assistant", draft);
+    const lastSlide = String(draft.ticketAssistantLastSlide ?? "").trim();
+
+    onGoto(
+      `/questionnaire/ticket-purchase-assistant?resumePurchase=1&slide=${encodeURIComponent(
+        lastSlide || "ticket-assistant-home"
+      )}`
+    );
+  }
+
+  function clearAssistantDraft(eventId: string) {
+    clearTicketAssistantEventDraft(eventId);
     setDraftVersion((current) => current + 1);
   }
 
@@ -13177,30 +13897,62 @@ function MyTicketsDashboardRenderer({
     <div style={ticketAssistantStyles.stack}>
       <div style={ticketAssistantStyles.panel}>
         <strong>Ticket purchasing progress</strong>
-        {hasAssistantDraft ? (
+        {drafts.length ? (
           <>
-            <div style={ticketAssistantStyles.meta}>
-              You have saved ticket purchasing progress.
-            </div>
-            <div style={ticketAssistantStyles.actionGrid}>
-              <button
-                type="button"
-                style={ticketAssistantStyles.primaryButton}
-                onClick={() => onGoto(resumeHref)}
-              >
-                Continue Ticket Purchase
-              </button>
-              <button
-                type="button"
-                style={ticketAssistantStyles.secondaryAction}
-                onClick={() => {
-                  clearAssistantDraft();
-                  onGoto("/questionnaire/ticket-purchase-assistant");
-                }}
-              >
-                Clear and Start From Beginning
-              </button>
-            </div>
+            {drafts.map(({ eventId, draft }) => {
+              const product = getTicketAssistantProduct(
+                catalog,
+                draft.ticketAssistantEventProductId
+              );
+              const savedTicketLines = resolveShopSelectedLines(
+                catalog,
+                normalizeShopCart(draft.orderCart)
+              ).filter((line) => line.fulfillmentType === "ticket");
+              const savedTicketLabels = Array.from(
+                new Set(
+                  savedTicketLines
+                    .map((line) => line.sizeLabel || line.productTitle)
+                    .filter(Boolean)
+                )
+              );
+              const savedAt = String(draft.ticketAssistantDraftSavedAt ?? "");
+              const savedAtLabel = savedAt
+                ? new Date(savedAt).toLocaleString()
+                : "Recently";
+
+              return (
+                <div key={eventId} style={ticketAssistantStyles.progressItem}>
+                  <strong>{product?.title ?? "Selected event"}</strong>
+                  {savedTicketLabels.length ? (
+                    <div style={ticketAssistantStyles.meta}>
+                      Ticket: {savedTicketLabels.join(", ")}
+                    </div>
+                  ) : null}
+                  <div style={ticketAssistantStyles.meta}>
+                    Saved {savedAtLabel}
+                  </div>
+                  <div style={ticketAssistantStyles.actionGrid}>
+                    <button
+                      type="button"
+                      style={ticketAssistantStyles.primaryButton}
+                      onClick={() => resumeAssistantDraft(draft)}
+                    >
+                      Continue Ticket Purchase
+                    </button>
+                    <button
+                      type="button"
+                      style={ticketAssistantStyles.secondaryAction}
+                      onClick={() => {
+                        clearAssistantDraft(eventId);
+                        onGoto("/questionnaire/ticket-purchase-assistant");
+                      }}
+                    >
+                      Clear and Start From Beginning
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </>
         ) : (
           <div style={ticketAssistantStyles.meta}>
@@ -13314,6 +14066,32 @@ const ticketAssistantStyles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "10px",
     padding: "14px",
+  },
+  groupPanel: {
+    border: "1px solid rgba(32, 28, 29, 0.16)",
+    borderRadius: "8px",
+    background: "rgba(255, 255, 255, 0.9)",
+    display: "grid",
+    gap: "0",
+    overflow: "hidden",
+  },
+  groupMainPanel: {
+    display: "grid",
+    gap: "10px",
+    padding: "14px",
+  },
+  plusOnePanel: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    background: "rgba(47, 125, 74, 0.045)",
+    display: "grid",
+    gap: "10px",
+    padding: "14px",
+  },
+  progressItem: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    display: "grid",
+    gap: "10px",
+    paddingTop: "12px",
   },
   option: {
     border: "1px solid rgba(32, 28, 29, 0.14)",
