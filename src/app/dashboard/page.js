@@ -14,6 +14,11 @@ const dashboardSections = [
     description: "Review leads, accounts, purchases, answers, content activity, and email engagement.",
   },
   {
+    href: "/dashboard/orders",
+    label: "Orders",
+    description: "View digital and physical order items, fulfillment status, notes, and tracking.",
+  },
+  {
     href: "/dashboard/tickets",
     label: "Tickets",
     description: "Create reusable event tickets, ticket types, and admin-defined upgrades.",

@@ -171,6 +171,7 @@ export type TicketAssignment = {
   ticketLabel: string;
   productTitle: string;
   ownerName?: string;
+  printedTicketName?: string;
   ownerEmail?: string;
   ownerPhone?: string;
   purchaserContactPrefilled?: boolean;

@@ -247,8 +247,8 @@ BR
 @shownext: true
 @next: Continue
 @showback: true
-@back: Back to Meal Selection
-@backgoto: meal-selection
+@back: Back
+@backgoto: meal-intro
 @syncurl: true
 @progressoverlaybg: rgba(255,255,255,0.92)
 @actionbarbg: rgba(255,255,255,0.94)
@@ -256,7 +256,7 @@ BR
 @actionbartextcolor: #1f1f1f
 ---
 BR
-# [c1] Your Meal Has Been Saved
+# [c1] Meal Confirmation
 BR
 [c3] Review the saved meal, then continue to the optional event add-ons step.
 

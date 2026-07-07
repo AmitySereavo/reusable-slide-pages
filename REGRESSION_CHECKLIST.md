@@ -374,6 +374,10 @@
 - Digital/email-only orders can route without physical delivery.
 - Physical orders still require delivery/pickup/contact details as configured.
 - If shared cart contains ticket lines, checkout routes through ticket details before delivery/contact/review.
+- Non-ticket digital cart lines create OrderFulfillmentItem records after order submission.
+- Non-ticket physical cart lines create OrderFulfillmentItem records after order submission.
+- Ticket-only cart lines do not create duplicate fulfillment records as digital/physical items.
+- Ticket add-on cart lines preserve attendee relationship on fulfillment records when available.
 ```
 
 ---
@@ -428,6 +432,26 @@
 - Product SKUs and variant SKUs remain visible where expected.
 - Store-credit products appear in music/merch catalog.
 - Digital gift card product appears in music/merch catalog.
+```
+
+---
+
+## 19C. Orders and fulfillment dashboard
+
+```txt
+- /dashboard/orders loads only for users with adminLevel >= 1.
+- /api/dashboard/orders returns 403 for non-admin users.
+- Orders dashboard lists digital and physical fulfillment records.
+- Orders dashboard does not list pure ticket access rows as fulfillment items.
+- Search filters by order code, product title, SKU, recipient name, and recipient email.
+- Fulfillment type filter can show all, digital, or physical items.
+- Status filter can show PENDING, PROCESSING, READY, FULFILLED, CANCELED, and REFUNDED.
+- Updating fulfillment status persists to OrderFulfillmentItem.
+- Updating fulfillment notes persists to OrderFulfillmentItem.
+- Updating tracking/delivery reference persists to OrderFulfillmentItem.
+- Marking an item FULFILLED sets fulfilledAt.
+- Moving an item away from FULFILLED clears fulfilledAt.
+- Existing orders with no non-ticket digital/physical lines can leave Orders empty without an error.
 ```
 
 ---
@@ -595,6 +619,28 @@ WHERE "metadata" ->> 'systemTag' = 'Permanent Website Op'
 ORDER BY "sequenceKey";
 ```
 
+```sql
+SELECT
+  "id",
+  "orderCode",
+  "productTitle",
+  "sku",
+  "fulfillmentType",
+  "quantity",
+  "currencyCode",
+  "lineTotal",
+  "recipientName",
+  "recipientEmail",
+  "ticketAttendeeName",
+  "fulfillmentStatus",
+  "trackingReference",
+  "fulfilledAt",
+  "createdAt"
+FROM "OrderFulfillmentItem"
+ORDER BY "createdAt" DESC
+LIMIT 20;
+```
+
 ---
 
 ## 25. Admin dashboard
@@ -604,6 +650,7 @@ ORDER BY "sequenceKey";
 - /dashboard is accessible to logged-in users with adminLevel >= 1.
 - /dashboard is not accessible to logged-in users with adminLevel 0.
 - /api/dashboard/projects returns 403 for non-admin users.
+- /api/dashboard/orders returns 403 for non-admin users.
 - /api/dashboard/inventory returns 403 for non-admin users.
 - /api/dashboard/currencies returns 403 for non-admin users.
 - /api/dashboard/email-sequences returns 403 for non-admin users.
@@ -622,6 +669,8 @@ ORDER BY "sequenceKey";
 - Saved DSL parses through the existing parser.
 - Registry snippet is generated but registry.ts is not edited automatically.
 - Email Sequences section loads protected Permanent Website Op records.
+- Orders dashboard loads fulfillment records without mounting on the dashboard index.
+- Orders dashboard can update fulfillment status, notes, and tracking reference.
 - EMAIL_SEQUENCES_README.md documents developer and admin usage.
 - Protected website operation records show a Permanent Website Op badge.
 - Protected website operation records can be edited and saved.
@@ -764,6 +813,8 @@ ORDER BY "sequenceKey";
 - /dashboard requires admin level 1.
 - Dashboard can generate DSL for a media/video slide with text panel enabled.
 - Dashboard Email Sequences shows Permanent Website Op templates.
+- Dashboard Orders shows digital/physical fulfillment items or a clean empty
+  state when no fulfillment items exist.
 - Website operation email defaults are available if edited subject/body is blank.
 - Escape album gate blocks users without purchased item.
 - Escape album opens for users with purchased item.

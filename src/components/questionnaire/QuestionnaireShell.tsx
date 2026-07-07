@@ -589,6 +589,7 @@ type TicketAssistantOwnerMode =
   | "owner_selects_sender_pays_addons";
 
 type TicketAssistantSlot = {
+  assistantIndex: number;
   name: string;
   printedName: string;
   email: string;
@@ -854,6 +855,7 @@ function getTicketAssistantSlots(
         : {};
 
     slots.push({
+      assistantIndex: index,
       name: String(record.name ?? ""),
       printedName: String(record.printedName ?? ""),
       email: String(record.email ?? ""),
@@ -901,6 +903,131 @@ function updateTicketAssistantSlot(
   };
 
   return slots;
+}
+
+function getTicketAssistantAssignmentOwnerFields(params: {
+  slot: TicketAssistantSlot;
+  hostSlot?: TicketAssistantSlot;
+}) {
+  const { slot, hostSlot } = params;
+  const slotName = slot.name.trim();
+  const slotPrintedName = slot.printedName.trim();
+  const hostName = hostSlot?.name.trim() ?? "";
+  const isRepeatedPlusOneName =
+    slot.isPlusOne &&
+    Boolean(hostName) &&
+    slotName.toLowerCase() === hostName.toLowerCase();
+  const ownerName =
+    isRepeatedPlusOneName
+      ? slotPrintedName || `Plus one for ${hostName}`
+      : slotName || slotPrintedName;
+  const printedTicketName =
+    isRepeatedPlusOneName
+      ? slotPrintedName || ownerName
+      : slotPrintedName || slotName;
+
+  return {
+    ownerName,
+    printedTicketName,
+  };
+}
+
+function syncTicketAssistantAssignmentOwnerFields(params: {
+  catalog: ShopCatalog | null;
+  answers: QuestionnaireAnswers;
+  assignments: TicketAssignments;
+}) {
+  const { catalog, answers, assignments } = params;
+  const product = getTicketAssistantProduct(
+    catalog,
+    answers.ticketAssistantEventProductId
+  );
+
+  if (!product || !assignments.length) {
+    return assignments;
+  }
+
+  const quantity = getTicketAssistantQuantity(answers);
+  const rawSlots = getTicketAssistantSlots(answers, quantity);
+  const slots = rawSlots.map((slot) => {
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product,
+      slots: rawSlots,
+      index: slot.assistantIndex,
+    });
+    const hostSlot = hostIndex === null ? undefined : rawSlots[hostIndex];
+    const sizeOption = getTicketAssistantSizeOption(
+      product,
+      hostSlot?.sizeOptionId ?? slot.sizeOptionId
+    );
+
+    return {
+      ...slot,
+      sizeOptionId: sizeOption?.id ?? slot.sizeOptionId,
+    };
+  });
+  const groupedSlots = new Map<string, TicketAssistantSlot[]>();
+
+  for (const slot of slots) {
+    if (!slot.sizeOptionId) continue;
+    const key = makeShopLineKey(product.id, slot.sizeOptionId);
+    groupedSlots.set(key, [...(groupedSlots.get(key) ?? []), slot]);
+  }
+
+  return assignments.map((assignment) => {
+    const slot = groupedSlots.get(assignment.lineKey)?.[assignment.ticketIndex];
+
+    if (!slot) {
+      return assignment;
+    }
+
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product,
+      slots,
+      index: slot.assistantIndex,
+    });
+    const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+    const ownerFields = getTicketAssistantAssignmentOwnerFields({
+      slot,
+      hostSlot,
+    });
+
+    return {
+      ...assignment,
+      ownerName: ownerFields.ownerName,
+      printedTicketName: ownerFields.printedTicketName,
+      ownerEmail: slot.email,
+      ownerPhone: slot.phone,
+      isPurchaserTicket: slot.isPurchaser,
+      ownerLockedFromRecipient:
+        !slot.isPurchaser && Boolean(slot.email.trim()),
+      emailTicketToOwner: !slot.isPurchaser && Boolean(slot.email.trim()),
+    };
+  });
+}
+
+function getTicketAssignmentSyncSignature(assignments: TicketAssignments) {
+  return JSON.stringify(
+    normalizeTicketAssignments(assignments).map((assignment) => ({
+      ticketCode: assignment.ticketCode,
+      lineKey: assignment.lineKey,
+      productId: assignment.productId,
+      sizeOptionId: assignment.sizeOptionId,
+      ticketIndex: assignment.ticketIndex,
+      ownerName: assignment.ownerName ?? "",
+      printedTicketName: assignment.printedTicketName ?? "",
+      ownerEmail: assignment.ownerEmail ?? "",
+      ownerPhone: assignment.ownerPhone ?? "",
+      isPurchaserTicket: assignment.isPurchaserTicket === true,
+      ownerLockedFromRecipient: assignment.ownerLockedFromRecipient === true,
+      emailTicketToOwner: assignment.emailTicketToOwner === true,
+      purchaseModeId: assignment.purchaseModeId ?? "",
+      purchaseModeLabel: assignment.purchaseModeLabel ?? "",
+      invitationDeliveryMode: assignment.invitationDeliveryMode ?? "",
+      ticketOwnerPaymentMode: assignment.ticketOwnerPaymentMode ?? "",
+      ticketOwnerAddonBudget: assignment.ticketOwnerAddonBudget ?? 0,
+    }))
+  );
 }
 
 function getTicketAssistantSizeOption(
@@ -1134,6 +1261,16 @@ function buildTicketAssistantCheckoutState(params: {
         return assignment;
       }
 
+      const hostIndex = getTicketAssistantPlusOneHostIndex({
+        product,
+        slots,
+        index: slot.assistantIndex,
+      });
+      const hostSlot = hostIndex === null ? undefined : slots[hostIndex];
+      const ownerFields = getTicketAssistantAssignmentOwnerFields({
+        slot,
+        hostSlot,
+      });
       const sizeOption = product.sizeOptions.find(
         (option) => option.id === assignment.sizeOptionId
       );
@@ -1144,13 +1281,15 @@ function buildTicketAssistantCheckoutState(params: {
 
       return {
         ...assignment,
-        ownerName: slot.name || assignment.ownerName,
-        printedTicketName: slot.printedName || slot.name || assignment.ownerName,
-        ownerEmail: slot.email || assignment.ownerEmail,
-        ownerPhone: slot.phone || assignment.ownerPhone,
+        ownerName: ownerFields.ownerName,
+        printedTicketName: ownerFields.printedTicketName,
+        ownerEmail: slot.email,
+        ownerPhone: slot.phone,
         isPurchaserTicket: slot.isPurchaser,
-        ownerLockedFromRecipient: !slot.isPurchaser,
-        emailTicketToOwner: !slot.isPurchaser,
+        ownerLockedFromRecipient:
+          !slot.isPurchaser && Boolean(slot.email.trim()),
+        emailTicketToOwner:
+          !slot.isPurchaser && Boolean(slot.email.trim()),
         purchaseModeId: purchaseMode?.id,
         purchaseModeLabel: purchaseMode?.label,
         ticketUpgradeOverride: Boolean(purchaseMode?.id),
@@ -1762,8 +1901,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   useEffect(() => {
     if (!isAuthSessionLoaded || !authSessionUser?.id || !dripSequenceKeys.length) {
-      setDripUnlockKeys([]);
-      setDripOpenedKeys([]);
+      setDripUnlockKeys((current) => (current.length ? [] : current));
+      setDripOpenedKeys((current) => (current.length ? [] : current));
       return;
     }
 
@@ -2661,11 +2800,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         );
       }
 
-      return prefillFirstTicketFromContact(
-        buildTicketAssignmentsFromLines({
+      const generatedAssignments = buildTicketAssignmentsFromLines({
           lines: sharedTicketOrderLines,
           existingAssignments,
-        }),
+        });
+      const syncedAssignments = syncTicketAssistantAssignmentOwnerFields({
+        catalog: sharedShopDisplayCatalog,
+        answers,
+        assignments: generatedAssignments,
+      });
+
+      return prefillFirstTicketFromContact(
+        syncedAssignments,
         answers
       );
     },
@@ -2673,6 +2819,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       isTicketOwnerPortalFlow,
       requestedTicketCode,
       sharedTicketOrderLines,
+      sharedShopDisplayCatalog,
+      answers.ticketAssistantEventProductId,
+      answers.ticketAssistantQuantity,
+      answers.ticketAssistantSlots,
       answers.ticketAssignments,
       answers.fullName,
       answers.email,
@@ -2707,15 +2857,38 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     const hasStaleAssignments = savedAssignments.some(
       (assignment) => !activeTicketCodes.has(assignment.ticketCode)
     );
+    const savedSyncSignature =
+      getTicketAssignmentSyncSignature(savedAssignments);
+    const currentSyncSignature =
+      getTicketAssignmentSyncSignature(currentTicketAssignments);
+    const hasAssignmentContentChanges =
+      savedSyncSignature !== currentSyncSignature;
 
-    if (!hasStaleAssignments && savedAssignments.length === activeTicketCodes.size) {
+    if (
+      !hasStaleAssignments &&
+      !hasAssignmentContentChanges &&
+      savedAssignments.length === activeTicketCodes.size
+    ) {
       return;
     }
 
-    setAnswers((prev) => ({
-      ...prev,
-      ticketAssignments: currentTicketAssignments,
-    }));
+    setAnswers((prev) => {
+      const latestAssignments = normalizeTicketAssignments(
+        prev.ticketAssignments
+      );
+
+      if (
+        getTicketAssignmentSyncSignature(latestAssignments) ===
+        currentSyncSignature
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        ticketAssignments: currentTicketAssignments,
+      };
+    });
   }, [
     answers.ticketAssignments,
     config.slug,
@@ -4497,42 +4670,6 @@ async function next() {
     }
 
     if (currentSlide.blockKey === "ticket-assistant-owner-loop") {
-      const selectedProduct = getTicketAssistantProduct(
-        sharedShopDisplayCatalog,
-        answers.ticketAssistantEventProductId
-      );
-      const quantity = getTicketAssistantQuantity(answers);
-      const activeIndex = getTicketAssistantActiveOwnerIndex(answers, quantity);
-      const slots = getTicketAssistantSlots(answers, quantity);
-
-      if (quantity <= 1) {
-        return true;
-      }
-
-      if (activeIndex < quantity - 1) {
-        return false;
-      }
-
-      for (let index = 1; index < quantity; index += 1) {
-        const slot = slots[index];
-
-        if (!slot.name.trim()) {
-          return false;
-        }
-
-        if (
-          isTicketAssistantEmailRequired({
-            product: selectedProduct,
-            slots,
-            slot,
-            index,
-          }) &&
-          !slot.email.trim()
-        ) {
-          return false;
-        }
-      }
-
       return true;
     }
 
@@ -4566,7 +4703,10 @@ async function next() {
       const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
       const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
 
-      return slot?.mealResponsibilitySelected === true;
+      return (
+        slot?.mealResponsibilitySelected === true ||
+        slot?.ownerMode === "owner_pays_addons"
+      );
     }
 
     if (currentSlide.type === "score" && currentSlide.storeAs) {
@@ -5643,7 +5783,10 @@ async function handleNext() {
     const activeIndex = getTicketAssistantActiveMealIndex(answers, quantity);
     const slot = getTicketAssistantSlots(answers, quantity)[activeIndex];
 
-    if (!slot?.mealResponsibilitySelected) {
+    if (
+      !slot?.mealResponsibilitySelected &&
+      slot?.ownerMode !== "owner_pays_addons"
+    ) {
       setSubmitError("Choose how this attendee's meals and add-ons will be handled.");
       return;
     }
@@ -5789,27 +5932,18 @@ async function handleNext() {
     "primary"
   );
 
-  const selectedMealTicket =
-    currentSlide.type === "meal"
-      ? currentTicketAssignments.find(
-          (assignment) =>
-            assignment.ticketCode === String(answers.selectedMealTicketCode ?? "")
-        ) ?? null
-      : null;
-
-  const selectedMealExtraTotal =
-    currentSlide.type === "meal" && selectedMealTicket
-      ? calculateSingleTicketMealExtraTotal({
-          menu: currentMealMenu,
-          assignment: selectedMealTicket,
-        })
-      : 0;
-
   const mealNextLabel =
     String(answers.cartReturnTarget ?? "") === "review-order" ||
     String(answers.mealReturnTarget ?? "") === "review-order"
       ? "Back to cart"
-      : currentSlide.nextLabel ?? "Back to ticket details";
+      : config.slug === "ticket-purchase-assistant"
+        ? currentSlide.nextLabel ?? "Continue"
+        : currentSlide.nextLabel ?? "Back to ticket details";
+  const shopNextLabel =
+    config.slug === "ticket-purchase-assistant" &&
+    currentSlide.id === "music-merch-shop"
+      ? "Continue"
+      : currentSlide.nextLabel ?? "Checkout";
   const ticketAssistantNextTotal =
     currentSlide.blockKey === "ticket-assistant-ticket-types" ||
     currentSlide.blockKey === "ticket-assistant-upgrades"
@@ -5818,6 +5952,15 @@ async function handleNext() {
           answers,
         })
       : 0;
+  const ticketAssistantSharedTotalLabel =
+    config.slug === "ticket-purchase-assistant" &&
+    (currentSlide.blockKey === "ticket-assistant-meal-responsibility" ||
+      currentSlide.blockKey === "ticket-assistant-meal-confirmation")
+      ? `${currentSlide.nextLabel ?? "Continue"} · ${formatCurrency(
+          sharedOrderGrandTotalWithMeals,
+          sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
+        )}`
+      : "";
 
   const cartReturnActive =
     String(answers.cartReturnTarget ?? "") === "review-order" &&
@@ -5829,6 +5972,8 @@ async function handleNext() {
           ticketAssistantNextTotal,
           sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
         )}`
+      : ticketAssistantSharedTotalLabel
+        ? ticketAssistantSharedTotalLabel
       : cartReturnActive && currentSlide.type === "shop"
       ? `Back to cart Â· ${formatCurrency(
           sharedOrderGrandTotalWithMeals,
@@ -5851,7 +5996,7 @@ async function handleNext() {
           sharedShopDisplayCatalog?.currencyCode ?? "JMD"
         )}`
       : currentSlide.type === "shop"
-        ? `${currentSlide.nextLabel ?? "Checkout"} · ${formatCurrency(
+        ? `${shopNextLabel} · ${formatCurrency(
             sharedOrderGrandTotalWithMeals,
             sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
           )}`
@@ -5862,8 +6007,8 @@ async function handleNext() {
             )}`
       : currentSlide.type === "meal"
         ? `${mealNextLabel} · ${formatCurrency(
-            selectedMealExtraTotal,
-            sharedShopDisplayCatalog?.currencyCode ?? "USD"
+            sharedOrderGrandTotalWithMeals,
+            sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
           )}`
       : isSubmitting
         ? "Submitting..."
@@ -9365,19 +9510,33 @@ function ReviewSummaryRenderer({
       )
     : undefined;
 
-  const ticketOwnerEmailNotices = normalizeTicketAssignments(
-    answers.ticketAssignments
-  )
-    .filter(
-      (assignment) =>
-        assignment.isPurchaserTicket !== true &&
-        isValidTicketOwnerEmail(assignment.ownerEmail)
-    )
-    .map((assignment) => ({
-      ticketCode: assignment.ticketCode,
-      ownerName: assignment.ownerName?.trim() || "This ticket owner",
-      ownerEmail: String(assignment.ownerEmail ?? "").trim(),
-    }));
+  const ticketOwnerEmailNotices = Array.from(
+    new Map(
+      normalizeTicketAssignments(answers.ticketAssignments)
+        .filter(
+          (assignment) =>
+            assignment.isPurchaserTicket !== true &&
+            assignment.emailTicketToOwner === true &&
+            isValidTicketOwnerEmail(assignment.ownerEmail)
+        )
+        .map((assignment) => {
+          const ownerName =
+            assignment.ownerName?.trim() || "This ticket owner";
+          const ownerEmail = String(assignment.ownerEmail ?? "").trim();
+          const noticeKey = `${ownerName.toLowerCase()}::${ownerEmail.toLowerCase()}`;
+
+          return [
+            noticeKey,
+            {
+              noticeKey,
+              ticketCode: assignment.ticketCode,
+              ownerName,
+              ownerEmail,
+            },
+          ] as const;
+        })
+    ).values()
+  );
   const hasMultipleTicketOwnerEmailNotices =
     ticketOwnerEmailNotices.length > 1;
 
@@ -9471,7 +9630,10 @@ function ReviewSummaryRenderer({
               className={`${styles.ticketOwnerEmailNotice} ${styles.contactSummarySection}`}
             >
               {ticketOwnerEmailNotices.map((notice) => (
-                <div key={notice.ticketCode}>
+                <div
+                  className={styles.contactEmailReminder}
+                  key={notice.noticeKey}
+                >
                   {notice.ownerName} will be emailed the details of their ticket
                   at {notice.ownerEmail}.
                 </div>
@@ -9482,8 +9644,11 @@ function ReviewSummaryRenderer({
             <div
               className={`${styles.ticketOwnerEmailNotice} ${styles.contactSummarySection}`}
             >
-              {ticketOwnerEmailNotices[0].ownerName} will be emailed the details
-              of their ticket at {ticketOwnerEmailNotices[0].ownerEmail}.
+              <div className={styles.contactEmailReminder}>
+                {ticketOwnerEmailNotices[0].ownerName} will be emailed the
+                details of their ticket at{" "}
+                {ticketOwnerEmailNotices[0].ownerEmail}.
+              </div>
             </div>
           ) : null}
         </div>
@@ -11384,12 +11549,32 @@ function MediaRenderer({
   const pauseAtSecondsRef = useRef<number | null>(null);
   const [isMuted, setIsMuted] = useState(slide.autoplay === true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [mediaLoadIssue, setMediaLoadIssue] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMuted(slide.autoplay === true);
     setIsPlaying(false);
+    setMediaLoadIssue(null);
     hasAppliedStartTimeRef.current = false;
   }, [slide.mediaUrl, slide.embedUrl, slide.autoplay, slide.videoStartAtSeconds]);
+
+  useEffect(() => {
+    if (!slide.mediaUrl || slide.mediaType === "image" || slide.embedUrl) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const video = videoRef.current;
+
+      if (video && video.readyState === 0) {
+        setMediaLoadIssue(
+          "The video is not available yet. This chapter is still open, and you can read the article or use the chapter actions."
+        );
+      }
+    }, 8000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [slide.mediaUrl, slide.mediaType, slide.embedUrl]);
 
   useEffect(() => {
     if (!videoSeekRequest) {
@@ -11619,12 +11804,18 @@ function MediaRenderer({
             }}
             onLoadedMetadata={(e) => {
               const video = e.currentTarget;
+              setMediaLoadIssue(null);
               applyVideoStartTime(video);
 
               onVideoProgressChange?.({
                 currentTime: video.currentTime,
                 duration: video.duration,
               });
+            }}
+            onError={() => {
+              setMediaLoadIssue(
+                "The video is not available yet. This chapter is still open, and you can read the article or use the chapter actions."
+              );
             }}
             onTimeUpdate={(e) => {
               const video = e.currentTarget;
@@ -11645,7 +11836,14 @@ function MediaRenderer({
             }}
           />
 
-          {!isPlaying ? (
+          {mediaLoadIssue ? (
+            <div className={styles.mediaLoadNotice}>
+              <strong>{slide.title}</strong>
+              <span>{mediaLoadIssue}</span>
+            </div>
+          ) : null}
+
+          {!isPlaying && !mediaLoadIssue ? (
             <button
               type="button"
               className={styles.mediaPlayOverlay}
@@ -12457,18 +12655,7 @@ function TicketPurchaseAssistantRenderer({
   }
 
   function renderSaveProgress() {
-    return (
-      <div style={ticketAssistantStyles.savePanel}>
-        <span>Progress is saved as you go. You can return later from My Tickets.</span>
-        <button
-          type="button"
-          style={ticketAssistantStyles.linkButton}
-          onClick={() => writeCheckoutDraft("ticket-purchase-assistant", answers)}
-        >
-          Save Progress
-        </button>
-      </div>
-    );
+    return null;
   }
 
   function getActiveMealAssignment() {
@@ -12936,11 +13123,62 @@ function TicketPurchaseAssistantRenderer({
       slot,
       index: activeIndex,
     });
+    const currentAttendeeError = getTicketAssistantSlotValidationError({
+      product: selectedProduct,
+      slots,
+      index: activeIndex,
+    });
 
     return (
       <div style={ticketAssistantStyles.stack}>
         <div style={ticketAssistantStyles.panel}>
           <strong>Ticket #{activeIndex + 1} Attendee</strong>
+          <div style={ticketAssistantStyles.attendeeNavRow}>
+            <button
+              type="button"
+              style={{
+                ...ticketAssistantStyles.attendeeNavButton,
+                opacity: activeIndex <= 1 ? 0.5 : 1,
+              }}
+              disabled={activeIndex <= 1}
+              onClick={() =>
+                onPatch({
+                  ticketAssistantActiveOwnerIndex: Math.max(1, activeIndex - 1),
+                })
+              }
+            >
+              Previous Attendee
+            </button>
+            {activeIndex < quantity - 1 ? (
+              <button
+                type="button"
+                style={{
+                  ...ticketAssistantStyles.attendeeNavButton,
+                  opacity: currentAttendeeError ? 0.65 : 1,
+                }}
+                disabled={Boolean(currentAttendeeError)}
+                onClick={() => {
+                  if (currentAttendeeError) {
+                    return;
+                  }
+
+                  onPatch({
+                    ticketAssistantActiveOwnerIndex: Math.min(
+                      quantity - 1,
+                      activeIndex + 1
+                    ),
+                  });
+                }}
+              >
+                Next Attendee
+              </button>
+            ) : null}
+          </div>
+          {currentAttendeeError ? (
+            <div style={ticketAssistantStyles.attendeeMissingNote}>
+              {currentAttendeeError}
+            </div>
+          ) : null}
           {canBePlusOne ? (
             <label style={ticketAssistantStyles.checkboxLabel}>
               <input
@@ -13024,36 +13262,6 @@ function TicketPurchaseAssistantRenderer({
               }
             />
           </label>
-          <div style={ticketAssistantStyles.row}>
-            <button
-              type="button"
-              style={ticketAssistantStyles.secondaryAction}
-              disabled={activeIndex <= 1}
-              onClick={() =>
-                onPatch({
-                  ticketAssistantActiveOwnerIndex: Math.max(1, activeIndex - 1),
-                })
-              }
-            >
-              Previous Attendee
-            </button>
-            {activeIndex < quantity - 1 ? (
-              <button
-                type="button"
-                style={ticketAssistantStyles.secondaryAction}
-                onClick={() =>
-                  onPatch({
-                    ticketAssistantActiveOwnerIndex: Math.min(
-                      quantity - 1,
-                      activeIndex + 1
-                    ),
-                  })
-                }
-              >
-                Next Attendee
-              </button>
-            ) : null}
-          </div>
           <div style={ticketAssistantStyles.meta}>
             Attendee {activeIndex} of {quantity - 1} additional attendees.
           </div>
@@ -13435,7 +13643,11 @@ function TicketPurchaseAssistantRenderer({
           <strong>{label}'s Ticket</strong>
           <div style={ticketAssistantStyles.inheritedPanel}>
             <ul style={ticketAssistantStyles.inheritedList}>
-              <li>Your meal selection has been saved successfully.</li>
+              <li>
+                {mealSummaryLines.length
+                  ? "Your meal selection has been saved successfully."
+                  : "No meal selection has been saved yet."}
+              </li>
               <li>
                 You may change your meal until the event meal change deadline.
               </li>
@@ -13662,10 +13874,6 @@ function TicketPurchaseAssistantRenderer({
                         ? selectedBudgetChoice
                         : undefined,
                   });
-
-                  if (value === "purchaser_pays_ticket_and_addons") {
-                    onGoto("meal-intro");
-                  }
                 }}
               >
                 <span style={ticketAssistantStyles.radioLine}>
@@ -13859,11 +14067,6 @@ function MyTicketsDashboardRenderer({
       Object.entries(readTicketAssistantEventDrafts())
         .map(([eventId, draft]) => ({ eventId, draft }))
         .filter(({ draft }) => isMeaningfulTicketAssistantDraft(draft))
-        .filter(({ draft }) =>
-          resolveShopSelectedLines(catalog, normalizeShopCart(draft.orderCart)).some(
-            (line) => line.fulfillmentType === "ticket"
-          )
-        )
         .sort((first, second) => {
           const firstTime = new Date(
             String(first.draft.ticketAssistantDraftSavedAt ?? "")
@@ -14064,7 +14267,7 @@ const ticketAssistantStyles: Record<string, CSSProperties> = {
     borderRadius: "8px",
     background: "rgba(255, 255, 255, 0.82)",
     display: "grid",
-    gap: "10px",
+    gap: "14px",
     padding: "14px",
   },
   groupPanel: {
@@ -14125,6 +14328,30 @@ const ticketAssistantStyles: Record<string, CSSProperties> = {
     display: "grid",
     gap: "8px",
     gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  },
+  attendeeNavRow: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    justifyContent: "space-between",
+  },
+  attendeeNavButton: {
+    border: "1px solid #2f7d4a",
+    borderRadius: "8px",
+    background: "#2f7d4a",
+    color: "#ffffff",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 900,
+    minHeight: "44px",
+    minWidth: "150px",
+    padding: "10px 12px",
+  },
+  attendeeMissingNote: {
+    color: "#b3261e",
+    fontSize: "0.95rem",
+    lineHeight: 1.35,
   },
   inheritedPanel: {
     border: "1px solid rgba(47, 125, 74, 0.18)",

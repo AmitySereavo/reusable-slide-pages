@@ -49,6 +49,102 @@ function asMoney(value) {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
 }
 
+function getLineRecipientAllocations(line, purchaser) {
+  const recipients = Array.isArray(line.purchaseRecipients)
+    ? line.purchaseRecipients
+    : [];
+  const recipientAllocations = recipients
+    .map((recipient) => ({
+      role: "recipient",
+      name: asString(recipient.name),
+      email: normalizeEmail(recipient.email),
+      quantity:
+        Number.isFinite(Number(recipient.quantity)) &&
+        Number(recipient.quantity) > 0
+          ? Math.floor(Number(recipient.quantity))
+          : 1,
+    }))
+    .filter((recipient) => recipient.quantity > 0);
+  const recipientQuantity = recipientAllocations.reduce(
+    (sum, recipient) => sum + recipient.quantity,
+    0
+  );
+  const purchaserQuantity = Math.max(
+    0,
+    Math.floor(Number(line.quantity) || 0) - recipientQuantity
+  );
+
+  return [
+    ...(purchaserQuantity > 0
+      ? [
+          {
+            role: "purchaser",
+            name: purchaser.name,
+            email: purchaser.email,
+            quantity: purchaserQuantity,
+          },
+        ]
+      : []),
+    ...recipientAllocations,
+  ];
+}
+
+function buildFulfillmentItemCreateManyData({
+  order,
+  resolvedLines,
+  purchaser,
+  currencyCode,
+}) {
+  return (Array.isArray(resolvedLines) ? resolvedLines : []).flatMap((line) => {
+    const fulfillmentType = asString(line.fulfillmentType);
+
+    if (
+      fulfillmentType === "ticket" ||
+      (fulfillmentType !== "digital" && fulfillmentType !== "physical")
+    ) {
+      return [];
+    }
+
+    const allocations = getLineRecipientAllocations(line, purchaser);
+    const unitPrice = asMoney(line.unitPrice);
+
+    return allocations.map((allocation) => ({
+      invitationOrderId: order.id,
+      sourceType: "invitation-order",
+      sourceId: order.id,
+      orderCode: order.orderCode,
+      lineKey: asString(line.lineKey) || null,
+      productId: asString(line.productId) || null,
+      productSku: asString(line.productSku) || null,
+      productTitle: asString(line.productTitle) || "Order item",
+      sizeOptionId: asString(line.sizeOptionId) || null,
+      sizeSku: asString(line.sizeOptionSku) || null,
+      sizeLabel: asString(line.sizeLabel) || null,
+      purchaseModeId: asString(line.purchaseModeId) || null,
+      purchaseModeSku: asString(line.purchaseModeSku) || null,
+      purchaseModeLabel: asString(line.purchaseModeLabel) || null,
+      sku: asString(line.sku) || null,
+      fulfillmentType,
+      quantity: allocation.quantity,
+      currencyCode,
+      unitPrice,
+      lineTotal: asMoney(unitPrice * allocation.quantity),
+      recipientName: allocation.name || null,
+      recipientEmail: allocation.email || null,
+      recipientRole: allocation.role,
+      ticketCode: asString(line.ticketAddOnTicketCode) || null,
+      ticketAttendeeName: asString(line.ticketAddOnAttendeeName) || null,
+      status: "PENDING",
+      fulfillmentStatus: "PENDING",
+      metadata: {
+        requiresPhysicalFulfillment: line.requiresPhysicalFulfillment === true,
+        bundledFromLineKey: line.bundledFromLineKey || null,
+        bundledByPurchaseModeId: line.bundledByPurchaseModeId || null,
+      },
+    }));
+  });
+}
+
 function normalizeTicketOwnerPaymentMode(value) {
   return value === "purchaser_pays_ticket_and_addons" ||
     value === "owner_selects_sender_pays_addons" ||
@@ -738,9 +834,26 @@ export async function POST(request) {
         });
       }
 
+      const fulfillmentItems = buildFulfillmentItemCreateManyData({
+        order,
+        resolvedLines,
+        purchaser: {
+          name: fullName || null,
+          email: purchaserEmail || null,
+        },
+        currencyCode: asString(body.currencyCode) || "USD",
+      });
+
+      if (fulfillmentItems.length) {
+        await tx.orderFulfillmentItem.createMany({
+          data: fulfillmentItems,
+        });
+      }
+
       return {
         order,
         tickets: createdTickets,
+        fulfillmentItemCount: fulfillmentItems.length,
         purchaserUserId: purchaserUserResult?.user?.id ?? null,
         purchaserUser: purchaserUserResult?.user ?? null,
         purchaserTemporaryPassword: purchaserUserResult?.temporaryPassword ?? null,

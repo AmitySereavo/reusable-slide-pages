@@ -1733,11 +1733,67 @@ model InvitationOrder {
 
   tickets  InvitationOrderTicket[]
   payments InvitationTicketPayment[]
+  fulfillmentItems OrderFulfillmentItem[]
 
   @@index([questionnaireSlug])
   @@index([purchaserUserId])
   @@index([purchaserEmail])
   @@index([status])
+  @@index([createdAt])
+}
+
+model OrderFulfillmentItem {
+  id String @id @default(cuid())
+
+  invitationOrderId String?
+  invitationOrder   InvitationOrder? @relation(fields: [invitationOrderId], references: [id], onDelete: Cascade)
+
+  sourceType String @default("invitation-order")
+  sourceId   String?
+  orderCode  String?
+  lineKey    String?
+
+  productId    String?
+  productSku   String?
+  productTitle String
+  sizeOptionId String?
+  sizeSku      String?
+  sizeLabel    String?
+  purchaseModeId    String?
+  purchaseModeSku   String?
+  purchaseModeLabel String?
+  sku          String?
+
+  fulfillmentType String
+  quantity        Int @default(1)
+  currencyCode    String @default("USD")
+  unitPrice       Decimal @default(0) @db.Decimal(10, 2)
+  lineTotal       Decimal @default(0) @db.Decimal(10, 2)
+
+  recipientUserId String?
+  recipientName   String?
+  recipientEmail  String?
+  recipientRole   String?
+
+  ticketCode        String?
+  ticketAttendeeName String?
+
+  status            String @default("PENDING")
+  fulfillmentStatus String @default("PENDING")
+  fulfillmentNotes  String?
+  trackingReference String?
+  fulfilledAt       DateTime?
+  metadata          Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invitationOrderId])
+  @@index([status])
+  @@index([fulfillmentStatus])
+  @@index([fulfillmentType])
+  @@index([recipientEmail])
+  @@index([orderCode])
   @@index([createdAt])
 }
 

@@ -30,10 +30,11 @@ Current reusable foundations:
 - protected download API for private files
 - reusable shop/cart engine with database-backed inventory support
 - verified purchase-for-others recipient flow
+- database-backed digital/physical order fulfillment items
 - ticket assignment and meal-selection primitives
 - account/shop currency display with USD, JMD, and GBP support
-- admin-gated dashboard surfaces for projects, tickets, inventory, currencies,
-  and email sequences
+- admin-gated dashboard surfaces for projects, people, orders, tickets,
+  inventory, currencies, and email sequences
 - shared email sender for auth, ticket, album, recipient, password-reset, and
   sequence emails
 - protected website-operation email templates that are editable in the
@@ -128,6 +129,8 @@ separate routes so each section loads its own data only when an admin visits it:
 - `/dashboard/projects`: project/DSL builder
 - `/dashboard/people`: leads, accounts, purchases, content activity, answers,
   and email engagement
+- `/dashboard/orders`: digital/physical order fulfillment items, recipient
+  details, fulfillment status, notes, and tracking/delivery references
 - `/dashboard/tickets`: reusable ticket publishing
 - `/dashboard/inventory`: reusable inventory management
 - `/dashboard/currencies`: currency exchange-rate settings
@@ -141,6 +144,7 @@ Dashboard API routes also require admin level 1:
 
 - `/api/dashboard/projects`
 - `/api/dashboard/people`
+- `/api/dashboard/orders`
 - `/api/dashboard/inventory`
 - `/api/dashboard/currencies`
 - `/api/dashboard/email-sequences`
@@ -195,7 +199,9 @@ npm run dev
    currency settings.
 3. Move purchased-item grants to payment-completed webhooks when real payment
    processing is added.
-4. Continue moving website-operation email copy into protected editable
+4. Continue creating server-authoritative order, payment, inventory, and
+   fulfillment records so cart selections become auditable admin work queues.
+5. Continue moving website-operation email copy into protected editable
    templates and keep the old verification content config for non-email
    channels only until those channels are migrated.
-5. Continue separating reusable systems from project-specific flows.
+6. Continue separating reusable systems from project-specific flows.

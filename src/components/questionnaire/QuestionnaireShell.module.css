@@ -745,6 +745,25 @@
   cursor: pointer;
 }
 
+.mediaLoadNotice {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.72);
+  line-height: 1.45;
+}
+
+.mediaLoadNotice strong {
+  font-size: 18px;
+}
+
 .videoResumePrompt {
   position: absolute;
   inset: 0;
@@ -2853,6 +2872,14 @@
 
 .contactSummarySection:last-child {
   padding-bottom: 0;
+}
+
+.contactEmailReminder {
+  line-height: 1.45;
+}
+
+.contactEmailReminder + .contactEmailReminder {
+  margin-top: 10px;
 }
 
 .reviewMealTicketBlock {

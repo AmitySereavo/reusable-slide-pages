@@ -71,6 +71,11 @@ segments. Paid segments charge from the first selected serving; included
 segments allow the configured included serving count before extra-serving
 pricing applies.
 
+After order submission, non-ticket digital and physical cart lines are copied
+into database-backed fulfillment records. This gives admin a work queue for
+digital delivery, physical pickup/delivery, gift cards, music, merchandise, and
+ticket add-ons without treating those lines as event tickets.
+
 ## Admins
 
 Admins should eventually manage shop products from a dashboard instead of
@@ -93,6 +98,8 @@ The product dashboard should support:
 - meal segment billing mode for ticket menus: `included` or `pay`
 - ticket upgrades such as meet-and-greet as admin-authored purchase modes, not
   one-off hardcoded options
+- order fulfillment status, notes, tracking/delivery references, and recipient
+  details from the Orders dashboard
 
 Current testing values for the invitation music and merch shop:
 
@@ -133,6 +140,9 @@ Important files:
 - `src/config/questionnaires/invitationDsl.txt`
 - `src/config/meals/mealMenus.ts`
 - `src/app/dashboard/TicketManager.jsx`
+- `src/app/dashboard/OrdersManager.jsx`
+- `src/app/api/dashboard/orders/route.ts`
+- `src/app/api/invitation/orders/create/route.js`
 
 Core product fields include:
 
@@ -191,3 +201,35 @@ slots are not overwritten by purchaser autofill.
 Ticket assignment codes use a stable selection-time block once generated. A
 separate database-created/finalized timestamp block should be added when real
 order finalization writes server-authoritative tickets.
+
+## Orders And Fulfillment
+
+Digital and physical cart lines are stored in `OrderFulfillmentItem` after an
+invitation order is created. Ticket lines are intentionally skipped because
+ticket access is handled by the ticket assignment/ticket code system.
+
+Fulfillment records include:
+
+- source order and order code
+- product, SKU, variant, and purchase mode labels
+- fulfillment type: `digital` or `physical`
+- quantity, currency, unit price, and line total
+- purchaser or verified-recipient name/email
+- attendee/ticket relationship for ticket add-ons
+- fulfillment status, notes, tracking reference, and fulfilled timestamp
+
+Admin can review and update these records from:
+
+```txt
+/dashboard/orders
+```
+
+The Orders dashboard can filter by status, fulfillment type, and text search.
+Updating a fulfillment item changes both `status` and `fulfillmentStatus` so
+the admin-facing state stays simple while the model remains ready for future
+payment/order status separation.
+
+Existing historical orders may not appear in Orders if they did not contain
+non-ticket digital or physical cart lines when the fulfillment table was added.
+Future music, merch, gift card, digital deliverable, and ticket add-on orders
+should create fulfillment records automatically.
