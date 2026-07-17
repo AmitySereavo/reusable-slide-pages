@@ -13,7 +13,7 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import VerificationCodePanel from "@/customerAccess/components/VerificationCodePanel";
+import VerificationCodePanel from "@/customerAccess/components/verificationCodePanel.jsx";
 import AuthFormSlideRenderer from "./renderers/AuthFormSlideRenderer";
 import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
 import {

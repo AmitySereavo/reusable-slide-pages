@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AuthShell from "./AuthShell";
-import VerificationCodePanel from "./VerificationCodePanel";
+import VerificationCodePanel from "./verificationCodePanel.jsx";
 import { siteConfig } from "../config/siteConfig";
 import { AUTH_MESSAGES } from "../config/authMessages";
 import {
