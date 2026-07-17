@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type {
   FulfillmentType,
+  QuestionnaireVariableMap,
   ShopCatalog,
   ShopCatalogProduct,
   ShopCatalogSizeOption,
@@ -71,6 +72,14 @@ function normalizeMealSelection(
   return undefined;
 }
 
+function normalizeMetadata(value: unknown): QuestionnaireVariableMap | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as QuestionnaireVariableMap;
+}
+
 export async function getReusableShopCatalog({
   catalogKey,
   currencyCode,
@@ -133,6 +142,7 @@ export async function getReusableShopCatalog({
                 requiresPhysicalFulfillment:
                   mode.requiresPhysicalFulfillment || undefined,
                 mealSelection: normalizeMealSelection(mode.mealSelection),
+                metadata: normalizeMetadata(mode.metadata),
               }))
               .filter((mode) => mode.label.trim());
 
@@ -175,6 +185,7 @@ export async function getReusableShopCatalog({
           maxAccountHolderQuantity: undefined,
           minRecipientQuantity: product.minRecipientQuantity ?? undefined,
           maxRecipientQuantity: product.maxRecipientQuantity ?? undefined,
+          metadata: normalizeMetadata(product.metadata),
           sizeOptions,
         });
       })

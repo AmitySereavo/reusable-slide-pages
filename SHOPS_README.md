@@ -208,6 +208,12 @@ Digital and physical cart lines are stored in `OrderFulfillmentItem` after an
 invitation order is created. Ticket lines are intentionally skipped because
 ticket access is handled by the ticket assignment/ticket code system.
 
+The long-form reusable fulfillment and shipment tracking requirements live in:
+
+```txt
+ORDER_FULFILLMENT_README.md
+```
+
 Fulfillment records include:
 
 - source order and order code
@@ -233,3 +239,47 @@ Existing historical orders may not appear in Orders if they did not contain
 non-ticket digital or physical cart lines when the fulfillment table was added.
 Future music, merch, gift card, digital deliverable, and ticket add-on orders
 should create fulfillment records automatically.
+
+### Courier Selection And Fulfillment Workflow Requirements
+
+During checkout, physical orders should eventually require the purchaser to
+choose a preferred delivery method before payment is completed. Courier options
+must be loaded dynamically from store configuration and destination rules, not
+hardcoded. Selection should consider destination country, parish/state, product
+restrictions, shipping method, and configured couriers such as company
+delivery, DHL, FedEx, UPS, Jamaica Post, Knutsford Express, Zipmail, in-store
+pickup, and other store-defined providers.
+
+The selected courier should be saved with the order and visible throughout the
+order lifecycle to administrators, fulfillment staff, customer support,
+purchasers, and applicable recipients. Order views should support:
+
+- selected courier
+- tracking number
+- courier contact information when available
+- shipping method
+- current fulfillment stage
+- estimated delivery date
+- estimated remaining time
+
+Fulfillment stages must be configurable per store/workflow. Manual in-house
+milestones should use a press-and-drag confirmation slider, not ordinary
+buttons, dropdowns, or single-click actions. Examples include items selected,
+items packaged, items labeled, package ready for pickup, courier contacted,
+awaiting courier pickup, package handed to courier, government documents
+prepared, and export documents submitted. Confirmation should record timestamp,
+staff member, optional notes, optional uploaded photos/documents, and advance
+to the next stage when configured.
+
+Automatic stages should be completed by integrations and scans without manual
+confirmation. Examples include packing-station barcode scans, QR dispatch
+scans, courier pickup/sorting/transit/delivery scans, customs updates, and
+carrier tracking API updates. Automatic updates should record timestamp and
+source, such as courier API, barcode scanner, QR scanner, warehouse scanner, or
+customs integration.
+
+Every fulfillment update should be written to an activity history containing
+stage, timestamp, update type, staff member or automated source, notes, and
+uploaded files. Admins should see the complete history. Customers should see a
+simplified milestone history with timestamps and whether the update came from
+staff or the logistics system.

@@ -72,6 +72,7 @@ export type ShopPurchaseMode = {
   requiresPhysicalFulfillment?: boolean;
   mealSelection?: ShopMealSelectionRequirement;
   bundledCartItems?: ShopBundledCartItem[];
+  metadata?: QuestionnaireVariableMap;
 };
 
 export type ShopBundledCartItem = {
@@ -113,6 +114,7 @@ export type ShopCatalogProduct = {
   maxAccountHolderQuantity?: number;
   minRecipientQuantity?: number;
   maxRecipientQuantity?: number;
+  metadata?: QuestionnaireVariableMap;
   sizeOptions: ShopCatalogSizeOption[];
 };
 
@@ -166,6 +168,18 @@ export type TicketAssignment = {
   purchaseModeLabel?: string;
   ticketUpgradeOverride?: boolean;
   invitationDeliveryMode?: "digital" | "physical";
+  invitationMailingAddress?: {
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    region?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  isPlusOneTicket?: boolean;
+  plusOneHostTicketIndex?: number;
+  plusOneHostName?: string;
+  physicalInvitationFulfillmentDetails?: string;
   ticketIndex: number;
   ticketSelectionTimestamp?: string;
   ticketLabel: string;

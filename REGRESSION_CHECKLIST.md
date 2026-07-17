@@ -452,6 +452,14 @@
 - Marking an item FULFILLED sets fulfilledAt.
 - Moving an item away from FULFILLED clears fulfilledAt.
 - Existing orders with no non-ticket digital/physical lines can leave Orders empty without an error.
+- Future courier selection must load from store/destination/product rules and persist selected courier to the order.
+- Future physical order views should display courier, tracking number, courier contact, shipping method, fulfillment stage, estimated delivery date, and estimated remaining time.
+- Future manual fulfillment stages must use a hold-and-drag confirmation slider, record staff/timestamp/notes/files, and avoid single-click completion controls.
+- Future automatic fulfillment updates from scanners, courier APIs, customs integrations, and tracking systems must record timestamp and update source.
+- Future fulfillment activity history must show complete admin history and simplified customer milestone history.
+- Future generated workflows must follow ORDER_FULFILLMENT_README.md and vary by product type, shipping type, destination, courier, government/customs requirements, and delivery method.
+- Future customer portal fulfillment timelines must show completed, current, and upcoming steps, possession/status context, action required, and simplified milestone history.
+- Future customer confirmation should allow receipt confirmation, optional received-item photos/comments, issue reporting, and configured reward handling.
 ```
 
 ---

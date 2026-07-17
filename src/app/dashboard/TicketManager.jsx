@@ -66,6 +66,8 @@ const emptyForm = {
   maxGiftRecipients: 5,
   maxRecipientQuantity: 1,
   physicalInvitationFee: 8,
+  physicalInvitationFulfillmentDetails:
+    "Welcoming and formal letter acknowledging the purchaser's order request, signed by artist and management.\nTitle printed in metallic gold.\nMatted thick paper placed in black envelope.\nComplimentary pendant per person.\nPrinted ticket per person.",
   upgradeEnabled: false,
   upgradeName: "",
   upgradePrice: 0,
@@ -140,6 +142,10 @@ export default function TicketManager() {
     const physicalMode = firstSizeOption?.purchaseModes?.find(
       (mode) => mode.modeId === "physical-invitation"
     );
+    const physicalFulfillmentDetails =
+      product.metadata?.physicalInvitationFulfillmentDetails ||
+      physicalMode?.metadata?.physicalInvitationFulfillmentDetails ||
+      "";
 
     setForm({
       ...emptyForm,
@@ -159,6 +165,9 @@ export default function TicketManager() {
       physicalInvitationFee: physicalMode?.priceAdjustment
         ? Number(physicalMode.priceAdjustment)
         : 8,
+      physicalInvitationFulfillmentDetails:
+        physicalFulfillmentDetails ||
+        emptyForm.physicalInvitationFulfillmentDetails,
       upgradeEnabled: Boolean(firstVisibleUpgrade),
       upgradeName: firstVisibleUpgrade?.label || "",
       upgradePrice: firstVisibleUpgrade?.priceAdjustment
@@ -353,6 +362,21 @@ export default function TicketManager() {
             />
           </div>
 
+          <label style={styles.label}>
+            Physical invitation fulfillment details
+            <textarea
+              value={form.physicalInvitationFulfillmentDetails}
+              onChange={(event) =>
+                updateForm(
+                  "physicalInvitationFulfillmentDetails",
+                  event.target.value
+                )
+              }
+              rows={6}
+              style={styles.input}
+            />
+          </label>
+
           <div style={styles.checkboxRow}>
             <label style={styles.checkboxLabel}>
               <input
@@ -505,6 +529,8 @@ export default function TicketManager() {
 
 function buildTicketPayload(sourceForm) {
   const physicalFee = Number(sourceForm.physicalInvitationFee) || 0;
+  const physicalInvitationFulfillmentDetails =
+    sourceForm.physicalInvitationFulfillmentDetails?.trim() || "";
   const upgradeMode =
     sourceForm.upgradeEnabled && sourceForm.upgradeName.trim()
       ? {
@@ -540,6 +566,12 @@ function buildTicketPayload(sourceForm) {
             mode.modeId === "physical-invitation"
               ? physicalFee
               : mode.priceAdjustment,
+          metadata:
+            mode.modeId === "physical-invitation"
+              ? {
+                  physicalInvitationFulfillmentDetails,
+                }
+              : undefined,
         }))
       );
 
@@ -593,6 +625,9 @@ function buildTicketPayload(sourceForm) {
     eventAddress: sourceForm.eventAddress,
     eventDateLabel: sourceForm.eventDateLabel,
     eventTimeLabel: sourceForm.eventTimeLabel,
+    metadata: {
+      physicalInvitationFulfillmentDetails,
+    },
     sizeOptions,
   };
 }

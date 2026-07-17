@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 
@@ -9,6 +10,7 @@ type InventoryPurchaseModeInput = {
   description?: string;
   priceAdjustment?: number;
   requiresPhysicalFulfillment?: boolean;
+  metadata?: unknown;
 };
 
 type InventorySizeOptionInput = {
@@ -49,6 +51,7 @@ type InventoryProductInput = {
   stockOnHand?: number;
   stockReserved?: number;
   stockAvailable?: number;
+  metadata?: unknown;
   sizeOptions?: InventorySizeOptionInput[];
 };
 
@@ -59,6 +62,7 @@ type NormalizedPurchaseMode = {
   description?: string;
   priceAdjustment: number;
   requiresPhysicalFulfillment: boolean;
+  metadata?: Prisma.InputJsonObject;
 };
 
 type NormalizedSizeOption = {
@@ -178,6 +182,7 @@ export async function POST(request: Request) {
         stockOnHand: toInt(body?.stockOnHand),
         stockReserved: toInt(body?.stockReserved),
         stockAvailable: toInt(body?.stockAvailable),
+        metadata: normalizeMetadata(body?.metadata),
       },
       update: {
         sku: cleanText(body?.sku),
@@ -202,6 +207,7 @@ export async function POST(request: Request) {
         stockOnHand: toInt(body?.stockOnHand),
         stockReserved: toInt(body?.stockReserved),
         stockAvailable: toInt(body?.stockAvailable),
+        metadata: normalizeMetadata(body?.metadata),
       },
     });
 
@@ -257,6 +263,7 @@ export async function POST(request: Request) {
             sortOrder: modeIndex,
             priceAdjustment: mode.priceAdjustment,
             requiresPhysicalFulfillment: mode.requiresPhysicalFulfillment,
+            metadata: mode.metadata,
           })),
         });
       }
@@ -329,6 +336,7 @@ function normalizeSizeOptions(value: unknown): NormalizedSizeOption[] {
                 priceAdjustment: toNumber(mode.priceAdjustment) ?? 0,
                 requiresPhysicalFulfillment:
                   mode.requiresPhysicalFulfillment === true,
+                metadata: normalizeMetadata(mode.metadata),
               };
             })
             .filter((mode): mode is NormalizedPurchaseMode => Boolean(mode))
@@ -379,4 +387,12 @@ function toInt(value: unknown) {
 function toOptionalInt(value: unknown) {
   const parsed = toNumber(value);
   return parsed === undefined ? undefined : Math.max(0, Math.floor(parsed));
+}
+
+function normalizeMetadata(value: unknown): Prisma.InputJsonObject {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Prisma.InputJsonObject;
 }

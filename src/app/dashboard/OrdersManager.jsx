@@ -13,8 +13,10 @@ const statusOptions = [
 
 const fulfillmentTypes = [
   { value: "", label: "All fulfillment" },
+  { value: "order", label: "Submitted orders" },
   { value: "digital", label: "Digital" },
   { value: "physical", label: "Physical" },
+  { value: "ticket", label: "Tickets" },
 ];
 
 function formatDate(value) {
@@ -29,6 +31,18 @@ function formatMoney(item) {
   return `${item.currencyCode || "USD"} ${Number(
     item.lineTotal || 0
   ).toLocaleString()}`;
+}
+
+function formatDuration(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) return "Not estimated";
+  const days = Math.floor(value / 86400);
+  const hours = Math.floor((value % 86400) / 3600);
+  const minutes = Math.floor((value % 3600) / 60);
+
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${Math.max(1, minutes)}m`;
 }
 
 function statusColor(status) {
@@ -47,7 +61,22 @@ function statusColor(status) {
   }
 }
 
+function formatAddress(address) {
+  if (!address || typeof address !== "object") return "";
+  return [
+    address.addressLine1,
+    address.addressLine2,
+    address.city,
+    address.region,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export default function OrdersManager() {
+  const [isNarrow, setIsNarrow] = useState(false);
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ total: 0 });
   const [status, setStatus] = useState("");
@@ -55,6 +84,17 @@ export default function OrdersManager() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("Loading orders...");
   const [editing, setEditing] = useState({});
+
+  useEffect(() => {
+    const updateViewport = () => {
+      setIsNarrow(window.innerWidth < 720);
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -134,6 +174,36 @@ export default function OrdersManager() {
     setMessage("Order item updated.");
   }
 
+  async function requestMailingAddressUpdate(item) {
+    setMessage("Sending mailing address update request...");
+
+    const response = await fetch("/api/dashboard/orders", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "request-mailing-address-update",
+        id: item.id,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setMessage(
+        [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+          "Mailing address update request could not be sent."
+      );
+      return;
+    }
+
+    setItems((current) =>
+      current.map((entry) => (entry.id === item.id ? payload.item : entry))
+    );
+    setMessage("Mailing address update request sent.");
+  }
+
   const visibleSummary = useMemo(
     () =>
       statusOptions
@@ -144,7 +214,7 @@ export default function OrdersManager() {
 
   return (
     <section style={styles.stack}>
-      <div style={styles.toolbar}>
+      <div style={isNarrow ? styles.toolbarNarrow : styles.toolbar}>
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -193,12 +263,20 @@ export default function OrdersManager() {
           const currentStatus =
             draft.fulfillmentStatus || item.fulfillmentStatus || "PENDING";
           const order = item.invitationOrder;
+          const isPhysicalInvitationOrder =
+            item.fulfillmentType === "physical" &&
+            item.sourceType === "physical-invitation";
+          const physicalInvitationAddress =
+            item.metadata?.invitationMailingAddress || null;
+          const hasPhysicalInvitationAddress = Boolean(
+            formatAddress(physicalInvitationAddress)
+          );
 
           return (
             <article key={item.id} style={styles.card}>
-              <div style={styles.cardHeader}>
-                <div>
-                  <strong>{item.productTitle}</strong>
+              <div style={isNarrow ? styles.cardHeaderNarrow : styles.cardHeader}>
+                <div style={styles.minWidthZero}>
+                  <strong style={styles.breakText}>{item.productTitle}</strong>
                   <div style={styles.muted}>
                     {[item.sizeLabel, item.purchaseModeLabel]
                       .filter(Boolean)
@@ -216,19 +294,45 @@ export default function OrdersManager() {
                 </span>
               </div>
 
-              <div style={styles.detailGrid}>
+              <div style={isNarrow ? styles.detailGridNarrow : styles.detailGrid}>
                 <Info label="Order" value={item.orderCode || "No order code"} />
                 <Info label="Fulfillment" value={item.fulfillmentType} />
+                <Info
+                  label="Current stage"
+                  value={item.currentStageLabel || item.fulfillmentStatus}
+                />
+                <Info
+                  label="Courier"
+                  value={
+                    item.selectedCourier?.name ||
+                    item.selectedCourierName ||
+                    "Not selected"
+                  }
+                />
+                <Info
+                  label="Shipping method"
+                  value={item.shippingMethod || "Not selected"}
+                />
                 <Info label="SKU" value={item.sku || item.productSku || "No SKU"} />
                 <Info label="Quantity" value={item.quantity} />
                 <Info label="Total" value={formatMoney(item)} />
+                <Info
+                  label="Estimated delivery"
+                  value={formatDate(item.estimatedDeliveryAt)}
+                />
+                <Info
+                  label="Remaining"
+                  value={formatDuration(item.estimatedRemainingSeconds)}
+                />
                 <Info label="Created" value={formatDate(item.createdAt)} />
               </div>
 
               <div style={styles.section}>
-                <strong>Recipient</strong>
-                <div>{item.recipientName || order?.purchaserName || "No name"}</div>
-                <div style={styles.muted}>
+                <strong>{item.ticketRecipients?.length ? "Purchaser" : "Recipient"}</strong>
+                <div style={styles.breakText}>
+                  {item.recipientName || order?.purchaserName || "No name"}
+                </div>
+                <div style={{ ...styles.muted, ...styles.breakText }}>
                   {item.recipientEmail || order?.purchaserEmail || "No email"}
                 </div>
                 {item.ticketAttendeeName ? (
@@ -237,14 +341,207 @@ export default function OrdersManager() {
                     {item.ticketCode ? ` - ${item.ticketCode}` : ""}
                   </div>
                 ) : null}
+                {Array.isArray(item.metadata?.attendees) &&
+                item.metadata.attendees.length ? (
+                  <div style={styles.packageList}>
+                    <strong>Package attendees</strong>
+                    {item.metadata.attendees.map((attendee, index) => (
+                      <div
+                        key={`${attendee.ticketCode || attendee.name || "attendee"}-${index}`}
+                        style={styles.breakText}
+                      >
+                        {attendee.name || `Attendee ${index + 1}`}
+                        {attendee.isPlusOneTicket ? " (plus one)" : ""}
+                        {attendee.ticketCode ? ` - ${attendee.ticketCode}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {item.metadata?.physicalInvitationFulfillmentDetails ? (
+                  <div style={styles.packageList}>
+                    <strong>Package contents</strong>
+                    <div style={{ ...styles.muted, ...styles.preLine }}>
+                      {item.metadata.physicalInvitationFulfillmentDetails}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              {order?.deliverySelection ? (
+              {item.ticketRecipients?.length ? (
+                <div style={styles.section}>
+                  <strong>Ticket owners / recipients</strong>
+                  <div style={styles.recipientList}>
+                    {item.ticketRecipients.map((recipient, index) => (
+                      <div
+                        key={`${recipient.ticketCode || "ticket"}-${index}`}
+                        style={styles.recipientCard}
+                      >
+                        <div
+                          style={
+                            isNarrow
+                              ? styles.recipientHeaderNarrow
+                              : styles.recipientHeader
+                          }
+                        >
+                          <strong style={styles.breakText}>
+                            {recipient.ownerName || `Recipient ${index + 1}`}
+                          </strong>
+                          <span style={{ ...styles.muted, ...styles.breakText }}>
+                            {recipient.ticketLabel || recipient.sizeLabel || "Ticket"}
+                          </span>
+                        </div>
+                        <div style={styles.recipientMeta}>
+                          {recipient.ownerEmail ? (
+                            <span>Email: {recipient.ownerEmail}</span>
+                          ) : null}
+                          {recipient.ownerPhone ? (
+                            <span>Phone: {recipient.ownerPhone}</span>
+                          ) : null}
+                          {recipient.ticketCode ? (
+                            <span>Ticket: {recipient.ticketCode}</span>
+                          ) : null}
+                          {recipient.purchaseModeLabel ? (
+                            <span>Invitation: {recipient.purchaseModeLabel}</span>
+                          ) : null}
+                          {recipient.invitationMailingAddress ? (
+                            <span>
+                              Physical invitation address:{" "}
+                              {formatAddress(recipient.invitationMailingAddress)}
+                            </span>
+                          ) : null}
+                          {recipient.ticketOwnerPaymentMode ? (
+                            <span>
+                              Add-on handling: {recipient.ticketOwnerPaymentMode}
+                            </span>
+                          ) : null}
+                          {Number(recipient.ticketOwnerAddonBudget || 0) > 0 ? (
+                            <span>
+                              Add-on budget:{" "}
+                              {item.currencyCode || "USD"}{" "}
+                              {Number(
+                                recipient.ticketOwnerAddonBudget || 0
+                              ).toLocaleString()}
+                            </span>
+                          ) : null}
+                          {recipient.mealLabel ? (
+                            <span>Meal: {recipient.mealLabel}</span>
+                          ) : null}
+                          {recipient.wantsExtraFood ? (
+                            <span>May order extra food at event</span>
+                          ) : null}
+                          {recipient.mealNotes ? (
+                            <span>Meal notes: {recipient.mealNotes}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {order?.deliverySelection || isPhysicalInvitationOrder ? (
                 <div style={styles.section}>
                   <strong>Delivery / Pickup</strong>
-                  <pre style={styles.pre}>
-                    {JSON.stringify(order.deliverySelection, null, 2)}
-                  </pre>
+                  {isPhysicalInvitationOrder ? (
+                    <div style={styles.packageList}>
+                      <Info
+                        label="Courier"
+                        value={
+                          item.selectedCourier?.name ||
+                          item.selectedCourierName ||
+                          "Not selected"
+                        }
+                      />
+                      {item.selectedCourier?.contactInfo ||
+                      item.courierContactInfo ? (
+                        <pre style={styles.pre}>
+                          {JSON.stringify(
+                            item.selectedCourier?.contactInfo ||
+                              item.courierContactInfo,
+                            null,
+                            2
+                          )}
+                        </pre>
+                      ) : null}
+                      <Info
+                        label="Shipping method"
+                        value={item.shippingMethod || "Not selected"}
+                      />
+                      <Info
+                        label="Tracking number"
+                        value={item.trackingReference || "Not recorded"}
+                      />
+                      {hasPhysicalInvitationAddress ? (
+                        <div style={{ ...styles.muted, ...styles.breakText }}>
+                          Physical invitation address:{" "}
+                          {formatAddress(physicalInvitationAddress)}
+                        </div>
+                      ) : (
+                        <div style={styles.warningText}>
+                          Mailing address is missing or incomplete.
+                        </div>
+                      )}
+                      {item.metadata?.mailingAddressUpdateRequestedAt ? (
+                        <div style={{ ...styles.muted, ...styles.breakText }}>
+                          Address update requested:{" "}
+                          {formatDate(
+                            item.metadata.mailingAddressUpdateRequestedAt
+                          )}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => void requestMailingAddressUpdate(item)}
+                        disabled={!item.recipientEmail}
+                        style={styles.secondaryButton}
+                      >
+                        Request mailing address update
+                      </button>
+                      {!item.recipientEmail ? (
+                        <div style={styles.warningText}>
+                          Recipient email is missing, so no update request can be
+                          sent.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {order?.deliverySelection ? (
+                    <pre style={styles.pre}>
+                      {JSON.stringify(order.deliverySelection, null, 2)}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {Array.isArray(item.activities) && item.activities.length ? (
+                <div style={styles.section}>
+                  <strong>Fulfillment activity</strong>
+                  <div style={styles.activityList}>
+                    {item.activities.map((activity) => (
+                      <div key={activity.id} style={styles.activityItem}>
+                        <div style={styles.recipientHeader}>
+                          <strong style={styles.breakText}>
+                            {activity.stageLabel || activity.stageKey}
+                          </strong>
+                          <span style={styles.muted}>
+                            {formatDate(activity.completedAt)}
+                          </span>
+                        </div>
+                        <div style={{ ...styles.muted, ...styles.breakText }}>
+                          {(activity.updateType || "manual").toUpperCase()}
+                          {activity.source ? ` - ${activity.source}` : ""}
+                          {activity.staffUserName
+                            ? ` - ${activity.staffUserName}`
+                            : ""}
+                        </div>
+                        {activity.notes ? (
+                          <div style={{ ...styles.muted, ...styles.preLine }}>
+                            {activity.notes}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
@@ -337,9 +634,9 @@ export default function OrdersManager() {
 
 function Info({ label, value }) {
   return (
-    <div>
+    <div style={styles.minWidthZero}>
       <span style={styles.infoLabel}>{label}</span>
-      <strong>{value || "Not set"}</strong>
+      <strong style={styles.breakText}>{value || "Not set"}</strong>
     </div>
   );
 }
@@ -352,6 +649,11 @@ const styles = {
   toolbar: {
     display: "grid",
     gridTemplateColumns: "minmax(220px, 1fr) repeat(2, minmax(150px, 190px))",
+    gap: "10px",
+  },
+  toolbarNarrow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "10px",
   },
   input: {
@@ -402,12 +704,23 @@ const styles = {
     display: "grid",
     gap: "14px",
     padding: "16px",
+    maxWidth: "100%",
+    minWidth: 0,
+    overflow: "hidden",
   },
   cardHeader: {
     alignItems: "start",
     display: "flex",
     gap: "12px",
     justifyContent: "space-between",
+    minWidth: 0,
+  },
+  cardHeaderNarrow: {
+    alignItems: "start",
+    display: "grid",
+    gap: "8px",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    minWidth: 0,
   },
   badge: {
     border: "1px solid",
@@ -418,11 +731,28 @@ const styles = {
   },
   muted: {
     color: "rgba(32, 28, 29, 0.68)",
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   detailGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
     gap: "10px",
+    minWidth: 0,
+  },
+  detailGridNarrow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: "10px",
+    minWidth: 0,
+  },
+  minWidthZero: {
+    minWidth: 0,
+  },
+  breakText: {
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   infoLabel: {
     color: "rgba(32, 28, 29, 0.62)",
@@ -436,6 +766,64 @@ const styles = {
     display: "grid",
     gap: "4px",
     paddingTop: "12px",
+    minWidth: 0,
+  },
+  recipientList: {
+    display: "grid",
+    gap: "8px",
+  },
+  recipientCard: {
+    background: "#f8f4ee",
+    border: "1px solid rgba(32, 28, 29, 0.1)",
+    borderRadius: "6px",
+    display: "grid",
+    gap: "6px",
+    padding: "10px",
+    minWidth: 0,
+  },
+  recipientHeader: {
+    alignItems: "baseline",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    justifyContent: "space-between",
+    minWidth: 0,
+  },
+  recipientHeaderNarrow: {
+    display: "grid",
+    gap: "3px",
+    minWidth: 0,
+  },
+  recipientMeta: {
+    color: "rgba(32, 28, 29, 0.74)",
+    display: "grid",
+    gap: "2px",
+    fontSize: "14px",
+    lineHeight: 1.35,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
+  packageList: {
+    display: "grid",
+    gap: "4px",
+    marginTop: "8px",
+    minWidth: 0,
+  },
+  activityList: {
+    display: "grid",
+    gap: "8px",
+    minWidth: 0,
+  },
+  activityItem: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+    display: "grid",
+    gap: "4px",
+    minWidth: 0,
+    paddingTop: "8px",
+  },
+  preLine: {
+    whiteSpace: "pre-line",
   },
   pre: {
     background: "#f5f2ee",
@@ -456,6 +844,7 @@ const styles = {
     display: "grid",
     gap: "5px",
     fontWeight: 800,
+    minWidth: 0,
   },
   textarea: {
     border: "1px solid rgba(32, 28, 29, 0.16)",
@@ -475,6 +864,24 @@ const styles = {
     font: "inherit",
     fontWeight: 900,
     padding: "12px 14px",
+  },
+  secondaryButton: {
+    background: "#fffdfa",
+    border: "1px solid rgba(47, 122, 70, 0.42)",
+    borderRadius: "6px",
+    color: "#245f38",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: "10px 12px",
+    width: "100%",
+  },
+  warningText: {
+    color: "#b3261e",
+    fontSize: "14px",
+    fontWeight: 800,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
   },
   empty: {
     background: "#fffdfa",

@@ -991,6 +991,14 @@ function syncTicketAssistantAssignmentOwnerFields(params: {
       slot,
       hostSlot,
     });
+    const ownerMode =
+      slot.assistantIndex === 0
+        ? "purchaser_pays_ticket_and_addons"
+        : hostSlot?.ownerMode ?? slot.ownerMode;
+    const ownerBudget =
+      hostIndex === null && ownerMode === "owner_selects_sender_pays_addons"
+        ? Math.max(0, Number(slot.budget ?? 0) || 0)
+        : 0;
 
     return {
       ...assignment,
@@ -1002,6 +1010,8 @@ function syncTicketAssistantAssignmentOwnerFields(params: {
       ownerLockedFromRecipient:
         !slot.isPurchaser && Boolean(slot.email.trim()),
       emailTicketToOwner: !slot.isPurchaser && Boolean(slot.email.trim()),
+      ticketOwnerPaymentMode: ownerMode,
+      ticketOwnerAddonBudget: ownerBudget,
     };
   });
 }
@@ -1024,6 +1034,11 @@ function getTicketAssignmentSyncSignature(assignments: TicketAssignments) {
       purchaseModeId: assignment.purchaseModeId ?? "",
       purchaseModeLabel: assignment.purchaseModeLabel ?? "",
       invitationDeliveryMode: assignment.invitationDeliveryMode ?? "",
+      isPlusOneTicket: assignment.isPlusOneTicket === true,
+      plusOneHostTicketIndex: assignment.plusOneHostTicketIndex ?? null,
+      plusOneHostName: assignment.plusOneHostName ?? "",
+      physicalInvitationFulfillmentDetails:
+        assignment.physicalInvitationFulfillmentDetails ?? "",
       ticketOwnerPaymentMode: assignment.ticketOwnerPaymentMode ?? "",
       ticketOwnerAddonBudget: assignment.ticketOwnerAddonBudget ?? 0,
     }))
@@ -1103,7 +1118,7 @@ function getTicketAssistantTotal(params: {
 
   const slots = getTicketAssistantSlots(answers);
 
-  return slots.reduce((sum, slot, index) => {
+  const ticketTotal = slots.reduce((sum, slot, index) => {
     const hostIndex = getTicketAssistantPlusOneHostIndex({
       product,
       slots,
@@ -1130,6 +1145,31 @@ function getTicketAssistantTotal(params: {
       (deliveryMode?.priceAdjustment ?? 0)
     );
   }, 0);
+
+  const budgetTotal = slots.reduce((sum, slot, index) => {
+    const hostIndex = getTicketAssistantPlusOneHostIndex({
+      product,
+      slots,
+      index,
+    });
+    const ownerMode =
+      index === 0
+        ? "purchaser_pays_ticket_and_addons"
+        : slot.ownerMode;
+
+    if (
+      hostIndex !== null ||
+      ownerMode !== "owner_selects_sender_pays_addons"
+    ) {
+      return sum;
+    }
+
+    const budget = Number(slot.budget ?? 0);
+
+    return sum + (Number.isFinite(budget) ? Math.max(0, budget) : 0);
+  }, 0);
+
+  return ticketTotal + budgetTotal;
 }
 
 function buildTicketAssistantCheckoutState(params: {
@@ -1181,7 +1221,7 @@ function buildTicketAssistantCheckoutState(params: {
         index === 0
           ? 0
           : hostIndex !== null
-            ? hostSlot?.budget ?? 0
+            ? 0
             : slot.budget,
       sizeOptionId: sizeOption?.id ?? "",
       purchaseModeId: purchaseMode?.id,
@@ -1278,6 +1318,24 @@ function buildTicketAssistantCheckoutState(params: {
         sizeOption,
         slot.purchaseModeId
       );
+      const deliveryMode = getTicketAssistantDeliveryMode(
+        sizeOption,
+        slot.deliveryModeId
+      );
+      const hostTicketIndex =
+        hostIndex === null
+          ? undefined
+          : lineSlots.findIndex(
+              (candidate) => candidate.assistantIndex === hostIndex
+            );
+      const physicalInvitationFulfillmentDetails =
+        typeof deliveryMode?.metadata?.physicalInvitationFulfillmentDetails ===
+        "string"
+          ? deliveryMode.metadata.physicalInvitationFulfillmentDetails
+          : typeof product.metadata?.physicalInvitationFulfillmentDetails ===
+              "string"
+            ? product.metadata.physicalInvitationFulfillmentDetails
+            : "";
 
       return {
         ...assignment,
@@ -1306,8 +1364,22 @@ function buildTicketAssistantCheckoutState(params: {
                 country: slot.mailingCountry,
               }
             : undefined,
-        ticketOwnerPaymentMode: slot.ownerMode,
+        isPlusOneTicket: hostIndex !== null,
+        plusOneHostTicketIndex:
+          hostTicketIndex !== undefined && hostTicketIndex >= 0
+            ? hostTicketIndex
+            : undefined,
+        plusOneHostName:
+          hostSlot && hostIndex !== null
+            ? getTicketAssistantDisplayName(hostSlot, `Attendee ${hostIndex + 1}`)
+            : undefined,
+        physicalInvitationFulfillmentDetails,
+        ticketOwnerPaymentMode:
+          hostIndex !== null
+            ? hostSlot?.ownerMode ?? slot.ownerMode
+            : slot.ownerMode,
         ticketOwnerAddonBudget:
+          hostIndex === null &&
           slot.ownerMode === "owner_selects_sender_pays_addons"
             ? slot.budget
             : 0,
@@ -3148,6 +3220,134 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         return sum + (Number.isFinite(budget) ? Math.max(0, budget) : 0);
       }, 0),
     [currentTicketAssignments]
+  );
+
+  const sharedTicketOwnerAddonBudgetLines = useMemo(
+    () => {
+      const product = getTicketAssistantProduct(
+        sharedShopDisplayCatalog,
+        answers.ticketAssistantEventProductId
+      );
+      const quantity = getTicketAssistantQuantity(answers);
+      const assistantSlots =
+        product && config.slug === "ticket-purchase-assistant"
+          ? getTicketAssistantSlots(answers, quantity)
+          : [];
+      const assignmentNameGroups = new Map<string, string[]>();
+
+      if (product && assistantSlots.length) {
+        const groupedSlots = new Map<string, TicketAssistantSlot[]>();
+
+        for (const slot of assistantSlots) {
+          const hostIndex = getTicketAssistantPlusOneHostIndex({
+            product,
+            slots: assistantSlots,
+            index: slot.assistantIndex,
+          });
+          const hostSlot =
+            hostIndex === null ? undefined : assistantSlots[hostIndex];
+          const sizeOption = getTicketAssistantSizeOption(
+            product,
+            hostSlot?.sizeOptionId ?? slot.sizeOptionId
+          );
+
+          if (!sizeOption) continue;
+
+          const lineKey = makeShopLineKey(product.id, sizeOption.id);
+          groupedSlots.set(lineKey, [...(groupedSlots.get(lineKey) ?? []), slot]);
+        }
+
+        for (const assignment of currentTicketAssignments) {
+          const slot = groupedSlots.get(assignment.lineKey)?.[
+            assignment.ticketIndex
+          ];
+
+          if (!slot) continue;
+
+          const hostIndex = getTicketAssistantPlusOneHostIndex({
+            product,
+            slots: assistantSlots,
+            index: slot.assistantIndex,
+          });
+
+          if (hostIndex !== null) {
+            const hostSlot = assistantSlots[hostIndex];
+            const hostAssignment = currentTicketAssignments.find(
+              (item) =>
+                item.lineKey === assignment.lineKey &&
+                item.ticketIndex ===
+                  (groupedSlots
+                    .get(assignment.lineKey)
+                    ?.findIndex(
+                      (candidate) =>
+                        candidate.assistantIndex === hostSlot.assistantIndex
+                    ) ?? -1)
+            );
+            const groupKey = hostAssignment?.ticketCode;
+
+            if (groupKey) {
+              const plusOneName =
+                String(assignment.ownerName ?? "").trim() ||
+                String(assignment.printedTicketName ?? "").trim() ||
+                assignment.ticketLabel;
+              assignmentNameGroups.set(groupKey, [
+                ...(assignmentNameGroups.get(groupKey) ?? []),
+                plusOneName,
+              ]);
+            }
+          }
+        }
+      }
+
+      return currentTicketAssignments
+        .map((assignment) => {
+          if (
+            assignment.ticketOwnerPaymentMode !==
+            "owner_selects_sender_pays_addons"
+          ) {
+            return null;
+          }
+
+          const budget = Number(assignment.ticketOwnerAddonBudget ?? 0);
+          const amount = Number.isFinite(budget) ? Math.max(0, budget) : 0;
+
+          if (amount <= 0) {
+            return null;
+          }
+
+          return {
+            id: assignment.ticketCode,
+            attendeeName:
+              [
+                String(assignment.ownerName ?? "").trim() ||
+                  String(assignment.printedTicketName ?? "").trim() ||
+                  assignment.ticketLabel ||
+                  "attendee",
+                ...(assignmentNameGroups.get(assignment.ticketCode) ?? []),
+              ]
+                .filter(Boolean)
+                .join(" and "),
+            ticketCode: assignment.ticketCode,
+            amount,
+          };
+        })
+        .filter(
+          (
+            line
+          ): line is {
+            id: string;
+            attendeeName: string;
+            ticketCode: string;
+            amount: number;
+          } => Boolean(line)
+        );
+    },
+    [
+      answers,
+      config.slug,
+      currentTicketAssignments,
+      sharedShopDisplayCatalog,
+    ]
   );
 
   const sharedTicketUpgradeTotal = useMemo(
@@ -5946,7 +6146,8 @@ async function handleNext() {
       : currentSlide.nextLabel ?? "Checkout";
   const ticketAssistantNextTotal =
     currentSlide.blockKey === "ticket-assistant-ticket-types" ||
-    currentSlide.blockKey === "ticket-assistant-upgrades"
+    currentSlide.blockKey === "ticket-assistant-upgrades" ||
+    currentSlide.blockKey === "ticket-assistant-meal-responsibility"
       ? getTicketAssistantTotal({
           catalog: sharedShopDisplayCatalog,
           answers,
@@ -7059,6 +7260,9 @@ async function handleNext() {
                             setAnswer("cartReturnTarget", "review-order");
                             goToTarget("contact-details");
                           }}
+                          ticketOwnerAddonBudgetLines={
+                            sharedTicketOwnerAddonBudgetLines
+                          }
                         />
                       ) : null}
 
@@ -8254,10 +8458,8 @@ function TicketDetailsRenderer({
                                     item.ticketCode === assignment.ticketCode
                                       ? {
                                           ...item,
-                                          ticketOwnerAddonBudget: Math.max(
-                                            addonBudget,
-                                            customBudgetMinimum
-                                          ),
+                                          ticketOwnerAddonBudget:
+                                            addonBudget > 0 ? addonBudget : 0,
                                         }
                                       : item
                                   ),
@@ -8291,10 +8493,8 @@ function TicketDetailsRenderer({
                                       item.ticketCode === assignment.ticketCode
                                         ? {
                                             ...item,
-                                            ticketOwnerAddonBudget: Math.max(
-                                              addonBudget,
-                                              customBudgetMinimum
-                                            ),
+                                            ticketOwnerAddonBudget:
+                                              addonBudget > 0 ? addonBudget : 0,
                                           }
                                         : item
                                     ),
@@ -8308,18 +8508,40 @@ function TicketDetailsRenderer({
                                   ...prev,
                                   [assignment.ticketCode]: true,
                                 }));
+                                const rawValue = event.target.value.trim();
+                                const nextBudget =
+                                  rawValue === "" ? 0 : Number(rawValue);
 
                                 onChange(
                                   updateTicketAssignmentField({
                                     assignments,
                                     ticketCode: assignment.ticketCode,
                                     field: "ticketOwnerAddonBudget",
-                                    value: Math.max(
-                                      customBudgetMinimum,
-                                      Number(event.target.value || 0)
-                                    ),
+                                    value: Number.isFinite(nextBudget)
+                                      ? Math.max(0, nextBudget)
+                                      : 0,
                                   })
                                 );
+                              }}
+                              onBlur={(event) => {
+                                const nextBudget = Number(
+                                  event.target.value || 0
+                                );
+
+                                if (
+                                  Number.isFinite(nextBudget) &&
+                                  nextBudget > 0 &&
+                                  nextBudget < customBudgetMinimum
+                                ) {
+                                  onChange(
+                                    updateTicketAssignmentField({
+                                      assignments,
+                                      ticketCode: assignment.ticketCode,
+                                      field: "ticketOwnerAddonBudget",
+                                      value: customBudgetMinimum,
+                                    })
+                                  );
+                                }
                               }}
                               placeholder={`Minimum ${formatCurrency(
                                 customBudgetMinimum,
@@ -9477,6 +9699,7 @@ function ReviewSummaryRenderer({
   currencyCode,
   deliveryConfig,
   showDeliverySummary,
+  ticketOwnerAddonBudgetLines,
   onAdjustDelivery,
   onAdjustContact,
 }: {
@@ -9486,6 +9709,12 @@ function ReviewSummaryRenderer({
   currencyCode: string;
   deliveryConfig: DeliveryConfig | null;
   showDeliverySummary: boolean;
+  ticketOwnerAddonBudgetLines?: Array<{
+    id: string;
+    attendeeName: string;
+    ticketCode: string;
+    amount: number;
+  }>;
   onAdjustDelivery: () => void;
   onAdjustContact: () => void;
 }) {
@@ -9542,6 +9771,28 @@ function ReviewSummaryRenderer({
 
   return (
     <div className={styles.reviewSummaryStack}>
+      {ticketOwnerAddonBudgetLines?.length ? (
+        <div className={styles.reviewSummaryCard}>
+          <div className={styles.reviewSummaryHeader}>
+            <div className={styles.reviewSummaryTitle}>
+              Add-on budgets
+            </div>
+          </div>
+
+          <div className={styles.reviewSummaryBody}>
+            {ticketOwnerAddonBudgetLines.map((line) => (
+              <div key={line.id} className={styles.budgetCartLine}>
+                <div>
+                  <strong>Budget for {line.attendeeName}</strong>
+                  <span>Ticket code: {line.ticketCode}</span>
+                </div>
+                <strong>{formatCurrency(line.amount, currencyCode)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {showDeliverySummary ? (
         <div className={styles.reviewSummaryCard}>
           <div className={styles.reviewSummaryHeader}>
@@ -13977,7 +14228,7 @@ function TicketPurchaseAssistantRenderer({
                         patchSlot(activeIndex, {
                           ownerMode: "owner_selects_sender_pays_addons",
                           mealResponsibilitySelected: true,
-                          budget: Math.max(slot.budget, customBudgetMinimum),
+                          budget: slot.budget > 0 ? slot.budget : 0,
                           budgetChoiceId: "custom",
                         })
                       }
@@ -13985,7 +14236,7 @@ function TicketPurchaseAssistantRenderer({
                         patchSlot(activeIndex, {
                           ownerMode: "owner_selects_sender_pays_addons",
                           mealResponsibilitySelected: true,
-                          budget: Math.max(slot.budget, customBudgetMinimum),
+                          budget: slot.budget > 0 ? slot.budget : 0,
                           budgetChoiceId: "custom",
                         })
                       }
@@ -14010,22 +14261,41 @@ function TicketPurchaseAssistantRenderer({
                       patchSlot(activeIndex, {
                         ownerMode: "owner_selects_sender_pays_addons",
                         mealResponsibilitySelected: true,
-                        budget: Math.max(slot.budget, customBudgetMinimum),
+                        budget: slot.budget > 0 ? slot.budget : 0,
                         budgetChoiceId: "custom",
                       })
                     }
                     onKeyDown={stopAssistantInputKeyPropagation}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const rawValue = event.target.value.trim();
+                      const nextBudget =
+                        rawValue === "" ? 0 : Number(rawValue);
+
                       patchSlot(activeIndex, {
                         ownerMode: "owner_selects_sender_pays_addons",
                         mealResponsibilitySelected: true,
-                        budget: Math.max(
-                          customBudgetMinimum,
-                          Number(event.target.value || 0)
-                        ),
+                        budget: Number.isFinite(nextBudget)
+                          ? Math.max(0, nextBudget)
+                          : 0,
                         budgetChoiceId: "custom",
-                      })
-                    }
+                      });
+                    }}
+                    onBlur={(event) => {
+                      const nextBudget = Number(event.target.value || 0);
+
+                      if (
+                        Number.isFinite(nextBudget) &&
+                        nextBudget > 0 &&
+                        nextBudget < customBudgetMinimum
+                      ) {
+                        patchSlot(activeIndex, {
+                          ownerMode: "owner_selects_sender_pays_addons",
+                          mealResponsibilitySelected: true,
+                          budget: customBudgetMinimum,
+                          budgetChoiceId: "custom",
+                        });
+                      }
+                    }}
                   />
                 </label>
               </div>

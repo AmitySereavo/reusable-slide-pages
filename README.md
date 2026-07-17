@@ -50,6 +50,9 @@ runtime.
   flows, slide directives, media/download rules, and project-specific flow notes.
 - [SHOPS_README.md](SHOPS_README.md): reusable shop, cart, ticket, gift,
   recipient, inventory, currency, and store-credit behavior.
+- [ORDER_FULFILLMENT_README.md](ORDER_FULFILLMENT_README.md): configurable
+  courier selection, shipment workflows, manual confirmation sliders,
+  automatic tracking updates, and fulfillment activity history.
 - [EMAIL_SEQUENCES_README.md](EMAIL_SEQUENCES_README.md): email sequence
   architecture, operational templates, lead nurture scheduling, and admin usage.
 - [REGRESSION_CHECKLIST.md](REGRESSION_CHECKLIST.md): manual regression checks
@@ -130,7 +133,8 @@ separate routes so each section loads its own data only when an admin visits it:
 - `/dashboard/people`: leads, accounts, purchases, content activity, answers,
   and email engagement
 - `/dashboard/orders`: digital/physical order fulfillment items, recipient
-  details, fulfillment status, notes, and tracking/delivery references
+  details, fulfillment status, notes, selected courier, tracking/delivery
+  references, and delivery/pickup support actions
 - `/dashboard/tickets`: reusable ticket publishing
 - `/dashboard/inventory`: reusable inventory management
 - `/dashboard/currencies`: currency exchange-rate settings
@@ -204,4 +208,7 @@ npm run dev
 5. Continue moving website-operation email copy into protected editable
    templates and keep the old verification content config for non-email
    channels only until those channels are migrated.
-6. Continue separating reusable systems from project-specific flows.
+6. Build configurable courier selection, fulfillment-stage workflows, manual
+   confirmation sliders, automatic scan/API updates, and fulfillment activity
+   history for physical orders.
+7. Continue separating reusable systems from project-specific flows.

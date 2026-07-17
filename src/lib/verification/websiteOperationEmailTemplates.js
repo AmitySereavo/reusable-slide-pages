@@ -146,6 +146,17 @@ export const permanentWebsiteOperationSequences = [
     bodyText:
       "Hi {{recipientName}},\n\nUse this private link to continue watching: {{verifyUrl}}",
   },
+  {
+    sequenceKey: "website-op-mailing-address-update-link-email",
+    name: "Website Op - Mailing address update request",
+    description:
+      "Operational email for requesting updated mailing details for a physical order.",
+    triggerEvent: "website_operation",
+    stepKey: "mailing-address-update-link-email",
+    subject: "Please update your mailing address for order {{orderNumber}}",
+    bodyText:
+      "Hi {{recipientName}},\n\nWe need you to confirm or update your mailing address so we can fulfill this physical order.\n\nOrder number: {{orderNumber}}\nOrder details: {{orderDetails}}\n\nUpdate your account details here: {{verifyUrl}}\n\nAfter your mailing address is updated, our team can continue processing the order.",
+  },
 ];
 
 export function getWebsiteOperationEmailTemplate(sequenceKey) {

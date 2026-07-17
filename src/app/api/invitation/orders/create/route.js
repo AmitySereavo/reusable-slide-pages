@@ -49,6 +49,23 @@ function asMoney(value) {
   return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
 }
 
+function normalizeInvitationMailingAddress(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const address = {
+    addressLine1: asString(value.addressLine1),
+    addressLine2: asString(value.addressLine2),
+    city: asString(value.city),
+    region: asString(value.region),
+    postalCode: asString(value.postalCode),
+    country: asString(value.country),
+  };
+
+  return Object.values(address).some(Boolean) ? address : null;
+}
+
 function getLineRecipientAllocations(line, purchaser) {
   const recipients = Array.isArray(line.purchaseRecipients)
     ? line.purchaseRecipients
@@ -136,12 +153,173 @@ function buildFulfillmentItemCreateManyData({
       ticketAttendeeName: asString(line.ticketAddOnAttendeeName) || null,
       status: "PENDING",
       fulfillmentStatus: "PENDING",
+      currentStageKey: "order-request-sent-to-fulfillment",
+      currentStageLabel: "Order Request Sent to Fulfillment",
       metadata: {
         requiresPhysicalFulfillment: line.requiresPhysicalFulfillment === true,
         bundledFromLineKey: line.bundledFromLineKey || null,
         bundledByPurchaseModeId: line.bundledByPurchaseModeId || null,
       },
     }));
+  });
+}
+
+function formatInvitationMailingAddress(address) {
+  const normalized = normalizeInvitationMailingAddress(address);
+
+  if (!normalized) {
+    return "";
+  }
+
+  return [
+    normalized.addressLine1,
+    normalized.addressLine2,
+    normalized.city,
+    normalized.region,
+    normalized.postalCode,
+    normalized.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function buildPhysicalInvitationFulfillmentItems({
+  order,
+  ticketAssignments,
+  createdTickets,
+  currencyCode,
+}) {
+  const indexedAssignments = (Array.isArray(ticketAssignments)
+    ? ticketAssignments
+    : []
+  ).map((assignment, index) => ({
+    assignment,
+    index,
+  }));
+
+  return indexedAssignments.flatMap(({ assignment, index }) => {
+    if (
+      getInvitationDeliveryMode(assignment) !== "physical" ||
+      assignment.isPlusOneTicket === true
+    ) {
+      return [];
+    }
+
+    const hostTicketIndex =
+      typeof assignment.ticketIndex === "number" ? assignment.ticketIndex : index;
+    const lineKey = asString(assignment.lineKey);
+    const pairedAssignments = indexedAssignments.filter(({ assignment: candidate }) => {
+      if (candidate.isPlusOneTicket !== true) {
+        const candidateEmail = getTicketOwnerEmail(candidate);
+        const candidateTicketIndex =
+          typeof candidate.ticketIndex === "number"
+            ? candidate.ticketIndex
+            : undefined;
+
+        return (
+          !candidateEmail &&
+          getInvitationDeliveryMode(candidate) === "physical" &&
+          asString(candidate.lineKey) === lineKey &&
+          candidateTicketIndex === hostTicketIndex + 1
+        );
+      }
+
+      return (
+        getInvitationDeliveryMode(candidate) === "physical" &&
+        asString(candidate.lineKey) === lineKey &&
+        Number(candidate.plusOneHostTicketIndex) === Number(hostTicketIndex)
+      );
+    });
+    const packageAssignments = [
+      { assignment, index },
+      ...pairedAssignments,
+    ];
+    const createdTicket = createdTickets[index]?.ticket;
+    const mailingAddress = normalizeInvitationMailingAddress(
+      assignment.invitationMailingAddress
+    );
+    const formattedAddress = formatInvitationMailingAddress(mailingAddress);
+    const recipientName = asString(assignment.ownerName);
+    const ticketCode =
+      createdTicket?.ticketCode || asString(assignment.ticketCode) || null;
+    const ticketLabel =
+      asString(assignment.ticketLabel || assignment.sizeLabel) || "Invitation";
+    const attendees = packageAssignments.map(({ assignment: ticketAssignment, index: ticketIndex }) => {
+      const ticket = createdTickets[ticketIndex]?.ticket;
+
+      return {
+        name: asString(ticketAssignment.ownerName) || "Attendee",
+        email: getTicketOwnerEmail(ticketAssignment) || null,
+        ticketCode:
+          ticket?.ticketCode || asString(ticketAssignment.ticketCode) || null,
+        ticketLabel:
+          asString(ticketAssignment.ticketLabel || ticketAssignment.sizeLabel) ||
+          ticketLabel,
+        isPlusOneTicket: ticketAssignment.isPlusOneTicket === true,
+        plusOneHostName: asString(ticketAssignment.plusOneHostName) || null,
+      };
+    });
+    const attendeeNames = attendees.map((attendee) => attendee.name).join(", ");
+    const fulfillmentDetails = asString(
+      assignment.physicalInvitationFulfillmentDetails
+    );
+    const noteParts = [
+      formattedAddress
+        ? `Mail physical invitation package to ${formattedAddress}.`
+        : "Physical invitation selected, but no mailing address was provided.",
+      attendeeNames ? `Attendees in package: ${attendeeNames}.` : "",
+      fulfillmentDetails ? `Package contents: ${fulfillmentDetails}` : "",
+    ].filter(Boolean);
+
+    return [
+      {
+        invitationOrderId: order.id,
+        sourceType: "physical-invitation",
+        sourceId: createdTicket?.id || order.id,
+        orderCode: order.orderCode,
+        lineKey: lineKey || null,
+        productId: asString(assignment.productId) || null,
+        productSku: null,
+        productTitle: "Physical Invitation Package",
+        sizeOptionId: asString(assignment.sizeOptionId) || null,
+        sizeSku: null,
+        sizeLabel:
+          attendees.length > 1
+            ? `${ticketLabel} package for ${attendees.length} attendees`
+            : `${ticketLabel} package`,
+        purchaseModeId: "physical-invitation",
+        purchaseModeSku: null,
+        purchaseModeLabel: getInvitationDeliveryPurchaseModeLabel(assignment),
+        sku: ticketCode,
+        fulfillmentType: "physical",
+        quantity: 1,
+        currencyCode,
+        unitPrice: 0,
+        lineTotal: 0,
+        recipientUserId: createdTicket?.ownerUserId ?? null,
+        recipientName: recipientName || null,
+        recipientEmail: getTicketOwnerEmail(assignment) || null,
+        recipientRole:
+          assignment.isPurchaserTicket === true
+            ? "purchaser-ticket-owner"
+            : "ticket-owner",
+        ticketCode,
+        ticketAttendeeName: attendeeNames || recipientName || null,
+        status: "PENDING",
+        fulfillmentStatus: "PENDING",
+        currentStageKey: "order-request-sent-to-fulfillment",
+        currentStageLabel: "Order Request Sent to Fulfillment",
+        fulfillmentNotes: noteParts.join("\n"),
+        metadata: {
+          invitationDeliveryMode: "physical",
+          invitationMailingAddress: mailingAddress,
+          ticketLabel,
+          attendees,
+          peopleCount: attendees.length,
+          physicalInvitationFulfillmentDetails: fulfillmentDetails,
+        },
+      },
+    ];
   });
 }
 
@@ -800,6 +978,10 @@ export async function POST(request) {
               assignment.ticketOwnerPaymentMode
             ),
             ticketOwnerAddonBudget: asMoney(assignment.ticketOwnerAddonBudget),
+            invitationMailingAddress:
+              normalizeInvitationMailingAddress(
+                assignment.invitationMailingAddress
+              ),
             status: "ACTIVE",
             mealMode: asString(assignment.mealMode) || null,
             mealMenuId: asString(assignment.mealMenuId) || null,
@@ -834,20 +1016,56 @@ export async function POST(request) {
         });
       }
 
-      const fulfillmentItems = buildFulfillmentItemCreateManyData({
+      const currencyCode = asString(body.currencyCode) || "USD";
+      const fulfillmentItems = [
+        ...buildFulfillmentItemCreateManyData({
         order,
         resolvedLines,
         purchaser: {
           name: fullName || null,
           email: purchaserEmail || null,
         },
-        currencyCode: asString(body.currencyCode) || "USD",
-      });
+          currencyCode,
+        }),
+        ...buildPhysicalInvitationFulfillmentItems({
+          order,
+          ticketAssignments,
+          createdTickets,
+          currencyCode,
+        }),
+      ];
 
       if (fulfillmentItems.length) {
         await tx.orderFulfillmentItem.createMany({
           data: fulfillmentItems,
         });
+
+        const createdFulfillmentItems = await tx.orderFulfillmentItem.findMany({
+          where: {
+            invitationOrderId: order.id,
+          },
+          select: {
+            id: true,
+            currentStageKey: true,
+            currentStageLabel: true,
+          },
+        });
+
+        if (createdFulfillmentItems.length) {
+          await tx.orderFulfillmentActivity.createMany({
+            data: createdFulfillmentItems.map((item) => ({
+              fulfillmentItemId: item.id,
+              stageKey:
+                item.currentStageKey || "order-request-sent-to-fulfillment",
+              stageLabel:
+                item.currentStageLabel || "Order Request Sent to Fulfillment",
+              updateType: "automatic",
+              source: "order-submission",
+              notes:
+                "Order received and sent to the fulfillment team after checkout submission.",
+            })),
+          });
+        }
       }
 
       return {

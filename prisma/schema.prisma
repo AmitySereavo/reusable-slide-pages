@@ -1783,10 +1783,21 @@ model OrderFulfillmentItem {
   fulfillmentNotes  String?
   trackingReference String?
   fulfilledAt       DateTime?
+  selectedCourierId String?
+  selectedCourier   FulfillmentCourier? @relation(fields: [selectedCourierId], references: [id], onDelete: SetNull)
+  selectedCourierName String?
+  courierContactInfo  Json?
+  shippingMethod      String?
+  currentStageKey     String?
+  currentStageLabel   String?
+  estimatedDeliveryAt DateTime?
+  estimatedRemainingSeconds Int?
   metadata          Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  activities OrderFulfillmentActivity[]
 
   @@index([invitationOrderId])
   @@index([status])
@@ -1794,7 +1805,119 @@ model OrderFulfillmentItem {
   @@index([fulfillmentType])
   @@index([recipientEmail])
   @@index([orderCode])
+  @@index([selectedCourierId])
+  @@index([currentStageKey])
   @@index([createdAt])
+}
+
+model FulfillmentCourier {
+  id String @id @default(cuid())
+
+  courierKey String @unique
+  name       String
+  description String?
+  active     Boolean @default(true)
+  sortOrder  Int @default(0)
+
+  supportedCountries Json?
+  supportedRegions   Json?
+  supportedShippingMethods Json?
+  productRestrictions Json?
+  contactInfo Json?
+  trackingUrlTemplate String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fulfillmentItems OrderFulfillmentItem[]
+
+  @@index([active, sortOrder])
+}
+
+model FulfillmentWorkflow {
+  id String @id @default(cuid())
+
+  workflowKey String @unique
+  name        String
+  description String?
+  active      Boolean @default(true)
+  sortOrder   Int @default(0)
+
+  productTypes Json?
+  shippingTypes Json?
+  destinationRules Json?
+  courierRules Json?
+  certificationRules Json?
+  customsRules Json?
+  deliveryMethodRules Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stages FulfillmentWorkflowStage[]
+
+  @@index([active, sortOrder])
+}
+
+model FulfillmentWorkflowStage {
+  id String @id @default(cuid())
+
+  workflowId String
+  workflow   FulfillmentWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  stageKey String
+  label    String
+  description String?
+  sortOrder Int @default(0)
+
+  completionMode String @default("manual_slider")
+  customerVisible Boolean @default(true)
+  staffVisible    Boolean @default(true)
+  requiresNotes   Boolean @default(false)
+  allowsPhotos    Boolean @default(false)
+  allowsDocuments Boolean @default(false)
+  autoAdvance     Boolean @default(true)
+
+  triggerSources Json?
+  requiredDocuments Json?
+  rewardConfig Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workflowId, stageKey])
+  @@index([workflowId, sortOrder])
+  @@index([completionMode])
+}
+
+model OrderFulfillmentActivity {
+  id String @id @default(cuid())
+
+  fulfillmentItemId String
+  fulfillmentItem   OrderFulfillmentItem @relation(fields: [fulfillmentItemId], references: [id], onDelete: Cascade)
+
+  stageKey   String
+  stageLabel String
+  updateType String
+  source     String?
+
+  staffUserId String?
+  staffUserName String?
+  completedAt DateTime @default(now())
+  notes String?
+  photos Json?
+  documents Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([fulfillmentItemId, completedAt])
+  @@index([stageKey])
+  @@index([updateType])
+  @@index([source])
 }
 
 model InvitationOrderTicket {
@@ -1824,6 +1947,7 @@ model InvitationOrderTicket {
 
   ticketOwnerPaymentMode String  @default("purchaser_pays_ticket_and_addons")
   ticketOwnerAddonBudget Decimal @default(0) @db.Decimal(10, 2)
+  invitationMailingAddress Json?
   status                 String  @default("ACTIVE")
 
   mealMode       String?

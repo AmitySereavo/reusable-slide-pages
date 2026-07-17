@@ -17,6 +17,25 @@ export function cleanCartMealLabel(label: string) {
     .trim();
 }
 
+function formatInvitationMailingAddress(assignment: TicketAssignment) {
+  const address = assignment.invitationMailingAddress;
+
+  if (!address) {
+    return "";
+  }
+
+  return [
+    address.addressLine1,
+    address.addressLine2,
+    address.city,
+    address.region,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export function CartTicketMealSummary({
   assignment,
   menu,
@@ -30,6 +49,7 @@ export function CartTicketMealSummary({
 }) {
   const mealSummary = getTicketMealSelectionSummary({ menu, assignment });
   const hasSelectedMealItems = mealSummary.length > 0;
+  const invitationAddress = formatInvitationMailingAddress(assignment);
 
   return (
     <div className={styles.cartTicketMealBlock}>
@@ -46,6 +66,11 @@ export function CartTicketMealSummary({
         ) : null}
       </div>
       <div className={styles.cartTicketMealMeta}>Code: {assignment.ticketCode}</div>
+      {assignment.invitationDeliveryMode === "physical" && invitationAddress ? (
+        <div className={styles.cartTicketMealMeta}>
+          Physical invitation address: {invitationAddress}
+        </div>
+      ) : null}
       {assignment.mealMode === "required" && !hasSelectedMealItems ? (
         <div className={styles.ticketMealRequiredWarning}>
           Attendee will select meal.
