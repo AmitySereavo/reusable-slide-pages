@@ -1,10 +1,3 @@
-import { Inter } from "next/font/google";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -12,7 +5,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className} style={{ margin: 0 }}>
+      <body
+        style={{
+          margin: 0,
+          fontFamily:
+            'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        }}
+      >
         {children}
       </body>
     </html>

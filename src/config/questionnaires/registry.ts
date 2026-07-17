@@ -3,6 +3,7 @@ import { resolveDslTemplate } from "@/lib/questionnaire/resolveDslTemplate";
 import { loadDslText } from "@/lib/questionnaire/loadDslText";
 import { selfTrustTheme } from "@/config/themes/selfTrustTheme";
 import { gardenHerbsTheme } from "@/config/themes/gardenHerbsTheme";
+import { paraLifeGiveawayTheme } from "@/config/themes/paraLifeGiveawayTheme";
 import { seedTheme } from "@/config/themes/seedTheme";
 import { seedDslVersions } from "./seedDslVersions";
 import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
@@ -299,6 +300,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     theme: gardenHerbsTheme,
     dslPath: "src/config/questionnaires/profileForms/genericProfileFlowDsl.txt",
     showStepText: true,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "home-gardener-plant-giveaway": {
+    slug: "home-gardener-plant-giveaway",
+    name: "ParaLife Trees + The Nursery at Little Orchard Plant Giveaway",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/plantGiveawayDsl.txt",
+    showStepText: false,
     overlayMode: "opaque",
     variables: {},
     dynamicVariablesEndpoint: undefined,
