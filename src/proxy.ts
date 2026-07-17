@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const DEFAULT_FUNNEL_SLUG = "home-gardener-plant-giveaway";
+const DEFAULT_FUNNEL_PATH = "/gift";
 
 function getConfiguredFunnelHosts() {
   return String(
@@ -20,6 +21,12 @@ function normalizeHost(hostHeader: string | null) {
     .toLowerCase();
 }
 
+function normalizePublicPath(path: string | undefined) {
+  const trimmed = String(path || DEFAULT_FUNNEL_PATH).trim();
+  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.replace(/\/+$/, "") || "/";
+}
+
 function isStaticOrInternalPath(pathname: string) {
   return (
     pathname.startsWith("/_next/") ||
@@ -29,10 +36,14 @@ function isStaticOrInternalPath(pathname: string) {
   );
 }
 
-function isAllowedGiveawayPath(pathname: string, slug: string) {
+function isAllowedGiveawayPath(
+  pathname: string,
+  slug: string,
+  publicPath: string
+) {
   const allowedExactPaths = new Set([
     "/",
-    "/questionnaire",
+    publicPath,
     `/questionnaire/${slug}`,
     "/api/questionnaires/submit",
     "/api/session",
@@ -48,6 +59,7 @@ function isAllowedGiveawayPath(pathname: string, slug: string) {
   return (
     allowedExactPaths.has(pathname) ||
     pathname.startsWith(`/questionnaire/${slug}/`) ||
+    pathname.startsWith(`${publicPath}/`) ||
     pathname.startsWith("/api/verify/") ||
     pathname.startsWith("/api/auth/temporary-lead-account")
   );
@@ -70,6 +82,9 @@ export function proxy(request: NextRequest) {
     process.env.PUBLIC_FUNNEL_SLUG ||
     process.env.NEXT_PUBLIC_FUNNEL_SLUG ||
     DEFAULT_FUNNEL_SLUG;
+  const publicPath = normalizePublicPath(
+    process.env.PUBLIC_FUNNEL_PATH || process.env.NEXT_PUBLIC_FUNNEL_PATH
+  );
   const { pathname } = request.nextUrl;
 
   if (isStaticOrInternalPath(pathname)) {
@@ -78,22 +93,28 @@ export function proxy(request: NextRequest) {
 
   if (pathname === "/") {
     const url = request.nextUrl.clone();
+    url.pathname = publicPath;
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname === publicPath || pathname.startsWith(`${publicPath}/`)) {
+    const url = request.nextUrl.clone();
     url.pathname = `/questionnaire/${slug}`;
     return NextResponse.rewrite(url);
   }
 
   if (pathname === "/questionnaire") {
     const url = request.nextUrl.clone();
-    url.pathname = `/questionnaire/${slug}`;
+    url.pathname = publicPath;
     return NextResponse.redirect(url);
   }
 
-  if (isAllowedGiveawayPath(pathname, slug)) {
+  if (isAllowedGiveawayPath(pathname, slug, publicPath)) {
     return NextResponse.next();
   }
 
   const url = request.nextUrl.clone();
-  url.pathname = `/questionnaire/${slug}`;
+  url.pathname = publicPath;
   url.search = "";
   return NextResponse.redirect(url);
 }
