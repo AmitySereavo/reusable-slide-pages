@@ -23,9 +23,30 @@ export default function FooterSupportText({
     let canceled = false;
 
     fetch(sourceUrl)
-      .then((response) => (response.ok ? response.text() : ""))
+      .then((response) => {
+        const contentType = response.headers.get("content-type") ?? "";
+
+        if (
+          !response.ok ||
+          (!contentType.includes("text/plain") &&
+            !contentType.includes("application/octet-stream"))
+        ) {
+          return "";
+        }
+
+        return response.text();
+      })
       .then((rawText) => {
         if (canceled) {
+          return;
+        }
+
+        if (
+          !rawText.trim() ||
+          /^\s*<!doctype\s+html/i.test(rawText) ||
+          /^\s*<html[\s>]/i.test(rawText)
+        ) {
+          setSupportLines([]);
           return;
         }
 
