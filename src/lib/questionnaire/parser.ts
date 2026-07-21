@@ -579,6 +579,30 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@footerform:")) {
+        draft.footerFormEnabled = parseBooleanValue(
+          readValue(line, "@footerform:"),
+          true
+        );
+        continue;
+      }
+
+      if (line.startsWith("@footerformsupportsource:")) {
+        draft.footerFormSupportSourceUrl = readValue(
+          line,
+          "@footerformsupportsource:"
+        );
+        continue;
+      }
+
+      if (line.startsWith("@footerformsupportstart:")) {
+        draft.footerFormSupportStartText = readValue(
+          line,
+          "@footerformsupportstart:"
+        );
+        continue;
+      }
+
       if (line.startsWith("@footertransparentuntilexpanded:")) {
         draft.footerTransparentUntilExpanded = parseBooleanValue(
           readValue(line, "@footertransparentuntilexpanded:"),
@@ -705,6 +729,11 @@ inDownloadFormatsBlock = false;
           draft.videoRoutes = [...(draft.videoRoutes ?? []), videoRoute];
         }
 
+        continue;
+      }
+
+      if (line.startsWith("@videoendgoto:")) {
+        draft.videoEndGoto = readValue(line, "@videoendgoto:");
         continue;
       }
 
@@ -892,6 +921,9 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
       : undefined,
     footerActions: draft.footerActions?.length ? draft.footerActions : undefined,
     footerContentLabel: draft.footerContentLabel,
+    footerFormEnabled: draft.footerFormEnabled,
+    footerFormSupportSourceUrl: draft.footerFormSupportSourceUrl,
+    footerFormSupportStartText: draft.footerFormSupportStartText,
     footerTransparentUntilExpanded: draft.footerTransparentUntilExpanded,
     textPanelSongModeLabel: draft.textPanelSongModeLabel,
     actionBarOrder: draft.actionBarOrder,
@@ -920,6 +952,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     mediaAspect: draft.mediaAspect,
     progressMode: draft.progressMode,
     videoRoutes: draft.videoRoutes,
+    videoEndGoto: draft.videoEndGoto,
     videoStartAtSeconds: draft.videoStartAtSeconds,
     videoResumeMode: draft.videoResumeMode,
     pageBackgroundColor: draft.pageBackgroundColor,
@@ -1059,7 +1092,7 @@ function parseFeature(value: string): SlideFeature | undefined {
 function parseFieldLine(line: string): FormField | null {
   const value = line.replace(/^-+\s*/, "").trim();
 
-  const [name, type, label, requiredFlag, placeholder, rawOptions] = value
+  const [name, type, label, requiredFlag, placeholder, rawOptions, rawShowIf] = value
     .split("|")
     .map((part) => part.trim());
 
@@ -1072,7 +1105,20 @@ function parseFieldLine(line: string): FormField | null {
     required: requiredFlag?.toLowerCase() === "required",
     placeholder: placeholder || undefined,
     options: parseFieldOptions(rawOptions),
+    showIf: parseFieldShowIf(rawShowIf),
   };
+}
+
+function parseFieldShowIf(rawShowIf?: string) {
+  if (!rawShowIf) return undefined;
+
+  const normalized = rawShowIf.replace(/^showif:/i, "").trim();
+  if (!normalized) return undefined;
+
+  const [field, value] = normalized.split("=").map((part) => part.trim());
+  if (!field || !value) return undefined;
+
+  return [{ field, operator: "eq" as const, value }];
 }
 
 function parseFieldOptions(rawOptions?: string): SelectOption[] | undefined {

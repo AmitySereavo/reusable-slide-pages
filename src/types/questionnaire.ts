@@ -504,6 +504,8 @@ export type FieldType =
   | "date"
   | "checkbox"
   | "textarea"
+  | "info"
+  | "radio"
   | "select";
 
 export type FormField = {
@@ -513,6 +515,7 @@ export type FormField = {
   required?: boolean;
   placeholder?: string;
   options?: SelectOption[];
+  showIf?: ConditionRule[];
 };
 
 export type SlideFeature =
@@ -581,6 +584,9 @@ export type Slide = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  footerFormEnabled?: boolean;
+  footerFormSupportSourceUrl?: string;
+  footerFormSupportStartText?: string;
   footerTransparentUntilExpanded?: boolean;
   textPanelSongModeLabel?: string;
   actionBarOrder?: ActionBarOrder;
@@ -626,6 +632,7 @@ export type Slide = {
   autoplay?: boolean;
   progressMode?: SlideProgressMode;
   videoRoutes?: VideoRoute[];
+  videoEndGoto?: string;
   videoStartAtSeconds?: number;
   videoResumeMode?: VideoResumeMode;
   pageBackgroundColor?: string;
@@ -743,6 +750,9 @@ export type ParsedSlideDraft = {
   downloadFormatOptions?: DownloadFormatOption[];
   footerActions?: SlideFooterAction[];
   footerContentLabel?: string;
+  footerFormEnabled?: boolean;
+  footerFormSupportSourceUrl?: string;
+  footerFormSupportStartText?: string;
   footerTransparentUntilExpanded?: boolean;
   textPanelSongModeLabel?: string;
   actionBarOrder?: ActionBarOrder;
@@ -768,6 +778,7 @@ export type ParsedSlideDraft = {
   autoplay?: boolean;
   progressMode?: SlideProgressMode;
   videoRoutes?: VideoRoute[];
+  videoEndGoto?: string;
   videoStartAtSeconds?: number;
   videoResumeMode?: VideoResumeMode;
   pageBackgroundColor?: string;

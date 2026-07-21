@@ -6,6 +6,7 @@ import {
   Fragment,
   type KeyboardEvent,
   type MouseEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -536,6 +537,9 @@ type MediaControlRequest = {
 type MediaState = {
   isMuted: boolean;
   isPlaying: boolean;
+  hasEnded: boolean;
+  hasRecentlyStarted: boolean;
+  shouldPulseFooterLabel: boolean;
 };
 
 function isInternalOnlyPurchaseMode(
@@ -1451,6 +1455,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sourceUrl: string;
     mode?: AnnotatedTextMode;
   } | null>(null);
+  const [activeFooterFormSlideId, setActiveFooterFormSlideId] = useState<
+    string | null
+  >(null);
   const [textPanelMode, setTextPanelMode] = useState<TextPanelMode>("song");
   const [answeredQuestionSlideIds, setAnsweredQuestionSlideIds] = useState<
     string[]
@@ -1478,6 +1485,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoCurrentTimeSeconds, setVideoCurrentTimeSeconds] = useState(0);
+  const [renderedMediaWidth, setRenderedMediaWidth] = useState(0);
   const [videoSeekRequest, setVideoSeekRequest] =
     useState<VideoSeekRequest | null>(null);
   const [timedTextAudioRequest, setTimedTextAudioRequest] =
@@ -1487,6 +1495,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [mediaState, setMediaState] = useState<MediaState>({
     isMuted: false,
     isPlaying: false,
+    hasEnded: false,
+    hasRecentlyStarted: false,
+    shouldPulseFooterLabel: true,
   });
 
   const previousVideoTimeRef = useRef(0);
@@ -1936,6 +1947,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   useEffect(() => {
     setActiveFooterTextPanel(null);
+    setActiveFooterFormSlideId(null);
   }, [currentSlide?.id]);
 
   useEffect(() => {
@@ -2697,19 +2709,56 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return Number.isFinite(targetRate) && targetRate > 0 ? targetRate : 1;
   }, [activeShopCurrencyCode, currencyRates]);
 
+  const getCatalogToActiveCurrencyRate = useCallback(
+    (baseCurrencyCode?: string) => {
+      const normalizedBaseCurrencyCode =
+        normalizeCurrencyCode(baseCurrencyCode ?? "USD");
+
+      if (normalizedBaseCurrencyCode === activeShopCurrencyCode) {
+        return 1;
+      }
+
+      if (normalizedBaseCurrencyCode === "JMD") {
+        return jmdToActiveCurrencyRate;
+      }
+
+      if (normalizedBaseCurrencyCode === "USD") {
+        return usdToActiveCurrencyRate;
+      }
+
+      const baseRate = Number(currencyRates[normalizedBaseCurrencyCode] ?? 1);
+      const targetRate = Number(currencyRates[activeShopCurrencyCode] ?? 1);
+
+      if (!Number.isFinite(baseRate) || baseRate <= 0) {
+        return 1;
+      }
+
+      return Number.isFinite(targetRate) && targetRate > 0
+        ? targetRate / baseRate
+        : 1;
+    },
+    [
+      activeShopCurrencyCode,
+      currencyRates,
+      jmdToActiveCurrencyRate,
+      usdToActiveCurrencyRate,
+    ]
+  );
+
   const currentShopDisplayCatalog = useMemo(() => {
     const baseCurrencyCode = currentShopCatalog?.currencyCode ?? "USD";
-    const rate =
-      baseCurrencyCode === activeShopCurrencyCode
-        ? 1
-        : Number(currencyRates[activeShopCurrencyCode] ?? 1);
+    const rate = getCatalogToActiveCurrencyRate(baseCurrencyCode);
 
     return convertShopCatalogCurrency(
       currentShopCatalog,
       activeShopCurrencyCode,
       rate
     );
-  }, [currentShopCatalog, activeShopCurrencyCode, currencyRates]);
+  }, [
+    currentShopCatalog,
+    activeShopCurrencyCode,
+    getCatalogToActiveCurrencyRate,
+  ]);
 
   const currentShopCart = useMemo<ShopCart>(
     () =>
@@ -2789,17 +2838,18 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const sharedShopDisplayCatalog = useMemo(() => {
     const baseCurrencyCode = sharedShopCatalog?.currencyCode ?? "USD";
-    const rate =
-      baseCurrencyCode === activeShopCurrencyCode
-        ? 1
-        : Number(currencyRates[activeShopCurrencyCode] ?? 1);
+    const rate = getCatalogToActiveCurrencyRate(baseCurrencyCode);
 
     return convertShopCatalogCurrency(
       sharedShopCatalog,
       activeShopCurrencyCode,
       rate
     );
-  }, [sharedShopCatalog, activeShopCurrencyCode, currencyRates]);
+  }, [
+    sharedShopCatalog,
+    activeShopCurrencyCode,
+    getCatalogToActiveCurrencyRate,
+  ]);
 
   const sharedOrderCart = useMemo<ShopCart>(
     () => normalizeShopCart(answers.orderCart),
@@ -3560,11 +3610,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   useEffect(() => {
     setIsCurrentVerticalVideoPlaying(false);
     setVideoProgress(0);
+    setRenderedMediaWidth(0);
     setVideoSeekRequest(null);
     setMediaControlRequest(null);
     setMediaState({
       isMuted: false,
       isPlaying: false,
+      hasEnded: false,
+      hasRecentlyStarted: false,
+      shouldPulseFooterLabel: isMediaSlide,
     });
     previousVideoTimeRef.current = 0;
     setDownloadNotice(null);
@@ -3585,6 +3639,33 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       behavior: "auto",
     });
   }, [currentSlide?.id, isMediaSlide]);
+
+  useEffect(() => {
+    if (
+      config.slug !== "home-gardener-plant-giveaway" ||
+      currentSlide?.id !== "thank-you"
+    ) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const hasPlantCartState =
+        Object.keys(normalizeShopCart(prev.orderCart)).length > 0 ||
+        Boolean(prev.shopFocusLineKey) ||
+        Boolean(prev.cartReturnTarget);
+
+      if (!hasPlantCartState) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        orderCart: {},
+        shopFocusLineKey: "",
+        cartReturnTarget: "",
+      };
+    });
+  }, [config.slug, currentSlide?.id]);
 
     function togglePasswordFieldVisibility(fieldName: string) {
     setVisiblePasswordFields((prev) => ({
@@ -4091,6 +4172,26 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     event: MouseEvent<HTMLAnchorElement>,
     slideId: string
   ) {
+    if (config.slug === "home-gardener-plant-giveaway") {
+      const targetIndex = getSlideIndexById(visibleSlides, slideId);
+      const firstUnansweredRequiredSlide = visibleSlides
+        .slice(0, targetIndex < 0 ? visibleSlides.length : targetIndex)
+        .find((slide) => getPlantGiveawayRequiredSlideError(slide.id));
+
+      if (firstUnansweredRequiredSlide) {
+        const message = getPlantGiveawayRequiredSlideError(
+          firstUnansweredRequiredSlide.id
+        );
+
+        event.preventDefault();
+        setSubmitError(message);
+        setIsTrackSidebarOpen(false);
+        setIsAccountMenuOpen(false);
+        goToTarget(firstUnansweredRequiredSlide.id);
+        return;
+      }
+    }
+
     setIsTrackSidebarOpen(false);
     setIsAccountMenuOpen(false);
   }
@@ -4329,6 +4430,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       }
 
       previousVideoTimeRef.current = currentTime;
+      if (route.goto === "footer") {
+        openCurrentSlideFooterPanel();
+        return;
+      }
+
       goToTarget(route.goto);
       return;
     }
@@ -4415,6 +4521,44 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }));
     setActiveFooterTextPanel(null);
     goToTarget("custom-lyric-merch");
+  }
+
+  function openCurrentSlideFooterPanel() {
+    if (!currentSlide) {
+      return;
+    }
+
+    if (currentSlide.footerFormEnabled && currentSlide.fields?.length) {
+      setActiveFooterTextPanel(null);
+      setActiveFooterFormSlideId(currentSlide.id);
+      return;
+    }
+
+    const textPanelAction = currentSlide.footerActions?.find(
+      (action) => action.kind === "textpanel"
+    );
+    const sourceUrl = textPanelAction?.target ?? textPanelAction?.href;
+
+    if (textPanelAction && sourceUrl) {
+      setActiveFooterFormSlideId(null);
+      setActiveFooterTextPanel({
+        id: textPanelAction.key,
+        label: textPanelAction.label,
+        sourceUrl,
+        mode: getFooterTextPanelMode(textPanelAction),
+      });
+      return;
+    }
+
+    if (currentSlide.annotatedTextSourceUrl) {
+      setActiveFooterFormSlideId(null);
+      setActiveFooterTextPanel({
+        id: "read",
+        label: currentSlide.footerContentLabel || currentSlide.title,
+        sourceUrl: currentSlide.annotatedTextSourceUrl,
+        mode: currentSlide.annotatedTextMode,
+      });
+    }
   }
 
 
@@ -4864,6 +5008,48 @@ async function next() {
       return true;
     }
 
+    if (currentSlide.id === "gardening-journey-video") {
+      return String(answers.gardenerLevel ?? "").trim().length > 0;
+    }
+
+    if (currentSlide.id === "what-do-you-grow-video") {
+      return (
+        answers.growsHerbs === true ||
+        answers.growsVegetables === true ||
+        answers.growsFruitTrees === true ||
+        answers.growsFlowers === true ||
+        answers.growsHouseplants === true ||
+        answers.growsSucculentsCacti === true ||
+        String(answers.growsOther ?? "").trim().length > 0
+      );
+    }
+
+    if (currentSlide.id === "gardening-encouragement-video") {
+      return (
+        answers.challengeTime === true ||
+        answers.challengeSpace === true ||
+        answers.challengeKnowledge === true ||
+        answers.challengeSoil === true ||
+        answers.challengeWater === true ||
+        answers.challengeClimate === true ||
+        answers.challengePests === true ||
+        answers.challengePlantAccess === true ||
+        answers.challengeOther === true ||
+        String(answers.biggestGardeningChallenge ?? "").trim().length > 0
+      );
+    }
+
+    if (currentSlide.id === "give-contact-info-video") {
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      return (
+        String(answers.fullName ?? "").trim().length > 0 &&
+        isValidTicketOwnerEmail(String(answers.email ?? "").trim()) &&
+        phoneDigits.length >= 10
+      );
+    }
+
     if (currentSlide.blockKey === "ticket-assistant-quantity") {
       const purchaseType = String(answers.guidedTicketPurchaseType ?? "");
       return purchaseType === "single" || purchaseType === "multiple";
@@ -4917,11 +5103,9 @@ async function next() {
       return answers[currentSlide.storeAs] !== undefined;
     }
 
-    if (
-      (currentSlide.type === "form" || currentSlide.type === "contact") &&
-      currentSlide.fields?.length
-    ) {
-        const requiredFieldsFilled = currentSlide.fields.every((field) => {
+    if (currentSlide.fields?.length) {
+      const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
+        const requiredFieldsFilled = visibleFields.every((field) => {
         if (!field.required) return true;
 
         const value = answers[field.name];
@@ -4957,6 +5141,150 @@ async function next() {
     }
 
     return true;
+  }
+
+  function getCurrentSlideValidationError() {
+    if (!currentSlide) {
+      return "This slide is not available.";
+    }
+
+    if (currentSlide.id === "what-do-you-grow-video") {
+      const hasGrowAnswer =
+        answers.growsHerbs === true ||
+        answers.growsVegetables === true ||
+        answers.growsFruitTrees === true ||
+        answers.growsFlowers === true ||
+        answers.growsHouseplants === true ||
+        answers.growsSucculentsCacti === true ||
+        String(answers.growsOther ?? "").trim().length > 0;
+
+      return hasGrowAnswer ? "" : "Choose at least one thing you grow.";
+    }
+
+    if (currentSlide.id === "gardening-journey-video") {
+      return String(answers.gardenerLevel ?? "").trim()
+        ? ""
+        : "Choose your gardening experience level.";
+    }
+
+    if (currentSlide.id === "gardening-encouragement-video") {
+      const hasChallengeAnswer =
+        answers.challengeTime === true ||
+        answers.challengeSpace === true ||
+        answers.challengeKnowledge === true ||
+        answers.challengeSoil === true ||
+        answers.challengeWater === true ||
+        answers.challengeClimate === true ||
+        answers.challengePests === true ||
+        answers.challengePlantAccess === true ||
+        answers.challengeOther === true ||
+        String(answers.biggestGardeningChallenge ?? "").trim().length > 0;
+
+      return hasChallengeAnswer
+        ? ""
+        : "Choose at least one gardening challenge or tell us more.";
+    }
+
+    if (currentSlide.id === "give-contact-info-video") {
+      if (!String(answers.fullName ?? "").trim()) {
+        return "Enter your full name.";
+      }
+
+      if (!String(answers.email ?? "").trim()) {
+        return "Enter your email address.";
+      }
+
+      if (!isValidTicketOwnerEmail(String(answers.email ?? "").trim())) {
+        return "Enter a valid email address.";
+      }
+
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      if (phoneDigits.length < 10) {
+        return "Enter a phone number with at least 10 digits.";
+      }
+    }
+
+    if (currentSlide.fields?.length) {
+      const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
+      const missingRequiredField = visibleFields.find((field) => {
+        if (!field.required) return false;
+
+        const value = answers[field.name];
+        if (field.type === "checkbox") return value !== true;
+
+        return String(value ?? "").trim().length === 0;
+      });
+
+      if (missingRequiredField) {
+        return `${missingRequiredField.label} is required.`;
+      }
+    }
+
+    return "";
+  }
+
+  function getPlantGiveawayRequiredSlideError(slideId: string) {
+    if (slideId === "gardening-journey-video") {
+      return String(answers.gardenerLevel ?? "").trim()
+        ? ""
+        : "Choose your gardening experience level.";
+    }
+
+    if (slideId === "what-do-you-grow-video") {
+      const hasGrowAnswer =
+        answers.growsHerbs === true ||
+        answers.growsVegetables === true ||
+        answers.growsFruitTrees === true ||
+        answers.growsFlowers === true ||
+        answers.growsHouseplants === true ||
+        answers.growsSucculentsCacti === true ||
+        String(answers.growsOther ?? "").trim().length > 0;
+
+      return hasGrowAnswer ? "" : "Choose at least one thing you grow.";
+    }
+
+    if (slideId === "gardening-encouragement-video") {
+      const hasChallengeAnswer =
+        answers.challengeTime === true ||
+        answers.challengeSpace === true ||
+        answers.challengeKnowledge === true ||
+        answers.challengeSoil === true ||
+        answers.challengeWater === true ||
+        answers.challengeClimate === true ||
+        answers.challengePests === true ||
+        answers.challengePlantAccess === true ||
+        answers.challengeOther === true ||
+        String(answers.biggestGardeningChallenge ?? "").trim().length > 0;
+
+      return hasChallengeAnswer
+        ? ""
+        : "Choose at least one gardening challenge or tell us more.";
+    }
+
+    if (slideId === "give-contact-info-video") {
+      if (!String(answers.fullName ?? "").trim()) {
+        return "Enter your full name.";
+      }
+
+      if (!String(answers.email ?? "").trim()) {
+        return "Enter your email address.";
+      }
+
+      if (!isValidTicketOwnerEmail(String(answers.email ?? "").trim())) {
+        return "Enter a valid email address.";
+      }
+
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      if (phoneDigits.length < 10) {
+        return "Enter a phone number with at least 10 digits.";
+      }
+    }
+
+    return "";
   }
 
   function getAuthSignupPayload() {
@@ -5070,13 +5398,17 @@ async function next() {
   }
 
   function getLeadPayload() {
+    const phone = String(answers.primaryPhone ?? answers.phone ?? "").trim();
+
     return {
       questionnaireSlug: config.slug,
       fullName: String(answers.fullName ?? "").trim(),
       email: String(answers.email ?? "").trim(),
-      phone: String(answers.phone ?? "").trim(),
+      phone,
       whatsappOptIn:
-        answers.whatsappOptIn === true || answers.sendByWhatsapp === true,
+        answers.whatsappOptIn === true ||
+        answers.sendByWhatsapp === true ||
+        answers.updatesByWhatsapp === true,
       answers,
     };
   }
@@ -5802,7 +6134,16 @@ function triggerDownloadRequest(format: "mp3" | "wav", label?: string) {
 
   
 async function handleNext() {
-  if (!currentSlide || !canGoNext() || isSubmitting) return;
+  if (!currentSlide || isSubmitting) return;
+
+  const validationError = getCurrentSlideValidationError();
+
+  if (validationError) {
+    setSubmitError(validationError);
+    return;
+  }
+
+  if (!canGoNext()) return;
 
   if (
     currentSlide.blockKey === "ticket-assistant-event" &&
@@ -6106,6 +6447,9 @@ async function handleNext() {
       }
 
       const target = action.target ?? action.key;
+      const isForwardAction =
+        action.key.trim().toLowerCase() === "next" ||
+        action.label.trim().toLowerCase().includes("next");
       const targetSlide = visibleSlides.find((slide) => slide.id === target);
       const targetIsLocked =
         Boolean(targetSlide?.requiresDripUnlock) &&
@@ -6115,7 +6459,11 @@ async function handleNext() {
 
       return {
         ...action,
-        disabled: action.disabled || !targetSlide || targetIsLocked,
+        disabled:
+          action.disabled ||
+          !targetSlide ||
+          targetIsLocked ||
+          (isForwardAction && !canGoNext()),
       };
     }) ?? [];
   const hasFooterActions = footerActions.length > 0;
@@ -6509,24 +6857,28 @@ async function handleNext() {
                               Home
                             </button>
 
-                            <button
-                              type="button"
-                              className={`${styles.accountMenuItem} ${styles.accountMenuCartItem}`}
-                              onClick={() =>
-                                handleAccountMenuLink(
-                                  "/questionnaire/invitation?slide=review-order"
-                                )
-                              }
-                            >
-                              <span>Cart</span>
-                              <span>
-                                {formatCurrency(
-                                  sidePanelCartTotal,
-                                  sidePanelCartCurrencyCode
-                                )}
-                              </span>
-                            </button>
+                            {config.slug === "home-gardener-plant-giveaway" ? null : (
+                              <button
+                                type="button"
+                                className={`${styles.accountMenuItem} ${styles.accountMenuCartItem}`}
+                                onClick={() =>
+                                  handleAccountMenuLink(
+                                    "/questionnaire/invitation?slide=review-order"
+                                  )
+                                }
+                              >
+                                <span>Cart</span>
+                                <span>
+                                  {formatCurrency(
+                                    sidePanelCartTotal,
+                                    sidePanelCartCurrencyCode
+                                  )}
+                                </span>
+                              </button>
+                            )}
 
+                            {config.slug === "home-gardener-plant-giveaway" ? null : (
+                              <>
                             {authSessionUser ? (
                               <>
                                 <button
@@ -6690,6 +7042,8 @@ async function handleNext() {
                                 </button>
                               </>
                             )}
+                              </>
+                            )}
                           </div>
                           </>
                         ) : null}
@@ -6824,9 +7178,20 @@ async function handleNext() {
                             }
                           }
                         }}
+                        onVideoEnded={() => {
+                          if (currentSlide.videoEndGoto === "footer") {
+                            openCurrentSlideFooterPanel();
+                            return;
+                          }
+
+                          if (currentSlide.videoEndGoto) {
+                            goToTarget(currentSlide.videoEndGoto);
+                          }
+                        }}
                         videoSeekRequest={videoSeekRequest}
                         mediaControlRequest={mediaControlRequest}
                         onMediaStateChange={setMediaState}
+                        onRenderedMediaWidthChange={setRenderedMediaWidth}
                       />
                         {shouldShowVideoResumePrompt({
                           currentSlide,
@@ -6902,7 +7267,8 @@ async function handleNext() {
                           </div>
                         </div>
                       ) : null}
-                      {hasRenderableSections(currentSlide.sections) ? (
+                      {hasRenderableSections(currentSlide.sections) &&
+                      !currentSlide.footerFormEnabled ? (
                         <div className={styles.mediaTextOverlay}>
                           {renderSections(
                             currentSlide.sections,
@@ -7139,6 +7505,8 @@ async function handleNext() {
                               const targetShop =
                                 targetLine?.fulfillmentType === "ticket"
                                   ? "invitation-shop"
+                                  : currentSlide.id === "plant-order-review"
+                                    ? "plant-starter-shop"
                                   : "music-merch-shop";
 
                               setAnswers((prev) => ({
@@ -7232,6 +7600,18 @@ async function handleNext() {
                       sharedOrderCartLines.length === 0 ? (
                         <EmptyCartStoreChoices
                           theme={theme}
+                          choices={
+                            currentSlide.id === "plant-order-review"
+                              ? [
+                                  {
+                                    label: "Visit Para-life Trees Shop",
+                                    onClick: () =>
+                                      goToTarget("plant-starter-shop"),
+                                    variant: "primary",
+                                  },
+                                ]
+                              : undefined
+                          }
                           onTicketStore={() => goToTarget("invitation-shop")}
                           onMerchStore={() => goToTarget("music-merch-shop")}
                         />
@@ -7254,11 +7634,19 @@ async function handleNext() {
                           showDeliverySummary={sharedOrderNeedsFulfillment}
                           onAdjustDelivery={() => {
                             setAnswer("cartReturnTarget", "review-order");
-                            goToTarget("delivery-options");
+                            goToTarget(
+                              currentSlide.id === "plant-order-review"
+                                ? "receiving-plants"
+                                : "delivery-options"
+                            );
                           }}
                           onAdjustContact={() => {
                             setAnswer("cartReturnTarget", "review-order");
-                            goToTarget("contact-details");
+                            goToTarget(
+                              currentSlide.id === "plant-order-review"
+                                ? "give-contact-info-video"
+                                : "contact-details"
+                            );
                           }}
                           ticketOwnerAddonBudgetLines={
                             sharedTicketOwnerAddonBudgetLines
@@ -7386,6 +7774,8 @@ async function handleNext() {
                             const targetShop =
                               targetLine?.fulfillmentType === "ticket"
                                 ? "invitation-shop"
+                                : currentSlide.id === "plant-order-review"
+                                  ? "plant-starter-shop"
                                 : "music-merch-shop";
 
                             setAnswers((prev) => ({
@@ -7575,7 +7965,7 @@ async function handleNext() {
                           className={styles.formGrid}
                           style={{ marginTop: "20px" }}
                         >
-                          {currentSlide.fields.map((field) => (
+                          {getVisibleFormFields(currentSlide.fields, answers).map((field) => (
                             <FormFieldRenderer
                               key={field.name}
                               field={field}
@@ -7624,7 +8014,8 @@ async function handleNext() {
             {hasFooterActions ? (
               <div
                 className={`${styles.slideFooterTextActionsOverlay} ${
-                  activeFooterPanelSlide
+                  activeFooterPanelSlide ||
+                  activeFooterFormSlideId === currentSlide.id
                     ? styles.slideFooterTextActionsOverlayPanelOpen
                     : ""
                 } ${
@@ -7636,6 +8027,14 @@ async function handleNext() {
                     ? styles.slideFooterTextActionsOverlayVerticalMedia
                     : ""
                 }`}
+                style={
+                  renderedMediaWidth > 0
+                    ? ({
+                        "--footer-progress-width": `${renderedMediaWidth}px`,
+                      } as CSSProperties &
+                        Record<"--footer-progress-width", string>)
+                    : undefined
+                }
               >
                 <div className={styles.overlayFrame}>
                 <SlideFooterActions
@@ -7651,7 +8050,72 @@ async function handleNext() {
                   textPanelMode={textPanelMode}
                   textPanelSongModeLabel={currentSlide.textPanelSongModeLabel}
                   panelContent={
-                    activeFooterPanelSlide ? (
+                    activeFooterFormSlideId === currentSlide.id &&
+                    currentSlide.footerFormEnabled &&
+                    currentSlide.fields?.length ? (
+                      <div className={styles.slideFooterFormPanel}>
+                        {hasRenderableSections(currentSlide.sections) ? (
+                          <div className={styles.slideFooterFormIntro}>
+                            {(currentSlide.sections ?? [])
+                              .filter((section) => section.type === "heading")
+                              .map((section, index) => (
+                                <h3
+                                  key={index}
+                                  className={styles.slideFooterFormHeading}
+                                >
+                                  {section.text}
+                                </h3>
+                              ))}
+                          </div>
+                        ) : null}
+
+                        <p className={styles.slideFooterFormInstruction}>
+                          Give the required response.
+                          <br />
+                          Then use the forward icon or Continue button.
+                        </p>
+
+                        <div className={styles.formGrid}>
+                          {getVisibleFormFields(currentSlide.fields, answers).map((field) => (
+                            <FormFieldRenderer
+                              key={field.name}
+                              field={field}
+                              theme={theme}
+                              answers={answers}
+                              variables={mergedVariables}
+                              setAnswer={setAnswer}
+                              isPasswordVisible={
+                                visiblePasswordFields[field.name] === true
+                              }
+                              onTogglePasswordVisibility={() =>
+                                togglePasswordFieldVisibility(field.name)
+                              }
+                            />
+                          ))}
+                        </div>
+
+                        <button
+                          type="button"
+                          className={`${styles.primaryButton} ${styles.actionButton} ${styles.slideFooterSubmitButton}`}
+                          onClick={() => void handleNext()}
+                          disabled={isSubmitting}
+                        >
+                          Continue
+                        </button>
+
+                        {currentSlide.footerFormSupportSourceUrl ? (
+                          <FooterSupportText
+                            sourceUrl={currentSlide.footerFormSupportSourceUrl}
+                            startText={currentSlide.footerFormSupportStartText}
+                          />
+                        ) : null}
+
+                        {submitError &&
+                        currentSlide.id !== "delete-account-confirmed" ? (
+                          <p className={styles.formError}>{submitError}</p>
+                        ) : null}
+                      </div>
+                    ) : activeFooterPanelSlide ? (
                       <AnnotatedTextSlideRenderer
                         slide={activeFooterPanelSlide}
                         theme={theme}
@@ -7668,6 +8132,41 @@ async function handleNext() {
                       />
                     ) : undefined
                   }
+                  canTogglePanel={Boolean(
+                    (currentSlide.footerFormEnabled &&
+                      currentSlide.fields?.length) ||
+                      currentSlide.annotatedTextSourceUrl
+                  )}
+                  onContentLabelClick={() => {
+                    if (
+                      currentSlide.footerFormEnabled &&
+                      currentSlide.fields?.length
+                    ) {
+                      setActiveFooterFormSlideId((current) =>
+                        current === currentSlide.id ? null : currentSlide.id
+                      );
+                      return;
+                    }
+
+                    const footerReadSourceUrl =
+                      currentSlide.annotatedTextSourceUrl;
+
+                    if (footerReadSourceUrl) {
+                      setActiveFooterTextPanel((current) =>
+                        current?.id === "read" &&
+                        current.sourceUrl === footerReadSourceUrl
+                          ? null
+                          : {
+                              id: "read",
+                              label:
+                                currentSlide.footerContentLabel ||
+                                currentSlide.title,
+                              sourceUrl: footerReadSourceUrl,
+                              mode: currentSlide.annotatedTextMode,
+                            }
+                      );
+                    }
+                  }}
                   onAction={handleFooterAction}
                   onTextPanelModeChange={setTextPanelMode}
                 />
@@ -7856,7 +8355,10 @@ async function handleNext() {
                         <button
                           type="button"
                           onClick={handleNext}
-                          disabled={!canGoNext() || isSubmitting}
+                          disabled={
+                            isSubmitting ||
+                            (!currentSlide.fields?.length && !canGoNext())
+                          }
                           className={`${styles.primaryButton} ${styles.actionButton}`}
                           style={{
                             background: nextButtonStyle.background,
@@ -9869,8 +10371,10 @@ function ReviewSummaryRenderer({
             <div>
               {String(answers.fullName ?? "").trim() || "No name added yet."}
             </div>
-            {String(answers.phone ?? "").trim() ? (
-              <div>{String(answers.phone ?? "").trim()}</div>
+            {String(answers.primaryPhone ?? answers.phone ?? "").trim() ? (
+              <div>
+                {String(answers.primaryPhone ?? answers.phone ?? "").trim()}
+              </div>
             ) : null}
             {String(answers.email ?? "").trim() ? (
               <div>{String(answers.email ?? "").trim()}</div>
@@ -11530,6 +12034,40 @@ function FormFieldRenderer({
     );
   }
 
+  if (field.type === "info") {
+    return (
+      <div className={styles.fieldInfoPanel}>
+        <strong>{resolvedLabel}</strong>
+        {resolvedPlaceholder ? <span>{resolvedPlaceholder}</span> : null}
+      </div>
+    );
+  }
+
+  if (field.type === "radio") {
+    return (
+      <div style={fieldFrameStyle}>
+        <div style={fieldLabelStyle}>{resolvedLabel}</div>
+        <div className={styles.radioOptionStack}>
+          {(field.options ?? []).map((option) => (
+            <label
+              key={`${field.name}-${option.value}`}
+              className={styles.radioOptionRow}
+            >
+              <input
+                type="radio"
+                name={field.name}
+                value={String(option.value)}
+                checked={answers[field.name] === option.value}
+                onChange={() => setAnswer(field.name, option.value)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (field.type === "textarea") {
     return (
       <div style={fieldFrameStyle}>
@@ -11773,9 +12311,11 @@ function MediaRenderer({
   slide,
   onVerticalVideoPlayingChange,
   onVideoProgressChange,
+  onVideoEnded,
   videoSeekRequest,
   mediaControlRequest,
   onMediaStateChange,
+  onRenderedMediaWidthChange,
 }: {
   slide: {
     title: string;
@@ -11785,29 +12325,85 @@ function MediaRenderer({
     mediaAspect?: "horizontal" | "vertical" | "square";
     autoplay?: boolean;
     videoStartAtSeconds?: number;
+    videoEndGoto?: string;
   };
   onVerticalVideoPlayingChange?: (isPlaying: boolean) => void;
   onVideoProgressChange?: (payload: {
     currentTime: number;
     duration: number;
   }) => void;
+  onVideoEnded?: () => void;
   videoSeekRequest?: VideoSeekRequest | null;
   mediaControlRequest?: MediaControlRequest | null;
   onMediaStateChange?: (state: MediaState) => void;
+  onRenderedMediaWidthChange?: (width: number) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasAppliedStartTimeRef = useRef(false);
   const pauseAtSecondsRef = useRef<number | null>(null);
   const [isMuted, setIsMuted] = useState(slide.autoplay === true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasEnded, setHasEnded] = useState(false);
+  const [hasRecentlyStarted, setHasRecentlyStarted] = useState(false);
+  const [hasEverPlayed, setHasEverPlayed] = useState(false);
   const [mediaLoadIssue, setMediaLoadIssue] = useState<string | null>(null);
+
+  const updateRenderedMediaWidth = useCallback(() => {
+    const video = videoRef.current;
+    const width = video?.getBoundingClientRect().width ?? 0;
+    onRenderedMediaWidthChange?.(Number.isFinite(width) ? width : 0);
+  }, [onRenderedMediaWidthChange]);
 
   useEffect(() => {
     setIsMuted(slide.autoplay === true);
     setIsPlaying(false);
+    setHasEnded(false);
+    setHasRecentlyStarted(false);
+    setHasEverPlayed(false);
     setMediaLoadIssue(null);
     hasAppliedStartTimeRef.current = false;
-  }, [slide.mediaUrl, slide.embedUrl, slide.autoplay, slide.videoStartAtSeconds]);
+    onRenderedMediaWidthChange?.(0);
+  }, [
+    onRenderedMediaWidthChange,
+    slide.mediaUrl,
+    slide.embedUrl,
+    slide.autoplay,
+    slide.videoStartAtSeconds,
+  ]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video || !onRenderedMediaWidthChange) {
+      return;
+    }
+
+    updateRenderedMediaWidth();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateRenderedMediaWidth();
+    });
+
+    resizeObserver.observe(video);
+    window.addEventListener("resize", updateRenderedMediaWidth);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateRenderedMediaWidth);
+    };
+  }, [onRenderedMediaWidthChange, updateRenderedMediaWidth, slide.mediaUrl]);
+
+  useEffect(() => {
+    if (!hasRecentlyStarted) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHasRecentlyStarted(false);
+    }, 4200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasRecentlyStarted]);
 
   useEffect(() => {
     if (!slide.mediaUrl || slide.mediaType === "image" || slide.embedUrl) {
@@ -11888,8 +12484,18 @@ function MediaRenderer({
     onMediaStateChange?.({
       isMuted,
       isPlaying,
+      hasEnded,
+      hasRecentlyStarted,
+      shouldPulseFooterLabel: !hasEverPlayed || hasRecentlyStarted,
     });
-  }, [isMuted, isPlaying, onMediaStateChange]);
+  }, [
+    hasEnded,
+    hasEverPlayed,
+    hasRecentlyStarted,
+    isMuted,
+    isPlaying,
+    onMediaStateChange,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -12033,6 +12639,9 @@ function MediaRenderer({
             onClick={togglePlayPause}
             onPlay={() => {
               setIsPlaying(true);
+              setHasEnded(false);
+              setHasRecentlyStarted(true);
+              setHasEverPlayed(true);
               if (isVerticalVideo) {
                 onVerticalVideoPlayingChange?.(true);
               }
@@ -12045,18 +12654,24 @@ function MediaRenderer({
             }}
             onEnded={() => {
               setIsPlaying(false);
+              setHasEnded(true);
               if (isVerticalVideo) {
                 onVerticalVideoPlayingChange?.(false);
               }
+              onVideoEnded?.();
             }}
             onVolumeChange={(e) => {
               const video = e.currentTarget;
               setIsMuted(video.muted || video.volume === 0);
             }}
+            onSeeking={() => {
+              setHasEnded(false);
+            }}
             onLoadedMetadata={(e) => {
               const video = e.currentTarget;
               setMediaLoadIssue(null);
               applyVideoStartTime(video);
+              updateRenderedMediaWidth();
 
               onVideoProgressChange?.({
                 currentTime: video.currentTime,
@@ -12110,6 +12725,99 @@ function MediaRenderer({
   }
 
   return null;
+}
+
+function getVisibleFormFields(
+  fields: FormField[],
+  answers: QuestionnaireAnswers
+) {
+  return fields.filter((field) => {
+    if (!field.showIf?.length) {
+      return true;
+    }
+
+    return field.showIf.every((rule) => evaluateConditionRule(rule, answers));
+  });
+}
+
+function FooterSupportText({
+  sourceUrl,
+  startText,
+}: {
+  sourceUrl: string;
+  startText?: string;
+}) {
+  const [supportLines, setSupportLines] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!sourceUrl) {
+      setSupportLines([]);
+      return;
+    }
+
+    let canceled = false;
+
+    fetch(sourceUrl)
+      .then((response) => (response.ok ? response.text() : ""))
+      .then((rawText) => {
+        if (canceled) {
+          return;
+        }
+
+        const footerSectionMatch = rawText.match(
+          /^\[footer\]\s*([\s\S]*?)(?=^\[[^\]\r\n]+\]\s*$|$)/im
+        );
+        const sourceText = footerSectionMatch?.[1] ?? rawText;
+        const normalizedStart = footerSectionMatch
+          ? ""
+          : startText?.trim().toLowerCase();
+        const lines = sourceText
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        if (normalizedStart) {
+          const startIndex = lines.findIndex((line) =>
+            line.toLowerCase().includes(normalizedStart)
+          );
+
+          setSupportLines(splitSupportTextLines(
+            (startIndex >= 0 ? lines.slice(startIndex) : lines).join(" ")
+          ));
+          return;
+        }
+
+        setSupportLines(splitSupportTextLines(lines.join(" ")));
+      })
+      .catch(() => {
+        if (!canceled) {
+          setSupportLines([]);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [sourceUrl, startText]);
+
+  if (!supportLines.length) {
+    return null;
+  }
+
+  return (
+    <div className={styles.slideFooterSupportText}>
+      {supportLines.map((line, index) => (
+        <p key={`${line}-${index}`}>{line}</p>
+      ))}
+    </div>
+  );
+}
+
+function splitSupportTextLines(text: string) {
+  return text
+    .split(/(?<=[.!?])\s+|\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 function DripCountdownPanel({
@@ -15320,4 +16028,5 @@ function AccountSummaryRenderer({
     </div>
   );
 }
+
 

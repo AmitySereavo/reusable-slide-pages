@@ -7,6 +7,9 @@ import styles from "../QuestionnaireShell.module.css";
 type MediaState = {
   isMuted: boolean;
   isPlaying: boolean;
+  hasEnded?: boolean;
+  hasRecentlyStarted?: boolean;
+  shouldPulseFooterLabel?: boolean;
 };
 
 type Props = {
@@ -18,9 +21,11 @@ type Props = {
   mediaState: MediaState;
   progressControl?: ReactNode;
   panelContent?: ReactNode;
+  canTogglePanel?: boolean;
   textPanelMode: TextPanelMode;
   textPanelSongModeLabel?: string;
   onAction: (action: SlideFooterAction) => void;
+  onContentLabelClick?: () => void;
   onTextPanelModeChange: (mode: TextPanelMode) => void;
 };
 
@@ -33,9 +38,11 @@ export default function SlideFooterActions({
   mediaState,
   progressControl,
   panelContent,
+  canTogglePanel,
   textPanelMode,
   textPanelSongModeLabel,
   onAction,
+  onContentLabelClick,
   onTextPanelModeChange,
 }: Props) {
   const visibleActions = actions.filter((action) => {
@@ -89,17 +96,29 @@ export default function SlideFooterActions({
       ) : null}
 
       {contentLabel?.trim() ? (
-        panelAction ? (
+        panelAction || canTogglePanel ? (
           <button
             type="button"
-            className={`${styles.slideFooterContentLabel} ${styles.slideFooterContentLabelButton}`}
-            onClick={() => onAction(panelAction)}
+            className={`${styles.slideFooterContentLabel} ${styles.slideFooterContentLabelButton} ${
+              mediaState.shouldPulseFooterLabel && !panelContent
+                ? styles.slideFooterContentLabelStartPulse
+                : ""
+            }`}
+            onClick={() =>
+              panelAction ? onAction(panelAction) : onContentLabelClick?.()
+            }
             aria-expanded={Boolean(panelContent)}
           >
-            {getContentLabel(contentLabel)}
+            {panelContent ? "tap to view video" : getContentLabel(contentLabel)}
           </button>
         ) : (
-          <div className={styles.slideFooterContentLabel}>
+          <div
+            className={`${styles.slideFooterContentLabel} ${
+              mediaState.shouldPulseFooterLabel
+                ? styles.slideFooterContentLabelStartPulse
+                : ""
+            }`}
+          >
             {getContentLabel(contentLabel)}
           </div>
         )
@@ -206,6 +225,11 @@ function FooterActionRow({
         const label = getResolvedFooterActionLabel(action, mediaState);
         const iconSrc = getFooterActionIcon(action, mediaState);
         const isIconOnly = variant === "transport";
+        const isNextAction =
+          normalizedFooterActionKey(action) === "next" ||
+          action.label.toLowerCase().includes("next");
+        const shouldPulseAfterVideoEnded =
+          variant === "transport" && isNextAction && mediaState.hasEnded;
 
         return (
           <span key={`${action.kind}-${action.key}`}>
@@ -233,7 +257,11 @@ function FooterActionRow({
                   isMuteAction && mediaState.isMuted
                     ? styles.slideFooterTextLinkAlert
                     : ""
-                } ${disabled ? styles.slideFooterTextLinkDisabled : ""}`}
+                } ${disabled ? styles.slideFooterTextLinkDisabled : ""} ${
+                  shouldPulseAfterVideoEnded
+                    ? styles.slideFooterTextLinkNextReady
+                    : ""
+                }`}
                 disabled={disabled}
                 onClick={() => onAction(action)}
                 aria-label={isIconOnly ? label : undefined}
@@ -298,6 +326,10 @@ function isLyricsAction(action: SlideFooterAction) {
     (action.key.toLowerCase() === "lyrics" ||
       action.label.toLowerCase() === "lyrics")
   );
+}
+
+function normalizedFooterActionKey(action: SlideFooterAction) {
+  return action.key.trim().toLowerCase();
 }
 
 function getTextPanelModeLabel(mode: TextPanelMode, songModeLabel?: string) {

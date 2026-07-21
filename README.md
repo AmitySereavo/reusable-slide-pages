@@ -169,12 +169,21 @@ channels receive editable operation-message templates.
 
 ## Protected Media Rule
 
+Public, ungated media that should load directly from deployed pages belongs in
+`public/media/...` and is addressed from DSL files with paths such as
+`/media/plant_signup/01_what_plant_480p.mp4`. On GitHub/Vercel deploys, those
+files must be committed to the repository. Large public MP4 files are tracked
+with Git LFS; see `.gitattributes` for the active patterns, including
+`public/media/plant_signup/*.mp4`.
+
 Paid media files must not be placed in `public/`.
 
 Anything under `public/` can be accessed directly by URL. Paid album files,
 ticket files, lyric videos, WAV files, MP3 files, written lyrics, and ZIP
 packages should live outside the public web root and be streamed through a
-server route that checks entitlement first.
+server route that checks entitlement first. The current protected download route
+serves cataloged files from `protected-media/` and `private-downloads/` through
+`/api/downloads/[downloadkey]`.
 
 ## Build And Dev Commands
 

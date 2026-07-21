@@ -16,10 +16,106 @@ import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
 import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
 import type {
+  ShopCatalog,
   QuestionnaireVariableMap,
   ThemeConfig,
 } from "@/types/questionnaire";
 const activeSeedDsl = "v2";
+
+const plantGiveawayShopCatalog: ShopCatalog = {
+  currencyCode: "JMD",
+  weightUnit: "lb",
+  products: [
+    {
+      id: "giveaway-shop-peppermint",
+      slug: "peppermint",
+      title: "Peppermint",
+      description: '6 inch tall herb plant for pickup or delivery follow-up.',
+      sizeOptions: [
+        {
+          id: "peppermint-6-inch",
+          label: '6" tall plant',
+          price: 500,
+          weight: 0.8,
+        },
+      ],
+    },
+    {
+      id: "giveaway-shop-spearmint",
+      slug: "spearmint",
+      title: "Spearmint",
+      description: '6 inch tall herb plant for pickup or delivery follow-up.',
+      sizeOptions: [
+        {
+          id: "spearmint-6-inch",
+          label: '6" tall plant',
+          price: 750,
+          weight: 0.8,
+        },
+      ],
+    },
+    {
+      id: "giveaway-shop-lemon-balm",
+      slug: "lemon-balm",
+      title: "Lemon Balm",
+      description: "Fragrant balm plant available in two sizes.",
+      sizeOptions: [
+        {
+          id: "lemon-balm-6-inch",
+          label: '6" tall plant',
+          price: 700,
+          weight: 0.9,
+        },
+        {
+          id: "lemon-balm-12-inch",
+          label: '12" tall plant',
+          price: 1200,
+          weight: 1.4,
+        },
+      ],
+    },
+    {
+      id: "giveaway-shop-italian-sweet-basil",
+      slug: "italian-sweet-basil",
+      title: "Italian Sweet Basil",
+      description: "Kitchen basil available in two sizes.",
+      sizeOptions: [
+        {
+          id: "italian-sweet-basil-6-inch",
+          label: '6" tall plant',
+          price: 500,
+          weight: 0.8,
+        },
+        {
+          id: "italian-sweet-basil-12-inch",
+          label: '12" tall plant',
+          price: 950,
+          weight: 1.3,
+        },
+      ],
+    },
+    {
+      id: "giveaway-shop-genovese-basil",
+      slug: "genovese-basil",
+      title: "Genovese Basil",
+      description: "Classic culinary basil available in two sizes.",
+      sizeOptions: [
+        {
+          id: "genovese-basil-6-inch",
+          label: '6" tall plant',
+          price: 500,
+          weight: 0.8,
+        },
+        {
+          id: "genovese-basil-12-inch",
+          label: '12" tall plant',
+          price: 950,
+          weight: 1.3,
+        },
+      ],
+    },
+  ],
+};
 
 type QuestionnaireRegistryEntry = {
   slug: string;
@@ -313,7 +409,9 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dslPath: "src/config/questionnaires/plantGiveawayDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
-    variables: {},
+    variables: {
+      shopCatalog: plantGiveawayShopCatalog,
+    },
     dynamicVariablesEndpoint: undefined,
   },
 } as const;

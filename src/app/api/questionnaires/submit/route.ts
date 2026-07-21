@@ -23,6 +23,23 @@ function toJsonValue(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value)) as JsonValue;
 }
 
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SubmitPayload;
@@ -53,6 +70,36 @@ export async function POST(req: Request) {
       toJsonValue(answers) as Parameters<
         typeof prisma.questionnaireSubmission.create
       >[0]["data"]["answers"];
+    const duplicateWindowStart = new Date(Date.now() - 1000 * 60 * 10);
+    const recentCandidates = await prisma.questionnaireSubmission.findMany({
+      where: {
+        questionnaireSlug,
+        fullName: fullName || null,
+        email: email || null,
+        phone: phone || null,
+        createdAt: {
+          gte: duplicateWindowStart,
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 5,
+    });
+    const requestAnswerSnapshot = stableStringify(prismaAnswers);
+    const duplicateSubmission = recentCandidates.find(
+      (candidate) => stableStringify(candidate.answers) === requestAnswerSnapshot
+    );
+
+    if (duplicateSubmission) {
+      return NextResponse.json({
+        ok: true,
+        message: "Submission already received.",
+        submissionId: duplicateSubmission.id,
+        duplicate: true,
+        sheetsMirrored: false,
+      });
+    }
 
     const submission = await prisma.questionnaireSubmission.create({
       data: {

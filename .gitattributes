@@ -1,1 +1,2 @@
 public/media/invitation/*.mp4 filter=lfs diff=lfs merge=lfs -text
+public/media/plant_signup/*.mp4 filter=lfs diff=lfs merge=lfs -text

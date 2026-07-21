@@ -446,6 +446,66 @@
   align-self: stretch;
 }
 
+.slideFooterFormPanel {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  padding-bottom: 32px;
+}
+
+.slideFooterFormIntro {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.slideFooterFormHeading {
+  margin: 0;
+  color: #1f6b3a;
+  font-size: clamp(1.15rem, 3vw, 1.6rem);
+  line-height: 1.15;
+}
+
+.slideFooterFormText {
+  margin: 0;
+  color: #4d4538;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.slideFooterSupportText {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  color: #4d4538;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.slideFooterSupportText p {
+  margin: 0;
+}
+
+.slideFooterFormInstruction {
+  margin: 0;
+  color: #231f20;
+  font-size: 0.98rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.slideFooterSubmitButton {
+  width: 100%;
+  min-height: 54px;
+  background: #1f6b3a !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(31, 107, 58, 0.28);
+}
+
+.slideFooterSubmitButton:hover:not(:disabled) {
+  background: #15562d !important;
+}
+
 @keyframes footerPanelSlideUp {
   from {
     transform: translateY(72%);
@@ -467,8 +527,8 @@
 }
 
 .slideFooterTextActionsOverlayVerticalMedia .slideFooterEdgeProgress {
-  width: min(calc(100vw - 36px), 56.25vh);
-  max-width: min(calc(100vw - 36px), 56.25vh);
+  width: min(100%, var(--footer-progress-width, min(100vw, 56.25vh)));
+  max-width: min(100%, var(--footer-progress-width, min(100vw, 56.25vh)));
 }
 
 .slideFooterEdgeProgress .videoProgressInput {
@@ -509,7 +569,7 @@
 
 .slideFooterTransportRow {
   gap: 18px;
-  margin-top: 2px;
+  margin-top: 10px;
 }
 
 .slideFooterContentLabel {
@@ -523,6 +583,13 @@
   letter-spacing: 0;
   text-transform: none;
   opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.slideFooterContentLabelStartPulse {
+  padding: 5px 12px;
+  border-radius: 999px;
+  animation: footerContentLabelStartPulse 4.8s ease-in-out infinite;
 }
 
 .slideFooterContentLabelButton {
@@ -559,16 +626,78 @@
 }
 
 .slideFooterTransportRow .slideFooterTextLink {
-  width: 34px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   display: inline-grid;
   place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
   text-decoration: none;
+}
+
+.slideFooterTransportRow .slideFooterTextLink:hover:not(:disabled),
+.slideFooterTransportRow .slideFooterTextLink:focus-visible:not(:disabled) {
+  background: #fff;
+}
+
+.slideFooterTransportRow .slideFooterTextLinkNextReady {
+  animation: nextReadyPulse 1.05s ease-in-out infinite;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.slideFooterTransportRow
+  .slideFooterTextLinkNextReady
+  .slideFooterActionIcon {
+  animation: nextReadyIconPulse 1.05s ease-in-out infinite;
 }
 
 .slideFooterTransportRow .slideFooterActionIcon {
   width: 22px;
   height: 22px;
+}
+
+@keyframes nextReadyIconPulse {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(0) invert(1);
+  }
+}
+
+@keyframes nextReadyPulse {
+  0%,
+  100% {
+    background: #ffffff;
+  }
+  50% {
+    background: #c1121f;
+  }
+}
+
+@keyframes footerContentLabelStartPulse {
+  0%,
+  20%,
+  45%,
+  100% {
+    color: inherit;
+    background: rgba(255, 255, 255, 0);
+  }
+  10%,
+  32% {
+    color: #1f6b3a;
+    background: rgba(255, 255, 255, 0.88);
+    text-shadow: none;
+  }
+  55% {
+    color: #1f6b3a;
+    background: rgba(255, 255, 255, 0.88);
+    text-shadow: none;
+  }
 }
 
 .visuallyHidden {
@@ -1050,7 +1179,46 @@
 .formGrid {
   display: grid;
   gap: 16px;
-  margin-top: 8px;
+  width: min(100%, 520px);
+  margin: 8px auto 0;
+}
+
+.radioOptionStack {
+  display: grid;
+  gap: 10px;
+}
+
+.radioOptionRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid rgba(35, 31, 32, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #231f20;
+  font-weight: 700;
+}
+
+.radioOptionRow input {
+  width: 18px;
+  height: 18px;
+}
+
+.fieldInfoPanel {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(31, 107, 58, 0.22);
+  border-radius: 14px;
+  background: rgba(240, 248, 238, 0.92);
+  color: #263427;
+  line-height: 1.45;
+}
+
+.fieldInfoPanel span {
+  color: #4d5d4f;
 }
 
 .passwordInputWrap {
