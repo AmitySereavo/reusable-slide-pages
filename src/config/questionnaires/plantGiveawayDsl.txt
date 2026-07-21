@@ -300,9 +300,9 @@ BR
 [c3] You will be contacted with the exact date your plants will be available at your selected pickup location.
 BR
 @fields:
-- receivingPreference|select|Preferred method|required|Choose one|earth_sovereign=Pickup at Earth (Sovereign Center),barbican_132=Pickup at 132 Barbican Road,linstead=Pickup at Redwood Taxi Stand (Linstead),paid_delivery=Paid delivery to an address
-- earthSovereignPickupDetails|info|Earth pickup details|optional|Earth Retail Jamaica, 106 Hope Road, Shop 27A, Sovereign Center, Kingston. Phone: (876) 678-1280. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:receivingPreference=earth_sovereign
-- barbicanPickupDetails|info|132 Barbican Road pickup details|optional|132 Barbican Road, Kingston, Jamaica. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:receivingPreference=barbican_132
+- receivingPreference|select|Preferred method|required|Choose one|earth_sovereign=Earth (Sovereign Center Liguanea),barbican_132=One32 Guest House (Barbican),linstead=Redwood Taxi Stand (Linstead),paid_delivery=Paid delivery to an address
+- earthSovereignPickupDetails|info|Earth pickup details|optional|Earth Retail Jamaica, 106 Hope Road, Shop 27A, Sovereign Center, Kingston. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:receivingPreference=earth_sovereign
+- barbicanPickupDetails|info|One32 Guest House pickup details|optional|132 Barbican Road, Kingston, Jamaica. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:receivingPreference=barbican_132
 - linsteadPickupDetails|info|Redwood Taxi Stand pickup details|optional|Redwood Taxi Stand, Linstead Town, Jamaica. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:receivingPreference=linstead
 - deliveryCountry|text|Country|optional|Enter country||showif:receivingPreference=paid_delivery
 - deliveryRegion|text|Parish / state / region|optional|Enter parish, state or region||showif:receivingPreference=paid_delivery
