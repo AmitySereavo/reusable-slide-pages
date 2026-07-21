@@ -414,6 +414,24 @@ function writeTicketAssistantEventDraft(draft: QuestionnaireAnswers) {
   );
 }
 
+function SidebarToggleIcon({ side }: { side: "left" | "right" }) {
+  return (
+    <svg
+      className={styles.sidebarToggleIcon}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M4 4h16v16H4V4Zm2 2v12h12V6H6Z" />
+      {side === "left" ? (
+        <path d="M9 7h2v10H9V7Zm4 2 4 3-4 3V9Z" />
+      ) : (
+        <path d="M13 7h2v10h-2V7ZM7 12l4-3v6l-4-3Z" />
+      )}
+    </svg>
+  );
+}
+
 function clearTicketAssistantEventDraft(eventId: string) {
   if (typeof window === "undefined") {
     return;
@@ -2295,8 +2313,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         .map((slide) => ({
           id: slide.id,
           label: slide.title || slide.id,
+          locked: Boolean(getPlantGiveawayBlockedSlideBeforeTarget(slide.id)),
         })),
-    [dripUnlockKeys, isAdminUser, visibleSlides]
+    [answers, config.slug, dripUnlockKeys, isAdminUser, visibleSlides]
   );
 
   const sidebarAlbumDownloadItemId = useMemo(() => {
@@ -4152,24 +4171,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     event: MouseEvent<HTMLAnchorElement>,
     slideId: string
   ) {
-    if (config.slug === "home-gardener-plant-giveaway") {
-      const targetIndex = getSlideIndexById(visibleSlides, slideId);
-      const firstUnansweredRequiredSlide = visibleSlides
-        .slice(0, targetIndex < 0 ? visibleSlides.length : targetIndex)
-        .find((slide) => getPlantGiveawayRequiredSlideError(slide.id));
-
-      if (firstUnansweredRequiredSlide) {
-        const message = getPlantGiveawayRequiredSlideError(
-          firstUnansweredRequiredSlide.id
-        );
-
-        event.preventDefault();
-        setSubmitError(message);
-        setIsTrackSidebarOpen(false);
-        setIsAccountMenuOpen(false);
-        goToTarget(firstUnansweredRequiredSlide.id);
-        return;
-      }
+    if (blockPlantGiveawayNavigationUntilRequiredInfo(slideId)) {
+      event.preventDefault();
+      return;
     }
 
     setIsTrackSidebarOpen(false);
@@ -5267,6 +5271,42 @@ async function next() {
     return "";
   }
 
+  function getPlantGiveawayBlockedSlideBeforeTarget(targetSlideId: string) {
+    if (config.slug !== "home-gardener-plant-giveaway") {
+      return null;
+    }
+
+    const targetIndex = getSlideIndexById(visibleSlides, targetSlideId);
+
+    if (targetIndex < 0) {
+      return null;
+    }
+
+    return (
+      visibleSlides
+        .slice(0, targetIndex)
+        .find((slide) => getPlantGiveawayRequiredSlideError(slide.id)) ?? null
+    );
+  }
+
+  function blockPlantGiveawayNavigationUntilRequiredInfo(
+    targetSlideId: string
+  ) {
+    const blockedSlide = getPlantGiveawayBlockedSlideBeforeTarget(targetSlideId);
+
+    if (!blockedSlide) {
+      return false;
+    }
+
+    setSubmitError(
+      "You cannot access that page until you enter required information on pages that are before that page."
+    );
+    setIsTrackSidebarOpen(false);
+    setIsAccountMenuOpen(false);
+    goToTarget(blockedSlide.id);
+    return true;
+  }
+
   function getAuthSignupPayload() {
     const firstName = String(answers.firstName ?? "").trim();
     const lastName = String(answers.lastName ?? "").trim();
@@ -6014,7 +6054,9 @@ function handleFooterAction(action: SlideFooterAction) {
         return;
       }
 
-      goToTarget(target);
+      if (!blockPlantGiveawayNavigationUntilRequiredInfo(target)) {
+        goToTarget(target);
+      }
     }
 
     return;
@@ -6654,11 +6696,7 @@ async function handleNext() {
                           aria-label="Open content sidebar"
                           aria-expanded={isTrackSidebarOpen}
                         >
-                          <img
-                            src="/icons/ui/sidebar-left.svg"
-                            alt=""
-                            aria-hidden="true"
-                          />
+                          <SidebarToggleIcon side="left" />
                         </button>
 
                         {isTrackSidebarOpen ? (
@@ -6705,18 +6743,33 @@ async function handleNext() {
                                 {dashboardSidebarLinks.length ? (
                                   <div className={styles.sidebarDivider} />
                                 ) : null}
-                                {sidebarSlideLinks.map((track) => (
-                                <a
-                                  key={track.id}
-                                  className={styles.sidebarLink}
-                                  href={getSlideHref(track.id)}
-                                  onClick={(event) =>
-                                    handleTrackSidebarSlideClick(event, track.id)
-                                  }
-                                >
-                                  {track.label}
-                                </a>
-                              ))}
+                                {sidebarSlideLinks.map((track) =>
+                                  track.locked ? (
+                                    <button
+                                      key={track.id}
+                                      type="button"
+                                      className={`${styles.sidebarLink} ${styles.sidebarLinkLocked}`}
+                                      disabled
+                                      title="Enter the required information on earlier pages first."
+                                    >
+                                      {track.label}
+                                    </button>
+                                  ) : (
+                                    <a
+                                      key={track.id}
+                                      className={styles.sidebarLink}
+                                      href={getSlideHref(track.id)}
+                                      onClick={(event) =>
+                                        handleTrackSidebarSlideClick(
+                                          event,
+                                          track.id
+                                        )
+                                      }
+                                    >
+                                      {track.label}
+                                    </a>
+                                  )
+                                )}
                               </div>
                             ) : null}
 
@@ -6776,7 +6829,7 @@ async function handleNext() {
                           aria-label="Open account menu"
                           aria-expanded={isAccountMenuOpen}
                         >
-                          ☰
+                          <SidebarToggleIcon side="right" />
                         </button>
 
                         {isAccountMenuOpen ? (
@@ -8116,20 +8169,34 @@ async function handleNext() {
                         ) : null}
                       </div>
                     ) : activeFooterPanelSlide ? (
-                      <AnnotatedTextSlideRenderer
-                        slide={activeFooterPanelSlide}
-                        theme={theme}
-                        presentation="panel"
-                        enableTimingRecorder={
-                          searchParams.get("syncText") === "1"
-                        }
-                        textPanelMode={textPanelMode}
-                        mediaCurrentTimeSeconds={videoCurrentTimeSeconds}
-                        onTimedLineClick={handleTimedTextLineClick}
-                        onCustomTextMerchRequest={(selectedText) =>
-                          handleCustomTextMerchRequest(selectedText)
-                        }
-                      />
+                      <div className={styles.slideFooterArticlePanel}>
+                        <AnnotatedTextSlideRenderer
+                          slide={activeFooterPanelSlide}
+                          theme={theme}
+                          presentation="panel"
+                          enableTimingRecorder={
+                            searchParams.get("syncText") === "1"
+                          }
+                          textPanelMode={textPanelMode}
+                          mediaCurrentTimeSeconds={videoCurrentTimeSeconds}
+                          onTimedLineClick={handleTimedTextLineClick}
+                          onCustomTextMerchRequest={(selectedText) =>
+                            handleCustomTextMerchRequest(selectedText)
+                          }
+                        />
+
+                        {config.slug === "home-gardener-plant-giveaway" &&
+                        currentSlide.annotatedTextSourceUrl ? (
+                          <button
+                            type="button"
+                            className={`${styles.primaryButton} ${styles.actionButton} ${styles.slideFooterSubmitButton}`}
+                            onClick={() => void handleNext()}
+                            disabled={isSubmitting}
+                          >
+                            Continue
+                          </button>
+                        ) : null}
+                      </div>
                     ) : undefined
                   }
                   canTogglePanel={Boolean(

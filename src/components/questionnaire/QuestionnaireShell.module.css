@@ -113,14 +113,16 @@
   place-items: center;
 }
 
-.sidebarToggleButton img {
+.sidebarToggleButton img,
+.sidebarToggleIcon {
   width: 20px;
   height: 20px;
   display: block;
+  fill: currentColor;
 }
 
 .menuButton::before {
-  content: "";
+  content: none;
   width: 20px;
   height: 20px;
   background: currentColor;
@@ -297,9 +299,16 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
+.sidebarLinkLocked,
+.sidebarLinkLocked:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(31, 31, 31, 0.42);
+  text-decoration: none;
+}
+
 .sidebarLink:disabled,
 .accountMenuItem:disabled {
-  opacity: 0.55;
+  opacity: 1;
   cursor: not-allowed;
 }
 
@@ -471,6 +480,13 @@
 .slideFooterFormPanel {
   display: grid;
   gap: 18px;
+  width: 100%;
+  padding-bottom: 32px;
+}
+
+.slideFooterArticlePanel {
+  display: grid;
+  gap: 20px;
   width: 100%;
   padding-bottom: 32px;
 }

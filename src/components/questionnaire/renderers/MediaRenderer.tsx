@@ -66,6 +66,7 @@ export default function MediaRenderer({
   const [hasRecentlyStarted, setHasRecentlyStarted] = useState(false);
   const [hasEverPlayed, setHasEverPlayed] = useState(false);
   const [mediaLoadIssue, setMediaLoadIssue] = useState<string | null>(null);
+  const hasEverPlayedRef = useRef(false);
 
   const updateRenderedMediaWidth = useCallback(() => {
     const video = videoRef.current;
@@ -79,6 +80,7 @@ export default function MediaRenderer({
     setHasEnded(false);
     setHasRecentlyStarted(false);
     setHasEverPlayed(false);
+    hasEverPlayedRef.current = false;
     setMediaLoadIssue(null);
     hasAppliedStartTimeRef.current = false;
     onRenderedMediaWidthChange?.(0);
@@ -123,24 +125,6 @@ export default function MediaRenderer({
 
     return () => window.clearTimeout(timeoutId);
   }, [hasRecentlyStarted]);
-
-  useEffect(() => {
-    if (!slide.mediaUrl || slide.mediaType === "image" || slide.embedUrl) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const video = videoRef.current;
-
-      if (video && video.readyState === 0) {
-        setMediaLoadIssue(
-          "The video is not available yet. This chapter is still open, and you can read the article or use the chapter actions."
-        );
-      }
-    }, 8000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [slide.mediaUrl, slide.mediaType, slide.embedUrl]);
 
   useEffect(() => {
     if (!videoSeekRequest) {
@@ -361,6 +345,8 @@ export default function MediaRenderer({
               setHasEnded(false);
               setHasRecentlyStarted(true);
               setHasEverPlayed(true);
+              hasEverPlayedRef.current = true;
+              setMediaLoadIssue(null);
               if (isVerticalVideo) {
                 onVerticalVideoPlayingChange?.(true);
               }
@@ -397,7 +383,13 @@ export default function MediaRenderer({
                 duration: video.duration,
               });
             }}
-            onError={() => {
+            onError={(event) => {
+              const video = event.currentTarget;
+              if (hasEverPlayedRef.current || video.currentTime > 0) {
+                setMediaLoadIssue(null);
+                return;
+              }
+
               setMediaLoadIssue(
                 "The video is not available yet. This chapter is still open, and you can read the article or use the chapter actions."
               );
