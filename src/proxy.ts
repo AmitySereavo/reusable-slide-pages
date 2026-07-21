@@ -30,7 +30,12 @@ function normalizePublicPath(path: string | undefined) {
 function isStaticOrInternalPath(pathname: string) {
   return (
     pathname.startsWith("/_next/") ||
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/media/") ||
+    pathname.startsWith("/images/") ||
+    pathname.startsWith("/assets/") ||
     pathname.startsWith("/favicon") ||
+    pathname.startsWith("/manifest") ||
     pathname.startsWith("/robots.txt") ||
     pathname.startsWith("/sitemap")
   );
@@ -120,5 +125,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icons/|media/|images/|assets/|manifest).*)",
+  ],
 };
