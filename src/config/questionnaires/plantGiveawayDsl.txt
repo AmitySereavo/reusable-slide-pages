@@ -10,7 +10,7 @@
 @subtitle: Plant Giveaway
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/01_what_plant_480p.mp4
+@media: https://media.paralifetrees.com/01_what_plant_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showback: false
@@ -23,7 +23,6 @@
 @videogoto: 00:01:21|footer
 @videoendgoto: footer
 @footerform: true
-@footerformsupportsource: /media/plant_signup/01_what_plant.txt
 @footerformsupportstart: because your answer
 @footercontentlabel: Tap here to respond
 @footertransparentuntilexpanded: true
@@ -47,7 +46,7 @@
 @title: Where Are You On Your Journey?
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/02_gardening_journey_480p.mp4
+@media: https://media.paralifetrees.com/02_gardening_journey_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
@@ -82,7 +81,7 @@
 @title: What Do You Grow, Currently?
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/03_what_do_you_grow_480p.mp4
+@media: https://media.paralifetrees.com/03_what_do_you_grow_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
@@ -122,7 +121,7 @@
 @title: Has This Ever Happened To You?
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/04_gardening_challenges_480p.mp4
+@media: https://media.paralifetrees.com/04_gardening_challenges_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
@@ -150,7 +149,7 @@
 @title: Why Home Gardens Matter
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/05_importance_of_planting_480p.mp4
+@media: https://media.paralifetrees.com/05_importance_of_planting_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
@@ -179,7 +178,7 @@
 @title: What Are Your Challenges?
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/06_gardening_encouragement_480p.mp4
+@media: https://media.paralifetrees.com/06_gardening_encouragement_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
@@ -222,7 +221,7 @@ BR
 @title: Give your contact details
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/plant_signup/07_give_contact_info_480p.mp4
+@media: https://media.paralifetrees.com/07_give_contact_info_480p.mp4
 @mediatype: video
 @mediaaspect: vertical
 @showprogressbar: true
