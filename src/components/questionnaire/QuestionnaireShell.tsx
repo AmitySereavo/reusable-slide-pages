@@ -8110,22 +8110,57 @@ async function handleNext() {
                         {hasRenderableSections(currentSlide.sections) ? (
                           <div className={styles.slideFooterFormIntro}>
                             {(currentSlide.sections ?? [])
-                              .filter((section) => section.type === "heading")
-                              .map((section, index) => (
-                                <h3
-                                  key={index}
-                                  className={styles.slideFooterFormHeading}
-                                >
-                                  {section.text}
-                                </h3>
-                              ))}
+                              .filter(
+                                (section) =>
+                                  section.type === "heading" ||
+                                  section.type === "subheading" ||
+                                  section.type === "paragraph"
+                              )
+                              .map((section, index) => {
+                                const resolvedColor =
+                                  (section.colorKey &&
+                                    theme.colors.lineColors?.[
+                                      section.colorKey
+                                    ]) ||
+                                  (section.type === "subheading"
+                                    ? theme.colors.subtitle
+                                    : theme.colors.accent) ||
+                                  theme.colors.primary;
+                                const content = replaceDynamicText(
+                                  section.text,
+                                  answers,
+                                  mergedVariables
+                                );
+
+                                if (section.type === "paragraph") {
+                                  return (
+                                    <p
+                                      key={index}
+                                      className={styles.slideFooterFormText}
+                                      style={{ color: resolvedColor }}
+                                    >
+                                      {content}
+                                    </p>
+                                  );
+                                }
+
+                                return (
+                                  <h3
+                                    key={index}
+                                    className={styles.slideFooterFormHeading}
+                                    style={{ color: resolvedColor }}
+                                  >
+                                    {content}
+                                  </h3>
+                                );
+                              })}
                           </div>
                         ) : null}
 
                         <p className={styles.slideFooterFormInstruction}>
-                          Give the required response.
+                          Respond, then tap the forward icon
                           <br />
-                          Then use the forward icon or Continue button.
+                          or Continue button.
                         </p>
 
                         <div className={styles.formGrid}>

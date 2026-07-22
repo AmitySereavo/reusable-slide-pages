@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mirrorSubmissionToGoogleSheets } from "@/lib/googleSheets";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import {
+  PERMANENT_WEBSITE_OP_TAG,
+  getWebsiteOperationEmailTemplate,
+} from "@/lib/verification/websiteOperationEmailTemplates";
 
 type SubmitPayload = {
   questionnaireSlug?: string;
@@ -18,6 +22,8 @@ type JsonObject = { [key: string]: JsonValue };
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
 const DEFAULT_PLANT_GIVEAWAY_ADMIN_EMAIL = "paralifetrees@gmail.com";
+const PLANT_GIVEAWAY_ADMIN_SEQUENCE_KEY =
+  "website-op-plant-giveaway-admin-notification-email";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -81,7 +87,71 @@ function labelSelection(
   return labels[value] || value;
 }
 
-function buildPlantGiveawayAdminNotification({
+function renderTemplate(value: string, context: Record<string, string>) {
+  return String(value || "").replace(
+    /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g,
+    (_, key) => context[String(key)] ?? ""
+  );
+}
+
+function buildHtmlFromText(text: string) {
+  return String(text || "")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map(
+      (paragraph) =>
+        `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`
+    )
+    .join("");
+}
+
+async function getPlantGiveawayAdminTemplate() {
+  const defaultTemplate = getWebsiteOperationEmailTemplate(
+    PLANT_GIVEAWAY_ADMIN_SEQUENCE_KEY
+  );
+
+  try {
+    const sequence = await prisma.emailSequence.findUnique({
+      where: { sequenceKey: PLANT_GIVEAWAY_ADMIN_SEQUENCE_KEY },
+      include: {
+        steps: {
+          where: { active: true },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1,
+        },
+      },
+    });
+
+    const metadata =
+      sequence?.metadata && typeof sequence.metadata === "object"
+        ? (sequence.metadata as Record<string, unknown>)
+        : {};
+    const step =
+      metadata.systemTag === PERMANENT_WEBSITE_OP_TAG
+        ? sequence?.steps?.[0]
+        : null;
+    const subject =
+      String(step?.subject || "").trim() || defaultTemplate?.subject || "";
+    const bodyText =
+      String(step?.bodyText || "").trim() || defaultTemplate?.bodyText || "";
+
+    if (subject && bodyText) {
+      return { subject, bodyText };
+    }
+  } catch (error) {
+    console.warn("Plant giveaway admin template lookup failed.", error);
+  }
+
+  return defaultTemplate
+    ? {
+        subject: defaultTemplate.subject,
+        bodyText: defaultTemplate.bodyText,
+      }
+    : null;
+}
+
+async function buildPlantGiveawayAdminNotification({
   submissionId,
   createdAt,
   fullName,
@@ -158,6 +228,7 @@ function buildPlantGiveawayAdminNotification({
     getAnswer(answers, "deliveryPostalCode"),
   ].filter(Boolean);
 
+  const subscriberName = fullName || email || phone || "Unknown";
   const rows = [
     ["Submission ID", submissionId],
     ["Submitted", createdAt.toISOString()],
@@ -178,6 +249,37 @@ function buildPlantGiveawayAdminNotification({
     ["Receiving plants", receivingPreference || "Not provided"],
     ["Delivery address", addressParts.join(", ") || "Not provided"],
   ];
+  const details = rows.map(([label, value]) => `${label}: ${value}`).join("\n");
+  const context: Record<string, string> = {
+    submissionId,
+    submittedAt: createdAt.toISOString(),
+    subscriberName,
+    fullName: fullName || "",
+    email: email || "",
+    phone: phone || "",
+    network: getAnswer(answers, "primaryNetwork"),
+    whatsapp: whatsappOptIn || answers.primaryHasWhatsapp === true ? "Yes" : "No",
+    dreamPlant: getAnswer(answers, "dreamPlant"),
+    gardenerLevel,
+    currentlyGrows: growCategories.join(", "),
+    challenges: challengeLabels.join(", "),
+    challengeDetails: getAnswer(answers, "biggestGardeningChallenge"),
+    preferredUpdates: updateChoices.join(", "),
+    receivingPreference,
+    deliveryAddress: addressParts.join(", "),
+    details,
+  };
+  const template = await getPlantGiveawayAdminTemplate();
+
+  if (template) {
+    const text = renderTemplate(template.bodyText, context);
+
+    return {
+      subject: renderTemplate(template.subject, context),
+      text,
+      html: buildHtmlFromText(text),
+    };
+  }
 
   const text = [
     "New Para-life Trees plant giveaway signup",
@@ -206,7 +308,7 @@ function buildPlantGiveawayAdminNotification({
   `;
 
   return {
-    subject: `New plant giveaway signup: ${fullName || email || phone || "Unknown"}`,
+    subject: `New plant giveaway signup: ${subscriberName}`,
     text,
     html,
   };
@@ -246,7 +348,7 @@ async function notifyPlantGiveawayAdmin({
     };
   }
 
-  const message = buildPlantGiveawayAdminNotification({
+  const message = await buildPlantGiveawayAdminNotification({
     submissionId: submission.id,
     createdAt: submission.createdAt,
     fullName: submission.fullName,

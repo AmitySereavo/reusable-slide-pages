@@ -157,6 +157,17 @@ export const permanentWebsiteOperationSequences = [
     bodyText:
       "Hi {{recipientName}},\n\nWe need you to confirm or update your mailing address so we can fulfill this physical order.\n\nOrder number: {{orderNumber}}\nOrder details: {{orderDetails}}\n\nUpdate your account details here: {{verifyUrl}}\n\nAfter your mailing address is updated, our team can continue processing the order.",
   },
+  {
+    sequenceKey: "website-op-plant-giveaway-admin-notification-email",
+    name: "Website Op - Plant giveaway admin notification",
+    description:
+      "Operational email sent to the Para-life Trees admin when someone submits the plant giveaway form.",
+    triggerEvent: "website_operation",
+    stepKey: "plant-giveaway-admin-notification-email",
+    subject: "New plant giveaway signup: {{subscriberName}}",
+    bodyText:
+      "New Para-life Trees plant giveaway signup\n\n{{details}}\n\nSubmission ID: {{submissionId}}\nSubmitted: {{submittedAt}}",
+  },
 ];
 
 export function getWebsiteOperationEmailTemplate(sequenceKey) {
