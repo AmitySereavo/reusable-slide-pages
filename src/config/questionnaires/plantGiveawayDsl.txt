@@ -56,7 +56,7 @@
 @syncurl: true
 @shownext: false
 @showback: false
-@videogoto: 00:01:30|footer
+@videogoto: 00:01:20|footer
 @videoendgoto: footer
 @footerform: true
 @footercontentlabel: Tap here to respond
@@ -231,7 +231,7 @@ BR
 @syncurl: true
 @shownext: false
 @showback: false
-@videoendgoto: footer
+@videogoto: 00:00:44|footer
 @footerform: true
 @footercontentlabel: Tap to enter contact details
 @footertransparentuntilexpanded: true
@@ -257,7 +257,7 @@ BR
 @id: future-updates
 @type: form
 @titleplacement: progress_overlay
-@title: Keep Informed
+@title: Keep In The Know
 @subtitle: Choose from the contact options you gave us previously
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
@@ -265,7 +265,7 @@ BR
 @countstep: true
 @syncurl: true
 ---
-# [c2] What's the best way to keep you informed?
+# [c2] What's the best way to keep you in the know?
 BR
 [c3] Choose from the contact options you gave us previously.
 BR

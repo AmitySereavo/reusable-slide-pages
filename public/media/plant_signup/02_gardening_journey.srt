@@ -79,50 +79,46 @@ you've been gardening for many years
 but probably many years don't mean anything
 
 21
-00:00:58,766 --> 00:01:02,566
-because just stick with one type of plant
-
-22
-00:01:02,633 --> 00:01:07,833
-probably just a few dozen plants
-
-23
-00:01:07,900 --> 00:01:09,066
+00:00:58,733 --> 00:00:59,900
 an expert
 
-24
-00:01:09,266 --> 00:01:12,333
+22
+00:01:00,100 --> 00:01:03,166
 people often come to you for advice
 
-25
-00:01:12,500 --> 00:01:15,366
+23
+00:01:03,333 --> 00:01:06,200
 you're confident managing plant care
 
-26
-00:01:15,433 --> 00:01:19,500
+24
+00:01:06,266 --> 00:01:10,333
 you're confident managing propagation
 
-27
-00:01:19,500 --> 00:01:22,066
+25
+00:01:10,333 --> 00:01:12,900
 pests and production
 
-28
-00:01:22,133 --> 00:01:25,666
-you enjoy sharing the knowledge you
+26
+00:01:12,966 --> 00:01:15,533
+you enjoy sharing the knowledge
 
-29
-00:01:25,900 --> 00:01:30,433
+27
+00:01:15,733 --> 00:01:20,166
 you enjoy experimenting with advanced methods
 
-30
-00:01:30,466 --> 00:01:34,800
+28
+00:01:20,166 --> 00:01:24,500
 which would you consider yourself to be?
 
-31
-00:01:34,866 --> 00:01:40,766
-choose. Beginner ? at the intermediate level?
+29
+00:01:24,566 --> 00:01:27,500
+choose. Beginner ?
 
-32
-00:01:41,066 --> 00:01:46,066
+30
+00:01:27,500 --> 00:01:29,700
+you're at the intermediate level?
+
+31
+00:01:29,866 --> 00:01:34,700
 or would you consider yourself to be an expert?
 
