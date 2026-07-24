@@ -10,6 +10,8 @@ const PLANT_GIVEAWAY_PUBLIC_URL =
 const LITTLE_ORCHARD_SHOP_PUBLIC_URL =
   "https://littleorchardnursery.paralifetrees.com/shop";
 const PLANT_GIVEAWAY_OG_IMAGE = "/icons/paralife_trees_og.png";
+const LITTLE_ORCHARD_SHOP_OG_IMAGE =
+  "/media/paralife_trees/jhs-plant-market.jpeg";
 
 export async function generateMetadata({
   params,
@@ -82,10 +84,10 @@ export async function generateMetadata({
         type: "website",
         images: [
           {
-            url: PLANT_GIVEAWAY_OG_IMAGE,
-            width: 1200,
-            height: 630,
-            alt: "Para-life Trees Little Orchard Shop",
+            url: LITTLE_ORCHARD_SHOP_OG_IMAGE,
+            width: 1080,
+            height: 1350,
+            alt: "Jamaica Horticultural Society Plant Market flyer for Little Orchard Shop",
           },
         ],
       },
@@ -93,7 +95,7 @@ export async function generateMetadata({
         card: "summary_large_image",
         title,
         description,
-        images: [PLANT_GIVEAWAY_OG_IMAGE],
+        images: [LITTLE_ORCHARD_SHOP_OG_IMAGE],
       },
     };
   }
