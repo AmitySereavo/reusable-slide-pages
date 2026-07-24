@@ -71,6 +71,7 @@ function isAllowedGiveawayPath(
     "/privacy-policy",
     "/terms",
     "/admin/event-orders",
+    "/dashboard",
     "/dashboard/orders",
     "/api/dashboard/orders",
   ]);
