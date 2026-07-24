@@ -99,6 +99,7 @@ BR
 BR
 @fields:
 - whatsappOwnDeviceNotice|info|Using WhatsApp on your device|optional|When you continue, your order will be recorded and WhatsApp will open with your order message prepared. Press Send in WhatsApp so Romone can receive your order details.||showif:plantShopDeviceType=own_device
+- whatsappNumber|tel|WhatsApp number|optional|Optional: enter the number we should use for receipt and order updates.||showif:plantShopDeviceType=own_device
 - whatsappSharedDeviceNotice|info|Using WhatsApp from a shared device|optional|Enter your WhatsApp number including country and area code. We will use it for receipt, order updates, pickup information, and plant-care guidance.||showif:plantShopDeviceType=shared_event_device
 - whatsappNumber|tel|WhatsApp number|required|Example: 1 876 372 7415||showif:plantShopDeviceType=shared_event_device
 - plantShopConsent|checkbox|I understand how my name, contact details, and order information will be used.|required

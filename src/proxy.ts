@@ -80,6 +80,7 @@ function isAllowedGiveawayPath(
     allowedExactPaths.has(pathname) ||
     pathname.startsWith(`/questionnaire/${slug}/`) ||
     pathname.startsWith(`/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}/`) ||
+    pathname.startsWith("/questionnaire/auth-") ||
     pathname.startsWith(`${publicPath}/`) ||
     pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
     pathname.startsWith("/order-status/") ||
@@ -143,6 +144,12 @@ export function proxy(request: NextRequest) {
   if (pathname === "/questionnaire") {
     const url = request.nextUrl.clone();
     url.pathname = publicPath;
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname === "/dasboard" || pathname.startsWith("/dasboard/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/dasboard/, "/dashboard");
     return NextResponse.redirect(url);
   }
 
