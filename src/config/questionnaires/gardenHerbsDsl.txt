@@ -143,7 +143,7 @@ BR
 # at popular plant
 # and garden stores.
 BR
-## ParaLife Trees'
+## Para-life Trees'
 ## most recent price
 ## is $850.
 @back: Back

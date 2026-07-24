@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const DEFAULT_FUNNEL_SLUG = "home-gardener-plant-giveaway";
 const DEFAULT_FUNNEL_PATH = "/gift";
+const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
+const LITTLE_ORCHARD_SHOP_PATH = "/shop";
 
 function getConfiguredFunnelHosts() {
   return String(
@@ -49,22 +51,33 @@ function isAllowedGiveawayPath(
   const allowedExactPaths = new Set([
     "/",
     publicPath,
+    LITTLE_ORCHARD_SHOP_PATH,
     `/questionnaire/${slug}`,
+    `/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}`,
     "/api/questionnaires/submit",
+    "/api/plant-shop/orders",
     "/api/session",
     "/api/questionnaires/gated-access/status",
     "/api/questionnaires/visitor-state/clear",
     "/verify",
     "/verify/link-sent",
     "/verify/verified-lead",
+    "/login",
     "/privacy-policy",
     "/terms",
+    "/admin/event-orders",
+    "/dashboard/orders",
+    "/api/dashboard/orders",
   ]);
 
   return (
     allowedExactPaths.has(pathname) ||
     pathname.startsWith(`/questionnaire/${slug}/`) ||
+    pathname.startsWith(`/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}/`) ||
     pathname.startsWith(`${publicPath}/`) ||
+    pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
+    pathname.startsWith("/api/plant-shop/orders/") ||
+    pathname.startsWith("/admin/event-orders/order/") ||
     pathname.startsWith("/api/verify/") ||
     pathname.startsWith("/api/auth/temporary-lead-account")
   );
@@ -105,6 +118,15 @@ export function proxy(request: NextRequest) {
   if (pathname === publicPath || pathname.startsWith(`${publicPath}/`)) {
     const url = request.nextUrl.clone();
     url.pathname = `/questionnaire/${slug}`;
+    return NextResponse.rewrite(url);
+  }
+
+  if (
+    pathname === LITTLE_ORCHARD_SHOP_PATH ||
+    pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}`;
     return NextResponse.rewrite(url);
   }
 

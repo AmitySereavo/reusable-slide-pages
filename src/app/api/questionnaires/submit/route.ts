@@ -215,15 +215,15 @@ async function buildPlantGiveawayAdminNotification({
   const updateChoices = [
     ["updatesByWhatsapp", "WhatsApp"],
     ["updatesByEmail", "Email"],
-    ["updatesByPhone", "Phone call / SMS"],
+    ["updatesByPhoneSms", "Phone call / SMS"],
   ]
     .filter(([key]) => answers[key] === true)
     .map(([, label]) => label);
 
   const addressParts = [
-    getAnswer(answers, "deliveryStreet"),
-    getAnswer(answers, "deliveryCity"),
-    getAnswer(answers, "deliveryParish"),
+    getAnswer(answers, "deliveryStreetAddress"),
+    getAnswer(answers, "deliveryCityTown"),
+    getAnswer(answers, "deliveryRegion"),
     getAnswer(answers, "deliveryCountry"),
     getAnswer(answers, "deliveryPostalCode"),
   ].filter(Boolean);

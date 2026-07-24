@@ -15,6 +15,10 @@ import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
 import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
+import {
+  littleOrchardPlantShowEvent,
+  littleOrchardShopCatalog,
+} from "@/config/shops/littleOrchardShop";
 import type {
   ShopCatalog,
   QuestionnaireVariableMap,
@@ -403,7 +407,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   "home-gardener-plant-giveaway": {
     slug: "home-gardener-plant-giveaway",
-    name: "ParaLife Trees + The Nursery at Little Orchard Plant Giveaway",
+    name: "Para-life Trees + The Nursery at Little Orchard Plant Giveaway",
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/plantGiveawayDsl.txt",
@@ -413,6 +417,21 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
       shopCatalog: plantGiveawayShopCatalog,
     },
     dynamicVariablesEndpoint: undefined,
+  },
+
+  "little-orchard-shop": {
+    slug: "little-orchard-shop",
+    name: "Para-life Trees Little Orchard Shop",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/littleOrchardShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {
+      shopCatalog: littleOrchardShopCatalog,
+      littleOrchardPlantShowEvent,
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",
   },
 } as const;
 

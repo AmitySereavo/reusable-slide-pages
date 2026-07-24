@@ -10,6 +10,7 @@
 - No stale Prisma client errors appear after restart.
 - Questionnaire pages load from /questionnaire/[slug].
 - Existing flows still load: invitation, auth-login, auth-account, nursery-ops, seed.
+- Public custom-domain aliases still load: /gift for the giveaway and /shop for the Little Orchard Shop.
 ```
 
 ---
@@ -23,6 +24,43 @@
 - Reusable behavior stays in parser, shared shell, src/lib, or src/customerAccess.
 - New DSL directives are parser-supported and type-supported.
 - Existing directives still work: @goto, @showreturnhome, @showauthcontrols, @videostart, @videogoto, @autoplay.
+- New shop flows should add catalog/order logic outside QuestionnaireShell whenever practical; shell changes should be limited to reusable wiring.
+```
+
+---
+
+## 2A. Little Orchard Shop
+
+```txt
+- /shop redirects or rewrites to /questionnaire/little-orchard-shop.
+- The shop intro shows ParaLife Trees, Little Orchard Shop, and the plant-market flyer.
+- Product browse shows the initial Jamaica Horticultural Society plant inventory in JMD.
+- Size-only duplicates are consolidated: Scallion and Lemon Balm each appear once with multiple pot-size options.
+- Lychee Tree appears once with Small Lychee Tree and Large Lychee Tree options.
+- Different variations retain separate SKUs, prices, and event quantity limits.
+- Product quantity cannot exceed the configured event max quantity in the UI.
+- Product quantity cannot exceed the selected variation's configured event quantity.
+- Cart heading says Review Your Selected Items.
+- Empty cart cannot be submitted.
+- Cart adjust links return to the Little Orchard Shop, not invitation/music-merch shops.
+- Customer name is required.
+- Device selection records own_device or shared_event_device.
+- WhatsApp checkout on own device does not require typed WhatsApp number.
+- WhatsApp checkout on shared event device requires a customer WhatsApp number.
+- Email checkout requires a valid email address.
+- Consent acknowledgement is required before order submission.
+- POST /api/plant-shop/orders creates fulfillment records with source little_orchard_shop.
+- Email checkout sends the business notification and customer receipt where configured.
+- WhatsApp checkout records the order before opening the prepared WhatsApp message.
+- WhatsApp message does not include contact method or device type.
+- WhatsApp message includes the secure cashier order link.
+- Opening the cashier link while logged out shows only the Cashier Access Required public-safe page.
+- Opening the cashier link as admin filters the Orders dashboard to the matching order.
+- Submitted Little Orchard orders show Payment: AWAITING_PAYMENT and Inventory applied: No.
+- Confirm Payment checks current confirmed quantities and marks inventory as applied once.
+- Repeated Confirm Payment requests do not apply inventory twice.
+- /admin/event-orders redirects to the protected Orders dashboard.
+- Orders dashboard shows Little Orchard physical fulfillment rows with customer and product details.
 ```
 
 ---

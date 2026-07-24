@@ -1,93 +1,88 @@
-const updatedDate = "July 3, 2026";
+const updatedDate = "July 23, 2026";
 
 export const metadata = {
-  title: "Terms of Service",
+  title: "Terms of Service | Para-life Trees",
 };
 
 export default function TermsPage() {
   return (
     <main style={styles.page}>
       <article style={styles.document}>
-        <p style={styles.kicker}>Reusable Slides</p>
+        <p style={styles.kicker}>Para-life Trees</p>
         <h1 style={styles.title}>Terms of Service</h1>
+        <p style={styles.brandLine}>The Farm at Little Orchard</p>
         <p style={styles.updated}>Last updated: {updatedDate}</p>
 
-        <Section title="Using The Platform">
+        <Section title="Using This Website">
           <p>
-            By using this platform, you agree to provide accurate information,
-            respect account and content access controls, and use purchased or
-            protected content only through the access granted to you.
+            By using the Para-life Trees and The Farm at Little Orchard website,
+            giveaway forms, shop flows, order-status pages, and related links,
+            you agree to provide accurate information and use the site for
+            genuine plant, order, pickup, delivery, and gardening-interest
+            purposes.
           </p>
         </Section>
 
-        <Section title="Accounts">
+        <Section title="Plant Orders">
           <p>
-            Some content and purchases require an account. You are responsible for
-            keeping login details secure. If an account is created automatically for
-            purchase delivery, you should change the generated password after first
-            login.
+            Plant photos, descriptions, sizes, prices, and quantities are shown
+            to help customers choose. Availability may change quickly during
+            events. An order is not fully secured until payment is confirmed by
+            authorized staff.
+          </p>
+          <p>
+            Nursery stock requests may show a zero price because availability,
+            final price, delivery timing, or pickup arrangements must be
+            confirmed by a representative before payment is finalized.
           </p>
         </Section>
 
-        <Section title="Purchases, Tickets, And Digital Content">
+        <Section title="Payment And Confirmation">
           <p>
-            Ticket, digital-content, store-credit, gift-card, merchandise, and meal
-            add-on purchases are subject to the details shown during checkout.
-            Digital access may require a verified email address and an active
-            purchased item record.
-          </p>
-          <p>
-            Tickets, protected media, downloads, and purchase-recipient access may
-            be delivered by private links or account access. Users should not share
-            private links with unauthorized persons.
+            Accepted payment methods may include cash, card, bank transfer,
+            remittance, or another method agreed with staff. Payment confirmation
+            must be recorded by authorized staff before items are treated as
+            secured.
           </p>
         </Section>
 
-        <Section title="Purchasing For Others">
+        <Section title="Pickup And Delivery">
           <p>
-            When purchasing for someone else, you must enter accurate recipient
-            information. Recipients may need to accept an invitation or verify their
-            email address before certain items can be assigned or delivered.
+            Event pickup is available only during the stated event period. Once
+            an event has passed, event pickup may be disabled and customers may
+            need to use another pickup point, paid delivery, or nursery stock
+            follow-up.
           </p>
           <p>
-            Gift claims, reminders, expiration windows, store-credit returns, and
-            claim requirements may vary by product and will be defined in the
-            applicable checkout or account flow.
-          </p>
-        </Section>
-
-        <Section title="Store Credit And Currency">
-          <p>
-            Store credit may have restrictions based on how it was issued. Returned
-            store credit, purchased store credit, gift cards, and exchange-rate
-            displays may be treated differently by product type, recipient flow, or
-            shop setting.
+            Delivery may require a valid address, phone contact, and additional
+            delivery fees. Pickup and delivery details may be adjusted by staff
+            when necessary to complete the order.
           </p>
         </Section>
 
-        <Section title="Content Sequences And Communications">
+        <Section title="Giveaway Participation">
           <p>
-            Some experiences unlock content over time through email or account-based
-            sequences. A sequence may depend on email verification, link clicks,
-            previous content access, tags, or timing rules configured by the site
-            administrator.
+            Giveaway sign-up does not guarantee that a specific plant will be
+            received. Answers help shape what Para-life Trees and Little Orchard
+            grow, source, or offer whenever practical. Additional conditions may
+            apply to promotional plant offers.
           </p>
         </Section>
 
-        <Section title="Refunds And Event Changes">
+        <Section title="Communications">
           <p>
-            Refund, exchange, credit, cancellation, and event-change rules may vary
-            by product, ticket, event, or promotion. When a product-specific policy
-            is shown during checkout or in a receipt, that policy controls that
-            purchase.
+            If you choose to receive messages by WhatsApp, email, phone call, or
+            SMS, we may contact you about orders, pickup, delivery, plant
+            availability, giveaway updates, care guidance, and relevant offers.
+            You may ask us to stop promotional messages.
           </p>
         </Section>
 
-        <Section title="Platform Changes">
+        <Section title="Changes And Corrections">
           <p>
-            This platform is actively developed. Features, dashboard tools, product
-            flows, and content formats may change as the reusable slide system is
-            improved.
+            We may correct product details, prices, stock counts, pickup
+            information, or order records when errors, testing, event movement,
+            or stock changes require it.
           </p>
         </Section>
       </article>
@@ -106,14 +101,14 @@ function Section({ title, children }) {
 
 const styles = {
   page: {
-    background: "#f5f2ee",
+    background: "#F6F0E3",
     color: "#201c1d",
     minHeight: "100vh",
     padding: "40px 16px",
   },
   document: {
     background: "#fffdfa",
-    border: "1px solid rgba(32, 28, 29, 0.12)",
+    border: "1px solid rgba(156, 121, 55, 0.32)",
     borderRadius: "8px",
     margin: "0 auto",
     maxWidth: "820px",
@@ -126,9 +121,15 @@ const styles = {
     textTransform: "uppercase",
   },
   title: {
+    color: "#355E3B",
     fontSize: "clamp(32px, 6vw, 52px)",
     lineHeight: 1,
-    margin: "10px 0",
+    margin: "10px 0 4px",
+  },
+  brandLine: {
+    color: "#7B3F2A",
+    fontWeight: 800,
+    margin: "0 0 8px",
   },
   updated: {
     color: "#6b625c",

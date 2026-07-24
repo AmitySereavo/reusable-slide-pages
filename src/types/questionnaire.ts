@@ -91,6 +91,7 @@ export type ShopCatalogSizeOption = {
   weight?: number;
   mealSelection?: ShopMealSelectionRequirement;
   purchaseModes?: ShopPurchaseMode[];
+  metadata?: QuestionnaireVariableMap;
 };
 
 export type ShopCatalogProduct = {
@@ -99,6 +100,7 @@ export type ShopCatalogProduct = {
   slug?: string;
   title: string;
   imageUrl?: string;
+  previewImageUrl?: string;
   description?: string;
   detailsDescription?: string;
   eventVenueLabel?: string;
@@ -286,6 +288,7 @@ export type ShopResolvedCartLine = {
   sizeOptionId: string;
   sizeOptionSku?: string;
   sizeLabel: string;
+  sizeOptionMetadata?: QuestionnaireVariableMap;
   quantity: number;
   fulfillmentType?: FulfillmentType;
   requiresPhysicalFulfillment?: boolean;
@@ -397,6 +400,7 @@ export type Option = {
 export type SelectOption = {
   label: string;
   value: string;
+  disabled?: boolean;
 };
 
 export type RecordListItem = {

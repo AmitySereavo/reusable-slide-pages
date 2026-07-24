@@ -195,7 +195,7 @@ BR
 [c2] plant festival of the year:
 BR
 # [c1] Little Orchard &
-# [c1] ParaLife Trees
+# [c1] Para-life Trees
 # [c1] Plant Fest.
 BR
 [c3] You can collect it
@@ -324,7 +324,7 @@ BR
 @actionbartextcolor: #1f1f1f
 ---
 # [c1] Little Orchard &
-# [c1] ParaLife Trees
+# [c1] Para-life Trees
 # [c1] Plant Fest
 BR
 [c3] More details about

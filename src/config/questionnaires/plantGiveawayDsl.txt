@@ -246,6 +246,7 @@ BR
 - primaryPhone|tel|Phone number|required|Enter your phone number
 - primaryNetwork|select|Network|required|Choose one|digicel=Digicel,flow=Flow
 - primaryHasWhatsapp|checkbox|This number is also on WhatsApp|optional
+- legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
 ---
 @back: Back
 @next: Continue
@@ -276,6 +277,7 @@ Unsubscribe anytime.
 - updatesByWhatsapp|checkbox|WhatsApp|optional
 - updatesByEmail|checkbox|Email|optional
 - updatesByPhoneSms|checkbox|Phone Call / SMS|optional
+- legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
 ---
 @back: Back
 @next: Continue
@@ -356,7 +358,7 @@ BR
 @type: content
 @titleplacement: progress_overlay
 @title: Sign-Up Received
-@subtitle: ParaLife Trees + The Nursery at Little Orchard
+@subtitle: Para-life Trees + The Nursery at Little Orchard
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
 @showprogressbar: false

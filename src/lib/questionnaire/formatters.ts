@@ -1,4 +1,8 @@
 export function formatCurrency(amount: number, currencyCode = "USD") {
+  if (currencyCode === "JMD") {
+    return `JMD $${Math.round(amount).toLocaleString("en-JM")}`;
+  }
+
   try {
     return new Intl.NumberFormat(undefined, {
       style: "currency",

@@ -24,6 +24,31 @@ type FormFieldRendererProps = {
   onTogglePasswordVisibility?: () => void;
 };
 
+function renderInlineLinks(text: string) {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+
+  return parts.map((part, index) => {
+    const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+
+    if (!match) {
+      return part;
+    }
+
+    const [, label, href] = match;
+
+    return (
+      <a
+        key={`${href}-${index}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {label}
+      </a>
+    );
+  });
+}
+
 export default function FormFieldRenderer({
   field,
   theme,
@@ -71,7 +96,9 @@ export default function FormFieldRenderer({
     return (
       <div className={styles.fieldInfoPanel}>
         <strong>{resolvedLabel}</strong>
-        {resolvedPlaceholder ? <span>{resolvedPlaceholder}</span> : null}
+        {resolvedPlaceholder ? (
+          <span>{renderInlineLinks(resolvedPlaceholder)}</span>
+        ) : null}
       </div>
     );
   }
@@ -169,7 +196,11 @@ export default function FormFieldRenderer({
             {resolvedPlaceholder || `Select ${resolvedLabel}`}
           </option>
           {(field.options ?? []).map((option) => (
-            <option key={`${field.name}-${option.value}`} value={option.value}>
+            <option
+              key={`${field.name}-${option.value}`}
+              value={option.value}
+              disabled={option.disabled === true}
+            >
               {option.label}
             </option>
           ))}

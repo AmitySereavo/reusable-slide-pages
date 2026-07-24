@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
+import { ensurePlantShopStockAdjustmentTable } from "@/lib/plantShop/stockAdjustments";
 
 type InventoryPurchaseModeInput = {
   modeId?: string;
@@ -110,8 +111,20 @@ export async function GET(request: Request) {
       },
     },
   });
+  let stockAdjustments: any[] = [];
 
-  return NextResponse.json({ catalogKey, products });
+  if (catalogKey === "littleOrchardShop") {
+    await ensurePlantShopStockAdjustmentTable(prisma as any);
+    stockAdjustments = await prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT *
+      FROM "PlantShopStockAdjustment"
+      WHERE "shopSlug" = 'little-orchard-shop'
+      ORDER BY "createdAt" DESC
+      LIMIT 80
+    `);
+  }
+
+  return NextResponse.json({ catalogKey, products, stockAdjustments });
 }
 
 export async function POST(request: Request) {

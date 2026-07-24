@@ -44,6 +44,12 @@ import TimedTextAudioPlayer, {
   type TimedTextAudioRequest,
 } from "./renderers/TimedTextAudioPlayer";
 import PurchaseRecipientsRenderer from "./renderers/PurchaseRecipientsRenderer";
+import { buildPlantShopOrderPayload } from "./actions/plantShopOrderPayload";
+import {
+  getLittleOrchardDeliveryAddressLines,
+  getLittleOrchardFulfillmentKey,
+  getLittleOrchardFulfillmentOption,
+} from "@/lib/questionnaire/littleOrchardFulfillment";
 import AuthFooter from "@/customerAccess/components/AuthFooter";
 import styles from "./QuestionnaireShell.module.css";
 import {
@@ -1399,6 +1405,7 @@ function buildTicketAssistantCheckoutState(params: {
 export default function QuestionnaireShell({ config, theme }: Props) {
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const [cartInventoryNotices, setCartInventoryNotices] = useState<string[]>([]);
+  const [dynamicVariablesRefreshKey, setDynamicVariablesRefreshKey] = useState(0);
   const [answers, setAnswers] = useState<QuestionnaireAnswers>({});
   const [
     checkoutReservationSecondsRemaining,
@@ -1433,7 +1440,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
-  const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("USD");
+  const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("JMD");
   const [dripUnlockKeys, setDripUnlockKeys] = useState<string[]>([]);
   const [dripOpenedKeys, setDripOpenedKeys] = useState<string[]>([]);
   const [dripNextAvailableAtBySequence, setDripNextAvailableAtBySequence] =
@@ -1502,6 +1509,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const slideBodyRef = useRef<HTMLDivElement | null>(null);
   const actionInFlightRef = useRef(false);
   const invitationOrderRequestKeyRef = useRef<string | null>(null);
+  const plantShopOrderRequestKeyRef = useRef<string | null>(null);
   const shopReservationKeyRef = useRef<string | null>(null);
   const checkoutDraftHydratedRef = useRef(false);
   const shouldSkipNextCheckoutDraftWriteRef = useRef(true);
@@ -1947,6 +1955,56 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     setActiveFooterTextPanel(null);
     setActiveFooterFormSlideId(null);
   }, [currentSlide?.id]);
+
+  useEffect(() => {
+    if (
+      config.slug !== "little-orchard-shop" ||
+      currentSlide?.id !== "pickup-information" ||
+      mergedVariables.littleOrchardEventDateHasPassed === true ||
+      String(answers.plantShopFulfillmentMethod ?? "").trim()
+    ) {
+      return;
+    }
+
+    setAnswer("plantShopFulfillmentMethod", "event_pickup");
+  }, [
+    answers.plantShopFulfillmentMethod,
+    config.slug,
+    currentSlide?.id,
+    mergedVariables.littleOrchardEventDateHasPassed,
+  ]);
+
+  useEffect(() => {
+    if (
+      config.slug !== "little-orchard-shop" ||
+      mergedVariables.littleOrchardEventDateHasPassed !== true ||
+      String(answers.plantShopFulfillmentMethod ?? "") !== "event_pickup"
+    ) {
+      return;
+    }
+
+    setAnswer("plantShopFulfillmentMethod", "");
+  }, [
+    answers.plantShopFulfillmentMethod,
+    config.slug,
+    mergedVariables.littleOrchardEventDateHasPassed,
+  ]);
+
+  useEffect(() => {
+    if (!config.dynamicVariablesEndpoint) {
+      return;
+    }
+
+    function refreshDynamicVariablesOnFocus() {
+      setDynamicVariablesRefreshKey((key) => key + 1);
+    }
+
+    window.addEventListener("focus", refreshDynamicVariablesOnFocus);
+
+    return () => {
+      window.removeEventListener("focus", refreshDynamicVariablesOnFocus);
+    };
+  }, [config.dynamicVariablesEndpoint]);
 
   useEffect(() => {
     if (!isAuthSessionLoaded || !authSessionUser?.id) {
@@ -3432,6 +3490,55 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () => isContactInfoComplete(answers, sharedDeliverySelection),
     [answers, sharedDeliverySelection]
   );
+  const getRuntimeFormField = useCallback(
+    (field: FormField): FormField => {
+      const overrides = mergedVariables.formFieldOptionOverrides;
+
+      if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) {
+        return field;
+      }
+
+      const fieldOverride = (overrides as Record<string, unknown>)[field.name];
+
+      if (
+        !fieldOverride ||
+        typeof fieldOverride !== "object" ||
+        Array.isArray(fieldOverride)
+      ) {
+        return field;
+      }
+
+      const optionOverrides = fieldOverride as Record<string, unknown>;
+      const nextOptions = field.options?.map((option) => {
+        const optionOverride = optionOverrides[option.value];
+
+        if (
+          !optionOverride ||
+          typeof optionOverride !== "object" ||
+          Array.isArray(optionOverride)
+        ) {
+          return option;
+        }
+
+        const optionPatch = optionOverride as Record<string, unknown>;
+
+        return {
+          ...option,
+          label:
+            typeof optionPatch.label === "string"
+              ? optionPatch.label
+              : option.label,
+          disabled:
+            typeof optionPatch.disabled === "boolean"
+              ? optionPatch.disabled
+              : option.disabled,
+        };
+      });
+
+      return nextOptions ? { ...field, options: nextOptions } : field;
+    },
+    [mergedVariables]
+  );
 
   useEffect(() => {
     const endpoint = config.dynamicVariablesEndpoint;
@@ -3521,6 +3628,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     answers.futureScore,
     answers.opsGeneratedBatchCode,
     batchDataRefreshKey,
+    dynamicVariablesRefreshKey,
   ]);
 
 
@@ -4745,13 +4853,15 @@ async function next() {
   }
   }
 
+    const cartReturnTarget = String(answers.cartReturnTarget ?? "").trim();
     const shouldReturnToCart =
-      String(answers.cartReturnTarget ?? "") === "review-order";
+      cartReturnTarget === "review-order" ||
+      cartReturnTarget === "review-selected-items";
 
-    if (shouldReturnToCart && currentSlide.id !== "review-order") {
+    if (shouldReturnToCart && currentSlide.id !== cartReturnTarget) {
       setAnswer("cartReturnTarget", "");
       setAnswer("mealReturnTarget", "");
-      goToTarget("review-order");
+      goToTarget(cartReturnTarget);
       return;
     }
 
@@ -5504,6 +5614,45 @@ async function next() {
     };
   }
 
+  function getPlantShopOrderPayload() {
+    const existingOrderRequestKey = String(
+      answers.plantShopOrderRequestKey ?? ""
+    ).trim();
+
+    if (existingOrderRequestKey) {
+      plantShopOrderRequestKeyRef.current = existingOrderRequestKey;
+    }
+
+    if (!plantShopOrderRequestKeyRef.current) {
+      plantShopOrderRequestKeyRef.current = `plant-shop-${config.slug}-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}`;
+    }
+
+    const orderRequestKey = plantShopOrderRequestKeyRef.current;
+
+    if (!existingOrderRequestKey) {
+      setAnswers((prev) => ({
+        ...prev,
+        plantShopOrderRequestKey: orderRequestKey,
+      }));
+    }
+
+    return buildPlantShopOrderPayload({
+      slug: config.slug,
+      answers: {
+        ...answers,
+        plantShopOrderRequestKey: orderRequestKey,
+      },
+      cart: sharedOrderCart,
+      lines: sharedOrderLines,
+      catalog: sharedShopDisplayCatalog,
+      orderSummary: sharedOrderSummary,
+      orderRequestKey,
+      deliverySelection: sharedDeliverySelection,
+    });
+  }
+
   function getAuthForgotPasswordPayload() {
     return {
       identifier: String(answers.identifier ?? "").trim(),
@@ -5644,6 +5793,11 @@ async function next() {
     submitInvitationOrder: {
       url: "/api/invitation/orders/create",
       payload: getInvitationOrderPayload,
+    },
+
+    submitPlantShopOrder: {
+      url: "/api/plant-shop/orders",
+      payload: getPlantShopOrderPayload,
     },
 
     submitForgotPassword: {
@@ -5843,6 +5997,38 @@ async function next() {
             ? data.guestPortalLinksSent
             : 0,
       }));
+    }
+
+    if (runName === "submitPlantShopOrder") {
+      clearCheckoutDraft(config.slug);
+      checkoutDraftCompletedRef.current = true;
+      setAnswers((prev) => {
+        const shouldClearCustomerInfo =
+          String(prev.plantShopDeviceType ?? "") === "shared_event_device";
+
+        return {
+          ...prev,
+          plantShopOrderCode:
+            typeof data?.orderCode === "string" ? data.orderCode : "",
+          plantShopOrderMessage:
+            typeof data?.message === "string" ? data.message : "",
+          ...(shouldClearCustomerInfo
+            ? {
+                orderCart: {},
+                fullName: "",
+                email: "",
+                phone: "",
+                primaryPhone: "",
+                whatsappNumber: "",
+                plantShopConsent: false,
+              }
+            : {}),
+        };
+      });
+
+      if (typeof data?.whatsappUrl === "string" && data.whatsappUrl) {
+        window.location.href = data.whatsappUrl;
+      }
     }
 
     if (action.successGoto) {
@@ -6490,6 +6676,12 @@ async function handleNext() {
     }) ?? [];
   const hasFooterActions = footerActions.length > 0;
   const isPlantGiveawayDsl = config.slug === "home-gardener-plant-giveaway";
+  const isLittleOrchardShopDsl = config.slug === "little-orchard-shop";
+  const shouldShowPlainWhatsappContact =
+    isPlantGiveawayDsl || isLittleOrchardShopDsl;
+  const plainWhatsappMessage = isLittleOrchardShopDsl
+    ? "What's rare in the nursery, that you're not telling just anyone about?"
+    : "Does signing up make me automatically eligible to receive plants?";
   const shouldShowAccountMenu = !isPlantGiveawayDsl;
   const backButtonStyle = resolveButtonStyle(
     theme,
@@ -6841,7 +7033,8 @@ async function handleNext() {
                               onClick={() => setIsAccountMenuOpen(false)}
                             />
                             <div className={styles.accountMenuPanel}>
-                            {authSessionUser?.name ? (
+                            {authSessionUser?.name &&
+                            config.slug !== "little-orchard-shop" ? (
                               <div className={styles.accountMenuName}>
                                 <span>{authSessionUser.name}</span>
                                 <span className={styles.accountMenuCredit}>
@@ -6885,10 +7078,16 @@ async function handleNext() {
                               type="button"
                               className={styles.accountMenuItem}
                               onClick={() =>
-                                handleAccountMenuLink(getPermanentHomeTarget())
+                                handleAccountMenuLink(
+                                  config.slug === "little-orchard-shop"
+                                    ? "/questionnaire/little-orchard-shop?slide=plant-show-shop"
+                                    : getPermanentHomeTarget()
+                                )
                               }
                             >
-                              Home
+                              {config.slug === "little-orchard-shop"
+                                ? "Shop"
+                                : "Home"}
                             </button>
 
                             {config.slug === "home-gardener-plant-giveaway" ? null : (
@@ -6897,7 +7096,9 @@ async function handleNext() {
                                 className={`${styles.accountMenuItem} ${styles.accountMenuCartItem}`}
                                 onClick={() =>
                                   handleAccountMenuLink(
-                                    "/questionnaire/invitation?slide=review-order"
+                                    config.slug === "little-orchard-shop"
+                                      ? "/questionnaire/little-orchard-shop?slide=review-selected-items"
+                                      : "/questionnaire/invitation?slide=review-order"
                                   )
                                 }
                               >
@@ -6911,7 +7112,44 @@ async function handleNext() {
                               </button>
                             )}
 
-                            {config.slug === "home-gardener-plant-giveaway" ? null : (
+                            {config.slug === "little-orchard-shop" ? (
+                              <>
+                                <label className={styles.accountCurrencyControl}>
+                                  <span>Currency</span>
+                                  <select
+                                    value={activeShopCurrencyCode}
+                                    onChange={(event) =>
+                                      setGuestShopCurrencyCode(event.target.value)
+                                    }
+                                  >
+                                    {SUPPORTED_CURRENCIES.map((currencyCode) => (
+                                      <option
+                                        key={currencyCode}
+                                        value={currencyCode}
+                                      >
+                                        {currencyCode}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <a
+                                  className={styles.accountMenuItem}
+                                  href="/privacy-policy"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Privacy Policy
+                                </a>
+                                <a
+                                  className={styles.accountMenuItem}
+                                  href="/terms"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Terms of Service
+                                </a>
+                              </>
+                            ) : config.slug === "home-gardener-plant-giveaway" ? null : (
                               <>
                             {authSessionUser ? (
                               <>
@@ -7093,24 +7331,37 @@ async function handleNext() {
                   </div>
                 ) : null}
 
-              {shouldShowOverlayTitle &&
-                (resolvedOverlayTitle || resolvedOverlaySubtitle) ? (
+              {(shouldShowOverlayTitle &&
+                (resolvedOverlayTitle || resolvedOverlaySubtitle)) ||
+              shouldShowPlainWhatsappContact ? (
                   <div className={styles.overlayTitleStack}>
-                    {resolvedOverlayTitle ? (
+                    {shouldShowOverlayTitle && resolvedOverlayTitle ? (
                       <div className={styles.overlayTitleMain}>
                         {resolvedOverlayTitle}
                       </div>
                     ) : null}
 
-                    {resolvedOverlaySubtitle && !isPlantGiveawayDsl ? (
+                    {shouldShowOverlayTitle &&
+                    resolvedOverlaySubtitle &&
+                    !isPlantGiveawayDsl &&
+                    !isLittleOrchardShopDsl ? (
                       <div className={styles.overlayTitleSupport}>
                         {resolvedOverlaySubtitle}
                       </div>
                     ) : null}
 
-                    {isPlantGiveawayDsl ? (
+                    {isLittleOrchardShopDsl ? (
+                      <div className={styles.overlayShopBrand}>
+                        <span>Little Orchard Shop</span>
+                        <strong>Para-life Trees</strong>
+                      </div>
+                    ) : null}
+
+                    {shouldShowPlainWhatsappContact ? (
                       <a
-                        href="https://wa.me/18763727415?text=Does%20signing%20up%20make%20me%20automatically%20eligible%20to%20receive%20plants%3F"
+                        href={`https://wa.me/18763727415?text=${encodeURIComponent(
+                          plainWhatsappMessage
+                        )}`}
                         target="_blank"
                         rel="noreferrer"
                         className={styles.overlayWhatsappContact}
@@ -7477,6 +7728,9 @@ async function handleNext() {
                             checkoutReservationSecondsRemaining
                           }
                           inventoryNotices={cartInventoryNotices}
+                          showReservationCountdown={
+                            currentSlide.id !== "review-selected-items"
+                          }
                           mealMenu={sharedMealMenu}
                           ticketAssignments={currentTicketAssignments}
                           onAdjustMeals={(ticketCode) => {
@@ -7490,6 +7744,10 @@ async function handleNext() {
                           onChangeCurrency={setGuestShopCurrencyCode}
                           theme={theme}
                           answers={answers}
+                          isAdminUser={isAdminUser}
+                          onCatalogUpdated={() =>
+                            setDynamicVariablesRefreshKey((key) => key + 1)
+                          }
                           onSetQuantity={(productId, sizeOptionId, quantity) =>
                             updateCurrentShopCart((cart) =>
                               setShopLineQuantity(
@@ -7542,6 +7800,24 @@ async function handleNext() {
                               )
                             )
                           }
+                          onRequestNurseryStock={(productId, sizeOptionId) => {
+                            updateCurrentShopCart((cart) => {
+                              const key = makeShopLineKey(productId, sizeOptionId);
+
+                              return {
+                                ...cart,
+                                [key]: {
+                                  productId,
+                                  sizeOptionId,
+                                  selected: true,
+                                  quantity: 1,
+                                  purchaseModeId: "nursery-stock-request",
+                                  unitPriceOverride: 0,
+                                  unavailableReason: "nursery_stock_request",
+                                },
+                              };
+                            });
+                          }}
                           onRemoveLine={(productId, sizeOptionId) => {
                             updateCurrentShopCart((cart) =>
                               removeShopLine(cart, productId, sizeOptionId)
@@ -7560,12 +7836,17 @@ async function handleNext() {
                                   ? "invitation-shop"
                                   : currentSlide.id === "plant-order-review"
                                     ? "plant-starter-shop"
+                                    : currentSlide.id === "review-selected-items"
+                                      ? "plant-show-shop"
                                   : "music-merch-shop";
 
                               setAnswers((prev) => ({
                                 ...prev,
                                 shopFocusLineKey: targetKey,
-                                cartReturnTarget: "review-order",
+                                cartReturnTarget:
+                                  currentSlide.id === "review-selected-items"
+                                    ? "review-selected-items"
+                                    : "review-order",
                               }));
 
                               goToTarget(targetShop);
@@ -7654,12 +7935,20 @@ async function handleNext() {
                         <EmptyCartStoreChoices
                           theme={theme}
                           choices={
-                            currentSlide.id === "plant-order-review"
+                            currentSlide.id === "plant-order-review" ||
+                            currentSlide.id === "review-selected-items"
                               ? [
                                   {
-                                    label: "Visit Para-life Trees Shop",
+                                    label:
+                                      currentSlide.id === "review-selected-items"
+                                        ? "Return to Little Orchard Shop"
+                                        : "Visit Para-life Trees Shop",
                                     onClick: () =>
-                                      goToTarget("plant-starter-shop"),
+                                      goToTarget(
+                                        currentSlide.id === "review-selected-items"
+                                          ? "plant-show-shop"
+                                          : "plant-starter-shop"
+                                      ),
                                     variant: "primary",
                                   },
                                 ]
@@ -7686,18 +7975,32 @@ async function handleNext() {
                           )}
                           showDeliverySummary={sharedOrderNeedsFulfillment}
                           onAdjustDelivery={() => {
-                            setAnswer("cartReturnTarget", "review-order");
+                            setAnswer(
+                              "cartReturnTarget",
+                              currentSlide.id === "review-selected-items"
+                                ? "review-selected-items"
+                                : "review-order"
+                            );
                             goToTarget(
                               currentSlide.id === "plant-order-review"
                                 ? "receiving-plants"
+                                : currentSlide.id === "review-selected-items"
+                                  ? "pickup-information"
                                 : "delivery-options"
                             );
                           }}
                           onAdjustContact={() => {
-                            setAnswer("cartReturnTarget", "review-order");
+                            setAnswer(
+                              "cartReturnTarget",
+                              currentSlide.id === "review-selected-items"
+                                ? "review-selected-items"
+                                : "review-order"
+                            );
                             goToTarget(
                               currentSlide.id === "plant-order-review"
                                 ? "give-contact-info-video"
+                                : currentSlide.id === "review-selected-items"
+                                  ? "contact-details-adjust"
                                 : "contact-details"
                             );
                           }}
@@ -7747,6 +8050,9 @@ async function handleNext() {
                             checkoutReservationSecondsRemaining
                           }
                           inventoryNotices={cartInventoryNotices}
+                          showReservationCountdown={
+                            currentSlide.id !== "review-selected-items"
+                          }
                           mealMenu={sharedMealMenu}
                           ticketAssignments={currentTicketAssignments}
                           onAdjustMeals={(ticketCode) => {
@@ -7760,6 +8066,10 @@ async function handleNext() {
                           onChangeCurrency={setGuestShopCurrencyCode}
                           theme={theme}
                           answers={answers}
+                          isAdminUser={isAdminUser}
+                          onCatalogUpdated={() =>
+                            setDynamicVariablesRefreshKey((key) => key + 1)
+                          }
                           onSetQuantity={(productId, sizeOptionId, quantity) =>
                             updateCurrentShopCart((cart) =>
                               setShopLineQuantity(
@@ -7812,6 +8122,24 @@ async function handleNext() {
                               )
                             )
                           }
+                          onRequestNurseryStock={(productId, sizeOptionId) => {
+                            updateCurrentShopCart((cart) => {
+                              const key = makeShopLineKey(productId, sizeOptionId);
+
+                              return {
+                                ...cart,
+                                [key]: {
+                                  productId,
+                                  sizeOptionId,
+                                  selected: true,
+                                  quantity: 1,
+                                  purchaseModeId: "nursery-stock-request",
+                                  unitPriceOverride: 0,
+                                  unavailableReason: "nursery_stock_request",
+                                },
+                              };
+                            });
+                          }}
                           onRemoveLine={(productId, sizeOptionId) => {
                             updateCurrentShopCart((cart) =>
                               removeShopLine(cart, productId, sizeOptionId)
@@ -7829,12 +8157,17 @@ async function handleNext() {
                                 ? "invitation-shop"
                                 : currentSlide.id === "plant-order-review"
                                   ? "plant-starter-shop"
+                                  : currentSlide.id === "review-selected-items"
+                                    ? "plant-show-shop"
                                 : "music-merch-shop";
 
                             setAnswers((prev) => ({
                               ...prev,
                               shopFocusLineKey: targetKey,
-                              cartReturnTarget: "review-order",
+                              cartReturnTarget:
+                                currentSlide.id === "review-selected-items"
+                                  ? "review-selected-items"
+                                  : "review-order",
                             }));
 
                             goToTarget(targetShop);
@@ -8021,7 +8354,7 @@ async function handleNext() {
                           {getVisibleFormFields(currentSlide.fields, answers).map((field) => (
                             <FormFieldRenderer
                               key={field.name}
-                              field={field}
+                              field={getRuntimeFormField(field)}
                               theme={theme}
                               answers={answers}
                               variables={mergedVariables}
@@ -10342,6 +10675,42 @@ function ReviewSummaryRenderer({
         (item) => item.code === deliverySelection.countryCode
       )
     : undefined;
+  const isLittleOrchardOrder =
+    String(answers.plantShopFulfillmentMethod ?? "").trim().length > 0;
+  const littleOrchardFulfillment =
+    isLittleOrchardOrder ? getLittleOrchardFulfillmentOption(answers) : null;
+  const littleOrchardFulfillmentKey = getLittleOrchardFulfillmentKey(answers);
+  const littleOrchardDeliveryAddressLines =
+    littleOrchardFulfillmentKey === "paid_delivery"
+      ? getLittleOrchardDeliveryAddressLines(answers)
+      : [];
+  const contactPhone = String(
+    answers.whatsappNumber ?? answers.primaryPhone ?? answers.phone ?? ""
+  ).trim();
+  const contactMethodLabels: Record<string, string> = {
+    whatsapp: "WhatsApp",
+    email: "Email",
+    phone_call: "Phone call",
+    instagram: "Instagram DM",
+    tiktok: "TikTok message",
+    facebook: "Facebook Messenger",
+  };
+  const selectedContactMethod = String(
+    answers.plantShopContactMethod ?? ""
+  ).trim();
+  const socialContactLines = [
+    String(answers.instagramHandle ?? "").trim()
+      ? `Instagram: ${String(answers.instagramHandle ?? "").trim()}`
+      : "",
+    String(answers.tiktokHandle ?? "").trim()
+      ? `TikTok: ${String(answers.tiktokHandle ?? "").trim()}`
+      : "",
+    String(answers.facebookMessengerHandle ?? "").trim()
+      ? `Facebook Messenger: ${String(
+          answers.facebookMessengerHandle ?? ""
+        ).trim()}`
+      : "",
+  ].filter(Boolean);
 
   const ticketOwnerEmailNotices = Array.from(
     new Map(
@@ -10411,21 +10780,35 @@ function ReviewSummaryRenderer({
           </div>
 
           <div className={styles.reviewSummaryBody}>
-            {deliverySelection.method === "pickup_stable" && stablePickup ? (
+            {littleOrchardFulfillment ? (
+              <>
+                <div>{littleOrchardFulfillment.label}</div>
+                <div>{littleOrchardFulfillment.detail}</div>
+                {littleOrchardDeliveryAddressLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </>
+            ) : null}
+
+            {!littleOrchardFulfillment &&
+            deliverySelection.method === "pickup_stable" &&
+            stablePickup ? (
               <>
                 <div>{stablePickup.label}</div>
                 <div>{stablePickup.pickupWindowLabel}</div>
               </>
             ) : null}
 
-            {deliverySelection.method === "pickup_popup" && popupPickup ? (
+            {!littleOrchardFulfillment &&
+            deliverySelection.method === "pickup_popup" &&
+            popupPickup ? (
               <>
                 <div>{popupPickup.label}</div>
                 <div>{popupPickup.eventDateLabel}</div>
               </>
             ) : null}
 
-            {deliverySelection.method === "delivery" ? (
+            {!littleOrchardFulfillment && deliverySelection.method === "delivery" ? (
               <>
                 <div>Deliver to address</div>
                 <div>
@@ -10473,14 +10856,22 @@ function ReviewSummaryRenderer({
             <div>
               {String(answers.fullName ?? "").trim() || "No name added yet."}
             </div>
-            {String(answers.primaryPhone ?? answers.phone ?? "").trim() ? (
+            {selectedContactMethod ? (
               <div>
-                {String(answers.primaryPhone ?? answers.phone ?? "").trim()}
+                Preferred updates:{" "}
+                {contactMethodLabels[selectedContactMethod] ||
+                  selectedContactMethod}
               </div>
+            ) : null}
+            {contactPhone ? (
+              <div>{contactPhone}</div>
             ) : null}
             {String(answers.email ?? "").trim() ? (
               <div>{String(answers.email ?? "").trim()}</div>
             ) : null}
+            {socialContactLines.map((line) => (
+              <div key={line}>{line}</div>
+            ))}
           </div>
           {hasMultipleTicketOwnerEmailNotices ? (
             <div
@@ -10530,6 +10921,7 @@ function ShopSlideRenderer({
   selectedLines,
   reservationSecondsRemaining,
   inventoryNotices,
+  showReservationCountdown = true,
   mealMenu,
   ticketAssignments,
   onAdjustMeals,
@@ -10538,10 +10930,13 @@ function ShopSlideRenderer({
   onChangeCurrency,
   theme,
   answers,
+  isAdminUser = false,
+  onCatalogUpdated,
   onSetQuantity,
   onSetLineSelected,
   onSetPurchaseMode,
   onSetPurchaseRecipients,
+  onRequestNurseryStock,
   onRemoveLine,
   onAdjustLine,
 }: {
@@ -10554,6 +10949,7 @@ function ShopSlideRenderer({
   selectedLines: ShopResolvedCartLine[];
   reservationSecondsRemaining: number;
   inventoryNotices: string[];
+  showReservationCountdown?: boolean;
   mealMenu?: MealMenu | null;
   ticketAssignments?: TicketAssignments;
   onAdjustMeals?: (ticketCode: string) => void;
@@ -10562,6 +10958,8 @@ function ShopSlideRenderer({
   onChangeCurrency: (currencyCode: string) => void;
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
+  isAdminUser?: boolean;
+  onCatalogUpdated?: () => void;
   onSetQuantity: (
     productId: string,
     sizeOptionId: string,
@@ -10582,6 +10980,7 @@ function ShopSlideRenderer({
     sizeOptionId: string,
     recipients: ShopPurchaseRecipient[]
   ) => void;
+  onRequestNurseryStock?: (productId: string, sizeOptionId: string) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
   onAdjustLine?: (productId: string, sizeOptionId: string) => void;
 }) {
@@ -10596,7 +10995,24 @@ function ShopSlideRenderer({
   >({});
   const [purchaseRecipientPickerOpen, setPurchaseRecipientPickerOpen] =
     useState<Record<string, boolean>>({});
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
+  const [adminQuantityDrafts, setAdminQuantityDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [adminQuantityReasonDrafts, setAdminQuantityReasonDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [adminQuantityNoteDrafts, setAdminQuantityNoteDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [adminQuantityMessages, setAdminQuantityMessages] = useState<
+    Record<string, string>
+  >({});
   const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const shopSessionKeyRef = useRef("");
   const reviewCartLines = useMemo(
     () =>
       slideMode === "review"
@@ -10660,6 +11076,135 @@ function ShopSlideRenderer({
 
   const focusedLineKey =
     typeof answers.shopFocusLineKey === "string" ? answers.shopFocusLineKey : "";
+
+  const getShopSessionKey = useCallback(() => {
+    if (shopSessionKeyRef.current) {
+      return shopSessionKeyRef.current;
+    }
+
+    const storageKey = "little-orchard-shop-session-key";
+    const existing =
+      typeof window !== "undefined" ? window.sessionStorage.getItem(storageKey) : "";
+    const nextKey =
+      existing ||
+      `lo-shop-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(storageKey, nextKey);
+    }
+
+    shopSessionKeyRef.current = nextKey;
+    return nextKey;
+  }, []);
+
+  const recordProductInterest = useCallback(
+    (productId: string, sizeOptionId: string) => {
+      if (slideId !== "plant-show-shop") {
+        return;
+      }
+
+      void fetch("/api/plant-shop/interest", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          sizeOptionId,
+          sessionKey: getShopSessionKey(),
+        }),
+      }).catch(() => undefined);
+    },
+    [getShopSessionKey, slideId]
+  );
+
+  const setAdminEventQuantity = useCallback(
+    async (
+      productId: string,
+      sizeOptionId: string,
+      lineKey: string,
+      productTitle: string,
+      sizeLabel: string,
+      currentQuantity: number
+    ) => {
+      const remainingQuantity = Number(adminQuantityDrafts[lineKey]);
+      const reason = adminQuantityReasonDrafts[lineKey] ?? "";
+      const notes = adminQuantityNoteDrafts[lineKey] ?? "";
+
+      if (!Number.isFinite(remainingQuantity) || remainingQuantity < 0) {
+        setAdminQuantityMessages((current) => ({
+          ...current,
+          [lineKey]: "Enter a valid quantity.",
+        }));
+        return;
+      }
+
+      if (!reason) {
+        setAdminQuantityMessages((current) => ({
+          ...current,
+          [lineKey]: "Choose a reason for this stock update.",
+        }));
+        return;
+      }
+
+      const change = Math.floor(remainingQuantity) - Math.floor(currentQuantity);
+      const confirmed = window.confirm(
+        [
+          "Confirm stock update",
+          "",
+          `Product: ${productTitle}`,
+          `Variation: ${sizeLabel}`,
+          `Current quantity: ${Math.floor(currentQuantity)}`,
+          `New quantity: ${Math.floor(remainingQuantity)}`,
+          `Change: ${change > 0 ? "+" : ""}${change}`,
+        ].join("\n")
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      setAdminQuantityMessages((current) => ({
+        ...current,
+        [lineKey]: "Updating quantity...",
+      }));
+
+      const response = await fetch("/api/plant-shop/event-quantity", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          sizeOptionId,
+          remainingQuantity,
+          reason,
+          notes,
+          confirmed: true,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      setAdminQuantityMessages((current) => ({
+        ...current,
+        [lineKey]: response.ok
+          ? payload.message || "Quantity updated."
+          : payload.error || "Quantity could not be updated.",
+      }));
+
+      if (response.ok) {
+        onCatalogUpdated?.();
+      }
+    },
+    [
+      adminQuantityDrafts,
+      adminQuantityNoteDrafts,
+      adminQuantityReasonDrafts,
+      onCatalogUpdated,
+    ]
+  );
 
   useEffect(() => {
     if (slideMode !== "browse" || !focusedLineKey) {
@@ -10802,8 +11347,39 @@ function ShopSlideRenderer({
 
   return (
     <div className={styles.shopStack}>
+      {previewImage ? (
+        <div
+          className={styles.productImagePreviewOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewImage.alt}
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className={styles.productImagePreviewPanel}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.productImagePreviewClose}
+              aria-label="Close image preview"
+              onClick={() => setPreviewImage(null)}
+            >
+              x
+            </button>
+            <img src={previewImage.src} alt={previewImage.alt} />
+            <div className={styles.productImagePreviewCaption}>
+              {previewImage.alt}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {slideMode === "review" && reviewSection === "primary" && title ? (
-        <h2 className={styles.cartTitle}>{title}</h2>
+        <div className={styles.cartHeadingBlock}>
+          <h2 className={styles.cartTitle}>Cart</h2>
+          <p>Review the items currently in your cart.</p>
+        </div>
       ) : null}
 
       {reviewSection === "primary" ? (
@@ -10957,13 +11533,31 @@ function ShopSlideRenderer({
             ) : (
                 <div className={styles.productPanelHeader}>
                 <div className={styles.productHeaderMain}>
-                  <div className={styles.productImageWrap}>
+                  <div className={styles.productImageColumn}>
                     {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.title}
-                        className={styles.productImage}
-                      />
+                        <button
+                          type="button"
+                          className={styles.productImageButton}
+                          onClick={() => {
+                            for (const sizeOption of product.sizeOptions) {
+                              recordProductInterest(product.id, sizeOption.id);
+                            }
+
+                            setPreviewImage({
+                              src:
+                                product.previewImageUrl ||
+                                product.imageUrl ||
+                                "",
+                              alt: product.title,
+                            });
+                          }}
+                        >
+                        <img
+                          src={product.imageUrl}
+                          alt={product.title}
+                          className={styles.productImage}
+                        />
+                      </button>
                     ) : (
                       <div
                         className={styles.productImageFallback}
@@ -10976,6 +11570,12 @@ function ShopSlideRenderer({
                     <div className={styles.productTitleRow}>
                       <div className={styles.productTitleGroup}>
                         <h3 className={styles.productTitle}>{product.title}</h3>
+                        {product.imageUrl ? (
+                          <div className={styles.productImageHint}>
+                            <span aria-hidden="true">&lt;</span> Tap image to see
+                            it bigger.
+                          </div>
+                        ) : null}
 
                       </div>
 
@@ -11031,6 +11631,8 @@ function ShopSlideRenderer({
               .map((sizeOption) => {
                 const lineKey = `${product.id}::${sizeOption.id}`;
                 const cartLine = cart[lineKey];
+                const isNurseryStockRequest =
+                  cartLine?.purchaseModeId === "nursery-stock-request";
                 const resolvedLine =
                   slideMode === "review"
                     ? displayReviewLines.find(
@@ -11040,11 +11642,28 @@ function ShopSlideRenderer({
                       )
                     : undefined;
 
+                const rawSizeOptionMaxQuantity = Number(
+                  sizeOption.metadata?.eventQuantityAvailable
+                );
+                const sizeOptionMaxQuantity =
+                  Number.isFinite(rawSizeOptionMaxQuantity) &&
+                  rawSizeOptionMaxQuantity >= 0
+                    ? Math.floor(rawSizeOptionMaxQuantity)
+                    : undefined;
+                const sizeOptionEventDateHasPassed =
+                  sizeOption.metadata?.eventDateHasPassed === true;
+                const sizeOptionSoldOut = sizeOptionMaxQuantity === 0;
                 const isDraftActive = Boolean(cartLine);
                 const selected =
-                  slideMode === "review" ? true : cartLine?.selected === true;
+                  slideMode === "review"
+                    ? true
+                    : cartLine?.selected === true &&
+                      (!sizeOptionSoldOut || isNurseryStockRequest);
                 const isConfigurable =
-                  slideMode === "review" ? true : isDraftActive;
+                  slideMode === "review"
+                    ? true
+                    : isDraftActive &&
+                      (!sizeOptionSoldOut || isNurseryStockRequest);
                 const quantity = Math.max(1, cartLine?.quantity ?? 1);
                 const purchaseRecipients =
                   cartLine?.purchaseRecipients ??
@@ -11068,7 +11687,9 @@ function ShopSlideRenderer({
                   (!latestRecipient ||
                     isPurchaseRecipientComplete(latestRecipient));
                 const productMinQuantity = product.minOrderQuantity ?? 1;
-                const productMaxQuantity = product.maxOrderQuantity;
+                const productMaxQuantity = isNurseryStockRequest
+                  ? undefined
+                  : product.maxOrderQuantity;
                 const productMaxAccountHolderQuantity =
                   product.maxAccountHolderQuantity;
                 const recipientMinQuantity = product.minRecipientQuantity ?? 1;
@@ -11115,7 +11736,7 @@ function ShopSlideRenderer({
                   productMaxQuantity !== undefined
                     ? Math.max(0, productMaxQuantity - quantity)
                     : undefined;
-                const mainQuantityMax =
+                const baseMainQuantityMax =
                   productMaxAccountHolderQuantity !== undefined
                     ? Math.min(
                         productMaxQuantity ?? Number.POSITIVE_INFINITY,
@@ -11123,6 +11744,13 @@ function ShopSlideRenderer({
                           productMaxAccountHolderQuantity
                       )
                     : productMaxQuantity;
+                const mainQuantityMax =
+                  !isNurseryStockRequest && sizeOptionMaxQuantity !== undefined
+                    ? Math.min(
+                        baseMainQuantityMax ?? Number.POSITIVE_INFINITY,
+                        sizeOptionMaxQuantity
+                      )
+                    : baseMainQuantityMax;
                 const activePurchaseMode =
                   sizeOption.purchaseModes?.find(
                     (mode) => mode.id === cartLine?.purchaseModeId
@@ -11138,7 +11766,10 @@ function ShopSlideRenderer({
                     : [];
 
                 const unitPrice =
-                  slideMode === "review"
+                  typeof cartLine?.unitPriceOverride === "number" &&
+                  Number.isFinite(cartLine.unitPriceOverride)
+                    ? cartLine.unitPriceOverride
+                    : slideMode === "review"
                     ? resolvedLine?.unitPrice ??
                       sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0)
                     : sizeOption.price + (activePurchaseMode?.priceAdjustment ?? 0);
@@ -11226,9 +11857,13 @@ function ShopSlideRenderer({
                             )
                           }
                         />
-                        <CartItemCountdown
-                          secondsRemaining={reservationSecondsRemaining}
-                        />
+                        {showReservationCountdown ? (
+                          <CartItemCountdown
+                            secondsRemaining={reservationSecondsRemaining}
+                          />
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
                         <button
                           type="button"
                           className={styles.cartIconButton}
@@ -11328,9 +11963,13 @@ function ShopSlideRenderer({
                             )
                           }
                         />
-                        <CartItemCountdown
-                          secondsRemaining={reservationSecondsRemaining}
-                        />
+                        {showReservationCountdown ? (
+                          <CartItemCountdown
+                            secondsRemaining={reservationSecondsRemaining}
+                          />
+                        ) : (
+                          <span aria-hidden="true" />
+                        )}
                         <button
                           type="button"
                           className={styles.cartIconButton}
@@ -11376,6 +12015,7 @@ function ShopSlideRenderer({
                       <input
                         type="checkbox"
                         checked={selected}
+                        disabled={sizeOptionSoldOut}
                         onChange={(event) => {
                           const nextActive = event.target.checked;
 
@@ -11394,6 +12034,7 @@ function ShopSlideRenderer({
                           }
 
                           if (nextActive) {
+                            recordProductInterest(product.id, sizeOption.id);
                             onSetLineSelected(product.id, sizeOption.id, true);
                           } else {
                             onRemoveLine(product.id, sizeOption.id);
@@ -11406,6 +12047,121 @@ function ShopSlideRenderer({
                         {sizeOption.description ? (
                           <ShopSizeDescription text={sizeOption.description} />
                         ) : null}
+
+                        {sizeOptionSoldOut ? (
+                          <div className={styles.nurseryStockRequest}>
+                            <div className={styles.soldOutLine}>
+                              {sizeOptionEventDateHasPassed
+                                ? "Event date has passed."
+                                : "Sold out for event pickup."}
+                            </div>
+                            <p>
+                              You can still make your order and it can be
+                              delivered to you within the week, if this item is
+                              available in our nursery stock.
+                            </p>
+                            <p>
+                              Choose the quantity you would like from nursery
+                              stock. Details will be made known to you when our
+                              representatives reach out.
+                            </p>
+                            {onRequestNurseryStock ? (
+                              <button
+                                type="button"
+                                className={styles.secondaryButton}
+                                onClick={() => {
+                                  recordProductInterest(product.id, sizeOption.id);
+                                  onRequestNurseryStock(
+                                    product.id,
+                                    sizeOption.id
+                                  );
+                                }}
+                                style={{
+                                  borderColor: theme.colors.border,
+                                  color: theme.colors.text,
+                                }}
+                              >
+                                Order from nursery stock
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {isAdminUser &&
+                        slideId === "plant-show-shop" &&
+                        slideMode === "browse" ? (
+                          <div className={styles.adminEventQuantityPanel}>
+                            <label>
+                              <span>Admin: event quantity remaining</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={
+                                  adminQuantityDrafts[lineKey] ??
+                                  String(sizeOptionMaxQuantity ?? 0)
+                                }
+                                onChange={(event) =>
+                                  setAdminQuantityDrafts((current) => ({
+                                    ...current,
+                                    [lineKey]: event.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label>
+                              <span>Reason for stock update</span>
+                              <select
+                                value={adminQuantityReasonDrafts[lineKey] ?? ""}
+                                onChange={(event) =>
+                                  setAdminQuantityReasonDrafts((current) => ({
+                                    ...current,
+                                    [lineKey]: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="">Choose reason</option>
+                                <option value="test">Test adjustment</option>
+                                <option value="technical_fumble">
+                                  Correction after a technical fumble
+                                </option>
+                                <option value="replenishment">
+                                  Actual stock replenishment
+                                </option>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Additional notes</span>
+                              <textarea
+                                rows={2}
+                                value={adminQuantityNoteDrafts[lineKey] ?? ""}
+                                onChange={(event) =>
+                                  setAdminQuantityNoteDrafts((current) => ({
+                                    ...current,
+                                    [lineKey]: event.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdminEventQuantity(
+                                  product.id,
+                                  sizeOption.id,
+                                  lineKey,
+                                  product.title,
+                                  sizeOption.label,
+                                  sizeOptionMaxQuantity ?? 0
+                                )
+                              }
+                            >
+                              Update quantity
+                            </button>
+                            {adminQuantityMessages[lineKey] ? (
+                              <div>{adminQuantityMessages[lineKey]}</div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                     )}
@@ -11413,21 +12169,39 @@ function ShopSlideRenderer({
                     {slideMode === "browse" ? (
                       <div className={styles.sizePurchaseBand}>
                         <div className={styles.sizePrice}>
-                          {formatCurrency(unitPrice, catalog.currencyCode)}
+                          {formatCurrency(sizeOption.price, catalog.currencyCode)}
+                          {isNurseryStockRequest ? (
+                            <span className={styles.nurseryStockPriceNote}>
+                              Final availability and details confirmed by
+                              representative.
+                            </span>
+                          ) : null}
                         </div>
-                        <QuantityControl
-                          quantity={quantity}
-                          minQuantity={minimumQuantity}
-                          maxQuantity={mainQuantityMax}
-                          disabled={!isConfigurable}
-                          onDecrease={() =>
-                            onSetQuantity(product.id, sizeOption.id, quantity - 1)
-                          }
-                          onIncrease={() =>
-                            onSetQuantity(product.id, sizeOption.id, quantity + 1)
-                          }
-                          theme={theme}
-                        />
+                        {!sizeOptionSoldOut || isNurseryStockRequest ? (
+                          <QuantityControl
+                            quantity={quantity}
+                            minQuantity={minimumQuantity}
+                            maxQuantity={mainQuantityMax}
+                            disabled={!isConfigurable}
+                            onDecrease={() => {
+                              recordProductInterest(product.id, sizeOption.id);
+                              onSetQuantity(
+                                product.id,
+                                sizeOption.id,
+                                quantity - 1
+                              );
+                            }}
+                            onIncrease={() => {
+                              recordProductInterest(product.id, sizeOption.id);
+                              onSetQuantity(
+                                product.id,
+                                sizeOption.id,
+                                quantity + 1
+                              );
+                            }}
+                            theme={theme}
+                          />
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -12190,6 +12964,21 @@ function renderSections(
           }
 
           return null;
+        }
+
+        const imageMatch = section.text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+
+        if (imageMatch) {
+          const [, alt, src] = imageMatch;
+
+          return (
+            <img
+              key={`image-${index}`}
+              src={src}
+              alt={alt}
+              className={styles.storyInlineImage}
+            />
+          );
         }
 
         return (

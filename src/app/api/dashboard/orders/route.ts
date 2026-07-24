@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
+import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 
 const fulfillmentStatuses = new Set([
   "PENDING",
@@ -24,6 +26,62 @@ function normalizeStatus(value: unknown) {
 
 function serializeMoney(value: unknown) {
   return Number(value ?? 0);
+}
+
+function serializeActivity(activity: any) {
+  return {
+    id: activity.id,
+    stageKey: activity.stageKey,
+    stageLabel: activity.stageLabel,
+    updateType: activity.updateType,
+    source: activity.source,
+    staffUserId: activity.staffUserId,
+    staffUserName: activity.staffUserName,
+    completedAt: activity.completedAt,
+    notes: activity.notes,
+    photos: activity.photos,
+    documents: activity.documents,
+    metadata: activity.metadata,
+    createdAt: activity.createdAt,
+  };
+}
+
+function activityTimestampBucket(activity: any) {
+  const date = activity.completedAt || activity.createdAt;
+  const timestamp = date ? new Date(date).getTime() : 0;
+
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "unknown";
+
+  return String(Math.floor(timestamp / 2000));
+}
+
+function isOrderAwareActivity(activity: any) {
+  const metadata = readSnapshotObject(activity.metadata);
+
+  return Boolean(
+    cleanText(metadata.orderActivityKey) ||
+      metadata.customerVisible !== undefined ||
+      cleanText(metadata.customerTitle)
+  );
+}
+
+function serializeActivities(value: unknown) {
+  const activities = readSnapshotArray(value);
+  const byStageMoment = new Map<string, any>();
+
+  for (const activity of activities) {
+    const key = [
+      cleanText(activity.stageKey) || cleanText(activity.stageLabel),
+      activityTimestampBucket(activity),
+    ].join("|");
+    const existing = byStageMoment.get(key);
+
+    if (!existing || isOrderAwareActivity(activity)) {
+      byStageMoment.set(key, activity);
+    }
+  }
+
+  return Array.from(byStageMoment.values()).map(serializeActivity);
 }
 
 function serializeFulfillmentItem(item: any) {
@@ -70,21 +128,7 @@ function serializeFulfillmentItem(item: any) {
     currentStageLabel: item.currentStageLabel,
     estimatedDeliveryAt: item.estimatedDeliveryAt,
     estimatedRemainingSeconds: item.estimatedRemainingSeconds,
-    activities: readSnapshotArray(item.activities).map((activity: any) => ({
-      id: activity.id,
-      stageKey: activity.stageKey,
-      stageLabel: activity.stageLabel,
-      updateType: activity.updateType,
-      source: activity.source,
-      staffUserId: activity.staffUserId,
-      staffUserName: activity.staffUserName,
-      completedAt: activity.completedAt,
-      notes: activity.notes,
-      photos: activity.photos,
-      documents: activity.documents,
-      metadata: activity.metadata,
-      createdAt: activity.createdAt,
-    })),
+    activities: serializeActivities(item.activities),
     metadata: item.metadata ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -137,6 +181,27 @@ function getBaseUrl(request: Request) {
   const origin = request.headers.get("origin");
 
   return origin ? origin.replace(/\/+$/, "") : "http://localhost:3000";
+}
+
+function buildHtmlFromText(text: string) {
+  return String(text)
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map(
+      (paragraph) =>
+        `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`
+    )
+    .join("");
+}
+
+function escapeHtml(value: string) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function getOrderDetailsForMailingRequest(item: any) {
@@ -503,6 +568,8 @@ async function updateFulfillmentItemRaw({
         "status" = ${fulfillmentStatus},
         "fulfillmentNotes" = ${fulfillmentNotes},
         "trackingReference" = ${trackingReference},
+        "currentStageKey" = ${fulfillmentStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-")},
+        "currentStageLabel" = ${fulfillmentStatus},
         "fulfilledAt" = ${fulfilledAt},
         "updatedAt" = NOW()
       WHERE "id" = ${id}
@@ -659,7 +726,10 @@ export async function POST(request: Request) {
     const action = cleanText(body?.action);
     const id = cleanText(body?.id);
 
-    if (action !== "request-mailing-address-update") {
+    if (
+      action !== "request-mailing-address-update" &&
+      action !== "send-little-orchard-customer-email"
+    ) {
       return NextResponse.json(
         { ok: false, error: "Unknown order action." },
         { status: 400 }
@@ -685,8 +755,112 @@ export async function POST(request: Request) {
 
     if (!item) {
       return NextResponse.json(
-        { ok: false, error: "Physical order item was not found." },
+        { ok: false, error: "Order item was not found." },
         { status: 404 }
+      );
+    }
+
+    if (action === "send-little-orchard-customer-email") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Customer email sending is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const metadata = readSnapshotObject(item.metadata);
+      const recipientEmail = cleanText(
+        metadata.customerEmail || item.recipientEmail
+      );
+      const subject =
+        cleanText(body?.subject) ||
+        `Little Orchard order ${item.orderCode || ""}`.trim();
+      const text = cleanText(body?.message);
+
+      if (!recipientEmail) {
+        return NextResponse.json(
+          { ok: false, error: "This order does not have a customer email." },
+          { status: 400 }
+        );
+      }
+
+      if (!text) {
+        return NextResponse.json(
+          { ok: false, error: "Email message is required." },
+          { status: 400 }
+        );
+      }
+
+      const deliveryResult = await sendEmailMessage({
+        to: recipientEmail,
+        subject,
+        text,
+        html: buildHtmlFromText(text),
+        fromName: "Little Orchard Shop",
+        purpose: "little-orchard-shop-dashboard-customer-email",
+      });
+
+      const nextMetadata = {
+        ...metadata,
+        lastCustomerEmailSentAt: new Date().toISOString(),
+        lastCustomerEmailSubject: subject,
+        lastCustomerEmailResult: deliveryResult,
+      };
+      const updatedItem = await delegate.update({
+        where: { id },
+        data: {
+          metadata: nextMetadata as Prisma.InputJsonObject,
+        },
+        include: {
+          invitationOrder: true,
+          selectedCourier: true,
+          activities: {
+            orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+            take: 20,
+          },
+        },
+      });
+
+      if ((prisma as any).orderFulfillmentActivity?.create) {
+        await (prisma as any).orderFulfillmentActivity.create({
+          data: {
+            fulfillmentItemId: id,
+            stageKey: "customer-email-sent",
+            stageLabel: "Customer email sent",
+            updateType: "manual",
+            source: "orders-dashboard",
+            staffUserId: guard.session?.user?.id || null,
+            staffUserName:
+              guard.session?.user?.name ||
+              guard.session?.user?.email ||
+              "Admin",
+            completedAt: new Date(),
+            notes: `Customer email sent to ${recipientEmail}.`,
+            metadata: {
+              customerVisible: false,
+              orderCode: item.orderCode,
+              subject,
+              deliveryResult,
+            },
+          },
+        });
+      }
+
+      const emailOk = deliveryResult?.ok !== false;
+
+      return NextResponse.json(
+        {
+          ok: emailOk,
+          item: serializeFulfillmentItem(updatedItem),
+          deliveryResult,
+          message: emailOk
+            ? "Customer email sent through the website email sender."
+            : "Email provider reported a sending problem.",
+        },
+        { status: emailOk ? 200 : 502 }
       );
     }
 
@@ -894,6 +1068,10 @@ export async function PATCH(request: Request) {
             status: fulfillmentStatus,
             fulfillmentNotes,
             trackingReference,
+            currentStageKey: fulfillmentStatus
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-"),
+            currentStageLabel: fulfillmentStatus,
             fulfilledAt,
           },
           include: {
@@ -920,24 +1098,54 @@ export async function PATCH(request: Request) {
       existingItem.fulfillmentStatus !== fulfillmentStatus &&
       (prisma as any).orderFulfillmentActivity?.create
     ) {
-      await (prisma as any).orderFulfillmentActivity.create({
-        data: {
+      if (
+        existingItem.sourceType === "little-orchard-shop" &&
+        existingItem.orderCode
+      ) {
+        const stageKey = fulfillmentStatus
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-");
+
+        await createLittleOrchardOrderActivity(prisma as any, {
           fulfillmentItemId: id,
-          stageKey:
-            item.currentStageKey ||
-            fulfillmentStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          stageLabel: item.currentStageLabel || fulfillmentStatus,
+          orderCode: existingItem.orderCode,
+          stageKey,
+          stageLabel: fulfillmentStatus,
           updateType: "manual",
           source: "orders-dashboard",
-          completedAt: now,
+          staffUserId: guard.session?.user?.id || null,
+          staffUserName:
+            guard.session?.user?.name ||
+            guard.session?.user?.email ||
+            "Admin",
+          previousStatus: existingItem.fulfillmentStatus,
+          nextStatus: fulfillmentStatus,
           notes: fulfillmentNotes,
           metadata: {
-            previousStatus: existingItem.fulfillmentStatus,
-            nextStatus: fulfillmentStatus,
+            orderActivityKey: `${existingItem.orderCode}:${stageKey}:${now.getTime()}`,
             trackingReference,
           },
-        },
-      });
+        });
+      } else {
+        await (prisma as any).orderFulfillmentActivity.create({
+          data: {
+            fulfillmentItemId: id,
+            stageKey:
+              item.currentStageKey ||
+              fulfillmentStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+            stageLabel: item.currentStageLabel || fulfillmentStatus,
+            updateType: "manual",
+            source: "orders-dashboard",
+            completedAt: now,
+            notes: fulfillmentNotes,
+            metadata: {
+              previousStatus: existingItem.fulfillmentStatus,
+              nextStatus: fulfillmentStatus,
+              trackingReference,
+            },
+          },
+        });
+      }
     }
 
     const refreshedItem = delegate?.findUnique

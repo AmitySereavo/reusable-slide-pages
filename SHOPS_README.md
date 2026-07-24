@@ -76,6 +76,33 @@ into database-backed fulfillment records. This gives admin a work queue for
 digital delivery, physical pickup/delivery, gift cards, music, merchandise, and
 ticket add-ons without treating those lines as event tickets.
 
+The first Para-life Trees event shop flow is available as:
+
+```txt
+/shop
+/questionnaire/little-orchard-shop
+```
+
+It uses `src/config/shops/littleOrchardShop.ts` for the configurable event
+catalog and `src/config/questionnaires/littleOrchardShopDsl.txt` for the guided
+customer flow. Orders are recorded through `POST /api/plant-shop/orders` and
+written into the existing Orders dashboard as physical fulfillment items with
+the shop source `little_orchard_shop`.
+
+Little Orchard plant products use parent products with size-option variations
+when plants differ only by pot size or plant size. For example, Scallion is one
+product with four-inch and six-inch options, and Lychee Tree is one product with
+small and large options. Each option keeps its own SKU, price, event quantity,
+bundle eligibility, and nursery-availability metadata.
+
+Little Orchard order submission records an unpaid order first. It does not mark
+inventory as sold. The WhatsApp message includes a secure cashier link; public
+visitors who open that link see only a safe cashier-access notice, while
+authenticated admins are returned to the filtered Orders dashboard. Cashiers can
+use the Little Orchard payment panel to confirm payment. Payment confirmation
+checks already confirmed Little Orchard quantities, marks inventory as applied
+once, and records a fulfillment activity entry.
+
 ## Admins
 
 Admins should eventually manage shop products from a dashboard instead of
@@ -136,6 +163,8 @@ Important files:
 - `src/types/questionnaire.ts`
 - `src/lib/questionnaire/shop.ts`
 - `src/components/questionnaire/QuestionnaireShell.tsx`
+- `src/config/shops/littleOrchardShop.ts`
+- `src/config/questionnaires/littleOrchardShopDsl.txt`
 - `src/lib/shop/getReusableShopCatalog.ts`
 - `src/config/questionnaires/invitationDsl.txt`
 - `src/config/meals/mealMenus.ts`

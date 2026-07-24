@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 const catalogOptions = [
+  { id: "littleOrchardShop", label: "Little Orchard Shop" },
   { id: "musicMerch", label: "Music + Merch" },
   { id: "ticketAddOns", label: "Ticket Add-ons" },
   { id: "invitationTickets", label: "Invitation Tickets" },
@@ -39,6 +40,7 @@ const emptyForm = {
 export default function InventoryManager() {
   const [catalogKey, setCatalogKey] = useState("musicMerch");
   const [products, setProducts] = useState([]);
+  const [stockAdjustments, setStockAdjustments] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -68,6 +70,7 @@ export default function InventoryManager() {
     }
 
     setProducts(payload.products || []);
+    setStockAdjustments(payload.stockAdjustments || []);
     setStatus("");
   }
 
@@ -354,6 +357,40 @@ export default function InventoryManager() {
           </div>
         </form>
       </div>
+
+      {catalogKey === "littleOrchardShop" ? (
+        <div style={styles.panel}>
+          <h3 style={styles.h3}>Stock adjustment history</h3>
+          <p style={styles.copy}>
+            Manual event quantity changes are recorded here with their reason.
+          </p>
+          {stockAdjustments.length ? (
+            <div style={styles.adjustmentList}>
+              {stockAdjustments.map((adjustment) => (
+                <div key={adjustment.id} style={styles.adjustmentItem}>
+                  <strong>
+                    {adjustment.productTitle} - {adjustment.variationLabel}
+                  </strong>
+                  <span>
+                    Previous: {adjustment.previousQuantity} | New:{" "}
+                    {adjustment.newQuantity} | Change:{" "}
+                    {Number(adjustment.quantityDifference) > 0 ? "+" : ""}
+                    {adjustment.quantityDifference}
+                  </span>
+                  <span>Reason: {adjustment.reasonLabel}</span>
+                  <span>
+                    Updated by: {adjustment.adjustedByName || "Admin"} |{" "}
+                    {formatDate(adjustment.createdAt)}
+                  </span>
+                  {adjustment.notes ? <span>Notes: {adjustment.notes}</span> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={styles.empty}>No stock adjustments recorded yet.</p>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -370,6 +407,15 @@ function Field({ label, value, onChange, type = "text" }) {
       />
     </label>
   );
+}
+
+function formatDate(value) {
+  if (!value) return "Not recorded";
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 const styles = {
@@ -434,6 +480,19 @@ const styles = {
   productMeta: {
     fontSize: "12px",
     opacity: 0.68,
+  },
+  adjustmentList: {
+    display: "grid",
+    gap: "8px",
+  },
+  adjustmentItem: {
+    background: "#ffffff",
+    border: "1px solid rgba(32, 28, 29, 0.12)",
+    borderRadius: "6px",
+    display: "grid",
+    gap: "4px",
+    padding: "10px",
+    overflowWrap: "anywhere",
   },
   empty: {
     margin: 0,

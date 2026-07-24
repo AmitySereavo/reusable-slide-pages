@@ -314,6 +314,16 @@ export function normalizeShopCart(input: unknown): ShopCart {
       ticketAddOnAttendeeName,
       ticketAddOnTicketCode,
       purchaseRecipients,
+      unitPriceOverride:
+        typeof raw.unitPriceOverride === "number" &&
+        Number.isFinite(raw.unitPriceOverride)
+          ? raw.unitPriceOverride
+          : undefined,
+      compareAtUnitPrice:
+        typeof raw.compareAtUnitPrice === "number" &&
+        Number.isFinite(raw.compareAtUnitPrice)
+          ? raw.compareAtUnitPrice
+          : undefined,
       lockedQuantity: raw.lockedQuantity === true,
       lockedPurchaseMode: raw.lockedPurchaseMode === true,
     };
@@ -333,7 +343,24 @@ export function toggleShopLineSelected(
   const current = cart[key];
   const sizeOption = findShopSizeOption(catalog, productId, sizeOptionId);
   const defaultPurchaseModeId = getDefaultPurchaseModeId(sizeOption);
-  const nextQuantity = normalizePositiveInteger(current?.quantity, 1);
+  const quantityRules = getProductQuantityRules(catalog, productId);
+  const isNurseryStockRequest =
+    current?.purchaseModeId === "nursery-stock-request";
+  const sizeOptionMaxQuantity = isNurseryStockRequest
+    ? undefined
+    : getSizeOptionMaxQuantity(catalog, productId, sizeOptionId);
+  const maximumQuantity = isNurseryStockRequest
+    ? undefined
+    : getMaximumQuantityForLine(
+        quantityRules,
+        current?.purchaseRecipients,
+        sizeOptionMaxQuantity
+      );
+  const nextQuantity = clampQuantity(
+    normalizePositiveInteger(current?.quantity, 1),
+    quantityRules.minOrderQuantity,
+    maximumQuantity
+  );
   const nextLine: ShopCartLine = {
     productId,
     sizeOptionId,
@@ -344,6 +371,8 @@ export function toggleShopLineSelected(
     purchaseModeId: current?.purchaseModeId ?? defaultPurchaseModeId,
     ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
     ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
+    unitPriceOverride: current?.unitPriceOverride,
+    compareAtUnitPrice: current?.compareAtUnitPrice,
     purchaseRecipients: current?.purchaseRecipients,
   };
 
@@ -363,14 +392,26 @@ export function setShopLineQuantity(
   const key = makeShopLineKey(productId, sizeOptionId);
   const current = cart[key];
   const quantityRules = getProductQuantityRules(catalog, productId);
+  const isNurseryStockRequest =
+    current?.purchaseModeId === "nursery-stock-request";
+  const sizeOptionMaxQuantity = isNurseryStockRequest
+    ? undefined
+    : getSizeOptionMaxQuantity(catalog, productId, sizeOptionId);
   const minQuantity = Math.max(
     quantityRules.minOrderQuantity,
     getMinimumQuantityForPurchaseRecipients(current?.purchaseRecipients)
   );
+  const maximumQuantity = isNurseryStockRequest
+    ? undefined
+    : getMaximumQuantityForLine(
+        quantityRules,
+        current?.purchaseRecipients,
+        sizeOptionMaxQuantity
+      );
   const nextQuantity = clampQuantity(
     normalizePositiveInteger(quantity, minQuantity),
     minQuantity,
-    getMaximumQuantityForLine(quantityRules, current?.purchaseRecipients)
+    maximumQuantity
   );
   return syncBundledCartItemsForLine(catalog, {
     ...cart,
@@ -384,6 +425,8 @@ export function setShopLineQuantity(
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
       ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
       ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
+      unitPriceOverride: current?.unitPriceOverride,
+      compareAtUnitPrice: current?.compareAtUnitPrice,
       purchaseRecipients: current?.purchaseRecipients,
     },
   }, key);
@@ -411,6 +454,8 @@ export function setShopLinePurchaseMode(
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
       ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
       ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
+      unitPriceOverride: current?.unitPriceOverride,
+      compareAtUnitPrice: current?.compareAtUnitPrice,
       purchaseRecipients: current?.purchaseRecipients,
     },
   }, key);
@@ -426,6 +471,11 @@ export function setShopLinePurchaseRecipients(
   const key = makeShopLineKey(productId, sizeOptionId);
   const current = cart[key];
   const quantityRules = getProductQuantityRules(catalog, productId);
+  const isNurseryStockRequest =
+    current?.purchaseModeId === "nursery-stock-request";
+  const sizeOptionMaxQuantity = isNurseryStockRequest
+    ? undefined
+    : getSizeOptionMaxQuantity(catalog, productId, sizeOptionId);
   const normalizedRecipients = purchaseRecipients.map((recipient) => ({
     ...recipient,
     quantity: clampQuantity(
@@ -446,10 +496,17 @@ export function setShopLinePurchaseRecipients(
   );
   const recipientQuantityDelta =
     nextReservedRecipientQuantity - previousReservedRecipientQuantity;
+  const maximumQuantity = isNurseryStockRequest
+    ? undefined
+    : getMaximumQuantityForLine(
+        quantityRules,
+        normalizedRecipients,
+        sizeOptionMaxQuantity
+      );
   const nextQuantity = clampQuantity(
     currentQuantity + recipientQuantityDelta,
     minQuantity,
-    getMaximumQuantityForLine(quantityRules, normalizedRecipients)
+    maximumQuantity
   );
 
   return syncBundledCartItemsForLine(catalog, {
@@ -464,6 +521,8 @@ export function setShopLinePurchaseRecipients(
       bundledByPurchaseModeId: current?.bundledByPurchaseModeId,
       ticketAddOnAttendeeName: current?.ticketAddOnAttendeeName,
       ticketAddOnTicketCode: current?.ticketAddOnTicketCode,
+      unitPriceOverride: current?.unitPriceOverride,
+      compareAtUnitPrice: current?.compareAtUnitPrice,
       lockedQuantity: current?.lockedQuantity,
       lockedPurchaseMode: current?.lockedPurchaseMode,
       purchaseRecipients: normalizedRecipients,
@@ -643,9 +702,26 @@ function getProductQuantityRules(
   };
 }
 
+function getSizeOptionMaxQuantity(
+  catalog: ShopCatalog | null,
+  productId: string,
+  sizeOptionId: string
+) {
+  const rawValue = findShopSizeOption(catalog, productId, sizeOptionId)?.metadata
+    ?.eventQuantityAvailable;
+  const parsed = Number(rawValue);
+
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.floor(parsed)
+    : Number.isFinite(parsed) && parsed === 0
+      ? 0
+      : undefined;
+}
+
 function getMaximumQuantityForLine(
   quantityRules: ReturnType<typeof getProductQuantityRules>,
-  purchaseRecipients: ShopPurchaseRecipient[] | undefined
+  purchaseRecipients: ShopPurchaseRecipient[] | undefined,
+  sizeOptionMaxQuantity?: number
 ) {
   const recipientQuantity =
     countValidShopPurchaseRecipients(purchaseRecipients);
@@ -655,15 +731,16 @@ function getMaximumQuantityForLine(
       ? recipientQuantity + accountHolderMax
       : undefined;
 
-  if (
-    typeof quantityRules.maxOrderQuantity === "number" &&
-    Number.isFinite(quantityRules.maxOrderQuantity) &&
-    typeof maxWithAccountHolderLimit === "number"
-  ) {
-    return Math.min(quantityRules.maxOrderQuantity, maxWithAccountHolderLimit);
-  }
+  const possibleMaximums = [
+    quantityRules.maxOrderQuantity,
+    maxWithAccountHolderLimit,
+    sizeOptionMaxQuantity,
+  ].filter(
+    (value): value is number =>
+      typeof value === "number" && Number.isFinite(value)
+  );
 
-  return maxWithAccountHolderLimit ?? quantityRules.maxOrderQuantity;
+  return possibleMaximums.length ? Math.min(...possibleMaximums) : undefined;
 }
 
 function clampQuantity(value: number, min: number, max?: number) {
@@ -837,9 +914,14 @@ function resolveShopLine(
   const fulfillmentType = getProductFulfillmentType(product);
   const mealSelection =
     purchaseMode?.mealSelection ?? sizeOption.mealSelection;
-  const unitPrice =
+  const baseUnitPrice =
     sizeOption.price +
     (fulfillmentType === "ticket" ? 0 : purchaseMode?.priceAdjustment ?? 0);
+  const unitPrice =
+    typeof line.unitPriceOverride === "number" &&
+    Number.isFinite(line.unitPriceOverride)
+      ? line.unitPriceOverride
+      : baseUnitPrice;
   const quantity = normalizePositiveInteger(line.quantity, 1);
   const unitWeight =
     typeof sizeOption.weight === "number" && Number.isFinite(sizeOption.weight)
@@ -862,10 +944,15 @@ function resolveShopLine(
     sizeOptionId: sizeOption.id,
     sizeOptionSku: sizeOption.sku,
     sizeLabel: sizeOption.label,
+    sizeOptionMetadata: sizeOption.metadata,
     quantity,
-    purchaseModeId: purchaseMode?.id,
+    purchaseModeId: purchaseMode?.id ?? line.purchaseModeId,
     purchaseModeSku: purchaseMode?.sku,
-    purchaseModeLabel: purchaseMode?.label,
+    purchaseModeLabel:
+      purchaseMode?.label ??
+      (line.purchaseModeId === "nursery-stock-request"
+        ? "Nursery stock request"
+        : undefined),
     bundledFromLineKey: line.bundledFromLineKey,
     bundledByPurchaseModeId: line.bundledByPurchaseModeId,
     ticketAddOnAttendeeName: line.ticketAddOnAttendeeName,
@@ -874,7 +961,7 @@ function resolveShopLine(
       purchaseMode?.sku ??
       sizeOption.sku ??
       product.sku ??
-      `${product.id}:${sizeOption.id}${purchaseMode?.id ? `:${purchaseMode.id}` : ""}`,
+      `${product.id}:${sizeOption.id}${purchaseMode?.id ?? line.purchaseModeId ? `:${purchaseMode?.id ?? line.purchaseModeId}` : ""}`,
     purchaseRecipients: line.purchaseRecipients,
     mealSelection,
     unitPrice,
@@ -979,6 +1066,10 @@ function normalizeShopProduct(
   const title = typeof record.title === "string" ? record.title : undefined;
   const imageUrl =
     typeof record.imageUrl === "string" ? record.imageUrl : undefined;
+  const previewImageUrl =
+    typeof record.previewImageUrl === "string"
+      ? record.previewImageUrl
+      : undefined;
   const description =
     typeof record.description === "string" ? record.description : undefined;
   const detailsDescription =
@@ -1054,6 +1145,10 @@ function normalizeShopProduct(
       ? Math.max(1, Math.floor(record.maxRecipientQuantity))
       : undefined;
   const sizeOptionsValue = record.sizeOptions;
+  const metadata =
+    record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+      ? (record.metadata as QuestionnaireVariableMap)
+      : undefined;
 
   if (!id || !title || !Array.isArray(sizeOptionsValue)) {
     return null;
@@ -1068,6 +1163,7 @@ function normalizeShopProduct(
     sku,
     title,
     imageUrl,
+    previewImageUrl,
     description,
     detailsDescription,
     eventVenueLabel,
@@ -1083,6 +1179,7 @@ function normalizeShopProduct(
     maxAccountHolderQuantity,
     minRecipientQuantity,
     maxRecipientQuantity,
+    metadata,
     sizeOptions,
   };
 }
@@ -1110,6 +1207,10 @@ function normalizeShopSizeOption(
       : undefined;
   const purchaseModesValue = record.purchaseModes;
   const mealSelection = normalizeShopMealSelection(record.mealSelection);
+  const metadata =
+    record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+      ? (record.metadata as QuestionnaireVariableMap)
+      : undefined;
   if (!id || !label || price === undefined) {
     return null;
   }
@@ -1129,6 +1230,7 @@ function normalizeShopSizeOption(
       weight,
       mealSelection,
       purchaseModes: purchaseModes?.length ? purchaseModes : undefined,
+      metadata,
     };
 }
 

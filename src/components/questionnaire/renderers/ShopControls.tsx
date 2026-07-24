@@ -44,6 +44,25 @@ export function QuantityControl({
 }
 
 export function ShopSizeDescription({ text }: { text: string }) {
+  const eventQuantityMatch = text.match(
+    /^(.*?)(Event quantity(?: remaining)?:\s*\d+\.)\s*$/i
+  );
+
+  if (eventQuantityMatch) {
+    const [, description, eventQuantityLine] = eventQuantityMatch;
+
+    return (
+      <div className={styles.sizeDescriptionBlock}>
+        {description.trim() ? (
+          <div className={styles.sizeDescription}>{description.trim()}</div>
+        ) : null}
+        <div className={styles.eventQuantityLine}>
+          {eventQuantityLine.trim()}
+        </div>
+      </div>
+    );
+  }
+
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())

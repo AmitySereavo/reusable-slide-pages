@@ -4,8 +4,11 @@ import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
 import { getQuestionnaireBySlug } from "@/config/questionnaires/registry";
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
+const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
 const PLANT_GIVEAWAY_PUBLIC_URL =
   "https://littleorchardnursery.paralifetrees.com/gift";
+const LITTLE_ORCHARD_SHOP_PUBLIC_URL =
+  "https://littleorchardnursery.paralifetrees.com/shop";
 const PLANT_GIVEAWAY_OG_IMAGE = "/icons/paralife_trees_og.png";
 
 export async function generateMetadata({
@@ -43,6 +46,46 @@ export async function generateMetadata({
             width: 1200,
             height: 630,
             alt: "Para-life Trees home gardener plant giveaway",
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [PLANT_GIVEAWAY_OG_IMAGE],
+      },
+    };
+  }
+
+  if (slug === LITTLE_ORCHARD_SHOP_SLUG) {
+    const title = "Little Orchard Shop - Para-life Trees";
+    const description =
+      "Order plants for pickup at the Little Orchard Nursery tent during the Jamaica Horticultural Society Plant Market.";
+
+    return {
+      metadataBase: new URL("https://littleorchardnursery.paralifetrees.com"),
+      title,
+      description,
+      alternates: {
+        canonical: LITTLE_ORCHARD_SHOP_PUBLIC_URL,
+      },
+      icons: {
+        icon: "/icons/paralife_trees_logo.png",
+        apple: "/icons/paralife_trees_logo.png",
+      },
+      openGraph: {
+        title,
+        description,
+        url: LITTLE_ORCHARD_SHOP_PUBLIC_URL,
+        siteName: "Para-life Trees",
+        type: "website",
+        images: [
+          {
+            url: PLANT_GIVEAWAY_OG_IMAGE,
+            width: 1200,
+            height: 630,
+            alt: "Para-life Trees Little Orchard Shop",
           },
         ],
       },
