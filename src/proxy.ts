@@ -57,12 +57,17 @@ function isAllowedGiveawayPath(
     "/api/questionnaires/submit",
     "/api/plant-shop/orders",
     "/api/session",
+    "/api/login",
+    "/api/logout",
     "/api/questionnaires/gated-access/status",
     "/api/questionnaires/visitor-state/clear",
     "/verify",
     "/verify/link-sent",
     "/verify/verified-lead",
     "/login",
+    "/forgot-password",
+    "/forgot-password/code",
+    "/reset-password",
     "/privacy-policy",
     "/terms",
     "/admin/event-orders",
@@ -78,7 +83,10 @@ function isAllowedGiveawayPath(
     pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
     pathname.startsWith("/order-status/") ||
     pathname.startsWith("/api/plant-shop/orders/") ||
+    pathname.startsWith("/api/password/") ||
     pathname.startsWith("/admin/event-orders/order/") ||
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/api/dashboard/") ||
     pathname.startsWith("/api/verify/") ||
     pathname.startsWith("/api/auth/temporary-lead-account")
   );

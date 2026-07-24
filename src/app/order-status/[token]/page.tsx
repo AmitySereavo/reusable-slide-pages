@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
 import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest";
 import { getCustomerOrderStageCopy } from "@/lib/plantShop/orderActivity";
+import { getAdminSession } from "@/lib/auth/adminGuard";
 import CountdownTimer from "./CountdownTimer";
 
 function normalizeToken(value: string) {
@@ -95,9 +96,13 @@ export default async function OrderStatusPage({
 }) {
   const { token: rawToken } = await params;
   const token = normalizeToken(rawToken);
-  const [items, rawActivities] = token
-    ? await Promise.all([getOrderItems(token), getOrderActivities(token)])
-    : [[], []];
+  const [items, rawActivities, adminSession] = token
+    ? await Promise.all([
+        getOrderItems(token),
+        getOrderActivities(token),
+        getAdminSession(),
+      ])
+    : [[], [], null];
   const interestCounts = await getPlantShopProductInterestMap(
     prisma,
     LITTLE_ORCHARD_SHOP_SLUG
@@ -323,12 +328,14 @@ export default async function OrderStatusPage({
           >
             Chance at free plants
           </a>
-          <a
-            href={`/dashboard/orders?query=${encodeURIComponent(orderCode)}`}
-            style={adminLinkStyle}
-          >
-            Admin dashboard
-          </a>
+          {adminSession ? (
+            <a
+              href={`/dashboard/orders?query=${encodeURIComponent(orderCode)}`}
+              style={adminLinkStyle}
+            >
+              Admin dashboard
+            </a>
+          ) : null}
         </div>
       </section>
     </main>
