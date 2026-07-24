@@ -323,6 +323,12 @@ export default async function OrderStatusPage({
           >
             Chance at free plants
           </a>
+          <a
+            href={`/dashboard/orders?query=${encodeURIComponent(orderCode)}`}
+            style={adminLinkStyle}
+          >
+            Admin dashboard
+          </a>
         </div>
       </section>
     </main>
@@ -490,6 +496,11 @@ const giveawayLinkStyle = {
   padding: "14px 18px",
   textAlign: "center" as const,
   textDecoration: "none",
+};
+
+const adminLinkStyle = {
+  ...giveawayLinkStyle,
+  background: "#7B3F2A",
 };
 
 const orderStatusLinkRowStyle = {

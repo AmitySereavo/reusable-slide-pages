@@ -214,7 +214,7 @@ function buildOrderText({
     "",
     "Order Summary",
     "",
-    `Total number of plants: ${plantCount}`,
+    `Total number of items: ${plantCount}`,
     `Order total: ${formatMoney(total)}`,
     `Pickup / delivery: ${fulfillmentLabel}`,
     fulfillmentDetail,
@@ -225,7 +225,7 @@ function buildOrderText({
     "",
     orderStatusLink,
     "",
-    "Open this link to check payment and fulfillment status. Please show your order message to the cashier when you are ready to pay and collect your plants."
+    "Open this link to check payment and fulfillment status. Please show your order message to the cashier when you are ready to pay and collect your items."
   );
 
   return parts.join("\n");

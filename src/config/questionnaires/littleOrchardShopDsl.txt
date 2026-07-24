@@ -79,10 +79,7 @@ BR
 @choices:
 - whatsapp|WhatsApp|contact-whatsapp|primary
 - email|Email|contact-email|secondary
-- phone_call|Phone call|contact-phone|secondary
-- instagram|Instagram DM|contact-social|secondary
-- tiktok|TikTok message|contact-social|secondary
-- facebook|Facebook Messenger|contact-social|secondary
+- phone_call|Phone call / SMS|contact-phone|secondary
 @back: Back
 @shownext: false
 
