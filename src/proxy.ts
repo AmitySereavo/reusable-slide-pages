@@ -76,6 +76,7 @@ function isAllowedGiveawayPath(
     pathname.startsWith(`/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}/`) ||
     pathname.startsWith(`${publicPath}/`) ||
     pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
+    pathname.startsWith("/order-status/") ||
     pathname.startsWith("/api/plant-shop/orders/") ||
     pathname.startsWith("/admin/event-orders/order/") ||
     pathname.startsWith("/api/verify/") ||
