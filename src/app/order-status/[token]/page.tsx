@@ -229,6 +229,7 @@ export default async function OrderStatusPage({
         </div>
 
         <div style={summaryGridStyle}>
+          <Info label="Date and time" value={formatDate(firstItem.createdAt)} />
           <Info
             label="Order fulfillment status"
             value={fulfillmentStatuses.join(", ")}

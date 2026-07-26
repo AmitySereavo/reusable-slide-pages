@@ -130,6 +130,7 @@ export default async function ReceiptView({
         <p style={orderCodeStyle}>{orderCode}</p>
 
         <div style={summaryGridStyle}>
+          <Info label="Date and time" value={formatDate(firstItem.createdAt)} />
           <Info label="Receipt code" value={receiptCode || "Not recorded"} />
           <Info
             label="Payment"
