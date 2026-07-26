@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
-  <title id="title">Amity Sereavo Hat</title>
-  <desc id="desc">Simple hat.</desc>
-  <rect width="640" height="640" fill="#f1f5f9"/>
-  <path d="M172 332c20-118 276-118 296 0H172z" fill="#111827"/>
-  <path d="M130 340c90 36 250 36 380 0 24-6 42 40 6 58-112 54-298 54-414 0-34-16-4-64 28-58z" fill="#f6d365"/>
-  <text x="320" y="290" fill="#f6d365" font-family="Arial, sans-serif" font-size="46" text-anchor="middle">AS</text>
-  <text x="320" y="545" fill="#111827" font-family="Arial, sans-serif" font-size="44" text-anchor="middle">HAT</text>
-</svg>
