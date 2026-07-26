@@ -5300,6 +5300,15 @@ async function next() {
       }
     }
 
+    if (currentSlide.id === "contact-whatsapp") {
+      const whatsappNumber = String(answers.whatsappNumber ?? "").trim();
+      const whatsappDigits = whatsappNumber.replace(/\D/g, "");
+
+      if (whatsappNumber && whatsappDigits.length < 11) {
+        return "Enter your WhatsApp number with country and area code.";
+      }
+    }
+
     if (currentSlide.fields?.length) {
       const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
       const missingRequiredField = visibleFields.find((field) => {

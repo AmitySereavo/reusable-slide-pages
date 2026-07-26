@@ -41,6 +41,10 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function hasCountryAndAreaCode(value: string) {
+  return value.replace(/\D/g, "").length >= 11;
+}
+
 function normalizeDeviceType(value: unknown) {
   return value === "shared_event_device" ? "shared_event_device" : "own_device";
 }
@@ -360,6 +364,20 @@ export async function POST(request: Request) {
     if (contactMethod === "whatsapp" && deviceType === "shared_event_device" && !whatsappNumber) {
       return NextResponse.json(
         { ok: false, error: "Enter your WhatsApp number." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      contactMethod === "whatsapp" &&
+      whatsappNumber &&
+      !hasCountryAndAreaCode(whatsappNumber)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Enter your WhatsApp number with country and area code.",
+        },
         { status: 400 }
       );
     }
