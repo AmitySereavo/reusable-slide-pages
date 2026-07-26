@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -54,6 +55,14 @@ function getPaymentMethod(value: unknown) {
     : null;
 }
 
+function normalizeNonNegativeMoney(value: unknown) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.round(parsed * 100) / 100
+    : null;
+}
+
 async function getConfirmedQuantity(productId: string | null, sizeOptionId: string | null) {
   const rows = await prisma.$queryRaw<Array<{ total: bigint | number | null }>>(
     Prisma.sql`
@@ -81,6 +90,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const orderCode = cleanText(body?.orderCode);
   const paymentMethod = getPaymentMethod(body?.paymentMethod);
+  const cashTendered =
+    paymentMethod === "cash" ? normalizeNonNegativeMoney(body?.cashTendered) : null;
 
   if (!orderCode) {
     return NextResponse.json(
@@ -105,6 +116,11 @@ export async function POST(request: Request) {
   }
 
   const firstMetadata = readMetadata(items[0].metadata);
+  const receiptCode = cleanText(firstMetadata.receiptCode) || makeReceiptCode(orderCode);
+  const receiptLink =
+    cleanText(firstMetadata.receiptLink) ||
+    cleanText(firstMetadata.orderStatusLink)?.replace("/order-status/", "/receipt/") ||
+    "";
   const now = new Date();
   const staffUser = guard.session?.user;
   const staffUserId = staffUser?.id || null;
@@ -116,6 +132,26 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  const orderTotal = items.reduce(
+    (sum, item) => sum + Number(item.lineTotal || 0),
+    0
+  );
+
+  if (paymentMethod === "cash" && cashTendered !== null && cashTendered < orderTotal) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Cash received is less than the order total.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const changeDue =
+    paymentMethod === "cash" && cashTendered !== null
+      ? Math.round((cashTendered - orderTotal) * 100) / 100
+      : null;
 
   if (
     firstMetadata.paymentStatus === "PAYMENT_CONFIRMED" &&
@@ -176,6 +212,15 @@ export async function POST(request: Request) {
         paymentStatus: "PAYMENT_CONFIRMED",
         paymentMethod,
         paymentMethodLabel: paymentMethodLabels[paymentMethod],
+        orderTotal,
+        receiptCode,
+        receiptLink,
+        ...(paymentMethod === "cash" && cashTendered !== null
+          ? {
+              cashTendered,
+              changeDue,
+            }
+          : {}),
         paymentConfirmedAt: now.toISOString(),
         paymentConfirmedBy: staffUserId,
         paymentConfirmedByName: staffUserName,
@@ -210,11 +255,21 @@ export async function POST(request: Request) {
           staffUserName,
           previousStatus,
           nextStatus: "PROCESSING",
-          notes: `Payment confirmed. Method: ${paymentMethodLabels[paymentMethod]}.`,
+          notes: [
+            `Payment confirmed. Method: ${paymentMethodLabels[paymentMethod]}.`,
+            paymentMethod === "cash" && cashTendered !== null
+              ? `Cash received: ${cashTendered}. Change returned: ${changeDue}.`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
           metadata: {
             orderActivityKey: `${orderCode}:payment-confirmed`,
             paymentMethod,
             paymentMethodLabel: paymentMethodLabels[paymentMethod],
+            orderTotal,
+            cashTendered,
+            changeDue,
           },
         });
       }
@@ -227,6 +282,9 @@ export async function POST(request: Request) {
     inventoryTransactionId,
     paymentMethod,
     paymentMethodLabel: paymentMethodLabels[paymentMethod],
+    orderTotal,
+    cashTendered,
+    changeDue,
     message: "Payment confirmed and inventory marked as applied.",
   });
 }

@@ -273,4 +273,4 @@ BR
 BR
 [c4] Visit the Little Orchard Nursery tent when you are ready to collect your order.
 BR
-[c3] [Chance at free plants](/questionnaire/home-gardener-plant-giveaway)
+[c3] [Claim a free plant](/gift)

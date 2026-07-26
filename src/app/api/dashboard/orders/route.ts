@@ -28,6 +28,20 @@ function serializeMoney(value: unknown) {
   return Number(value ?? 0);
 }
 
+function normalizePositiveInteger(value: unknown, fallback = 1) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function normalizeNonNegativeMoney(value: unknown) {
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) && parsed >= 0
+    ? Math.round(parsed * 100) / 100
+    : 0;
+}
+
 function serializeActivity(activity: any) {
   return {
     id: activity.id,
@@ -728,7 +742,9 @@ export async function POST(request: Request) {
 
     if (
       action !== "request-mailing-address-update" &&
-      action !== "send-little-orchard-customer-email"
+      action !== "send-little-orchard-customer-email" &&
+      action !== "add-little-orchard-order-item" &&
+      action !== "remove-little-orchard-order-item"
     ) {
       return NextResponse.json(
         { ok: false, error: "Unknown order action." },
@@ -736,11 +752,139 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!id) {
+    if (!id && action !== "add-little-orchard-order-item") {
       return NextResponse.json(
         { ok: false, error: "Fulfillment item id is required." },
         { status: 400 }
       );
+    }
+
+    if (action === "add-little-orchard-order-item") {
+      const orderCode = cleanText(body?.orderCode);
+      const productTitle = cleanText(body?.productTitle);
+      const sizeLabel = cleanText(body?.sizeLabel);
+      const quantity = normalizePositiveInteger(body?.quantity, 1);
+      const unitPrice = normalizeNonNegativeMoney(body?.unitPrice);
+
+      if (!orderCode) {
+        return NextResponse.json(
+          { ok: false, error: "Order code is required." },
+          { status: 400 }
+        );
+      }
+
+      if (!productTitle) {
+        return NextResponse.json(
+          { ok: false, error: "Item name is required." },
+          { status: 400 }
+        );
+      }
+
+      const existingItems = await prisma.orderFulfillmentItem.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+        orderBy: [{ createdAt: "asc" }],
+      });
+
+      if (!existingItems.length) {
+        return NextResponse.json(
+          { ok: false, error: "Little Orchard order was not found." },
+          { status: 404 }
+        );
+      }
+
+      const firstItem = existingItems[0];
+      const firstMetadata = readSnapshotObject(firstItem.metadata);
+      const now = new Date();
+      const staffUser = guard.session?.user;
+      const staffUserId = staffUser?.id || null;
+      const staffUserName =
+        staffUser?.name || staffUser?.email || "Admin";
+      const lineTotal = unitPrice * quantity;
+      const sku = `LO-ADHOC-${now.getTime()}`;
+      const orderStatusLink = cleanText(firstMetadata.orderStatusLink);
+      const cashierLink = cleanText(firstMetadata.cashierLink);
+      const metadata = {
+        ...firstMetadata,
+        paymentStatus:
+          cleanText(firstMetadata.paymentStatus) || "AWAITING_PAYMENT",
+        inventoryApplied: firstMetadata.inventoryApplied === true,
+        adHocDashboardItem: true,
+        addedFromDashboard: true,
+        addedBy: staffUserId,
+        addedByName: staffUserName,
+        addedAt: now.toISOString(),
+        cashierLink,
+        orderStatusLink,
+      };
+
+      const createdItem = await prisma.orderFulfillmentItem.create({
+        data: {
+          sourceType: "little-orchard-shop",
+          sourceId: orderCode,
+          orderCode,
+          lineKey: `dashboard-ad-hoc:${sku}`,
+          productId: `dashboard-ad-hoc-${sku.toLowerCase()}`,
+          productSku: sku,
+          productTitle,
+          sizeOptionId: null,
+          sizeSku: null,
+          sizeLabel: sizeLabel || "Dashboard item",
+          purchaseModeId: "dashboard-ad-hoc",
+          purchaseModeLabel: "Added item",
+          sku,
+          fulfillmentType: "physical",
+          quantity,
+          currencyCode: firstItem.currencyCode || "JMD",
+          unitPrice: new Prisma.Decimal(unitPrice),
+          lineTotal: new Prisma.Decimal(lineTotal),
+          recipientName: firstItem.recipientName,
+          recipientEmail: firstItem.recipientEmail,
+          recipientRole: firstItem.recipientRole,
+          status: firstItem.status || "PENDING",
+          fulfillmentStatus: firstItem.fulfillmentStatus || "PENDING",
+          currentStageKey: firstItem.currentStageKey,
+          currentStageLabel: firstItem.currentStageLabel,
+          metadata: metadata as Prisma.InputJsonObject,
+        },
+        include: {
+          invitationOrder: true,
+          selectedCourier: true,
+          activities: {
+            orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+            take: 20,
+          },
+        },
+      });
+
+      await createLittleOrchardOrderActivity(prisma as any, {
+        fulfillmentItemId: createdItem.id,
+        orderCode,
+        stageKey: "dashboard-item-added",
+        stageLabel: "Item added",
+        updateType: "manual",
+        source: "orders-dashboard",
+        staffUserId,
+        staffUserName,
+        previousStatus: firstItem.fulfillmentStatus || "PENDING",
+        nextStatus: createdItem.fulfillmentStatus,
+        notes: `${productTitle} added to order from the dashboard.`,
+        metadata: {
+          orderActivityKey: `${orderCode}:dashboard-item-added:${createdItem.id}`,
+          customerVisible: true,
+          customerTitle: "Item added",
+          customerDescription:
+            "An additional item was added to this order at the event.",
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        item: serializeFulfillmentItem(createdItem),
+        message: "Item added to the order.",
+      });
     }
 
     const delegate = getOrderFulfillmentDelegate();
@@ -758,6 +902,41 @@ export async function POST(request: Request) {
         { ok: false, error: "Order item was not found." },
         { status: 404 }
       );
+    }
+
+    if (action === "remove-little-orchard-order-item") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Item removal is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const metadata = readSnapshotObject(item.metadata);
+
+      if (cleanText(metadata.paymentStatus) === "PAYMENT_CONFIRMED") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Payment is already confirmed. Adjust the order manually before removing receipt items.",
+          },
+          { status: 400 }
+        );
+      }
+
+      await delegate.delete({
+        where: { id },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        removedItemId: id,
+        message: "Item removed from the order and receipt.",
+      });
     }
 
     if (action === "send-little-orchard-customer-email") {

@@ -125,6 +125,57 @@ function getLittleOrchardSocialContacts(item) {
   ].filter(Boolean);
 }
 
+function useCurrentOriginUrl(value) {
+  const raw = String(value || "").trim();
+
+  if (!raw) return "";
+
+  try {
+    const browserOrigin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const parsed = new URL(raw, browserOrigin || "http://localhost:3000");
+
+    if (
+      browserOrigin &&
+      (parsed.pathname.startsWith("/receipt/") ||
+        parsed.pathname === "/receipt" ||
+        parsed.pathname.startsWith("/order-status/") ||
+        parsed.pathname.startsWith("/admin/event-orders/order/"))
+    ) {
+      return `${browserOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+
+    return parsed.toString();
+  } catch {
+    return raw;
+  }
+}
+
+function getReceiptLink(item) {
+  const statusLink = item.metadata?.orderStatusLink || "";
+  const rawReceiptLink =
+    item.metadata?.receiptLink ||
+    (statusLink ? statusLink.replace("/order-status/", "/receipt/") : "");
+
+  return useCurrentOriginUrl(rawReceiptLink);
+}
+
+function getCashierLink(item) {
+  return useCurrentOriginUrl(item.metadata?.cashierLink || "");
+}
+
+function isNurseryStockRequest(item) {
+  return item?.purchaseModeId === "nursery-stock-request";
+}
+
+function getOrderItemTitle(item) {
+  return isNurseryStockRequest(item) ? "Nursery stock request" : item.productTitle;
+}
+
+function getRequestedItemLabel(item) {
+  return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
+}
+
 const customerMessageTemplates = [
   { value: "ready", label: "Ready for pickup" },
   { value: "receipt", label: "Your receipt" },
@@ -137,7 +188,8 @@ function buildCustomerMessage({ item, orderTotal, template }) {
   const orderCode = item.orderCode || "your order";
   const total = formatMoneyValue(item.currencyCode || "JMD", orderTotal);
   const status = item.fulfillmentStatus || "PENDING";
-  const statusLink = item.metadata?.orderStatusLink || "";
+  const statusLink = useCurrentOriginUrl(item.metadata?.orderStatusLink || "");
+  const receiptLink = getReceiptLink(item);
   const paymentConfirmed =
     item.metadata?.paymentStatus === "PAYMENT_CONFIRMED";
 
@@ -160,12 +212,17 @@ function buildCustomerMessage({ item, orderTotal, template }) {
       `Your receipt, ${customerName}.`,
       "",
       `Receipt for Little Orchard order ${orderCode}.`,
+      item.metadata?.receiptCode
+        ? `Receipt code: ${item.metadata.receiptCode}`
+        : "",
       "Congratulations, you've invested in your garden!",
       `Order total: ${total}`,
       `Current order status: ${status}`,
-      statusLink
-        ? `You can view your order status and receipt details here: ${statusLink}`
-        : "",
+      receiptLink
+        ? `View and download your receipt here: ${receiptLink}`
+        : statusLink
+          ? `You can view your order status here: ${statusLink}`
+          : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -250,6 +307,8 @@ export default function OrdersManager() {
   const [editing, setEditing] = useState({});
   const [updatingItemIds, setUpdatingItemIds] = useState({});
   const [paymentMethods, setPaymentMethods] = useState({});
+  const [cashTenderedByOrder, setCashTenderedByOrder] = useState({});
+  const [adHocItemDrafts, setAdHocItemDrafts] = useState({});
   const [messageTemplateByOrder, setMessageTemplateByOrder] = useState({});
   const [busyActions, setBusyActions] = useState({});
   const busyActionLocksRef = useRef({});
@@ -400,6 +459,7 @@ export default function OrdersManager() {
     const actionKey = `confirm-payment:${item.orderCode}`;
     if (busyActionLocksRef.current[actionKey]) return;
     const paymentMethod = paymentMethods[item.orderCode] || "";
+    const cashTenderedRaw = cashTenderedByOrder[item.orderCode] || "";
 
     if (!paymentMethod) {
       setMessage("Choose the payment method before confirming payment.");
@@ -413,7 +473,11 @@ export default function OrdersManager() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ orderCode: item.orderCode, paymentMethod }),
+        body: JSON.stringify({
+          orderCode: item.orderCode,
+          paymentMethod,
+          cashTendered: paymentMethod === "cash" ? cashTenderedRaw : undefined,
+        }),
       });
       const payload = await response.json().catch(() => ({}));
 
@@ -436,6 +500,103 @@ export default function OrdersManager() {
       }
 
       setMessage(payload.message || "Payment confirmed.");
+      await loadOrders();
+    });
+  }
+
+  async function addAdHocOrderItem(item) {
+    if (!item.orderCode) return;
+    const actionKey = `add-ad-hoc-item:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+    const draft = adHocItemDrafts[item.orderCode] || {};
+    const productTitle = String(draft.productTitle || "").trim();
+    const sizeLabel = String(draft.sizeLabel || "").trim();
+    const quantity = Number(draft.quantity || 1);
+    const unitPrice = Number(draft.unitPrice || 0);
+
+    if (!productTitle) {
+      setMessage("Enter the item name before adding it to the order.");
+      return;
+    }
+
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      setMessage("Enter a valid item price.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "Adding item to order...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "add-little-orchard-order-item",
+          orderCode: item.orderCode,
+          productTitle,
+          sizeLabel,
+          quantity,
+          unitPrice,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Item could not be added."
+        );
+        return;
+      }
+
+      setAdHocItemDrafts((current) => ({
+        ...current,
+        [item.orderCode]: {
+          productTitle: "",
+          sizeLabel: "",
+          quantity: 1,
+          unitPrice: "",
+        },
+      }));
+      setMessage(payload.message || "Item added to order.");
+      await loadOrders();
+    });
+  }
+
+  async function removeLittleOrchardOrderItem(entry) {
+    const actionKey = `remove-order-item:${entry.id}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+
+    const confirmed = window.confirm(
+      `Remove ${getOrderItemTitle(entry)} from this customer's order and receipt?`
+    );
+
+    if (!confirmed) return;
+
+    await runBusyAction(actionKey, "Removing item from order...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "remove-little-orchard-order-item",
+          id: entry.id,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Item could not be removed."
+        );
+        return;
+      }
+
+      setMessage(payload.message || "Item removed from order.");
       await loadOrders();
     });
   }
@@ -626,9 +787,26 @@ export default function OrdersManager() {
             (sum, entry) => sum + Number(entry.lineTotal || 0),
             0
           );
+          const selectedPaymentMethod = paymentMethods[item.orderCode] || "";
+          const cashTenderedValue = Number(
+            cashTenderedByOrder[item.orderCode] || 0
+          );
+          const cashChangeDue =
+            selectedPaymentMethod === "cash" &&
+            Number.isFinite(cashTenderedValue)
+              ? cashTenderedValue - orderTotal
+              : null;
+          const adHocDraft = adHocItemDrafts[item.orderCode] || {
+            productTitle: "",
+            sizeLabel: "",
+            quantity: 1,
+            unitPrice: "",
+          };
           const customerPhone = getLittleOrchardOrderPhone(item);
           const customerEmail = getLittleOrchardOrderEmail(item);
           const socialContacts = getLittleOrchardSocialContacts(item);
+          const cashierLink = getCashierLink(item);
+          const receiptLink = getReceiptLink(item);
           const selectedMessageTemplate =
             messageTemplateByOrder[item.orderCode] ||
             (item.fulfillmentStatus === "READY"
@@ -734,6 +912,10 @@ export default function OrdersManager() {
                   value={item.metadata?.paymentMethodLabel || "Not confirmed"}
                 />
                 <Info
+                  label="Receipt code"
+                  value={item.metadata?.receiptCode || "Not generated"}
+                />
+                <Info
                   label="Estimated delivery"
                   value={formatDate(item.estimatedDeliveryAt)}
                 />
@@ -752,23 +934,42 @@ export default function OrdersManager() {
                       <div key={entry.id} style={styles.orderItemRow}>
                         <div style={styles.minWidthZero}>
                           <strong style={styles.breakText}>
-                            {entry.productTitle}
+                            {getOrderItemTitle(entry)}
                           </strong>
                           <div style={{ ...styles.muted, ...styles.breakText }}>
-                            {[entry.sizeLabel, entry.purchaseModeLabel]
-                              .filter(Boolean)
-                              .join(" - ")}
+                            {isNurseryStockRequest(entry)
+                              ? `Requested item: ${getRequestedItemLabel(entry)}`
+                              : [entry.sizeLabel, entry.purchaseModeLabel]
+                                  .filter(Boolean)
+                                  .join(" - ")}
                           </div>
                         </div>
                         <div style={styles.orderItemMeta}>
                           <span>Qty {entry.quantity}</span>
                           <span>{formatMoney(entry)}</span>
+                          {item.metadata?.paymentStatus !==
+                          "PAYMENT_CONFIRMED" ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeLittleOrchardOrderItem(entry)
+                              }
+                              disabled={Boolean(
+                                busyActions[`remove-order-item:${entry.id}`]
+                              )}
+                              style={styles.inlineDangerButton}
+                            >
+                              {busyActions[`remove-order-item:${entry.id}`]
+                                ? "Removing..."
+                                : "Remove from receipt"}
+                            </button>
+                          ) : null}
                         </div>
                         {entry.purchaseModeId === "nursery-stock-request" ? (
                           <div style={styles.warningText}>
-                            Nursery stock request: price is JMD 0 because
-                            nursery availability and final price must be
-                            confirmed by a representative.
+                            Nursery stock request: request fee is JMD 0.
+                            Nursery availability and final product price must
+                            be confirmed by a representative.
                           </div>
                         ) : null}
                       </div>
@@ -788,15 +989,121 @@ export default function OrdersManager() {
                       Inventory applied:{" "}
                       {item.metadata?.inventoryApplied ? "Yes" : "No"}
                     </span>
-                    {item.metadata?.cashierLink ? (
-                      <a href={item.metadata.cashierLink}>Cashier order link</a>
+                    {cashierLink ? (
+                      <a
+                        href={cashierLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Cashier order link
+                      </a>
+                    ) : null}
+                    {receiptLink ? (
+                      <a
+                        href={receiptLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Receipt link
+                      </a>
                     ) : null}
                   </div>
                   {item.purchaseModeId === "nursery-stock-request" ? (
                     <div style={styles.warningText}>
-                      Nursery stock request: price is JMD 0 because nursery
-                      availability and final price must be confirmed by a
-                      representative.
+                      Nursery stock request: request fee is JMD 0. Nursery
+                      availability and final product price must be confirmed by
+                      a representative.
+                    </div>
+                  ) : null}
+                  {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
+                    <div style={styles.adHocItemPanel}>
+                      <strong>Add item</strong>
+                      <div style={styles.adHocItemGrid}>
+                        <label style={styles.label}>
+                          Item name
+                          <input
+                            value={adHocDraft.productTitle}
+                            onChange={(event) =>
+                              setAdHocItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  productTitle: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="Example: Rare herb cutting"
+                            style={styles.input}
+                          />
+                        </label>
+                        <label style={styles.label}>
+                          Size / note
+                          <input
+                            value={adHocDraft.sizeLabel}
+                            onChange={(event) =>
+                              setAdHocItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  sizeLabel: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="Optional"
+                            style={styles.input}
+                          />
+                        </label>
+                        <label style={styles.label}>
+                          Qty
+                          <input
+                            type="number"
+                            min="1"
+                            value={adHocDraft.quantity ?? 1}
+                            onChange={(event) =>
+                              setAdHocItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  quantity: event.target.value,
+                                },
+                              }))
+                            }
+                            style={styles.input}
+                          />
+                        </label>
+                        <label style={styles.label}>
+                          Price
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={adHocDraft.unitPrice}
+                            onChange={(event) =>
+                              setAdHocItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  unitPrice: event.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="JMD"
+                            style={styles.input}
+                          />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addAdHocOrderItem(item)}
+                        disabled={Boolean(
+                          busyActions[`add-ad-hoc-item:${item.orderCode}`]
+                        )}
+                        style={styles.secondaryButton}
+                      >
+                        {busyActions[`add-ad-hoc-item:${item.orderCode}`]
+                          ? "Adding item..."
+                          : "Add item to this order"}
+                      </button>
                     </div>
                   ) : null}
                   {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
@@ -804,7 +1111,7 @@ export default function OrdersManager() {
                       <label style={styles.label}>
                         Payment method
                         <select
-                          value={paymentMethods[item.orderCode] || ""}
+                          value={selectedPaymentMethod}
                           onChange={(event) =>
                             setPaymentMethods((current) => ({
                               ...current,
@@ -821,6 +1128,46 @@ export default function OrdersManager() {
                           <option value="other">Other</option>
                         </select>
                       </label>
+                      {selectedPaymentMethod === "cash" ? (
+                        <div style={styles.cashTenderPanel}>
+                          <label style={styles.label}>
+                            Cash received
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={cashTenderedByOrder[item.orderCode] || ""}
+                              onChange={(event) =>
+                                setCashTenderedByOrder((current) => ({
+                                  ...current,
+                                  [item.orderCode]: event.target.value,
+                                }))
+                              }
+                              placeholder={formatMoneyValue(
+                                item.currencyCode,
+                                orderTotal
+                              )}
+                              style={styles.input}
+                            />
+                          </label>
+                          <div
+                            style={
+                              cashChangeDue !== null && cashChangeDue < 0
+                                ? styles.warningText
+                                : styles.muted
+                            }
+                          >
+                            Change to return:{" "}
+                            {cashChangeDue === null ||
+                            !Number.isFinite(cashChangeDue)
+                              ? "Enter cash received"
+                              : formatMoneyValue(
+                                  item.currencyCode,
+                                  Math.max(0, cashChangeDue)
+                                )}
+                          </div>
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => confirmLittleOrchardPayment(item)}
@@ -944,9 +1291,9 @@ export default function OrdersManager() {
                             ? "Opening Gmail..."
                             : "Open Gmail compose fallback"}
                         </button>
-                        {item.metadata?.orderStatusLink ? (
+                        {receiptLink ? (
                           <a
-                            href={item.metadata.orderStatusLink}
+                            href={receiptLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={styles.linkButton}
@@ -970,9 +1317,7 @@ export default function OrdersManager() {
                               }, 650);
                             }}
                           >
-                            {receiptBusy
-                              ? "Opening receipt..."
-                              : "Open receipt / status"}
+                            {receiptBusy ? "Opening receipt..." : "Open receipt"}
                           </a>
                         ) : null}
                       </>
@@ -1514,10 +1859,21 @@ const styles = {
   },
   orderItemMeta: {
     color: "rgba(32, 28, 29, 0.74)",
+    alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
     fontSize: "14px",
     gap: "8px 14px",
+  },
+  inlineDangerButton: {
+    background: "transparent",
+    border: 0,
+    color: "#9f1f19",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: 0,
+    textDecoration: "underline",
   },
   activityList: {
     display: "grid",
@@ -1593,6 +1949,24 @@ const styles = {
     display: "grid",
     gap: "10px",
     marginTop: "10px",
+  },
+  adHocItemPanel: {
+    background: "rgba(47, 122, 70, 0.06)",
+    border: "1px solid rgba(47, 122, 70, 0.18)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    marginTop: "12px",
+    padding: "12px",
+  },
+  adHocItemGrid: {
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  },
+  cashTenderPanel: {
+    display: "grid",
+    gap: "6px",
   },
   communicationGrid: {
     display: "grid",

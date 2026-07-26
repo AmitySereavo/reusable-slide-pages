@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
 import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest";
 import { getCustomerOrderStageCopy } from "@/lib/plantShop/orderActivity";
+import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import { getAdminSession } from "@/lib/auth/adminGuard";
 import CountdownTimer from "./CountdownTimer";
 
@@ -35,6 +36,18 @@ function formatDate(value: unknown) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(String(value)));
+}
+
+function isNurseryStockRequest(item: any) {
+  return item?.purchaseModeId === "nursery-stock-request";
+}
+
+function getStatusItemTitle(item: any) {
+  return isNurseryStockRequest(item) ? "Nursery stock request" : item.productTitle;
+}
+
+function getRequestedItemLabel(item: any) {
+  return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
 }
 
 async function getOrderItems(token: string) {
@@ -115,6 +128,7 @@ export default async function OrderStatusPage({
   const firstItem = items[0];
   const metadata = readMetadata(firstItem.metadata);
   const orderCode = String(firstItem.orderCode || "");
+  const receiptCode = String(metadata.receiptCode || "") || makeReceiptCode(orderCode);
   const paymentStatus = String(metadata.paymentStatus || "AWAITING_PAYMENT");
   const isPaymentConfirmed = paymentStatus === "PAYMENT_CONFIRMED";
   const customerName = String(firstItem.recipientName || "Customer");
@@ -229,6 +243,10 @@ export default async function OrderStatusPage({
             value={String(metadata.paymentMethodLabel || "Not confirmed yet")}
           />
           <Info label="Order total" value={formatMoney(currencyCode, total)} />
+          <Info
+            label="Receipt code"
+            value={receiptCode || "Ask staff"}
+          />
           <Info label="Tracking / reference" value={firstItem.trackingReference || "Not added yet"} />
         </div>
 
@@ -286,23 +304,27 @@ export default async function OrderStatusPage({
 
               return (
               <div key={`${item.productTitle}-${item.sizeLabel}-${index}`} style={itemStyle}>
-                <strong>{item.productTitle}</strong>
+                <strong>{getStatusItemTitle(item)}</strong>
                 {interestedPeopleCount > 0 ? (
                   <span style={interestStyle}>
                     Item viewed by {interestedPeopleCount} interested people so
                     far.
                   </span>
                 ) : null}
-                <span>{item.sizeLabel}</span>
-                {item.purchaseModeLabel ? (
+                {isNurseryStockRequest(item) ? (
+                  <span>Requested item: {getRequestedItemLabel(item)}</span>
+                ) : item.sizeLabel ? (
+                  <span>{item.sizeLabel}</span>
+                ) : null}
+                {item.purchaseModeLabel && !isNurseryStockRequest(item) ? (
                   <span>{item.purchaseModeLabel}</span>
                 ) : null}
                 <span>Quantity: {item.quantity}</span>
                 <span>{formatMoney(item.currencyCode, item.lineTotal)}</span>
                 {item.purchaseModeId === "nursery-stock-request" ? (
                   <span style={noteStyle}>
-                    Price is JMD 0 because nursery availability and final price
-                    will be confirmed by a representative.
+                    Request fee is JMD 0. Nursery availability and final product
+                    price will be confirmed by a representative.
                   </span>
                 ) : null}
                 <span>Status: {item.fulfillmentStatus || "PENDING"}</span>
@@ -323,10 +345,16 @@ export default async function OrderStatusPage({
             Go to shop
           </a>
           <a
-            href="/questionnaire/home-gardener-plant-giveaway"
+            href="/gift"
             style={giveawayLinkStyle}
           >
-            Chance at free plants
+            Claim a free plant
+          </a>
+          <a
+            href={`/receipt/${encodeURIComponent(token)}`}
+            style={giveawayLinkStyle}
+          >
+            View receipt
           </a>
           {adminSession ? (
             <a

@@ -7132,6 +7132,13 @@ async function handleNext() {
                                     ))}
                                   </select>
                                 </label>
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() => handleAccountMenuLink("/receipt")}
+                                >
+                                  Receipt lookup
+                                </button>
                                 <a
                                   className={styles.accountMenuItem}
                                   href="/privacy-policy"

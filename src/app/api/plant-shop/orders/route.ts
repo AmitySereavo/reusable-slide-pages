@@ -14,6 +14,7 @@ import {
 import { resolveShopSelectedLines } from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import type { ShopCart, ShopResolvedCartLine } from "@/types/questionnaire";
 
 type PlantShopOrderBody = {
@@ -160,15 +161,20 @@ function buildOrderText({
       (line, index) => {
         const isNurseryStockRequest =
           line.purchaseModeId === "nursery-stock-request";
+        const title = isNurseryStockRequest
+          ? "Nursery stock request"
+          : `${line.productTitle} - ${line.sizeLabel}`;
 
         return (
-          `${index + 1}. ${line.productTitle} - ${line.sizeLabel}\n` +
-          (line.purchaseModeLabel
-            ? `   Request type: ${line.purchaseModeLabel}\n`
-            : "") +
+          `${index + 1}. ${title}\n` +
+          (isNurseryStockRequest
+            ? `   Requested item: ${line.productTitle} - ${line.sizeLabel}\n`
+            : line.purchaseModeLabel
+              ? `   Option: ${line.purchaseModeLabel}\n`
+              : "") +
           `   Quantity: ${line.quantity}\n` +
           (isNurseryStockRequest
-            ? "   Price: To be confirmed by representative\n"
+            ? `   Request fee: ${formatMoney(line.lineTotal)}\n`
             : `   Unit price: ${formatMoney(line.unitPrice)}\n` +
               `   Item total: ${formatMoney(line.lineTotal)}`) +
           (isNurseryStockRequest
@@ -448,6 +454,8 @@ export async function POST(request: Request) {
     const cashierToken = makeCashierToken();
     const cashierLink = `${getBaseUrl(request)}/admin/event-orders/order/${cashierToken}`;
     const orderStatusLink = `${getBaseUrl(request)}/order-status/${cashierToken}`;
+    const receiptCode = makeReceiptCode(orderCode);
+    const receiptLink = `${getBaseUrl(request)}/receipt/${cashierToken}`;
     const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
     const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
     const submittedAt = new Date();
@@ -499,6 +507,8 @@ export async function POST(request: Request) {
       cashierToken,
       cashierLink,
       orderStatusLink,
+      receiptCode,
+      receiptLink,
       consentAcknowledged: body.answers?.plantShopConsent === true,
       consentWording:
         "I understand how my name, contact details, and order information will be used.",
@@ -550,7 +560,7 @@ export async function POST(request: Request) {
             ? `Customer Facebook Messenger: ${facebookMessengerHandle}`
             : "",
           line.purchaseModeId === "nursery-stock-request"
-            ? "Nursery stock request: quantity selection not required. Details will be made known when a representative reaches out."
+            ? "Nursery stock request: request fee is JMD 0. Nursery availability and final product price will be confirmed when a representative reaches out."
             : "",
         ]
           .filter(Boolean)

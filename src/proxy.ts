@@ -68,6 +68,7 @@ function isAllowedGiveawayPath(
     "/forgot-password",
     "/forgot-password/code",
     "/reset-password",
+    "/receipt",
     "/privacy-policy",
     "/terms",
     "/admin/event-orders",
@@ -84,7 +85,9 @@ function isAllowedGiveawayPath(
     pathname.startsWith(`${publicPath}/`) ||
     pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
     pathname.startsWith("/order-status/") ||
+    pathname.startsWith("/receipt/") ||
     pathname.startsWith("/api/plant-shop/orders/") ||
+    pathname.startsWith("/api/plant-shop/receipt-lookup") ||
     pathname.startsWith("/api/password/") ||
     pathname.startsWith("/admin/event-orders/order/") ||
     pathname.startsWith("/dashboard/") ||
