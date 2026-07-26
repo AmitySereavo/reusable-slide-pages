@@ -35,7 +35,12 @@ function formatDate(value: unknown) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "America/Jamaica",
   }).format(new Date(String(value)));
+}
+
+function formatJamaicaDateTime(value: unknown) {
+  return `${formatDate(value)} Jamaica time`;
 }
 
 function isNurseryStockRequest(item: any) {
@@ -212,7 +217,7 @@ export default async function OrderStatusPage({
           {isPaymentConfirmed ? (
             <>
               <strong>Payment confirmed. Your items are secured.</strong>
-              <span>Confirmed at {formatDate(metadata.paymentConfirmedAt)}</span>
+              <span>Confirmed at {formatJamaicaDateTime(metadata.paymentConfirmedAt)}</span>
             </>
           ) : (
             <>
@@ -229,7 +234,7 @@ export default async function OrderStatusPage({
         </div>
 
         <div style={summaryGridStyle}>
-          <Info label="Date and time" value={formatDate(firstItem.createdAt)} />
+          <Info label="Date and time" value={formatJamaicaDateTime(firstItem.createdAt)} />
           <Info
             label="Order fulfillment status"
             value={fulfillmentStatuses.join(", ")}
@@ -275,7 +280,7 @@ export default async function OrderStatusPage({
                     <strong>{title}</strong>
                     <span>{description}</span>
                     <span style={timelineMetaStyle}>
-                      Updated {formatDate(activity.completedAt)}
+                      Updated {formatJamaicaDateTime(activity.completedAt)}
                       {actor ? ` by ${actor}` : ""}
                     </span>
                     {nextStatus ? (

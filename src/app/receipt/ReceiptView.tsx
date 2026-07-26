@@ -28,6 +28,7 @@ export function formatDate(value: unknown) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "America/Jamaica",
   }).format(new Date(String(value)));
 }
 
@@ -130,7 +131,10 @@ export default async function ReceiptView({
         <p style={orderCodeStyle}>{orderCode}</p>
 
         <div style={summaryGridStyle}>
-          <Info label="Date and time" value={formatDate(firstItem.createdAt)} />
+          <Info
+            label="Date and time"
+            value={`${formatDate(firstItem.createdAt)} Jamaica time`}
+          />
           <Info label="Receipt code" value={receiptCode || "Not recorded"} />
           <Info
             label="Payment"
@@ -138,7 +142,7 @@ export default async function ReceiptView({
           />
           <Info
             label="Payment confirmed"
-            value={formatDate(metadata.paymentConfirmedAt)}
+            value={`${formatDate(metadata.paymentConfirmedAt)} Jamaica time`}
           />
           <Info label="Order total" value={formatMoney(currencyCode, orderTotal)} />
           {cashTendered !== null && Number.isFinite(cashTendered) ? (
