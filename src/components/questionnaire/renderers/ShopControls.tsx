@@ -45,7 +45,7 @@ export function QuantityControl({
 
 export function ShopSizeDescription({ text }: { text: string }) {
   const eventQuantityMatch = text.match(
-    /^(.*?)(Event quantity(?: remaining)?:\s*\d+\.)\s*$/i
+    /^(.*?)((?:Event quantity(?: remaining)?|Inventory remaining):\s*\d+\.)\s*$/i
   );
 
   if (eventQuantityMatch) {

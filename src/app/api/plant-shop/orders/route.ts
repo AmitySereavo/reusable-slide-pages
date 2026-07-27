@@ -4,8 +4,10 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
   littleOrchardPlantShowEvent,
+  LITTLE_ORCHARD_SHOP_SLUG,
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
+import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import {
   getLittleOrchardDeliveryAddressLines,
   getLittleOrchardFulfillmentKey,
@@ -411,6 +413,10 @@ export async function POST(request: Request) {
     }
 
     const overLimitConflicts = [];
+    const quantityOverrides = await getPlantShopEventQuantityOverrideMap(
+      prisma as any,
+      LITTLE_ORCHARD_SHOP_SLUG
+    );
 
     for (const line of lines) {
       if (line.purchaseModeId === "nursery-stock-request") {
@@ -418,7 +424,9 @@ export async function POST(request: Request) {
       }
 
       const variationLimit = Number(
-        line.sizeOptionMetadata?.eventQuantityAvailable ?? 0
+        quantityOverrides.get(`${line.productId}::${line.sizeOptionId}`) ??
+          line.sizeOptionMetadata?.eventQuantityAvailable ??
+          0
       );
       const confirmedQuantity = await getConfirmedEventQuantity(
         line.productId,
@@ -479,17 +487,6 @@ export async function POST(request: Request) {
     const submittedAt = new Date();
     const fulfillmentOption = getLittleOrchardFulfillmentOption(body.answers);
     const fulfillmentKey = getLittleOrchardFulfillmentKey(body.answers);
-
-    if (fulfillmentKey === "event_pickup" && hasLittleOrchardEventPassed()) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "The plant market date has passed. Choose another pickup option or paid delivery.",
-        },
-        { status: 400 }
-      );
-    }
 
     const deliveryAddressLines = getLittleOrchardDeliveryAddressLines(
       body.answers

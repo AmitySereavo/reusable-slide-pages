@@ -1957,40 +1957,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }, [currentSlide?.id]);
 
   useEffect(() => {
-    if (
-      config.slug !== "little-orchard-shop" ||
-      currentSlide?.id !== "pickup-information" ||
-      mergedVariables.littleOrchardEventDateHasPassed === true ||
-      String(answers.plantShopFulfillmentMethod ?? "").trim()
-    ) {
-      return;
-    }
-
-    setAnswer("plantShopFulfillmentMethod", "event_pickup");
-  }, [
-    answers.plantShopFulfillmentMethod,
-    config.slug,
-    currentSlide?.id,
-    mergedVariables.littleOrchardEventDateHasPassed,
-  ]);
-
-  useEffect(() => {
-    if (
-      config.slug !== "little-orchard-shop" ||
-      mergedVariables.littleOrchardEventDateHasPassed !== true ||
-      String(answers.plantShopFulfillmentMethod ?? "") !== "event_pickup"
-    ) {
-      return;
-    }
-
-    setAnswer("plantShopFulfillmentMethod", "");
-  }, [
-    answers.plantShopFulfillmentMethod,
-    config.slug,
-    mergedVariables.littleOrchardEventDateHasPassed,
-  ]);
-
-  useEffect(() => {
     if (!config.dynamicVariablesEndpoint) {
       return;
     }
@@ -12067,19 +12033,16 @@ function ShopSlideRenderer({
                         {sizeOptionSoldOut ? (
                           <div className={styles.nurseryStockRequest}>
                             <div className={styles.soldOutLine}>
-                              {sizeOptionEventDateHasPassed
-                                ? "Event date has passed."
-                                : "Sold out for event pickup."}
+                              Sold out for online ordering.
                             </div>
                             <p>
-                              You can still make your order and it can be
-                              delivered to you within the week, if this item is
-                              available in our nursery stock.
+                              You can still request this item from nursery stock
+                              if it is available.
                             </p>
                             <p>
-                              Choose the quantity you would like from nursery
-                              stock. Details will be made known to you when our
-                              representatives reach out.
+                              Choose the quantity you would like. Details will
+                              be made known to you when our representatives
+                              reach out.
                             </p>
                             {onRequestNurseryStock ? (
                               <button
@@ -12108,7 +12071,7 @@ function ShopSlideRenderer({
                         slideMode === "browse" ? (
                           <div className={styles.adminEventQuantityPanel}>
                             <label>
-                              <span>Admin: event quantity remaining</span>
+                              <span>Admin: inventory remaining</span>
                               <input
                                 type="number"
                                 min={0}

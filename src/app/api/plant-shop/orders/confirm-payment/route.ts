@@ -5,6 +5,10 @@ import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
+import {
+  getPlantShopEventQuantityOverrideMap,
+} from "@/lib/plantShop/eventQuantityOverrides";
+import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -30,7 +34,18 @@ function cleanFulfillmentNotes(value: string | null) {
     .join("\n");
 }
 
-function getVariationLimit(productId: string | null, sizeOptionId: string | null) {
+function getVariationLimit(
+  productId: string | null,
+  sizeOptionId: string | null,
+  quantityOverrides: Map<string, number>
+) {
+  const overrideQuantity = quantityOverrides.get(
+    `${productId ?? ""}::${sizeOptionId ?? ""}`
+  );
+  if (overrideQuantity !== undefined) {
+    return Math.max(0, Math.floor(Number(overrideQuantity || 0)));
+  }
+
   const sizeOption = littleOrchardShopCatalog.products
     .find((product) => product.id === productId)
     ?.sizeOptions.find((option) => option.id === sizeOptionId);
@@ -47,12 +62,35 @@ const paymentMethodLabels = {
   other: "Other",
 } as const;
 
+const fulfillmentStatuses = new Set([
+  "PENDING",
+  "PROCESSING",
+  "READY",
+  "FULFILLED",
+  "CANCELED",
+  "REFUNDED",
+]);
+
 function getPaymentMethod(value: unknown) {
   const raw = cleanText(value);
 
   return raw in paymentMethodLabels
     ? (raw as keyof typeof paymentMethodLabels)
     : null;
+}
+
+function getPaymentConfirmationFulfillmentStatus(value: unknown) {
+  const status = cleanText(value).toUpperCase();
+
+  if (!fulfillmentStatuses.has(status) || status === "PENDING") {
+    return "PROCESSING";
+  }
+
+  return status;
+}
+
+function getFulfillmentStageKey(status: string) {
+  return status.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
 function normalizeNonNegativeMoney(value: unknown) {
@@ -90,6 +128,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const orderCode = cleanText(body?.orderCode);
   const paymentMethod = getPaymentMethod(body?.paymentMethod);
+  const fulfillmentStatus = getPaymentConfirmationFulfillmentStatus(
+    body?.fulfillmentStatus
+  );
   const cashTendered =
     paymentMethod === "cash" ? normalizeNonNegativeMoney(body?.cashTendered) : null;
 
@@ -166,13 +207,21 @@ export async function POST(request: Request) {
   }
 
   const conflicts = [];
+  const quantityOverrides = await getPlantShopEventQuantityOverrideMap(
+    prisma as any,
+    LITTLE_ORCHARD_SHOP_SLUG
+  );
 
   for (const item of items) {
     if (item.purchaseModeId === "nursery-stock-request") {
       continue;
     }
 
-    const limit = getVariationLimit(item.productId, item.sizeOptionId);
+    const limit = getVariationLimit(
+      item.productId,
+      item.sizeOptionId,
+      quantityOverrides
+    );
     const confirmedQuantity = await getConfirmedQuantity(
       item.productId,
       item.sizeOptionId
@@ -207,6 +256,7 @@ export async function POST(request: Request) {
     for (const [index, item] of items.entries()) {
       const metadata = readMetadata(item.metadata);
       const previousStatus = cleanText(item.fulfillmentStatus) || "PENDING";
+      const stageKey = getFulfillmentStageKey(fulfillmentStatus);
       const nextMetadata = {
         ...metadata,
         paymentStatus: "PAYMENT_CONFIRMED",
@@ -234,11 +284,12 @@ export async function POST(request: Request) {
       await tx.orderFulfillmentItem.update({
         where: { id: item.id },
         data: {
-          status: "PROCESSING",
-          fulfillmentStatus: "PROCESSING",
+          status: fulfillmentStatus,
+          fulfillmentStatus,
           fulfillmentNotes: cleanFulfillmentNotes(item.fulfillmentNotes),
-          currentStageKey: "payment-confirmed",
-          currentStageLabel: "Payment confirmed",
+          currentStageKey: stageKey,
+          currentStageLabel: fulfillmentStatus,
+          fulfilledAt: fulfillmentStatus === "FULFILLED" ? now : item.fulfilledAt,
           metadata: nextMetadata as Prisma.InputJsonObject,
         },
       });
@@ -254,9 +305,10 @@ export async function POST(request: Request) {
           staffUserId,
           staffUserName,
           previousStatus,
-          nextStatus: "PROCESSING",
+          nextStatus: fulfillmentStatus,
           notes: [
             `Payment confirmed. Method: ${paymentMethodLabels[paymentMethod]}.`,
+            `Fulfillment status set to ${fulfillmentStatus}.`,
             paymentMethod === "cash" && cashTendered !== null
               ? `Cash received: ${cashTendered}. Change returned: ${changeDue}.`
               : "",
@@ -270,8 +322,28 @@ export async function POST(request: Request) {
             orderTotal,
             cashTendered,
             changeDue,
+            fulfillmentStatus,
           },
         });
+
+        if (fulfillmentStatus !== "PROCESSING") {
+          await createLittleOrchardOrderActivity(tx as any, {
+            fulfillmentItemId: item.id,
+            orderCode,
+            stageKey,
+            stageLabel: fulfillmentStatus,
+            updateType: "manual",
+            source: "Cashier",
+            staffUserId,
+            staffUserName,
+            previousStatus: "PROCESSING",
+            nextStatus: fulfillmentStatus,
+            notes: `Fulfillment status updated during payment confirmation.`,
+            metadata: {
+              orderActivityKey: `${orderCode}:payment-confirmed:${stageKey}`,
+            },
+          });
+        }
       }
     }
   });
@@ -282,6 +354,7 @@ export async function POST(request: Request) {
     inventoryTransactionId,
     paymentMethod,
     paymentMethodLabel: paymentMethodLabels[paymentMethod],
+    fulfillmentStatus,
     orderTotal,
     cashTendered,
     changeDue,

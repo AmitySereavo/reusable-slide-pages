@@ -5,6 +5,7 @@ import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 
 const fulfillmentStatuses = new Set([
   "PENDING",
@@ -743,8 +744,11 @@ export async function POST(request: Request) {
     if (
       action !== "request-mailing-address-update" &&
       action !== "send-little-orchard-customer-email" &&
+      action !== "add-little-orchard-catalog-order-item" &&
       action !== "add-little-orchard-order-item" &&
-      action !== "remove-little-orchard-order-item"
+      action !== "remove-little-orchard-order-item" &&
+      action !== "update-little-orchard-payment-allocations" &&
+      action !== "update-little-orchard-customer-phone"
     ) {
       return NextResponse.json(
         { ok: false, error: "Unknown order action." },
@@ -752,11 +756,148 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!id && action !== "add-little-orchard-order-item") {
+    if (
+      !id &&
+      action !== "add-little-orchard-order-item" &&
+      action !== "add-little-orchard-catalog-order-item"
+    ) {
       return NextResponse.json(
         { ok: false, error: "Fulfillment item id is required." },
         { status: 400 }
       );
+    }
+
+    if (action === "add-little-orchard-catalog-order-item") {
+      const orderCode = cleanText(body?.orderCode);
+      const productId = cleanText(body?.productId);
+      const sizeOptionId = cleanText(body?.sizeOptionId);
+      const quantity = normalizePositiveInteger(body?.quantity, 1);
+      const product = littleOrchardShopCatalog.products.find(
+        (item) => item.id === productId
+      );
+      const sizeOption = product?.sizeOptions.find(
+        (item) => item.id === sizeOptionId
+      );
+
+      if (!orderCode) {
+        return NextResponse.json(
+          { ok: false, error: "Order code is required." },
+          { status: 400 }
+        );
+      }
+
+      if (!product || !sizeOption) {
+        return NextResponse.json(
+          { ok: false, error: "Choose a valid Little Orchard shop item." },
+          { status: 400 }
+        );
+      }
+
+      const existingItems = await prisma.orderFulfillmentItem.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+        orderBy: [{ createdAt: "asc" }],
+      });
+
+      if (!existingItems.length) {
+        return NextResponse.json(
+          { ok: false, error: "Little Orchard order was not found." },
+          { status: 404 }
+        );
+      }
+
+      const firstItem = existingItems[0];
+      const firstMetadata = readSnapshotObject(firstItem.metadata);
+      const now = new Date();
+      const staffUser = guard.session?.user;
+      const staffUserId = staffUser?.id || null;
+      const staffUserName =
+        staffUser?.name || staffUser?.email || "Admin";
+      const unitPrice = normalizeNonNegativeMoney(sizeOption.price);
+      const lineTotal = unitPrice * quantity;
+      const sku = sizeOption.sku || product.sku || `${product.id}-${sizeOption.id}`;
+      const metadata = {
+        ...firstMetadata,
+        paymentStatus:
+          cleanText(firstMetadata.paymentStatus) || "AWAITING_PAYMENT",
+        inventoryApplied: firstMetadata.inventoryApplied === true,
+        addedFromDashboard: true,
+        addedFromShopCatalog: true,
+        addedBy: staffUserId,
+        addedByName: staffUserName,
+        addedAt: now.toISOString(),
+      };
+
+      const createdItem = await prisma.orderFulfillmentItem.create({
+        data: {
+          sourceType: "little-orchard-shop",
+          sourceId: orderCode,
+          orderCode,
+          lineKey: `dashboard-catalog:${sku}:${now.getTime()}`,
+          productId: product.id,
+          productSku: product.sku || null,
+          productTitle: product.title,
+          sizeOptionId: sizeOption.id,
+          sizeSku: sizeOption.sku || null,
+          sizeLabel: sizeOption.label,
+          purchaseModeId: "dashboard-catalog",
+          purchaseModeLabel: "Added from shop",
+          sku,
+          fulfillmentType: product.fulfillmentType || "physical",
+          quantity,
+          currencyCode:
+            littleOrchardShopCatalog.currencyCode ||
+            firstItem.currencyCode ||
+            "JMD",
+          unitPrice: new Prisma.Decimal(unitPrice),
+          lineTotal: new Prisma.Decimal(lineTotal),
+          recipientName: firstItem.recipientName,
+          recipientEmail: firstItem.recipientEmail,
+          recipientRole: firstItem.recipientRole,
+          status: firstItem.status || "PENDING",
+          fulfillmentStatus: firstItem.fulfillmentStatus || "PENDING",
+          currentStageKey: firstItem.currentStageKey,
+          currentStageLabel: firstItem.currentStageLabel,
+          metadata: metadata as Prisma.InputJsonObject,
+        },
+        include: {
+          invitationOrder: true,
+          selectedCourier: true,
+          activities: {
+            orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+            take: 20,
+          },
+        },
+      });
+
+      await createLittleOrchardOrderActivity(prisma as any, {
+        fulfillmentItemId: createdItem.id,
+        orderCode,
+        stageKey: "dashboard-catalog-item-added",
+        stageLabel: "Shop item added",
+        updateType: "manual",
+        source: "orders-dashboard",
+        staffUserId,
+        staffUserName,
+        previousStatus: firstItem.fulfillmentStatus || "PENDING",
+        nextStatus: createdItem.fulfillmentStatus,
+        notes: `${product.title} - ${sizeOption.label} added to order from the shop catalog.`,
+        metadata: {
+          orderActivityKey: `${orderCode}:dashboard-catalog-item-added:${createdItem.id}`,
+          customerVisible: true,
+          customerTitle: "Item added",
+          customerDescription:
+            "An additional shop item was added to this order.",
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        item: serializeFulfillmentItem(createdItem),
+        message: "Shop item added to the order.",
+      });
     }
 
     if (action === "add-little-orchard-order-item") {
@@ -936,6 +1077,138 @@ export async function POST(request: Request) {
         ok: true,
         removedItemId: id,
         message: "Item removed from the order and receipt.",
+      });
+    }
+
+    if (action === "update-little-orchard-customer-phone") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Customer phone editing is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const nextPhone = cleanText(body?.phone).replace(/[^\d+]/g, "");
+
+      if (!nextPhone) {
+        return NextResponse.json(
+          { ok: false, error: "Enter the customer phone number." },
+          { status: 400 }
+        );
+      }
+
+      if (nextPhone.replace(/\D/g, "").length < 10) {
+        return NextResponse.json(
+          { ok: false, error: "Enter a phone number with at least 10 digits." },
+          { status: 400 }
+        );
+      }
+
+      const orderCode = cleanText(item.orderCode);
+      const orderItems = await delegate.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+      });
+
+      await Promise.all(
+        orderItems.map((orderItem: any) => {
+          const metadata = readSnapshotObject(orderItem.metadata);
+
+          return delegate.update({
+            where: { id: orderItem.id },
+            data: {
+              metadata: {
+                ...metadata,
+                customerPhoneNumber: nextPhone,
+                customerWhatsappNumber: nextPhone,
+                customerPhoneUpdatedAt: new Date().toISOString(),
+                customerPhoneUpdatedBy:
+                  guard.session?.user?.name || guard.session?.user?.email || "Admin",
+              } as Prisma.InputJsonObject,
+            },
+          });
+        })
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: "Customer phone number updated.",
+      });
+    }
+
+    if (action === "update-little-orchard-payment-allocations") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Payment allocation editing is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const allocationInput = readSnapshotObject(body?.paymentAllocations);
+      const paymentAllocations = {
+        cash: normalizeNonNegativeMoney(allocationInput.cash),
+        card: normalizeNonNegativeMoney(allocationInput.card),
+        bank_transfer: normalizeNonNegativeMoney(
+          allocationInput.bank_transfer
+        ),
+        remittance: normalizeNonNegativeMoney(allocationInput.remittance),
+        other: normalizeNonNegativeMoney(allocationInput.other),
+      };
+      const paidTotal = Object.values(paymentAllocations).reduce(
+        (sum, value) => sum + value,
+        0
+      );
+      const orderCode = cleanText(item.orderCode);
+      const orderItems = await delegate.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+      });
+      const orderTotal = orderItems.reduce(
+        (sum: number, orderItem: any) =>
+          sum + Number(orderItem.lineTotal || 0),
+        0
+      );
+
+      await Promise.all(
+        orderItems.map((orderItem: any) => {
+          const metadata = readSnapshotObject(orderItem.metadata);
+
+          return delegate.update({
+            where: { id: orderItem.id },
+            data: {
+              metadata: {
+                ...metadata,
+                paymentAllocations,
+                paymentAllocationTotal: paidTotal,
+                customerOwes: Math.max(0, orderTotal - paidTotal),
+                paymentAllocationsUpdatedAt: new Date().toISOString(),
+                paymentAllocationsUpdatedBy:
+                  guard.session?.user?.name ||
+                  guard.session?.user?.email ||
+                  "Admin",
+              } as Prisma.InputJsonObject,
+            },
+          });
+        })
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: "Payment allocations updated.",
+        paymentAllocations,
+        paidTotal,
+        customerOwes: Math.max(0, orderTotal - paidTotal),
       });
     }
 

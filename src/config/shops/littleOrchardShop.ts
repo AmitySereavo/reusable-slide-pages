@@ -4,18 +4,18 @@ export const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
 export const LITTLE_ORCHARD_SHOP_SOURCE = "little_orchard_shop";
 
 export const littleOrchardPlantShowEvent = {
-  eventId: "jhs-plant-market-2026-07-26",
+  eventId: "little-orchard-online-shop",
   shopSource: LITTLE_ORCHARD_SHOP_SOURCE,
   shopName: "Little Orchard Shop",
   brandName: "Para-life Trees",
   tagline: "Planting a life in paradise",
-  eventName: "Jamaica Horticultural Society Plant Market",
-  venueName: "Jamaica Horticultural Society Showgrounds",
-  venueAddress: "Cnr. Gibson Dr & Gibson Close, Hope Pastures",
-  eventDateLabel: "Sunday, July 26",
-  eventEndsAt: "2026-07-26T16:00:00-05:00",
-  openingHours: "9:00 AM - 4:00 PM",
-  pickupLocation: "Little Orchard Nursery tent",
+  eventName: "Little Orchard Online Shop",
+  venueName: "Little Orchard pickup and delivery",
+  venueAddress: "Kingston, Jamaica",
+  eventDateLabel: "Current nursery inventory",
+  eventEndsAt: "2099-12-31T23:59:59-05:00",
+  openingHours: "Pickup times vary by location",
+  pickupLocation: "Selected pickup location",
   contactName: "Romone",
   whatsappNumber: "18763727415",
   displayWhatsappNumber: "1 (876) 372-7415",
@@ -149,7 +149,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-BLACK-PEPPER",
       title: "Black Pepper",
       category: "Herbs and Seasoning Plants",
-      description: "Seasoning plant for event pickup from the Little Orchard Nursery tent.",
+      description: "Seasoning plant for Little Orchard pickup or delivery.",
       media: productMedia.blackPepperPlant,
       variations: [
         {
@@ -167,7 +167,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-SCALLION",
       title: "Scallion",
       category: "Herbs and Seasoning Plants",
-      description: "Kitchen seasoning plant for event pickup from the Little Orchard Nursery tent.",
+      description: "Kitchen seasoning plant for Little Orchard pickup or delivery.",
       media: productMedia.greenOnionScallion,
       variations: [
         {
@@ -676,7 +676,7 @@ function makePlantProduct({
     imageUrl: media?.still || media?.gif || imageUrl || undefined,
     previewImageUrl: media?.gif || media?.still || imageUrl || undefined,
     description,
-    detailsDescription: `${category}. ${description} Event quantity available: ${totalQuantity}. Variation availability is tracked separately. Nursery availability is separate and must be confirmed.`,
+    detailsDescription: `${category}. ${description} Inventory available: ${totalQuantity}. Variation availability is tracked separately. Nursery availability is separate and must be confirmed.`,
     fulfillmentType: "physical" as const,
     maxOrderQuantity: totalQuantity,
     metadata: {
@@ -695,8 +695,8 @@ function makePlantProduct({
       description: [
         variation.potSize,
         variation.estimatedSize,
-        "Available for pickup at the Little Orchard Nursery tent while show stock lasts.",
-        `Event quantity: ${variation.eventQuantity}.`,
+        "Available while nursery stock lasts.",
+        `Inventory remaining: ${variation.eventQuantity}.`,
       ]
         .filter(Boolean)
         .join(". ")

@@ -3,7 +3,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   LITTLE_ORCHARD_SHOP_SLUG,
-  littleOrchardPlantShowEvent,
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
@@ -17,33 +16,38 @@ import type {
 type ConfirmedQuantityRow = {
   productId: string | null;
   sizeOptionId: string | null;
+  productTitle: string | null;
+  sizeLabel: string | null;
   total: bigint | number | null;
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
-  const eventDateHasPassed = hasLittleOrchardEventPassed();
+  const eventDateHasPassed = false;
   const [quantityOverrides, interestCounts] = await Promise.all([
     getPlantShopEventQuantityOverrideMap(prisma, LITTLE_ORCHARD_SHOP_SLUG),
     getPlantShopProductInterestMap(prisma, LITTLE_ORCHARD_SHOP_SLUG),
   ]);
   const confirmedRows = await prisma.$queryRaw<ConfirmedQuantityRow[]>(
     Prisma.sql`
-      SELECT "productId", "sizeOptionId", COALESCE(SUM("quantity"), 0) AS total
+      SELECT
+        "productId",
+        "sizeOptionId",
+        "productTitle",
+        "sizeLabel",
+        COALESCE(SUM("quantity"), 0) AS total
       FROM "OrderFulfillmentItem"
       WHERE "sourceType" = 'little-orchard-shop'
         AND "metadata"->>'paymentStatus' = 'PAYMENT_CONFIRMED'
         AND "metadata"->>'inventoryApplied' = 'true'
         AND COALESCE("purchaseModeId", '') <> 'nursery-stock-request'
-      GROUP BY "productId", "sizeOptionId"
+      GROUP BY "productId", "sizeOptionId", "productTitle", "sizeLabel"
     `
   );
 
-  const confirmedByLine = new Map(
-    confirmedRows.map((row) => [
-      `${row.productId ?? ""}::${row.sizeOptionId ?? ""}`,
-      Number(row.total ?? 0),
-    ])
-  );
+  const confirmedByLine = buildConfirmedQuantityMap(confirmedRows);
 
   const shopCatalog = applyConfirmedQuantities(
     littleOrchardShopCatalog,
@@ -53,23 +57,61 @@ export async function GET() {
     interestCounts
   );
 
-  return NextResponse.json({
-    variables: {
-      littleOrchardEventDateHasPassed: eventDateHasPassed,
-      formFieldOptionOverrides: eventDateHasPassed
-        ? {
-            plantShopFulfillmentMethod: {
-              event_pickup: {
-                label:
-                  "Jamaica Horticultural Society Plant Market (event date has passed)",
-                disabled: true,
-              },
-            },
-          }
-        : {},
-      shopCatalog,
+  return NextResponse.json(
+    {
+      variables: {
+        littleOrchardEventDateHasPassed: false,
+        formFieldOptionOverrides: {},
+        shopCatalog,
+      },
     },
-  });
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    }
+  );
+}
+
+function buildConfirmedQuantityMap(rows: ConfirmedQuantityRow[]) {
+  const map = new Map<string, number>();
+
+  for (const row of rows) {
+    const key = getCanonicalLineKey(row);
+    const total = Number(row.total ?? 0);
+
+    map.set(key, (map.get(key) ?? 0) + (Number.isFinite(total) ? total : 0));
+  }
+
+  return map;
+}
+
+function getCanonicalLineKey(row: ConfirmedQuantityRow) {
+  const productId = row.productId ?? "";
+  const sizeOptionId = row.sizeOptionId ?? "";
+  const title = String(row.productTitle || "").trim().toLowerCase();
+  const size = String(row.sizeLabel || "").trim().toLowerCase();
+
+  if (
+    productId === "lo-tree-mint-jamaican-peppermint" &&
+    sizeOptionId === "tree-mint-4-inch"
+  ) {
+    return "lo-tree-mint-jamaican-peppermint::tree-mint-jamaican-peppermint-4-inch";
+  }
+
+  if (
+    title === "bolo mint" ||
+    title === "panadol plant" ||
+    title === "panadol plant - bolo mint"
+  ) {
+    return "lo-panadol-plant-bolo-mint::panadol-plant-bolo-mint-4-inch";
+  }
+
+  if (title === "black pepper" && size.includes("4")) {
+    return "lo-black-pepper::black-pepper-4-inch";
+  }
+
+  return `${productId}::${sizeOptionId}`;
 }
 
 function applyConfirmedQuantities(
@@ -120,10 +162,15 @@ function applyProductConfirmedQuantities(
     return {
       ...sizeOption,
       description: sizeOption.description
-        ? sizeOption.description.replace(
-            /Event quantity:\s*\d+\./i,
-            `Event quantity remaining: ${remainingQuantity}.`
-          )
+        ? sizeOption.description
+            .replace(
+              /Event quantity:\s*\d+\./i,
+              `Inventory remaining: ${remainingQuantity}.`
+            )
+            .replace(
+              /Available for pickup at the Little Orchard Nursery tent while show stock lasts\./i,
+              "Available while nursery stock lasts."
+            )
         : sizeOption.description,
       metadata: {
         ...metadata,
@@ -150,7 +197,7 @@ function applyProductConfirmedQuantities(
     detailsDescription: product.detailsDescription
       ? product.detailsDescription.replace(
           /Event quantity available:\s*\d+\./i,
-          `Event quantity remaining: ${remainingProductQuantity}.`
+          `Inventory remaining: ${remainingProductQuantity}.`
         )
       : product.detailsDescription,
     metadata: {
@@ -161,12 +208,6 @@ function applyProductConfirmedQuantities(
     },
     sizeOptions,
   };
-}
-
-function hasLittleOrchardEventPassed() {
-  const eventEndsAt = new Date(littleOrchardPlantShowEvent.eventEndsAt);
-
-  return !Number.isNaN(eventEndsAt.getTime()) && Date.now() > eventEndsAt.getTime();
 }
 
 function normalizeMetadata(

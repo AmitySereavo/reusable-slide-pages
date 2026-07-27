@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 
 const statusOptions = [
   "PENDING",
@@ -125,6 +126,18 @@ function getLittleOrchardSocialContacts(item) {
   ].filter(Boolean);
 }
 
+const littleOrchardCatalogChoices = littleOrchardShopCatalog.products.flatMap(
+  (product) =>
+    product.sizeOptions.map((sizeOption) => ({
+      key: `${product.id}::${sizeOption.id}`,
+      productId: product.id,
+      sizeOptionId: sizeOption.id,
+      label: `${product.title} - ${sizeOption.label}`,
+      price: sizeOption.price,
+      currencyCode: littleOrchardShopCatalog.currencyCode || "JMD",
+    }))
+);
+
 function useCurrentOriginUrl(value) {
   const raw = String(value || "").trim();
 
@@ -183,6 +196,53 @@ const customerMessageTemplates = [
   { value: "cancelled", label: "Order cancelled" },
 ];
 
+const paymentAllocationOptions = [
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "remittance", label: "Remittance" },
+  { value: "other", label: "Other" },
+];
+
+function getPaymentAllocations(item) {
+  const allocations = item.metadata?.paymentAllocations || {};
+
+  return paymentAllocationOptions.reduce((current, option) => {
+    current[option.value] = Number(allocations?.[option.value] || 0);
+    return current;
+  }, {});
+}
+
+function getPaymentAllocationTotal(item) {
+  const allocations = getPaymentAllocations(item);
+
+  return Object.values(allocations).reduce(
+    (sum, amount) => sum + Number(amount || 0),
+    0
+  );
+}
+
+function getCustomerOwesAmount({ item, orderTotal }) {
+  if (item.metadata?.paymentStatus === "PAYMENT_CONFIRMED") return 0;
+
+  return Math.max(0, orderTotal - getPaymentAllocationTotal(item));
+}
+
+function getCustomerInitials(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!words.length) return "?";
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
 function buildCustomerMessage({ item, orderTotal, template }) {
   const customerName = item.recipientName || "there";
   const orderCode = item.orderCode || "your order";
@@ -198,8 +258,8 @@ function buildCustomerMessage({ item, orderTotal, template }) {
       `Ready for pickup, ${customerName}.`,
       "",
       `Little Orchard order ${orderCode} is ready for pickup.`,
-      "Congratulations, you've invested in your garden!",
       "You may now come to the Little Orchard Nursery tent to collect your items.",
+      "Happy gardening. Your next growing step is waiting for you.",
       !paymentConfirmed ? `Order total: ${total}` : "",
       statusLink ? `Order status: ${statusLink}` : "",
     ]
@@ -243,8 +303,8 @@ function buildCustomerMessage({ item, orderTotal, template }) {
   return [
     `Payment confirmed, ${customerName}.`,
     "",
-    `Your payment for order ${orderCode} has been confirmed.`,
-    "Congratulations, you've invested in your garden!",
+      `Your payment for order ${orderCode} has been confirmed.`,
+    "Your items are secured. Keep growing.",
     `Current order status: ${status}`,
     `Order total: ${total}`,
     "We will notify you when your order is ready for pickup at the Little Orchard Nursery tent.",
@@ -309,6 +369,10 @@ export default function OrdersManager() {
   const [paymentMethods, setPaymentMethods] = useState({});
   const [cashTenderedByOrder, setCashTenderedByOrder] = useState({});
   const [adHocItemDrafts, setAdHocItemDrafts] = useState({});
+  const [catalogItemDrafts, setCatalogItemDrafts] = useState({});
+  const [customerPhoneDrafts, setCustomerPhoneDrafts] = useState({});
+  const [paymentAllocationDrafts, setPaymentAllocationDrafts] = useState({});
+  const [expandedAccordions, setExpandedAccordions] = useState({});
   const [messageTemplateByOrder, setMessageTemplateByOrder] = useState({});
   const [busyActions, setBusyActions] = useState({});
   const busyActionLocksRef = useRef({});
@@ -454,7 +518,7 @@ export default function OrdersManager() {
     setMessage("Order item updated.");
   }
 
-  async function confirmLittleOrchardPayment(item) {
+  async function confirmLittleOrchardPayment(item, fulfillmentStatus) {
     if (!item.orderCode) return;
     const actionKey = `confirm-payment:${item.orderCode}`;
     if (busyActionLocksRef.current[actionKey]) return;
@@ -476,6 +540,7 @@ export default function OrdersManager() {
         body: JSON.stringify({
           orderCode: item.orderCode,
           paymentMethod,
+          fulfillmentStatus,
           cashTendered: paymentMethod === "cash" ? cashTenderedRaw : undefined,
         }),
       });
@@ -564,6 +629,104 @@ export default function OrdersManager() {
     });
   }
 
+  async function addCatalogOrderItem(item) {
+    if (!item.orderCode) return;
+    const actionKey = `add-catalog-item:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+    const draft = catalogItemDrafts[item.orderCode] || {};
+    const catalogKey =
+      draft.catalogKey || littleOrchardCatalogChoices[0]?.key || "";
+    const [productId, sizeOptionId] = String(catalogKey).split("::");
+    const quantity = Number(draft.quantity || 1);
+
+    if (!productId || !sizeOptionId) {
+      setMessage("Choose the shop item to add.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "Adding shop item to order...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "add-little-orchard-catalog-order-item",
+          orderCode: item.orderCode,
+          productId,
+          sizeOptionId,
+          quantity,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Shop item could not be added."
+        );
+        return;
+      }
+
+      setCatalogItemDrafts((current) => ({
+        ...current,
+        [item.orderCode]: {
+          catalogKey: littleOrchardCatalogChoices[0]?.key || "",
+          quantity: 1,
+        },
+      }));
+      setMessage(payload.message || "Shop item added to order.");
+      await loadOrders();
+    });
+  }
+
+  async function updateLittleOrchardPaymentAllocations(item) {
+    if (!item.id || !item.orderCode) return;
+    const actionKey = `payment-allocations:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+    const paymentAllocations =
+      paymentAllocationDrafts[item.orderCode] || getPaymentAllocations(item);
+
+    await runBusyAction(actionKey, "Updating payment allocations...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "update-little-orchard-payment-allocations",
+          id: item.id,
+          paymentAllocations,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Payment allocations could not be updated."
+        );
+        return;
+      }
+
+      setMessage(payload.message || "Payment allocations updated.");
+      await loadOrders();
+    });
+  }
+
+  function toggleAccordion(orderCode, section) {
+    setExpandedAccordions((current) => {
+      const currentSection = current[orderCode];
+
+      return {
+        ...current,
+        [orderCode]: currentSection === section ? "" : section,
+      };
+    });
+  }
+
   async function removeLittleOrchardOrderItem(entry) {
     const actionKey = `remove-order-item:${entry.id}`;
     if (busyActionLocksRef.current[actionKey]) return;
@@ -597,6 +760,47 @@ export default function OrdersManager() {
       }
 
       setMessage(payload.message || "Item removed from order.");
+      await loadOrders();
+    });
+  }
+
+  async function updateLittleOrchardCustomerPhone(item) {
+    if (!item.id || !item.orderCode) return;
+    const actionKey = `customer-phone:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+    const phone = String(
+      customerPhoneDrafts[item.orderCode] ?? getLittleOrchardOrderPhone(item)
+    ).trim();
+
+    if (!phone) {
+      setMessage("Enter the customer phone number.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "Updating customer phone...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "update-little-orchard-customer-phone",
+          id: item.id,
+          phone,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Customer phone could not be updated."
+        );
+        return;
+      }
+
+      setMessage(payload.message || "Customer phone updated.");
       await loadOrders();
     });
   }
@@ -802,6 +1006,14 @@ export default function OrdersManager() {
             quantity: 1,
             unitPrice: "",
           };
+          const catalogDraft = catalogItemDrafts[item.orderCode] || {
+            catalogKey: littleOrchardCatalogChoices[0]?.key || "",
+            quantity: 1,
+          };
+          const selectedCatalogChoice =
+            littleOrchardCatalogChoices.find(
+              (choice) => choice.key === catalogDraft.catalogKey
+            ) || littleOrchardCatalogChoices[0];
           const customerPhone = getLittleOrchardOrderPhone(item);
           const customerEmail = getLittleOrchardOrderEmail(item);
           const socialContacts = getLittleOrchardSocialContacts(item);
@@ -833,6 +1045,11 @@ export default function OrdersManager() {
           const receiptBusy = Boolean(
             busyActions[`receipt:${item.orderCode}`]
           );
+          const customerPhoneBusy = Boolean(
+            busyActions[`customer-phone:${item.orderCode}`]
+          );
+          const customerPhoneDraft =
+            customerPhoneDrafts[item.orderCode] ?? customerPhone;
           const order = item.invitationOrder;
           const isPhysicalInvitationOrder =
             item.fulfillmentType === "physical" &&
@@ -842,6 +1059,753 @@ export default function OrdersManager() {
           const hasPhysicalInvitationAddress = Boolean(
             formatAddress(physicalInvitationAddress)
           );
+          const customerName =
+            item.recipientName || order?.purchaserName || "No customer name";
+          const paymentAllocations =
+            paymentAllocationDrafts[item.orderCode] ||
+            getPaymentAllocations(item);
+          const paidTotal = Object.values(paymentAllocations).reduce(
+            (sum, amount) => sum + Number(amount || 0),
+            0
+          );
+          const customerOwes = getCustomerOwesAmount({ item, orderTotal });
+          const isPaidComplete = customerOwes <= 0;
+          const expandedSection = expandedAccordions[item.orderCode] || "";
+          const paymentAllocationBusy = Boolean(
+            busyActions[`payment-allocations:${item.orderCode}`]
+          );
+          const canEditOrder =
+            currentStatus !== "FULFILLED" && customerOwes > 0;
+
+          if (group.isLittleOrchardOrder) {
+            return (
+              <article
+                key={group.key}
+                style={{
+                  ...styles.customerCard,
+                  borderColor: statusColor(currentStatus),
+                }}
+              >
+                <div style={isNarrow ? styles.customerHeaderNarrow : styles.customerHeader}>
+                  <div style={styles.customerAvatar}>
+                    {item.metadata?.customerProfileImageUrl ? (
+                      <img
+                        src={item.metadata.customerProfileImageUrl}
+                        alt=""
+                        style={styles.customerAvatarImage}
+                      />
+                    ) : (
+                      getCustomerInitials(customerName)
+                    )}
+                  </div>
+                  <div style={styles.minWidthZero}>
+                    <div style={styles.customerNameRow}>
+                      <strong style={styles.customerName}>{customerName}</strong>
+                      {item.metadata?.followUpDue ? (
+                        <span style={styles.followUpDot} aria-label="Follow-up due" />
+                      ) : null}
+                    </div>
+                    <div style={styles.customerSubline}>
+                      {customerPhone || "No phone"} -{" "}
+                      {(item.metadata?.plantShopContactMethod || "contact")
+                        .replace(/_/g, " ")
+                        .toUpperCase()}
+                    </div>
+                    <div style={styles.customerSubline}>
+                      {customerEmail || "No email"}
+                    </div>
+                  </div>
+                  <button type="button" style={styles.textLinkButton}>
+                    adjust
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  style={styles.notesRow}
+                  onClick={() => toggleAccordion(item.orderCode, "notes")}
+                >
+                  <span>NOTES</span>
+                  <strong>add / remove</strong>
+                </button>
+                {expandedSection === "notes" ? (
+                  <div style={styles.accordionPanel}>
+                    {item.metadata?.customerNotes ? (
+                      <div style={styles.notePanel}>
+                        <strong>Customer notes</strong>
+                        <span>{item.metadata.customerNotes}</span>
+                      </div>
+                    ) : (
+                      <div style={styles.muted}>No customer notes recorded.</div>
+                    )}
+                    <div style={styles.followUpPanel}>
+                      <strong>Follow-Up</strong>
+                      <span style={styles.muted}>
+                        Future CRM pass: structured notes, follow-up frequency,
+                        red due reminder, referral opportunities, and a dated
+                        customer relationship timeline.
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div style={styles.orderBlock}>
+                  <div style={isNarrow ? styles.orderBlockHeaderNarrow : styles.orderBlockHeader}>
+                    <div style={styles.minWidthZero}>
+                      <strong style={styles.breakText}>
+                        Little Orchard Order - {item.orderCode}
+                      </strong>
+                      <div style={styles.customerSubline}>
+                        {formatDate(item.createdAt).toUpperCase()} - ORDER CREATED
+                      </div>
+                    </div>
+                    <div style={styles.orderStatusBlock}>
+                      <strong style={{ color: statusColor(currentStatus) }}>
+                        {currentStatus}
+                      </strong>
+                      <span>{item.fulfillmentType}</span>
+                    </div>
+                  </div>
+
+                  <div style={styles.orderDateGrid}>
+                    <Info label="Record created" value={formatDate(item.createdAt)} />
+                    <Info label="Record last updated" value={formatDate(item.updatedAt)} />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleAccordion(item.orderCode, "payment")}
+                    style={styles.paymentSummaryButton}
+                  >
+                    <span>
+                      <strong>Customer owes</strong>
+                      <span
+                        style={
+                          isPaidComplete
+                            ? styles.customerOwesComplete
+                            : styles.customerOwesDue
+                        }
+                      >
+                        {formatMoneyValue(item.currencyCode, customerOwes)}
+                      </span>
+                    </span>
+                    <span style={styles.totalSummary}>
+                      <strong>TOTAL</strong>
+                      <span>{formatMoneyValue(item.currencyCode, orderTotal)}</span>
+                    </span>
+                  </button>
+
+                  {expandedSection === "payment" ? (
+                    <div style={styles.accordionPanel}>
+                      <div style={styles.paymentAllocationList}>
+                        {paymentAllocationOptions.map((option) => (
+                          <label key={option.value} style={styles.paymentAllocationRow}>
+                            <span>
+                              <strong>{option.label}</strong>
+                              <small>{item.currencyCode || "JMD"}</small>
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={paymentAllocations[option.value] ?? 0}
+                              onChange={(event) =>
+                                setPaymentAllocationDrafts((current) => ({
+                                  ...current,
+                                  [item.orderCode]: {
+                                    ...paymentAllocations,
+                                    [option.value]: event.target.value,
+                                  },
+                                }))
+                              }
+                              style={styles.amountInput}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                      <div style={styles.paymentTotalsRow}>
+                        <span>Recorded received: {formatMoneyValue(item.currencyCode, paidTotal)}</span>
+                        <span>Customer owes: {formatMoneyValue(item.currencyCode, customerOwes)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updateLittleOrchardPaymentAllocations(item)}
+                        disabled={paymentAllocationBusy}
+                        style={styles.secondaryButton}
+                      >
+                        {paymentAllocationBusy
+                          ? "Saving payment amounts..."
+                          : "Save payment amounts"}
+                      </button>
+                      {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
+                        <div style={styles.paymentConfirmPanel}>
+                          <label style={styles.label}>
+                            Confirm payment method
+                            <select
+                              value={selectedPaymentMethod}
+                              onChange={(event) =>
+                                setPaymentMethods((current) => ({
+                                  ...current,
+                                  [item.orderCode]: event.target.value,
+                                }))
+                              }
+                              style={styles.selectWide}
+                            >
+                              <option value="">Choose method</option>
+                              <option value="cash">Cash</option>
+                              <option value="card">Card</option>
+                              <option value="bank_transfer">Bank transfer</option>
+                              <option value="remittance">Remittance</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </label>
+                          {selectedPaymentMethod === "cash" ? (
+                            <div style={styles.cashTenderPanel}>
+                              <label style={styles.label}>
+                                Cash received
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={cashTenderedByOrder[item.orderCode] || ""}
+                                  onChange={(event) =>
+                                    setCashTenderedByOrder((current) => ({
+                                      ...current,
+                                      [item.orderCode]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder={formatMoneyValue(
+                                    item.currencyCode,
+                                    orderTotal
+                                  )}
+                                  style={styles.input}
+                                />
+                              </label>
+                              <div
+                                style={
+                                  cashChangeDue !== null && cashChangeDue < 0
+                                    ? styles.warningText
+                                    : styles.muted
+                                }
+                              >
+                                Change to return:{" "}
+                                {cashChangeDue === null ||
+                                !Number.isFinite(cashChangeDue)
+                                  ? "Enter cash received"
+                                  : formatMoneyValue(
+                                      item.currencyCode,
+                                      Math.max(0, cashChangeDue)
+                                    )}
+                              </div>
+                            </div>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              confirmLittleOrchardPayment(item, currentStatus)
+                            }
+                            disabled={confirmPaymentBusy}
+                            style={styles.primarySmallButton}
+                          >
+                            {confirmPaymentBusy
+                              ? "Confirming payment..."
+                              : "Confirm payment + update fulfillment"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div style={styles.orderTabs}>
+                    <button
+                      type="button"
+                      onClick={() => toggleAccordion(item.orderCode, "items")}
+                      style={styles.orderTabButton}
+                    >
+                      ITEMS ({orderQuantity})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAccordion(item.orderCode, "delivery")}
+                      style={styles.orderTabButton}
+                    >
+                      DELIVERY
+                    </button>
+                    {cashierLink ? (
+                      <a
+                        href={cashierLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.orderTabLink}
+                      >
+                        CASHIER ORDER LINK
+                      </a>
+                    ) : null}
+                    {receiptLink ? (
+                      <a
+                        href={receiptLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={styles.orderTabLink}
+                      >
+                        RECEIPT LINK
+                      </a>
+                    ) : null}
+                  </div>
+
+                  {expandedSection === "items" ? (
+                    <div style={styles.accordionPanel}>
+                      <div style={styles.orderItemList}>
+                        {orderItems.map((entry) => (
+                          <div key={entry.id} style={styles.orderItemRow}>
+                            <div style={styles.minWidthZero}>
+                              <strong style={styles.breakText}>
+                                {getOrderItemTitle(entry)}
+                              </strong>
+                              <div style={{ ...styles.muted, ...styles.breakText }}>
+                                SKU: {entry.sku || entry.productSku || "No SKU"}
+                              </div>
+                              <div style={{ ...styles.muted, ...styles.breakText }}>
+                                {isNurseryStockRequest(entry)
+                                  ? `Requested item: ${getRequestedItemLabel(entry)}`
+                                  : [entry.sizeLabel, entry.purchaseModeLabel]
+                                      .filter(Boolean)
+                                      .join(" - ")}
+                              </div>
+                            </div>
+                            <div style={styles.orderItemMeta}>
+                              <span>Qty {entry.quantity}</span>
+                              <span>{formatMoney(entry)}</span>
+                              {canEditOrder ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeLittleOrchardOrderItem(entry)
+                                  }
+                                  disabled={Boolean(
+                                    busyActions[`remove-order-item:${entry.id}`]
+                                  )}
+                                  style={styles.inlineDangerButton}
+                                >
+                                  {busyActions[`remove-order-item:${entry.id}`]
+                                    ? "Removing..."
+                                    : "Remove"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {canEditOrder ? (
+                        <>
+                          <div style={styles.adHocItemPanel}>
+                            <strong>Add Item - from store inventory</strong>
+                            <div style={styles.adHocItemGrid}>
+                              <label style={styles.label}>
+                                Shop item
+                                <select
+                                  value={catalogDraft.catalogKey}
+                                  onChange={(event) =>
+                                    setCatalogItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        catalogKey: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  style={styles.selectWide}
+                                >
+                                  {littleOrchardCatalogChoices.map((choice) => (
+                                    <option key={choice.key} value={choice.key}>
+                                      {choice.label} -{" "}
+                                      {formatMoneyValue(
+                                        choice.currencyCode,
+                                        choice.price
+                                      )}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label style={styles.label}>
+                                Qty
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={catalogDraft.quantity ?? 1}
+                                  onChange={(event) =>
+                                    setCatalogItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        quantity: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  style={styles.input}
+                                />
+                              </label>
+                              <div style={styles.pricePreview}>
+                                {selectedCatalogChoice
+                                  ? formatMoneyValue(
+                                      selectedCatalogChoice.currencyCode,
+                                      Number(catalogDraft.quantity || 1) *
+                                        selectedCatalogChoice.price
+                                    )
+                                  : "Choose item"}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addCatalogOrderItem(item)}
+                              disabled={Boolean(
+                                busyActions[`add-catalog-item:${item.orderCode}`]
+                              )}
+                              style={styles.secondaryButton}
+                            >
+                              {busyActions[`add-catalog-item:${item.orderCode}`]
+                                ? "Adding shop item..."
+                                : "Add shop item to this order"}
+                            </button>
+                          </div>
+                          <div style={styles.adHocItemPanel}>
+                            <strong>Add Item - manual</strong>
+                            <div style={styles.adHocItemGrid}>
+                              <label style={styles.label}>
+                                Item name
+                                <input
+                                  value={adHocDraft.productTitle}
+                                  onChange={(event) =>
+                                    setAdHocItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        productTitle: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Example: Rare herb cutting"
+                                  style={styles.input}
+                                />
+                              </label>
+                              <label style={styles.label}>
+                                Size / note
+                                <input
+                                  value={adHocDraft.sizeLabel}
+                                  onChange={(event) =>
+                                    setAdHocItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        sizeLabel: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Optional"
+                                  style={styles.input}
+                                />
+                              </label>
+                              <label style={styles.label}>
+                                Qty
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={adHocDraft.quantity ?? 1}
+                                  onChange={(event) =>
+                                    setAdHocItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        quantity: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  style={styles.input}
+                                />
+                              </label>
+                              <label style={styles.label}>
+                                Price
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={adHocDraft.unitPrice}
+                                  onChange={(event) =>
+                                    setAdHocItemDrafts((current) => ({
+                                      ...current,
+                                      [item.orderCode]: {
+                                        ...(current[item.orderCode] || {}),
+                                        unitPrice: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="JMD"
+                                  style={styles.input}
+                                />
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addAdHocOrderItem(item)}
+                              disabled={Boolean(
+                                busyActions[`add-ad-hoc-item:${item.orderCode}`]
+                              )}
+                              style={styles.secondaryButton}
+                            >
+                              {busyActions[`add-ad-hoc-item:${item.orderCode}`]
+                                ? "Adding item..."
+                                : "Add manual item"}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={styles.muted}>
+                          Add Item is locked after the order is fulfilled or the
+                          customer no longer owes a balance.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {expandedSection === "delivery" ? (
+                    <div style={styles.accordionPanel}>
+                      <div style={styles.detailGrid}>
+                        <Info label="Delivery or pickup" value={item.metadata?.pickupLocationLabel || item.shippingMethod || "Not selected"} />
+                        <Info label="Delivery service" value={item.selectedCourier?.name || item.selectedCourierName || "Not selected"} />
+                        <Info label="Tracking information" value={item.trackingReference || "Not recorded"} />
+                        <Info label="Delivery status" value={currentStatus} />
+                      </div>
+                      {order?.deliverySelection ? (
+                        <pre style={styles.pre}>
+                          {JSON.stringify(order.deliverySelection, null, 2)}
+                        </pre>
+                      ) : null}
+                      <div style={styles.communicationGrid}>
+                        <div style={styles.messageTemplateList}>
+                          {customerMessageTemplates.map((template) => (
+                            <label
+                              key={`${item.orderCode}-${template.value}`}
+                              style={styles.messageTemplateOption}
+                            >
+                              <input
+                                type="radio"
+                                name={`customer-message-template-${item.orderCode}`}
+                                value={template.value}
+                                checked={selectedMessageTemplate === template.value}
+                                onChange={() =>
+                                  setMessageTemplateByOrder((current) => ({
+                                    ...current,
+                                    [item.orderCode]: template.value,
+                                  }))
+                                }
+                              />
+                              <span>{template.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {customerPhone ? (
+                          <button
+                            type="button"
+                            style={styles.secondaryButton}
+                            disabled={whatsappBusy}
+                            onClick={() =>
+                              runBusyAction(
+                                `whatsapp:${item.orderCode}`,
+                                "Preparing WhatsApp message...",
+                                async () => {
+                                  openWhatsAppMessage(
+                                    customerPhone,
+                                    preparedCustomerMessage
+                                  );
+                                  setMessage("WhatsApp message prepared.");
+                                }
+                              )
+                            }
+                          >
+                            {whatsappBusy
+                              ? "Preparing WhatsApp..."
+                              : "Prepare selected WhatsApp message"}
+                          </button>
+                        ) : null}
+                        {customerEmail ? (
+                          <button
+                            type="button"
+                            style={styles.primarySmallButton}
+                            disabled={sendEmailBusy}
+                            onClick={() =>
+                              sendCustomerEmailFromWebsite({
+                                item,
+                                customerEmail,
+                                subject: `Little Orchard order ${item.orderCode}`,
+                                message: preparedCustomerMessage,
+                              })
+                            }
+                          >
+                            {sendEmailBusy
+                              ? "Sending email..."
+                              : "Send selected email from website"}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          style={styles.secondaryButton}
+                          disabled={copyBusy}
+                          onClick={async () => {
+                            await runBusyAction(
+                              `copy:${item.orderCode}`,
+                              "Copying selected customer message...",
+                              async () => {
+                                const copied = await copyMessageToClipboard(
+                                  preparedCustomerMessage
+                                );
+                                setMessage(
+                                  copied
+                                    ? "Selected customer message copied."
+                                    : "Message could not be copied automatically."
+                                );
+                              }
+                            );
+                          }}
+                        >
+                          {copyBusy
+                            ? "Copying message..."
+                            : "Copy selected message for other channel"}
+                        </button>
+                      </div>
+                      {Array.isArray(item.activities) && item.activities.length ? (
+                        <div style={styles.activityList}>
+                          {item.activities.map((activity) => (
+                            <div key={activity.id} style={styles.activityItem}>
+                              <div style={styles.recipientHeader}>
+                                <strong style={styles.breakText}>
+                                  {activity.stageLabel || activity.stageKey}
+                                </strong>
+                                <span style={styles.muted}>
+                                  {formatDate(activity.completedAt)}
+                                </span>
+                              </div>
+                              <div style={{ ...styles.muted, ...styles.breakText }}>
+                                {(activity.updateType || "manual").toUpperCase()}
+                                {activity.source ? ` - ${activity.source}` : ""}
+                                {activity.staffUserName
+                                  ? ` - ${activity.staffUserName}`
+                                  : ""}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div style={styles.controls}>
+                        <label style={styles.label}>
+                          Fulfillment status
+                          <select
+                            value={currentStatus}
+                            onChange={(event) =>
+                              setEditing((current) => ({
+                                ...current,
+                                [item.id]: {
+                                  ...(current[item.id] || {}),
+                                  fulfillmentStatus: event.target.value,
+                                },
+                              }))
+                            }
+                            style={styles.selectWide}
+                          >
+                            {statusOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={styles.label}>
+                          Tracking / delivery reference
+                          <input
+                            value={
+                              draft.trackingReference !== undefined
+                                ? draft.trackingReference
+                                : item.trackingReference || ""
+                            }
+                            onChange={(event) =>
+                              setEditing((current) => ({
+                                ...current,
+                                [item.id]: {
+                                  ...(current[item.id] || {}),
+                                  trackingReference: event.target.value,
+                                },
+                              }))
+                            }
+                            style={styles.input}
+                          />
+                        </label>
+                        <label style={styles.label}>
+                          Fulfillment notes
+                          <textarea
+                            value={
+                              draft.fulfillmentNotes !== undefined
+                                ? draft.fulfillmentNotes
+                                : cleanFulfillmentNotesForDisplay(
+                                    item.fulfillmentNotes
+                                  )
+                            }
+                            onChange={(event) =>
+                              setEditing((current) => ({
+                                ...current,
+                                [item.id]: {
+                                  ...(current[item.id] || {}),
+                                  fulfillmentNotes: event.target.value,
+                                },
+                              }))
+                            }
+                            rows={3}
+                            style={styles.textarea}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void updateItem(item)}
+                          disabled={Boolean(updatingItemIds[item.id])}
+                          style={{
+                            ...styles.button,
+                            ...(updatingItemIds[item.id]
+                              ? styles.loadingButton
+                              : {}),
+                          }}
+                        >
+                          {updatingItemIds[item.id]
+                            ? "Updating fulfillment..."
+                            : "Update fulfillment"}
+                        </button>
+                        <button
+                          type="button"
+                          style={styles.secondaryButton}
+                          onClick={async () => {
+                            await updateItem(item);
+                            setMessageTemplateByOrder((current) => ({
+                              ...current,
+                              [item.orderCode]:
+                                currentStatus === "READY"
+                                  ? "ready"
+                                  : currentStatus === "CANCELED" ||
+                                      currentStatus === "REFUNDED"
+                                    ? "cancelled"
+                                    : item.metadata?.paymentStatus ===
+                                        "PAYMENT_CONFIRMED"
+                                      ? "receipt"
+                                      : "payment",
+                            }));
+                            toggleAccordion(item.orderCode, "delivery");
+                          }}
+                        >
+                          Update status + notify
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          }
 
           return (
             <article key={group.key} style={styles.card}>
@@ -1017,7 +1981,79 @@ export default function OrdersManager() {
                   ) : null}
                   {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
                     <div style={styles.adHocItemPanel}>
-                      <strong>Add item</strong>
+                      <strong>Add item from shop</strong>
+                      <div style={styles.adHocItemGrid}>
+                        <label style={styles.label}>
+                          Shop item
+                          <select
+                            value={catalogDraft.catalogKey}
+                            onChange={(event) =>
+                              setCatalogItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  catalogKey: event.target.value,
+                                },
+                              }))
+                            }
+                            style={styles.selectWide}
+                          >
+                            {littleOrchardCatalogChoices.map((choice) => (
+                              <option key={choice.key} value={choice.key}>
+                                {choice.label} -{" "}
+                                {formatMoneyValue(
+                                  choice.currencyCode,
+                                  choice.price
+                                )}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label style={styles.label}>
+                          Qty
+                          <input
+                            type="number"
+                            min="1"
+                            value={catalogDraft.quantity ?? 1}
+                            onChange={(event) =>
+                              setCatalogItemDrafts((current) => ({
+                                ...current,
+                                [item.orderCode]: {
+                                  ...(current[item.orderCode] || {}),
+                                  quantity: event.target.value,
+                                },
+                              }))
+                            }
+                            style={styles.input}
+                          />
+                        </label>
+                        <div style={styles.pricePreview}>
+                          {selectedCatalogChoice
+                            ? formatMoneyValue(
+                                selectedCatalogChoice.currencyCode,
+                                Number(catalogDraft.quantity || 1) *
+                                  selectedCatalogChoice.price
+                              )
+                            : "Choose item"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addCatalogOrderItem(item)}
+                        disabled={Boolean(
+                          busyActions[`add-catalog-item:${item.orderCode}`]
+                        )}
+                        style={styles.secondaryButton}
+                      >
+                        {busyActions[`add-catalog-item:${item.orderCode}`]
+                          ? "Adding shop item..."
+                          : "Add shop item to this order"}
+                      </button>
+                    </div>
+                  ) : null}
+                  {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
+                    <div style={styles.adHocItemPanel}>
+                      <strong>Add typed item</strong>
                       <div style={styles.adHocItemGrid}>
                         <label style={styles.label}>
                           Item name
@@ -1170,13 +2206,15 @@ export default function OrdersManager() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => confirmLittleOrchardPayment(item)}
+                        onClick={() =>
+                          confirmLittleOrchardPayment(item, currentStatus)
+                        }
                         disabled={confirmPaymentBusy}
                         style={styles.primarySmallButton}
                       >
                         {confirmPaymentBusy
                           ? "Confirming payment..."
-                          : "Confirm Payment"}
+                          : "Confirm payment + update fulfillment"}
                       </button>
                     </div>
                   ) : null}
@@ -1199,6 +2237,34 @@ export default function OrdersManager() {
                     socialContacts.length === 0 ? (
                       <span>No customer contact method recorded.</span>
                     ) : null}
+                  </div>
+                  {item.metadata?.customerNotes ? (
+                    <div style={styles.notePanel}>
+                      <strong>Customer notes</strong>
+                      <span>{item.metadata.customerNotes}</span>
+                    </div>
+                  ) : null}
+                  <div style={styles.inlineEditRow}>
+                    <input
+                      type="tel"
+                      value={customerPhoneDraft}
+                      onChange={(event) =>
+                        setCustomerPhoneDrafts((current) => ({
+                          ...current,
+                          [item.orderCode]: event.target.value,
+                        }))
+                      }
+                      placeholder="Customer phone, include country code"
+                      style={styles.inlineInput}
+                    />
+                    <button
+                      type="button"
+                      style={styles.secondarySmallButton}
+                      disabled={customerPhoneBusy}
+                      onClick={() => updateLittleOrchardCustomerPhone(item)}
+                    >
+                      {customerPhoneBusy ? "Saving..." : "Save number"}
+                    </button>
                   </div>
                   <div style={styles.communicationGrid}>
                     <div style={styles.messageTemplateList}>
@@ -1732,6 +2798,233 @@ const styles = {
     display: "grid",
     gap: "14px",
   },
+  customerCard: {
+    background: "#fffdfa",
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "0",
+    display: "grid",
+    gap: "0",
+    maxWidth: "100%",
+    minWidth: 0,
+    overflow: "hidden",
+  },
+  customerHeader: {
+    alignItems: "start",
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "96px minmax(0, 1fr) auto",
+    padding: "20px 36px 10px",
+  },
+  customerHeaderNarrow: {
+    alignItems: "start",
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "64px minmax(0, 1fr) auto",
+    padding: "16px 16px 10px",
+  },
+  customerAvatar: {
+    alignItems: "center",
+    aspectRatio: "1",
+    background: "#f5f2ee",
+    border: "2px solid #241f1a",
+    borderRadius: "50%",
+    color: "#241f1a",
+    display: "flex",
+    fontSize: "28px",
+    fontWeight: 900,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: "100%",
+  },
+  customerAvatarImage: {
+    height: "100%",
+    objectFit: "cover",
+    width: "100%",
+  },
+  customerNameRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "10px",
+    minWidth: 0,
+  },
+  customerName: {
+    fontSize: "clamp(30px, 5vw, 44px)",
+    fontWeight: 400,
+    letterSpacing: "0.18em",
+    lineHeight: 1,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
+  customerSubline: {
+    color: "rgba(32, 28, 29, 0.36)",
+    fontSize: "18px",
+    lineHeight: 1.35,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
+  followUpDot: {
+    background: "#c9211b",
+    borderRadius: "50%",
+    boxShadow: "0 0 0 4px rgba(201, 33, 27, 0.14)",
+    flex: "0 0 auto",
+    height: "10px",
+    width: "10px",
+  },
+  textLinkButton: {
+    background: "transparent",
+    border: 0,
+    color: "#241f1a",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: "4px",
+    textDecoration: "underline",
+  },
+  notesRow: {
+    alignItems: "center",
+    background: "#fffdfa",
+    border: 0,
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    color: "#241f1a",
+    cursor: "pointer",
+    display: "flex",
+    font: "inherit",
+    justifyContent: "space-between",
+    padding: "14px 48px",
+    textAlign: "left",
+  },
+  orderBlock: {
+    background: "#e3faef",
+    borderTop: "1px solid rgba(47, 122, 70, 0.16)",
+    display: "grid",
+    gap: "0",
+    padding: "10px 48px 18px",
+  },
+  orderBlockHeader: {
+    alignItems: "start",
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+  },
+  orderBlockHeaderNarrow: {
+    display: "grid",
+    gap: "8px",
+  },
+  orderStatusBlock: {
+    color: "rgba(32, 28, 29, 0.42)",
+    display: "grid",
+    fontSize: "18px",
+    justifyItems: "end",
+    lineHeight: 1.2,
+    textAlign: "right",
+    textTransform: "capitalize",
+  },
+  orderDateGrid: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    marginTop: "8px",
+    paddingTop: "8px",
+  },
+  paymentSummaryButton: {
+    alignItems: "end",
+    background: "transparent",
+    border: 0,
+    borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+    color: "#241f1a",
+    cursor: "pointer",
+    display: "flex",
+    font: "inherit",
+    justifyContent: "space-between",
+    marginTop: "8px",
+    padding: "8px 0",
+    textAlign: "left",
+  },
+  customerOwesComplete: {
+    color: "rgba(32, 28, 29, 0.35)",
+    display: "block",
+    fontSize: "18px",
+    marginTop: "8px",
+  },
+  customerOwesDue: {
+    color: "#b3261e",
+    display: "block",
+    fontSize: "18px",
+    fontWeight: 900,
+    marginTop: "8px",
+  },
+  totalSummary: {
+    display: "grid",
+    fontSize: "22px",
+    justifyItems: "end",
+    lineHeight: 1.25,
+  },
+  orderTabs: {
+    alignItems: "center",
+    borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "18px",
+    justifyContent: "space-between",
+    paddingTop: "12px",
+  },
+  orderTabButton: {
+    background: "transparent",
+    border: 0,
+    color: "#241f1a",
+    cursor: "pointer",
+    font: "inherit",
+    padding: 0,
+    textAlign: "left",
+  },
+  orderTabLink: {
+    color: "#241f1a",
+    font: "inherit",
+    textDecoration: "none",
+  },
+  accordionPanel: {
+    background: "rgba(255, 253, 250, 0.74)",
+    borderTop: "1px solid rgba(32, 28, 29, 0.1)",
+    display: "grid",
+    gap: "12px",
+    padding: "14px 0",
+  },
+  paymentAllocationList: {
+    display: "grid",
+    gap: "8px",
+  },
+  paymentAllocationRow: {
+    alignItems: "center",
+    borderBottom: "1px solid rgba(32, 28, 29, 0.08)",
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(120px, 180px)",
+    paddingBottom: "8px",
+  },
+  amountInput: {
+    border: "1px solid rgba(32, 28, 29, 0.16)",
+    borderRadius: "6px",
+    boxSizing: "border-box",
+    font: "inherit",
+    padding: "8px 10px",
+    width: "100%",
+  },
+  paymentTotalsRow: {
+    color: "rgba(32, 28, 29, 0.7)",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px 18px",
+    justifyContent: "space-between",
+  },
+  followUpPanel: {
+    background: "rgba(36, 95, 153, 0.06)",
+    border: "1px solid rgba(36, 95, 153, 0.12)",
+    borderRadius: "6px",
+    display: "grid",
+    gap: "4px",
+    padding: "10px",
+  },
   card: {
     background: "#fffdfa",
     border: "1px solid rgba(32, 28, 29, 0.14)",
@@ -1837,6 +3130,20 @@ const styles = {
     lineHeight: 1.35,
     minWidth: 0,
     overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
+  notePanel: {
+    background: "rgba(47, 122, 70, 0.06)",
+    border: "1px solid rgba(47, 122, 70, 0.14)",
+    borderRadius: "6px",
+    color: "rgba(32, 28, 29, 0.82)",
+    display: "grid",
+    fontSize: "14px",
+    gap: "4px",
+    lineHeight: 1.4,
+    marginTop: "8px",
+    overflowWrap: "anywhere",
+    padding: "9px 10px",
     wordBreak: "break-word",
   },
   packageList: {
@@ -1964,6 +3271,12 @@ const styles = {
     gap: "10px",
     gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
   },
+  pricePreview: {
+    alignSelf: "end",
+    color: "#245f38",
+    fontWeight: 900,
+    padding: "10px 0",
+  },
   cashTenderPanel: {
     display: "grid",
     gap: "6px",
@@ -1973,6 +3286,22 @@ const styles = {
     gap: "8px",
     gridTemplateColumns: "minmax(0, 1fr)",
     marginTop: "8px",
+  },
+  inlineEditRow: {
+    alignItems: "center",
+    display: "grid",
+    gap: "8px",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    marginTop: "8px",
+  },
+  inlineInput: {
+    border: "1px solid rgba(32, 28, 29, 0.16)",
+    borderRadius: "6px",
+    boxSizing: "border-box",
+    font: "inherit",
+    minWidth: 0,
+    padding: "9px 10px",
+    width: "100%",
   },
   messageTemplateList: {
     border: "1px solid rgba(32, 28, 29, 0.12)",
@@ -1998,6 +3327,17 @@ const styles = {
     fontWeight: 800,
     padding: "10px 12px",
     width: "100%",
+  },
+  secondarySmallButton: {
+    background: "#fffdfa",
+    border: "1px solid rgba(47, 122, 70, 0.42)",
+    borderRadius: "6px",
+    color: "#245f38",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: "9px 10px",
+    whiteSpace: "nowrap",
   },
   linkButton: {
     alignItems: "center",
