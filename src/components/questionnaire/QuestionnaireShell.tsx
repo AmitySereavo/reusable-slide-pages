@@ -5625,6 +5625,8 @@ async function next() {
       orderSummary: sharedOrderSummary,
       orderRequestKey,
       deliverySelection: sharedDeliverySelection,
+      adminAssisted:
+        isAdminUser && String(answers.plantShopAdminMode ?? "") === "assist",
     });
   }
 
@@ -5975,6 +5977,8 @@ async function next() {
     }
 
     if (runName === "submitPlantShopOrder") {
+      const isAdminAssistedOrder =
+        isAdminUser && String(answers.plantShopAdminMode ?? "") === "assist";
       clearCheckoutDraft(config.slug);
       checkoutDraftCompletedRef.current = true;
       setAnswers((prev) => {
@@ -6001,7 +6005,13 @@ async function next() {
         };
       });
 
-      if (typeof data?.whatsappUrl === "string" && data.whatsappUrl) {
+      if (
+        isAdminAssistedOrder &&
+        typeof data?.cashierLink === "string" &&
+        data.cashierLink
+      ) {
+        window.location.href = data.cashierLink;
+      } else if (typeof data?.whatsappUrl === "string" && data.whatsappUrl) {
         window.location.href = data.whatsappUrl;
       }
     }
@@ -7727,6 +7737,12 @@ async function handleNext() {
                           theme={theme}
                           answers={answers}
                           isAdminUser={isAdminUser}
+                          adminShopMode={String(
+                            answers.plantShopAdminMode ?? "customer"
+                          )}
+                          onSetAdminShopMode={(mode) =>
+                            setAnswer("plantShopAdminMode", mode)
+                          }
                           onCatalogUpdated={() =>
                             setDynamicVariablesRefreshKey((key) => key + 1)
                           }
@@ -8049,6 +8065,12 @@ async function handleNext() {
                           theme={theme}
                           answers={answers}
                           isAdminUser={isAdminUser}
+                          adminShopMode={String(
+                            answers.plantShopAdminMode ?? "customer"
+                          )}
+                          onSetAdminShopMode={(mode) =>
+                            setAnswer("plantShopAdminMode", mode)
+                          }
                           onCatalogUpdated={() =>
                             setDynamicVariablesRefreshKey((key) => key + 1)
                           }
@@ -10913,6 +10935,8 @@ function ShopSlideRenderer({
   theme,
   answers,
   isAdminUser = false,
+  adminShopMode = "customer",
+  onSetAdminShopMode,
   onCatalogUpdated,
   onSetQuantity,
   onSetLineSelected,
@@ -10941,6 +10965,8 @@ function ShopSlideRenderer({
   theme: ThemeConfig;
   answers: QuestionnaireAnswers;
   isAdminUser?: boolean;
+  adminShopMode?: string;
+  onSetAdminShopMode?: (mode: string) => void;
   onCatalogUpdated?: () => void;
   onSetQuantity: (
     productId: string,
@@ -11295,6 +11321,12 @@ function ShopSlideRenderer({
     return null;
   }
 
+  const resolvedAdminShopMode =
+    adminShopMode === "assist" || adminShopMode === "edit"
+      ? adminShopMode
+      : "customer";
+  const isAdminEditShopMode = isAdminUser && resolvedAdminShopMode === "edit";
+
   const productSectionRank = (productId: string) => {
     const productLines = displayReviewLines.filter(
       (line) => line.productId === productId
@@ -11354,6 +11386,44 @@ function ShopSlideRenderer({
               {previewImage.alt}
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {isAdminUser && slideMode === "browse" ? (
+        <div className={styles.adminShopModePanel}>
+          <div>
+            <strong>Shop mode</strong>
+            <span>
+              Customer mode is what shoppers see. Assist customer creates the
+              order and opens the dashboard record. Edit shop shows live stock
+              tools.
+            </span>
+          </div>
+          <div className={styles.adminShopModeOptions}>
+            {[
+              ["customer", "Customer"],
+              ["assist", "Assist customer"],
+              ["edit", "Edit shop"],
+            ].map(([mode, label]) => (
+              <label key={mode} className={styles.adminShopModeOption}>
+                <input
+                  type="radio"
+                  name={`${slideId}-admin-shop-mode`}
+                  value={mode}
+                  checked={resolvedAdminShopMode === mode}
+                  onChange={() => onSetAdminShopMode?.(mode)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          {isAdminEditShopMode ? (
+            <div className={styles.adminShopEditNotice}>
+              Inventory edits save to the database immediately. Category,
+              product, option, and image editing are the next pieces for the
+              live storefront editor.
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -11571,24 +11641,26 @@ function ShopSlideRenderer({
                   </p>
                 ) : null}
 
-              {!isExpanded ? (
-                <button
-                  type="button"
-                  className={styles.seeCostButton}
-                  onClick={() =>
-                    setExpandedProducts((prev) => ({
-                      ...prev,
-                      [product.id]: true,
-                    }))
-                  }
-                  style={{
-                    borderColor: theme.colors.border,
-                    color: theme.colors.text,
-                  }}
-                >
-                  See details
-                </button>
-              ) : null}
+                {!isExpanded ? (
+                  <div className={styles.productHeaderActions}>
+                    <button
+                      type="button"
+                      className={styles.seeCostButton}
+                      onClick={() =>
+                        setExpandedProducts((prev) => ({
+                          ...prev,
+                          [product.id]: true,
+                        }))
+                      }
+                      style={{
+                        borderColor: theme.colors.border,
+                        color: theme.colors.text,
+                      }}
+                    >
+                      See details
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
 
@@ -11771,6 +11843,24 @@ function ShopSlideRenderer({
                   product.fulfillmentType !== "ticket" &&
                   !activePurchaseMode?.bundledCartItems?.length &&
                   Boolean(resolvedLine?.purchaseModeLabel);
+                const canAddToCart =
+                  !sizeOptionSoldOut || isNurseryStockRequest;
+                const handleAddToCart = () => {
+                  if (!canAddToCart) {
+                    return;
+                  }
+
+                  recordProductInterest(product.id, sizeOption.id);
+                  onSetLineSelected(product.id, sizeOption.id, true);
+                };
+                const handleCartToggle = () => {
+                  if (selected) {
+                    onRemoveLine(product.id, sizeOption.id);
+                    return;
+                  }
+
+                  handleAddToCart();
+                };
 
                 if (isUnavailable && slideMode === "review") {
                   return (
@@ -11993,36 +12083,7 @@ function ShopSlideRenderer({
                     </div>
                       </div>
                     ) : (
-                    <div className={styles.sizeRow}>
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        disabled={sizeOptionSoldOut}
-                        onChange={(event) => {
-                          const nextActive = event.target.checked;
-
-                          if (
-                            nextActive &&
-                            (visiblePurchaseModes.length ||
-                              sizeOption.purchaseModes?.length) &&
-                            !cartLine?.purchaseModeId
-                          ) {
-                            onSetPurchaseMode(
-                              product.id,
-                              sizeOption.id,
-                              visiblePurchaseModes[0]?.id ??
-                                getDefaultPurchaseModeId(sizeOption)
-                            );
-                          }
-
-                          if (nextActive) {
-                            recordProductInterest(product.id, sizeOption.id);
-                            onSetLineSelected(product.id, sizeOption.id, true);
-                          } else {
-                            onRemoveLine(product.id, sizeOption.id);
-                          }
-                        }}
-                      />
+                    <div className={styles.sizeRowBrowse}>
                       <div className={styles.sizeText}>
                         <div className={styles.sizeLabel}>{sizeOption.label}</div>
 
@@ -12066,7 +12127,7 @@ function ShopSlideRenderer({
                           </div>
                         ) : null}
 
-                        {isAdminUser &&
+                        {isAdminEditShopMode &&
                         slideId === "plant-show-shop" &&
                         slideMode === "browse" ? (
                           <div className={styles.adminEventQuantityPanel}>
@@ -12147,39 +12208,56 @@ function ShopSlideRenderer({
 
                     {slideMode === "browse" ? (
                       <div className={styles.sizePurchaseBand}>
-                        <div className={styles.sizePrice}>
-                          {formatCurrency(sizeOption.price, catalog.currencyCode)}
-                          {isNurseryStockRequest ? (
-                            <span className={styles.nurseryStockPriceNote}>
-                              Final availability and details confirmed by
-                              representative.
-                            </span>
+                        <div className={styles.sizePriceActionStack}>
+                          <div className={styles.sizePrice}>
+                            {formatCurrency(sizeOption.price, catalog.currencyCode)}
+                            {isNurseryStockRequest ? (
+                              <span className={styles.nurseryStockPriceNote}>
+                                Final availability and details confirmed by
+                                representative.
+                              </span>
+                            ) : null}
+                          </div>
+                          {canAddToCart ? (
+                            <button
+                              type="button"
+                              className={`${styles.addToCartButton} ${
+                                selected ? styles.addToCartButtonActive : ""
+                              }`}
+                              onClick={handleCartToggle}
+                            >
+                              {selected ? "Remove from cart" : "Add to cart"}
+                            </button>
                           ) : null}
                         </div>
                         {!sizeOptionSoldOut || isNurseryStockRequest ? (
-                          <QuantityControl
-                            quantity={quantity}
-                            minQuantity={minimumQuantity}
-                            maxQuantity={mainQuantityMax}
-                            disabled={!isConfigurable}
-                            onDecrease={() => {
-                              recordProductInterest(product.id, sizeOption.id);
-                              onSetQuantity(
-                                product.id,
-                                sizeOption.id,
-                                quantity - 1
-                              );
-                            }}
-                            onIncrease={() => {
-                              recordProductInterest(product.id, sizeOption.id);
-                              onSetQuantity(
-                                product.id,
-                                sizeOption.id,
-                                quantity + 1
-                              );
-                            }}
-                            theme={theme}
-                          />
+                          <div className={styles.sizePurchaseActions}>
+                            {selected ? (
+                              <QuantityControl
+                                quantity={quantity}
+                                minQuantity={minimumQuantity}
+                                maxQuantity={mainQuantityMax}
+                                disabled={!isConfigurable}
+                                onDecrease={() => {
+                                  recordProductInterest(product.id, sizeOption.id);
+                                  onSetQuantity(
+                                    product.id,
+                                    sizeOption.id,
+                                    quantity - 1
+                                  );
+                                }}
+                                onIncrease={() => {
+                                  recordProductInterest(product.id, sizeOption.id);
+                                  onSetQuantity(
+                                    product.id,
+                                    sizeOption.id,
+                                    quantity + 1
+                                  );
+                                }}
+                                theme={theme}
+                              />
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}

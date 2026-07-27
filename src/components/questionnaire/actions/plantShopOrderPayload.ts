@@ -16,6 +16,7 @@ export function buildPlantShopOrderPayload({
   orderSummary,
   orderRequestKey,
   deliverySelection,
+  adminAssisted = false,
 }: {
   slug: string;
   answers: QuestionnaireAnswers;
@@ -25,10 +26,12 @@ export function buildPlantShopOrderPayload({
   orderSummary: DiscountedOrderSummary;
   orderRequestKey: string;
   deliverySelection: DeliverySelection;
+  adminAssisted?: boolean;
 }) {
   return {
     questionnaireSlug: slug,
     orderRequestKey,
+    adminAssisted,
     fullName: String(answers.fullName ?? "").trim(),
     email: String(answers.email ?? "").trim(),
     phone: String(answers.primaryPhone ?? answers.phone ?? "").trim(),

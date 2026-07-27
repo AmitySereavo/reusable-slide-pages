@@ -8,6 +8,7 @@ import {
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
+import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import {
   getLittleOrchardDeliveryAddressLines,
   getLittleOrchardFulfillmentKey,
@@ -22,6 +23,7 @@ import type { ShopCart, ShopResolvedCartLine } from "@/types/questionnaire";
 type PlantShopOrderBody = {
   questionnaireSlug?: string;
   orderRequestKey?: string;
+  adminAssisted?: boolean;
   fullName?: string;
   email?: string;
   phone?: string;
@@ -93,20 +95,40 @@ function makeCashierToken() {
 }
 
 async function getConfirmedEventQuantity(productId: string, sizeOptionId: string) {
-  const rows = await prisma.$queryRaw<Array<{ total: bigint | number | null }>>(
+  const rows = await prisma.$queryRaw<
+    Array<{
+      productId: string | null;
+      sizeOptionId: string | null;
+      productTitle: string | null;
+      sizeLabel: string | null;
+      total: bigint | number | null;
+    }>
+  >(
     Prisma.sql`
-      SELECT COALESCE(SUM("quantity"), 0) AS total
+      SELECT
+        "productId",
+        "sizeOptionId",
+        "productTitle",
+        "sizeLabel",
+        COALESCE(SUM("quantity"), 0) AS total
       FROM "OrderFulfillmentItem"
       WHERE "sourceType" = 'little-orchard-shop'
-        AND "productId" = ${productId}
-        AND "sizeOptionId" = ${sizeOptionId}
         AND "metadata"->>'paymentStatus' = 'PAYMENT_CONFIRMED'
         AND "metadata"->>'inventoryApplied' = 'true'
         AND COALESCE("purchaseModeId", '') <> 'nursery-stock-request'
+      GROUP BY "productId", "sizeOptionId", "productTitle", "sizeLabel"
     `
   );
+  const requestedKey = getLittleOrchardInventoryLineKey({
+    productId,
+    sizeOptionId,
+  });
 
-  return Number(rows[0]?.total ?? 0);
+  return rows.reduce((sum, row) => {
+    const rowKey = getLittleOrchardInventoryLineKey(row);
+
+    return rowKey === requestedKey ? sum + Number(row.total ?? 0) : sum;
+  }, 0);
 }
 
 function getBaseUrl(request: Request) {
@@ -314,6 +336,7 @@ export async function POST(request: Request) {
     }
 
     const orderRequestKey = cleanText(body.orderRequestKey);
+    const adminAssisted = body.adminAssisted === true;
     const fullName = cleanText(body.fullName);
     const email = cleanText(body.email).toLowerCase();
     const phoneNumber = cleanText(body.phone);
@@ -454,7 +477,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: `${conflict.line.productTitle} - ${conflict.line.sizeLabel} has ${conflict.availableQuantity} available at the show. Please adjust your quantity.`,
+          error: `${conflict.line.productTitle} - ${conflict.line.sizeLabel} has ${conflict.availableQuantity} available. Please adjust your quantity.`,
         },
         { status: 400 }
       );
@@ -469,10 +492,23 @@ export async function POST(request: Request) {
     });
 
     if (duplicate?.orderCode) {
+      const duplicateMetadata =
+        duplicate.metadata && typeof duplicate.metadata === "object"
+          ? (duplicate.metadata as Record<string, unknown>)
+          : {};
+
       return NextResponse.json({
         ok: true,
         duplicate: true,
         orderCode: duplicate.orderCode,
+        cashierLink:
+          typeof duplicateMetadata.cashierLink === "string"
+            ? duplicateMetadata.cashierLink
+            : null,
+        orderStatusLink:
+          typeof duplicateMetadata.orderStatusLink === "string"
+            ? duplicateMetadata.orderStatusLink
+            : null,
       });
     }
 
@@ -498,6 +534,7 @@ export async function POST(request: Request) {
       orderRequestKey,
       deviceType,
       contactMethod,
+      adminAssisted,
       customerPhoneNumber: phoneNumber || null,
       customerWhatsappNumber: whatsappNumber || null,
       customerEmail: orderEmail || null,
@@ -665,7 +702,7 @@ export async function POST(request: Request) {
     }
 
     const whatsappUrl =
-      contactMethod === "whatsapp"
+      !adminAssisted && contactMethod === "whatsapp"
         ? `https://api.whatsapp.com/send/?phone=${littleOrchardPlantShowEvent.whatsappNumber}&text=${encodeURIComponent(text)}&type=phone_number&app_absent=0`
         : null;
 
@@ -674,10 +711,15 @@ export async function POST(request: Request) {
       orderCode,
       orderTotal: total,
       totalPlants: plantCount,
+      cashierLink,
+      orderStatusLink,
+      receiptLink,
       whatsappUrl,
       emailDeliveryStatus,
       message:
-        contactMethod === "whatsapp"
+        adminAssisted
+          ? "Order created. Opening the order record for admin processing."
+          : contactMethod === "whatsapp"
           ? "Your order has been recorded. WhatsApp is ready with your order message."
           : contactMethod === "email"
             ? "Your order has been recorded. A receipt and order summary will be sent to your email address."

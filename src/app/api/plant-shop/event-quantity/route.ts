@@ -136,6 +136,6 @@ export async function POST(request: Request) {
     remainingQuantity: Math.floor(remainingQuantity),
     eventQuantity,
     previousRemainingQuantity,
-    message: "Event quantity updated.",
+    message: "Inventory quantity updated.",
   });
 }

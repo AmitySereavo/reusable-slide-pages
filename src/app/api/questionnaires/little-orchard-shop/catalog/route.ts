@@ -6,6 +6,7 @@ import {
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
+import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest";
 import type {
   QuestionnaireVariableMap,
@@ -87,31 +88,7 @@ function buildConfirmedQuantityMap(rows: ConfirmedQuantityRow[]) {
 }
 
 function getCanonicalLineKey(row: ConfirmedQuantityRow) {
-  const productId = row.productId ?? "";
-  const sizeOptionId = row.sizeOptionId ?? "";
-  const title = String(row.productTitle || "").trim().toLowerCase();
-  const size = String(row.sizeLabel || "").trim().toLowerCase();
-
-  if (
-    productId === "lo-tree-mint-jamaican-peppermint" &&
-    sizeOptionId === "tree-mint-4-inch"
-  ) {
-    return "lo-tree-mint-jamaican-peppermint::tree-mint-jamaican-peppermint-4-inch";
-  }
-
-  if (
-    title === "bolo mint" ||
-    title === "panadol plant" ||
-    title === "panadol plant - bolo mint"
-  ) {
-    return "lo-panadol-plant-bolo-mint::panadol-plant-bolo-mint-4-inch";
-  }
-
-  if (title === "black pepper" && size.includes("4")) {
-    return "lo-black-pepper::black-pepper-4-inch";
-  }
-
-  return `${productId}::${sizeOptionId}`;
+  return getLittleOrchardInventoryLineKey(row);
 }
 
 function applyConfirmedQuantities(
@@ -164,7 +141,7 @@ function applyProductConfirmedQuantities(
       description: sizeOption.description
         ? sizeOption.description
             .replace(
-              /Event quantity:\s*\d+\./i,
+              /(?:Event quantity(?: remaining)?|Inventory remaining):\s*\d+\./i,
               `Inventory remaining: ${remainingQuantity}.`
             )
             .replace(

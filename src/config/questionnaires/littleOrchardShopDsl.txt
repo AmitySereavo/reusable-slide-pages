@@ -17,13 +17,13 @@
 @progressoverlaytextcolor: #241F1A
 @actionbartextcolor: #241F1A
 @back: Back
-@next: Review selected items
+@next: Continue
 ---
 [c3] Select items by clicking the checkboxes.
 BR
 [c3] Adjust quantity with the plus and minus buttons.
 BR
-[c3] When you are done, click Review selected items to continue processing your order.
+[c3] When you are done, click Continue to process your order.
 
 ===
 

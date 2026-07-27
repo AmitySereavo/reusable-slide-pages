@@ -2033,7 +2033,7 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 16px 14px 18px;
 }
 
@@ -2186,6 +2186,12 @@
   flex-wrap: wrap;
 }
 
+.productHeaderActions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
 .productDescription {
   margin: 4px 0 0;
   font-size: 0.9rem;
@@ -2264,6 +2270,76 @@
   line-height: 1.45;
   margin: 0;
   opacity: 0.76;
+}
+
+.adminShopModePanel {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(36, 28, 29, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #241c1d;
+}
+
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .adminShopModePanel {
+  border-color: rgba(216, 199, 163, 0.92);
+  background: rgba(255, 253, 247, 0.96);
+}
+
+.adminShopModePanel strong,
+.adminShopModePanel span {
+  display: block;
+}
+
+.adminShopModePanel strong {
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.adminShopModePanel span {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  opacity: 0.72;
+}
+
+.adminShopModeOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.adminShopModeOption {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid rgba(36, 28, 29, 0.14);
+  border-radius: 10px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.adminShopModeOption input {
+  flex: 0 0 auto;
+}
+
+.adminShopModeOption span {
+  margin: 0;
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  opacity: 1;
+}
+
+.adminShopEditNotice {
+  padding-top: 10px;
+  border-top: 1px solid rgba(36, 28, 29, 0.1);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.75;
 }
 
 .adminEventQuantityPanel {
@@ -2854,6 +2930,13 @@
   align-items: center;
 }
 
+.sizeRowBrowse {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
 .sizePurchaseBand {
   display: flex;
   align-items: center;
@@ -2893,6 +2976,52 @@
   line-height: 1.4;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.sizePriceActionStack {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
+.sizePurchaseActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.addToCartButton {
+  min-height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: #2f7a46;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 8px 11px;
+  white-space: nowrap;
+}
+
+.addToCartButton:disabled {
+  cursor: default;
+  opacity: 0.74;
+}
+
+.addToCartButtonActive {
+  background: #7b4d3b;
+}
+
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .addToCartButton {
+  background: var(--lo-green);
+}
+
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .addToCartButtonActive {
+  background: var(--lo-burgundy);
 }
 
 .nurseryStockPriceNote {
@@ -3801,12 +3930,20 @@
     align-items: start;
   }
 
+  .sizeRowBrowse {
+    grid-template-columns: 1fr;
+  }
+
   .verifiedRecipientPicker {
     grid-template-columns: 1fr;
   }
 
   .sizePrice {
     grid-column: auto;
+  }
+
+  .sizePurchaseActions {
+    justify-content: flex-end;
   }
 
   .quantityControl {

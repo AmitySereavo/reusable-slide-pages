@@ -8,6 +8,7 @@ import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import {
   getPlantShopEventQuantityOverrideMap,
 } from "@/lib/plantShop/eventQuantityOverrides";
+import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
 
 function cleanText(value: unknown) {
@@ -102,20 +103,40 @@ function normalizeNonNegativeMoney(value: unknown) {
 }
 
 async function getConfirmedQuantity(productId: string | null, sizeOptionId: string | null) {
-  const rows = await prisma.$queryRaw<Array<{ total: bigint | number | null }>>(
+  const rows = await prisma.$queryRaw<
+    Array<{
+      productId: string | null;
+      sizeOptionId: string | null;
+      productTitle: string | null;
+      sizeLabel: string | null;
+      total: bigint | number | null;
+    }>
+  >(
     Prisma.sql`
-      SELECT COALESCE(SUM("quantity"), 0) AS total
+      SELECT
+        "productId",
+        "sizeOptionId",
+        "productTitle",
+        "sizeLabel",
+        COALESCE(SUM("quantity"), 0) AS total
       FROM "OrderFulfillmentItem"
       WHERE "sourceType" = 'little-orchard-shop'
-        AND "productId" = ${productId}
-        AND "sizeOptionId" = ${sizeOptionId}
         AND "metadata"->>'paymentStatus' = 'PAYMENT_CONFIRMED'
         AND "metadata"->>'inventoryApplied' = 'true'
         AND COALESCE("purchaseModeId", '') <> 'nursery-stock-request'
+      GROUP BY "productId", "sizeOptionId", "productTitle", "sizeLabel"
     `
   );
+  const requestedKey = getLittleOrchardInventoryLineKey({
+    productId,
+    sizeOptionId,
+  });
 
-  return Number(rows[0]?.total ?? 0);
+  return rows.reduce((sum, row) => {
+    const rowKey = getLittleOrchardInventoryLineKey(row);
+
+    return rowKey === requestedKey ? sum + Number(row.total ?? 0) : sum;
+  }, 0);
 }
 
 export async function POST(request: Request) {
