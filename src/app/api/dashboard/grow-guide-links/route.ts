@@ -24,9 +24,6 @@ function getBaseUrl(request: Request) {
   const configured =
     process.env.NEXT_PUBLIC_GROW_GUIDE_URL ||
     process.env.GROW_GUIDE_PUBLIC_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_BASE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
     "https://growguide.paralifetrees.com";
 
   if (configured) return configured.replace(/\/$/, "");

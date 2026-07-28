@@ -247,10 +247,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const url = request.nextUrl.clone();
-  url.pathname = publicPath;
-  url.search = "";
-  return NextResponse.redirect(url);
+  return NextResponse.next();
 }
 
 export const config = {
