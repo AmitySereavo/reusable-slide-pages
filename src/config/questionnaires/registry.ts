@@ -433,6 +433,78 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     },
     dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",
   },
+
+  "lettuce-grow-guide": {
+    slug: "lettuce-grow-guide",
+    name: "Para-life Trees Lettuce Seedling Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/lettuceGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "lemon-balm-grow-guide": {
+    slug: "lemon-balm-grow-guide",
+    name: "Para-life Trees Lemon Balm Seedling Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/lemonBalmGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "black-pepper-grow-guide": {
+    slug: "black-pepper-grow-guide",
+    name: "Para-life Trees Black Pepper Plant Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/blackPepperGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "scotch-bonnet-grow-guide": {
+    slug: "scotch-bonnet-grow-guide",
+    name: "Para-life Trees Scotch Bonnet Pepper Seedling Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/scotchBonnetGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "slicing-tomato-grow-guide": {
+    slug: "slicing-tomato-grow-guide",
+    name: "Para-life Trees Slicing Tomato Seedling Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/slicingTomatoGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "green-onion-grow-guide": {
+    slug: "green-onion-grow-guide",
+    name: "Para-life Trees Scallion / Green Onion Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/greenOnionGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
 } as const;
 
 export async function getQuestionnaireBySlug(slug: string) {

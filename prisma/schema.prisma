@@ -2035,6 +2035,12 @@ model UserVideoProgress {
   slideId             String
   lastPositionSeconds Int      @default(0)
   durationSeconds     Int?
+  totalWatchSeconds   Int      @default(0)
+  maxPositionSeconds  Int      @default(0)
+  playEventCount      Int      @default(0)
+  seekForwardCount    Int      @default(0)
+  seekBackwardCount   Int      @default(0)
+  lastEventType       String?
   watchedAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

@@ -19,7 +19,7 @@
 @back: Back
 @next: Continue
 ---
-[c3] Select items by clicking the checkboxes.
+[c3] Select items by opening details, then tap Add to cart.
 BR
 [c3] Adjust quantity with the plus and minus buttons.
 BR
@@ -39,32 +39,14 @@ BR
 ---
 # [c2] Who is placing this order?
 BR
-[c3] Enter the name Romone should use when preparing and confirming your plant order.
+[c3] Enter the name we should use when preparing and confirming your order.
 BR
 @fields:
 - fullName|text|Full name|required|Enter your full name
 ---
 @back: Back
 @next: Continue
-@goto: device-selection
-
-===
-
-@id: device-selection
-@type: choice
-@store: plantShopDeviceType
-@choiceplacement: inline
-@syncurl: true
-@pagebgcolor: #FBF7EF
----
-# [c2] Are you using your own device?
-BR
-[c3] Shared event devices should not keep customer information after the order is completed.
-@choices:
-- own_device|Yes, I am using my own phone or device.|contact-method|primary
-- shared_event_device|No, I am using a shared event device.|contact-method|secondary
-@back: Back
-@shownext: false
+@goto: contact-method
 
 ===
 
@@ -95,15 +77,8 @@ BR
 ---
 # [c2] WhatsApp order updates
 BR
-[c3] If this is your own device, WhatsApp will open with your order message prepared.
-BR
-[c3] If this is a shared event device, enter your WhatsApp number including country and area code so the order is attached to you.
-BR
 @fields:
-- whatsappOwnDeviceNotice|info|Using WhatsApp on your device|optional|When you continue, your order will be recorded and WhatsApp will open with your order message prepared. Press Send in WhatsApp so Romone can receive your order details.||showif:plantShopDeviceType=own_device
-- whatsappNumber|tel|WhatsApp number|optional|Optional: include country and area code, example: 1 876 372 7415.||showif:plantShopDeviceType=own_device
-- whatsappSharedDeviceNotice|info|Using WhatsApp from a shared device|optional|Enter your WhatsApp number including country and area code. We will use it for receipt, order updates, pickup information, and plant-care guidance.||showif:plantShopDeviceType=shared_event_device
-- whatsappNumber|tel|WhatsApp number|required|Example: 1 876 372 7415||showif:plantShopDeviceType=shared_event_device
+- whatsappNumber|tel|WhatsApp number|required|Include country and area code, example: 1 876 372 7415
 - plantShopConsent|checkbox|I understand how my name, contact details, and order information will be used.|required
 - legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
 ---
@@ -120,8 +95,6 @@ BR
 @pagebgcolor: #FBF7EF
 ---
 # [c2] Email order updates
-BR
-[c3] Your email address will be used for your receipt, order updates, pickup information, and helpful care guidance for the plants you selected.
 BR
 @fields:
 - email|email|Email address|required|Enter your email address
@@ -142,10 +115,8 @@ BR
 ---
 # [c2] Phone call order updates
 BR
-[c3] Enter the phone number we should call for receipt, order updates, pickup information, and useful item-care guidance.
-BR
 @fields:
-- primaryPhone|tel|Phone number|required|Example: 1 876 372 7415
+- primaryPhone|tel|Phone number|required|Include country and area code, example: 1 876 372 7415
 - plantShopConsent|checkbox|I understand how my name, phone number, and order information will be used.|required
 - legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
 ---
@@ -186,9 +157,9 @@ BR
 @pagebgcolor: #FBF7EF
 @syncurl: true
 ---
-# [c2] How should you receive your items?
+# [c2] Choose pickup location, or enter your mailing address
 BR
-[c3] Choose a pickup location or paid delivery.
+[c3] Select a pickup location, or choose paid delivery and enter your mailing address.
 BR
 @fields:
 - plantShopFulfillmentMethod|select|Pickup or delivery|required|Choose one|earth_sovereign=Earth (Sovereign Center Liguanea),barbican_132=One32 Guest House (Barbican),linstead=Redwood Taxi Stand (Linstead),paid_delivery=Paid delivery to an address
@@ -217,18 +188,14 @@ BR
 ---
 # [c2] Adjust contact information
 BR
-[c3] Add or update the contact details you would like us to use for your receipt, order updates, pickup information, and plant-care guidance.
+[c3] Add or update the contact details you would like us to use for your receipt, order updates, pickup information, and item-care guidance.
 BR
 @fields:
 - fullName|text|Full name|required|Enter your full name
-- plantShopDeviceType|select|Device being used|required|Choose one|own_device=My own phone or device,shared_event_device=Shared event device
-- plantShopContactMethod|select|Receipt channel|required|Choose one|whatsapp=WhatsApp,email=Email,phone_call=Phone call,instagram=Instagram DM,tiktok=TikTok message,facebook=Facebook Messenger
-- whatsappNumber|tel|Phone or WhatsApp number|optional|Example: 1 876 372 7415
+- plantShopContactMethod|select|Receipt channel|required|Choose one|whatsapp=WhatsApp,email=Email,phone_call=Phone call / SMS
+- whatsappNumber|tel|WhatsApp number|optional|Include country and area code, example: 1 876 372 7415
 - email|email|Email address|optional|Enter your email address
 - primaryPhone|tel|Phone call number|optional|Example: 1 876 372 7415
-- instagramHandle|text|Instagram handle|optional|Example: @yourname
-- tiktokHandle|text|TikTok handle|optional|Example: @yourname
-- facebookMessengerHandle|text|Facebook Messenger name or profile|optional|Enter name or profile link
 - plantShopConsent|checkbox|I understand how my name, contact details, and order information will be used.|required
 - legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
 ---

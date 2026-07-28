@@ -4,6 +4,16 @@ const DEFAULT_FUNNEL_SLUG = "home-gardener-plant-giveaway";
 const DEFAULT_FUNNEL_PATH = "/gift";
 const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
 const LITTLE_ORCHARD_SHOP_PATH = "/shop";
+const GROW_GUIDE_HUB_PATH = "/grow-guides";
+const GROW_GUIDE_ROUTES = {
+  "/lettuce": "lettuce-grow-guide",
+  "/lemon-balm": "lemon-balm-grow-guide",
+  "/black-pepper": "black-pepper-grow-guide",
+  "/green-onion": "green-onion-grow-guide",
+  "/scotch-bonnet": "scotch-bonnet-grow-guide",
+  "/slicing-tomato": "slicing-tomato-grow-guide",
+} as const;
+const DEFAULT_GROW_GUIDE_HOSTS = ["growguide.paralifetrees.com"];
 
 function getConfiguredFunnelHosts() {
   return String(
@@ -14,6 +24,19 @@ function getConfiguredFunnelHosts() {
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function getConfiguredGrowGuideHosts() {
+  const configured = String(
+    process.env.PUBLIC_GROW_GUIDE_HOSTS ||
+      process.env.NEXT_PUBLIC_GROW_GUIDE_HOSTS ||
+      ""
+  )
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+
+  return configured.length ? configured : DEFAULT_GROW_GUIDE_HOSTS;
 }
 
 function normalizeHost(hostHeader: string | null) {
@@ -40,6 +63,26 @@ function isStaticOrInternalPath(pathname: string) {
     pathname.startsWith("/manifest") ||
     pathname.startsWith("/robots.txt") ||
     pathname.startsWith("/sitemap")
+  );
+}
+
+function isAllowedGrowGuidePath(pathname: string) {
+  const guidePaths = Object.keys(GROW_GUIDE_ROUTES);
+  const guideSlugs = Object.values(GROW_GUIDE_ROUTES);
+
+  return (
+    pathname === GROW_GUIDE_HUB_PATH ||
+    pathname === "/api/session" ||
+    pathname === "/privacy-policy" ||
+    pathname === "/terms" ||
+    guidePaths.some(
+      (guidePath) => pathname === guidePath || pathname.startsWith(`${guidePath}/`)
+    ) ||
+    guideSlugs.some(
+      (slug) =>
+        pathname === `/questionnaire/${slug}` ||
+        pathname.startsWith(`/questionnaire/${slug}/`)
+    )
   );
 }
 
@@ -98,13 +141,56 @@ function isAllowedGiveawayPath(
 }
 
 export function proxy(request: NextRequest) {
+  const host = normalizeHost(request.headers.get("host"));
+  const { pathname } = request.nextUrl;
+  const growGuideHosts = getConfiguredGrowGuideHosts();
+
+  if (growGuideHosts.includes(host)) {
+    if (isStaticOrInternalPath(pathname)) {
+      return NextResponse.next();
+    }
+
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = GROW_GUIDE_HUB_PATH;
+      return NextResponse.rewrite(url);
+    }
+
+    const growGuideSlug =
+      GROW_GUIDE_ROUTES[
+        Object.keys(GROW_GUIDE_ROUTES).find(
+          (guidePath) =>
+            pathname === guidePath || pathname.startsWith(`${guidePath}/`)
+        ) as keyof typeof GROW_GUIDE_ROUTES
+      ];
+
+    if (growGuideSlug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/questionnaire/${growGuideSlug}`;
+      return NextResponse.rewrite(url);
+    }
+
+    if (pathname === "/questionnaire") {
+      const url = request.nextUrl.clone();
+      url.pathname = GROW_GUIDE_HUB_PATH;
+      return NextResponse.redirect(url);
+    }
+
+    if (isAllowedGrowGuidePath(pathname)) {
+      return NextResponse.next();
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = GROW_GUIDE_HUB_PATH;
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   const funnelHosts = getConfiguredFunnelHosts();
 
   if (!funnelHosts.length) {
     return NextResponse.next();
   }
-
-  const host = normalizeHost(request.headers.get("host"));
 
   if (!funnelHosts.includes(host)) {
     return NextResponse.next();
@@ -117,7 +203,6 @@ export function proxy(request: NextRequest) {
   const publicPath = normalizePublicPath(
     process.env.PUBLIC_FUNNEL_PATH || process.env.NEXT_PUBLIC_FUNNEL_PATH
   );
-  const { pathname } = request.nextUrl;
 
   if (isStaticOrInternalPath(pathname)) {
     return NextResponse.next();

@@ -6,6 +6,7 @@ import {
   Fragment,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -20,6 +21,7 @@ import AnnotatedTextSlideRenderer from "./renderers/AnnotatedTextSlideRenderer";
 import DripCountdownPanel from "./renderers/DripCountdownPanel";
 import FooterSupportText from "./renderers/FooterSupportText";
 import FormFieldRenderer from "./renderers/FormFieldRenderer";
+import { GuideDataBlockRenderer } from "./renderers/GuideDataBlockRenderer";
 import MediaRenderer, {
   type MediaControlRequest,
   type MediaState,
@@ -233,6 +235,12 @@ type Props = {
 const CHECKOUT_DRAFT_SLUGS = new Set([
   "invitation",
   "ticket-purchase-assistant",
+  "home-gardener-plant-giveaway",
+]);
+
+const SHARED_COMMERCE_DRAFT_SLUGS = new Set([
+  "invitation",
+  "ticket-purchase-assistant",
 ]);
 
 function isCheckoutDraftSlug(slug: string) {
@@ -268,8 +276,42 @@ const CHECKOUT_DRAFT_KEYS = [
   "fullName",
   "email",
   "phone",
+  "primaryPhone",
   "whatsappOptIn",
   "sendByWhatsapp",
+  "dreamPlant",
+  "gardenerLevel",
+  "growsHerbs",
+  "growsVegetables",
+  "growsFruitTrees",
+  "growsFlowers",
+  "growsHouseplants",
+  "growsSucculentsCacti",
+  "growsOther",
+  "challengeTime",
+  "challengeSpace",
+  "challengeKnowledge",
+  "challengeSoil",
+  "challengeWater",
+  "challengeClimate",
+  "challengePests",
+  "challengePlantAccess",
+  "challengeOther",
+  "biggestGardeningChallenge",
+  "primaryNetwork",
+  "primaryHasWhatsapp",
+  "updatesByWhatsapp",
+  "updatesByEmail",
+  "updatesByPhoneSms",
+  "receivingPreference",
+  "deliveryCountry",
+  "deliveryRegion",
+  "deliveryCityTown",
+  "deliveryStreetAddress",
+  "deliveryPostalCode",
+  "plantGiveawayLastSlideId",
+  "plantGiveawayDraftSavedAt",
+  "plantGiveawayResumeAvailable",
   "orderCart",
   "ticketAssignments",
   "deliverySelection",
@@ -292,7 +334,7 @@ const TICKET_ASSISTANT_EVENT_DRAFTS_KEY =
 const TICKET_ASSISTANT_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function getCheckoutDraftStorageKey(questionnaireSlug: string) {
-  if (isCheckoutDraftSlug(questionnaireSlug)) {
+  if (SHARED_COMMERCE_DRAFT_SLUGS.has(questionnaireSlug)) {
     return SHARED_COMMERCE_DRAFT_KEY;
   }
 
@@ -345,13 +387,27 @@ function hasCheckoutDraftValue(draft: QuestionnaireAnswers) {
 
 function writeCheckoutDraft(
   questionnaireSlug: string,
-  answers: QuestionnaireAnswers
+  answers: QuestionnaireAnswers,
+  currentSlideId?: string
 ) {
   if (typeof window === "undefined") {
     return;
   }
 
-  const draft = getCheckoutDraft(answers);
+  const draftAnswers: QuestionnaireAnswers = { ...answers };
+
+  if (
+    questionnaireSlug === "home-gardener-plant-giveaway" &&
+    currentSlideId &&
+    currentSlideId !== "continue-giveaway-choice" &&
+    currentSlideId !== "thank-you"
+  ) {
+    draftAnswers.plantGiveawayLastSlideId = currentSlideId;
+    draftAnswers.plantGiveawayResumeAvailable = true;
+    draftAnswers.plantGiveawayDraftSavedAt = new Date().toISOString();
+  }
+
+  const draft = getCheckoutDraft(draftAnswers);
   const storageKey = getCheckoutDraftStorageKey(questionnaireSlug);
 
   if (!hasCheckoutDraftValue(draft)) {
@@ -1609,24 +1665,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }, [config.slug, searchParams]);
 
-  useEffect(() => {
-    if (
-      !isCheckoutDraftSlug(config.slug) ||
-      !checkoutDraftHydratedRef.current ||
-      checkoutDraftCompletedRef.current
-    ) {
-      return;
-    }
-
-    if (shouldSkipNextCheckoutDraftWriteRef.current) {
-      shouldSkipNextCheckoutDraftWriteRef.current = false;
-      return;
-    }
-
-    writeCheckoutDraft(config.slug, answers);
-  }, [answers, config.slug]);
-
-
   const discountDefinitions = useMemo<DiscountDefinition[]>(
     () => normalizeDiscountDefinitions(mergedVariables, "discountDefinitions"),
     [mergedVariables]
@@ -1917,6 +1955,24 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
   const isAdminUser = Number(authSessionUser?.adminLevel || 0) >= 1;
+
+  useEffect(() => {
+    if (
+      !isCheckoutDraftSlug(config.slug) ||
+      !checkoutDraftHydratedRef.current ||
+      checkoutDraftCompletedRef.current
+    ) {
+      return;
+    }
+
+    if (shouldSkipNextCheckoutDraftWriteRef.current) {
+      shouldSkipNextCheckoutDraftWriteRef.current = false;
+      return;
+    }
+
+    writeCheckoutDraft(config.slug, answers, currentSlide?.id);
+  }, [answers, config.slug, currentSlide?.id]);
+
   const dripSequenceKeys = useMemo(
     () =>
       Array.from(
@@ -2327,8 +2383,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       visibleSlides
         .filter(
           (slide) =>
-            (slide.type === "media" || slide.type === "video") &&
-            (slide.mediaType === "video" || Boolean(slide.mediaUrl)) &&
+            (config.slug.endsWith("-grow-guide") ||
+              ((slide.type === "media" || slide.type === "video") &&
+                (slide.mediaType === "video" || Boolean(slide.mediaUrl)))) &&
             (!slide.requiresDripUnlock ||
               !slide.dripUnlockKey ||
               isAdminUser ||
@@ -4341,6 +4398,27 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }
 
   function goToTarget(target: string) {
+    if (
+      config.slug === "home-gardener-plant-giveaway" &&
+      target === "plantGiveawayResumeTarget"
+    ) {
+      const resumeTarget = String(
+        answers.plantGiveawayLastSlideId ?? "intro-what-plant-video"
+      ).trim();
+
+      target =
+        resumeTarget && resumeTarget !== "continue-giveaway-choice"
+          ? resumeTarget
+          : "intro-what-plant-video";
+    }
+
+    if (
+      config.slug === "home-gardener-plant-giveaway" &&
+      target === "plantGiveawayStartBeginning"
+    ) {
+      target = "intro-what-plant-video";
+    }
+
     const shouldSkipMarketingQuestion =
       marketingQuestionsConfig?.skipWhenLoggedIn === true &&
       marketingQuestionsConfig.skipSlideIds?.includes(target) &&
@@ -6016,6 +6094,14 @@ async function next() {
       }
     }
 
+    if (
+      runName === "submitLead" &&
+      config.slug === "home-gardener-plant-giveaway"
+    ) {
+      clearCheckoutDraft(config.slug);
+      checkoutDraftCompletedRef.current = true;
+    }
+
     if (action.successGoto) {
       setSubmitError(null);
       goToTarget(action.successGoto);
@@ -6662,11 +6748,19 @@ async function handleNext() {
   const hasFooterActions = footerActions.length > 0;
   const isPlantGiveawayDsl = config.slug === "home-gardener-plant-giveaway";
   const isLittleOrchardShopDsl = config.slug === "little-orchard-shop";
+  const isGrowGuideDsl = config.slug.endsWith("-grow-guide");
   const shouldShowPlainWhatsappContact =
-    isPlantGiveawayDsl || isLittleOrchardShopDsl;
+    isPlantGiveawayDsl || isLittleOrchardShopDsl || isGrowGuideDsl;
   const plainWhatsappMessage = isLittleOrchardShopDsl
     ? "What's rare in the nursery, that you're not telling just anyone about?"
-    : "Does signing up make me automatically eligible to receive plants?";
+    : isGrowGuideDsl
+      ? `I need help with ${
+          config.slug
+            .replace(/-grow-guide$/, "")
+            .replace(/-/g, " ")
+            .trim() || "my plant"
+        }.`
+      : "Does signing up make me automatically eligible to receive plants?";
   const shouldShowAccountMenu = !isPlantGiveawayDsl;
   const backButtonStyle = resolveButtonStyle(
     theme,
@@ -11637,7 +11731,8 @@ function ShopSlideRenderer({
 
                 {product.description ? (
                   <p className={styles.productDescriptionFull}>
-                    {product.description}
+                    {parseMarkdownLinks(product.description) ??
+                      product.description}
                   </p>
                 ) : null}
 
@@ -13023,7 +13118,19 @@ function renderSections(
           return null;
         }
 
-        const imageMatch = section.text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        const resolvedText = String(
+          replaceDynamicText(section.text, answers, variables) ?? ""
+        );
+        const guideDataBlock = GuideDataBlockRenderer({
+          text: resolvedText,
+          theme,
+        });
+
+        if (guideDataBlock) {
+          return <Fragment key={`guide-data-${index}`}>{guideDataBlock}</Fragment>;
+        }
+
+        const imageMatch = resolvedText.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
 
         if (imageMatch) {
           const [, alt, src] = imageMatch;
@@ -13038,6 +13145,8 @@ function renderSections(
           );
         }
 
+        const linkParts = parseMarkdownLinks(resolvedText);
+
         return (
           <p
             key={`paragraph-${index}`}
@@ -13049,7 +13158,7 @@ function renderSections(
                 theme.colors.text,
             }}
           >
-            {replaceDynamicText(section.text, answers, variables)}
+            {linkParts ?? resolvedText}
           </p>
         );
       })}
@@ -13061,6 +13170,46 @@ function hasRenderableSections(sections: SlideSection[] | undefined) {
   if (!sections?.length) return false;
 
   return sections.some((section) => section.type !== "break");
+}
+
+function parseMarkdownLinks(text: string) {
+  const linkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const matches = Array.from(text.matchAll(linkPattern));
+
+  if (!matches.length) return null;
+
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+
+  matches.forEach((match, index) => {
+    const fullMatch = match[0];
+    const label = match[1] ?? "";
+    const href = match[2] ?? "";
+    const startIndex = match.index ?? 0;
+
+    if (startIndex > lastIndex) {
+      parts.push(text.slice(lastIndex, startIndex));
+    }
+
+    parts.push(
+      <a
+        key={`${href}-${index}`}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {label}
+      </a>
+    );
+
+    lastIndex = startIndex + fullMatch.length;
+  });
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
 }
 
 type AccountProfileUser = {

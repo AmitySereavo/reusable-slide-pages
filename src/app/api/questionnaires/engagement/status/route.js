@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
+import { ensureUserVideoProgressAnalyticsColumns } from "@/lib/questionnaire/videoProgressSchema";
 import {
   ensureItaslLeadNurtureSequence,
   scheduleNextDripSequenceJob,
@@ -38,6 +39,8 @@ export async function GET(request) {
     if (dripSequenceKey === "itasl") {
       await ensureItaslLeadNurtureSequence();
     }
+
+    await ensureUserVideoProgressAnalyticsColumns(prisma);
 
     const [questionAnswers, videoProgress] = await Promise.all([
       prisma.userMarketingQuestionAnswer.findMany({
@@ -134,6 +137,13 @@ export async function GET(request) {
         slideId: item.slideId,
         lastPositionSeconds: item.lastPositionSeconds,
         durationSeconds: item.durationSeconds,
+        totalWatchSeconds: item.totalWatchSeconds ?? 0,
+        maxPositionSeconds:
+          item.maxPositionSeconds ?? item.lastPositionSeconds ?? 0,
+        playEventCount: item.playEventCount ?? 0,
+        seekForwardCount: item.seekForwardCount ?? 0,
+        seekBackwardCount: item.seekBackwardCount ?? 0,
+        lastEventType: item.lastEventType ?? null,
         watchedAt: item.watchedAt,
         updatedAt: item.updatedAt,
       })),

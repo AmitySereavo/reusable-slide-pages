@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionFromCookie } from "@/lib/auth/sessionServer";
 import { scheduleNextDripSequenceJob } from "@/lib/verification/emailSequences";
+import { ensureUserVideoProgressAnalyticsColumns } from "@/lib/questionnaire/videoProgressSchema";
+import { randomUUID } from "crypto";
 
 function asString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -41,6 +43,14 @@ function normalizeVideoProgress(snapshot, questionnaireSlug) {
         item.durationSeconds === null || item.durationSeconds === undefined
           ? null
           : asPositiveInt(item.durationSeconds),
+      totalWatchSeconds: asPositiveInt(item.totalWatchSeconds),
+      maxPositionSeconds: asPositiveInt(
+        item.maxPositionSeconds ?? item.lastPositionSeconds
+      ),
+      playEventCount: asPositiveInt(item.playEventCount),
+      seekForwardCount: asPositiveInt(item.seekForwardCount),
+      seekBackwardCount: asPositiveInt(item.seekBackwardCount),
+      lastEventType: asString(item.lastEventType) || null,
       watchedAt: item.watchedAt ? new Date(item.watchedAt) : new Date(),
     }))
     .filter((item) => item.slideId);
@@ -78,29 +88,57 @@ export async function syncEngagementForUser({ userId, questionnaireSlug, snapsho
     });
   }
 
+  if (videoProgress.length) {
+    await ensureUserVideoProgressAnalyticsColumns(prisma);
+  }
+
   for (const item of videoProgress) {
-    await prisma.userVideoProgress.upsert({
-      where: {
-        userId_questionnaireSlug_slideId: {
-          userId,
-          questionnaireSlug: item.questionnaireSlug,
-          slideId: item.slideId,
-        },
-      },
-      create: {
-        userId,
-        questionnaireSlug: item.questionnaireSlug,
-        slideId: item.slideId,
-        lastPositionSeconds: item.lastPositionSeconds,
-        durationSeconds: item.durationSeconds,
-        watchedAt: item.watchedAt,
-      },
-      update: {
-        lastPositionSeconds: item.lastPositionSeconds,
-        durationSeconds: item.durationSeconds,
-        watchedAt: item.watchedAt,
-      },
-    });
+    await prisma.$executeRaw`
+      INSERT INTO "UserVideoProgress" (
+        "id",
+        "userId",
+        "questionnaireSlug",
+        "slideId",
+        "lastPositionSeconds",
+        "durationSeconds",
+        "totalWatchSeconds",
+        "maxPositionSeconds",
+        "playEventCount",
+        "seekForwardCount",
+        "seekBackwardCount",
+        "lastEventType",
+        "watchedAt",
+        "updatedAt"
+      )
+      VALUES (
+        ${`uvp-${randomUUID()}`},
+        ${userId},
+        ${item.questionnaireSlug},
+        ${item.slideId},
+        ${item.lastPositionSeconds},
+        ${item.durationSeconds},
+        ${item.totalWatchSeconds},
+        ${Math.max(item.maxPositionSeconds, item.lastPositionSeconds)},
+        ${item.playEventCount},
+        ${item.seekForwardCount},
+        ${item.seekBackwardCount},
+        ${item.lastEventType},
+        ${item.watchedAt},
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("userId", "questionnaireSlug", "slideId")
+      DO UPDATE SET
+        "lastPositionSeconds" = EXCLUDED."lastPositionSeconds",
+        "durationSeconds" = EXCLUDED."durationSeconds",
+        "totalWatchSeconds" = GREATEST("UserVideoProgress"."totalWatchSeconds", EXCLUDED."totalWatchSeconds"),
+        "maxPositionSeconds" = GREATEST("UserVideoProgress"."maxPositionSeconds", EXCLUDED."maxPositionSeconds"),
+        "playEventCount" = GREATEST("UserVideoProgress"."playEventCount", EXCLUDED."playEventCount"),
+        "seekForwardCount" = GREATEST("UserVideoProgress"."seekForwardCount", EXCLUDED."seekForwardCount"),
+        "seekBackwardCount" = GREATEST("UserVideoProgress"."seekBackwardCount", EXCLUDED."seekBackwardCount"),
+        "lastEventType" = EXCLUDED."lastEventType",
+        "watchedAt" = EXCLUDED."watchedAt",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `;
   }
 
   if (dripUnlock && typeof dripUnlock === "object") {

@@ -3,6 +3,7 @@ import ReceiptView, {
   getLittleOrchardOrderItemsByToken,
   normalizeToken,
 } from "../ReceiptView";
+import CustomerDeviceTracker from "@/components/plantShop/CustomerDeviceTracker";
 
 export default async function ReceiptTokenPage({
   params,
@@ -17,5 +18,10 @@ export default async function ReceiptTokenPage({
     notFound();
   }
 
-  return <ReceiptView items={items} />;
+  return (
+    <>
+      <CustomerDeviceTracker token={token} source="receipt" />
+      <ReceiptView items={items} />
+    </>
+  );
 }

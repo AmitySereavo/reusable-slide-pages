@@ -1,0 +1,265 @@
+// PARA-LIFE TREES
+// SCOTCH BONNET PEPPER SEEDLING GROW GUIDE
+// Source: Scotch_Bonnet_Grow_Guide.pdf
+
+@id: scotch-bonnet-guide-cover
+@type: media
+@title: Scotch Bonnet Pepper Seedling Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@media: /media/paralife_trees/jpg/product_scotch_bonnet_plant_still.jpg
+@mediatype: image
+@mediaaspect: horizontal
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Scotch Bonnet Pepper Seedling Grow Guide
+## [c3] Transplanting, spacing, feeding, pest control, disease control, and harvesting.
+BR
+GUIDEGRID|Heat level::100,000 to 350,000 SHU||Transplant age::5 to 8 weeks from sowing||Best transplant size::12 to 15 cm / 5 to 6 inches tall||Small farmers::Harden off, transplant in evening, water immediately||Home gardens::2 to 6 plants can grow well in pots or beds with full sun and good drainage
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20Scotch%20bonnet%20pepper%20plant.)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Quick rescue
+@goto: scotch-bonnet-quick-rescue
+
+===
+
+@id: scotch-bonnet-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: If you see this, do this first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+## [c3] Check under leaves before you spray or fertilize.
+BR
+GUIDETABLE|What you see|Most likely cause|First action today||Tiny white insects fly up|Whiteflies|Spray under leaves. Add yellow sticky traps. Repeat every 3 to 5 days.||Leaves curling and sticky; ants on plant|Aphids or whiteflies|Check under leaves. Spray mild soap. Control ants. Repeat every 3 to 5 days.||Fine webbing, dusty leaves, tiny speckles|Spider mites|Spray undersides. Do not let plant stay drought-stressed. Repeat every 3 to 5 days.||Holes in leaves or fruit; black droppings|Caterpillars/worms|Check early morning or evening. Handpick. Remove damaged fruit.||Yellow leaves plus wet soil|Overwatering/root stress|Reduce watering. Improve drainage. Raise pots off wet ground.||Wilting even though soil is wet|Root rot or bacterial wilt|Stop overwatering. Improve drainage. Remove badly collapsed plants.||Flowers falling off|Heat/water stress, pests, too much nitrogen|Water consistently. Mulch. Reduce high-nitrogen feeding. Check flowers for pests.||Big green plant but few flowers|Too much nitrogen or low sunlight|Give 6 to 8 hours sun. Switch to flowering/fruiting support.
+@back: Cover
+@next: Pests
+@goto: scotch-bonnet-pests
+
+===
+
+@id: scotch-bonnet-pests
+@type: content
+@title: Common Pests
+@subtitle: Fast identification and control
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Pests
+BR
+GUIDETABLE|Pest|Signs|What to do||Whiteflies|Tiny white flying insects under leaves; yellowing, curling, sticky residue|Spray undersides every 3 to 5 days. Use yellow sticky traps. Remove badly infested leaves.||Aphids|Soft insects on new growth and under leaves; curled leaves; honeydew; ants|Spray off with water. Use mild soap under leaves. Control ants.||Thrips|Bronze, dry, or silvery marks; distorted new growth; flower damage|Remove damaged leaves/flowers. Use sticky traps. Treat early.||Broad mites/spider mites|Tiny speckles, twisted new growth, webbing in spider mite cases|Spray undersides. Remove badly damaged leaves. Avoid drought stress.||Caterpillars/worms|Holes in leaves, chewed fruit, black droppings|Handpick early morning/evening. Remove damaged fruit.||Crickets/cucumber beetles|Chewed seedlings, cut young plants, missing leaf pieces|Keep field edges clean. Inspect new transplants daily for first 7 to 14 days.
+BR
+[c3] Spray early morning or late evening, not in hot midday sun. Test any spray on a few leaves first.
+@back: Quick rescue
+@next: Diseases
+@goto: scotch-bonnet-diseases
+
+===
+
+@id: scotch-bonnet-diseases
+@type: content
+@title: Diseases
+@subtitle: Sanitation matters
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Diseases and Sanitation
+BR
+GUIDETABLE|Disease / problem|Signs|What to do||Viral disease / mosaic|Mottled leaves, severe curling, stunting, deformed leaves or fruit|Control whiteflies, aphids, thrips early. Remove badly infected plants. Wash hands and tools.||Tobacco mosaic risk|Mosaic patterns, leaf distortion, weak growth|Wash hands before handling peppers, especially after smoking or handling tobacco.||Bacterial spot / leaf spot|Brown, black, or yellow leaf spots; leaf drop in wet conditions|Remove affected leaves. Avoid wetting leaves. Improve spacing and airflow.||Fusarium/bacterial wilt|Sudden wilt, may not recover after watering|Remove badly affected plants. Avoid replanting peppers in same infected spot.||Southern blight / stem rot|White fungal growth near soil line; plant collapses|Remove plant and infected soil near stem. Keep mulch away from stem.||Anthracnose fruit rot|Sunken spots on fruit; fruit rots before harvest|Remove infected fruits. Avoid overhead watering. Harvest regularly.
+@back: Pests
+@next: Transplanting
+@goto: scotch-bonnet-transplanting
+
+===
+
+@id: scotch-bonnet-transplanting
+@type: content
+@title: Transplanting
+@subtitle: From trays to pots or field
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting Seedlings
+BR
+GUIDEGRID|Age from sowing::5 to 8 weeks||Height::12 to 15 cm / 5 to 6 inches||Leaves::At least 4 to 6 true leaves||Roots::Root ball holds together but is not severely root-bound||Transplant time::Evening is best; early morning is second best||First week::Keep well-watered for 7 days while roots settle
+BR
+GUIDETABLE|Step|What to do||1|Water tray 1 to 2 hours before removing seedlings.||2|Handle seedlings by root ball or leaves, not by squeezing the stem.||3|Keep root ball intact.||4|Plant at the same depth as tray or pot.||5|Press soil gently around root ball.||6|Water immediately.||7|Check daily for the first 7 days.
+@back: Diseases
+@next: Hardening off
+@goto: scotch-bonnet-hardening-off
+
+===
+
+@id: scotch-bonnet-hardening-off
+@type: content
+@title: Hardening Off
+@subtitle: Before full sun
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Seven-Day Hardening Plan
+BR
+GUIDETABLE|Day|Sun exposure|Care note||Day 1 to 2|2 to 3 hours morning sun|Keep seedlings watered; avoid midday sun.||Day 3 to 4|3 to 5 hours sun|Allow more airflow; do not let trays dry out.||Day 5 to 6|5 to 7 hours sun|Expose to near-final conditions; check for wilting.||Day 7|6 to 8 hours sun if plants stay firm|Ready to transplant in evening if roots and leaves look healthy.
+BR
+[c3] Hardening should toughen the plant, not burn it.
+@back: Transplanting
+@next: Spacing
+@goto: scotch-bonnet-spacing
+
+===
+
+@id: scotch-bonnet-spacing
+@type: content
+@title: Spacing
+@subtitle: Small farmers and home gardens
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Spacing Guide
+BR
+GUIDETABLE|Planting situation|Spacing|Approximate plant count / note||Beginning small farmer field layout|3 ft between plants x 5 ft between rows|About 3,630 plants per acre.||Medium intensive field layout|60 cm between plants x 76 cm between rows|About 21,527 plants per hectare.||High intensive field layout|60 cm x 60 cm|About 26,898 plants per hectare.||Home garden minimum|18 inches between plants|Use only with good airflow and pest checks.||Better home garden spacing|24 inches between plants|Easier care and better airflow.||Containers|Minimum 3 gallons; better 5 gallons or larger|1 plant per pot.
+BR
+[c3] For 2 to 6 plants, use 5-gallon pots if possible, or plant 2 ft apart in a bed.
+@back: Hardening off
+@next: Soil and water
+@goto: scotch-bonnet-soil-water
+
+===
+
+@id: scotch-bonnet-soil-water
+@type: content
+@title: Soil and Water
+@subtitle: Sun, climate, and steady moisture
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Soil, Sun, Climate, and Water
+BR
+GUIDETABLE|Need|Target range|Problem if outside range||Sunlight|6 to 8 hours direct sun daily|Less than 5 hours often gives weak growth and fewer flowers.||Soil pH|6.0 to 7.0 acceptable; 6.5 strong target|Low or high pH can reduce nutrient uptake.||Soil temperature|Above 60 F / 15.5 C at transplant|Cold soil slows roots and recovery.||Soil type|Loose, well-drained soil with compost|Waterlogged clay increases root disease.||Water after transplant|Water immediately; keep well-watered for 7 days|Dry root ball causes transplant shock and wilting.||Critical water periods|First week, flowering, fruit set, fruit development|Stress can cause flower drop and small fruit.||Mulch|Keep 2 to 3 inches away from stem|Mulch touching stem can increase stem rot.
+@back: Spacing
+@next: Feeding
+@goto: scotch-bonnet-feeding
+
+===
+
+@id: scotch-bonnet-feeding
+@type: content
+@title: Feeding
+@subtitle: Avoid pushing too much nitrogen
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding Schedule
+BR
+GUIDETABLE|Stage|Timing|Feeding direction||At transplanting|Day 0|Compost or well-prepared soil. Use soil-test based complete fertilizer where possible.||After settling|10 to 14 days after transplant|Light balanced feed if actively growing. Avoid strong feed on stressed plants.||Flowering begins|Around 39 to 44 days after transplant|Reduce heavy nitrogen. Support flowering with balanced nutrition and moisture.||Fruiting support|25 to 30 days after flowering begins|Support potassium and calcium; avoid drought stress.||During harvest|Every 4 to 6 weeks in ground; every 2 to 4 weeks in pots|Light maintenance feeding based on color, fruit load, and soil quality.
+BR
+[c3] Too much nitrogen can give a large green plant with fewer flowers, soft growth, and more pest pressure.
+@back: Soil and water
+@next: Timeline
+@goto: scotch-bonnet-timeline
+
+===
+
+@id: scotch-bonnet-timeline
+@type: content
+@title: Timeline
+@subtitle: Growth and harvest expectations
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Growth Timeline
+BR
+GUIDETABLE|Stage|Estimated time range||Seed germination|7 to 21 days.||Seedling ready for transplant|5 to 8 weeks from sowing.||Hardening off|7 days before transplanting.||Root settling|7 to 14 days after transplant.||Strong new growth|14 to 28 days after transplant.||First flowers|About 39 to 44 days after transplant.||Early fruit set|Monitor from 45 to 70 days after transplant.||First harvest window|About 80 to 120 days after transplant.||Harvest frequency|Every 5 to 10 days once producing.
+@back: Feeding
+@next: Leaf guide
+@goto: scotch-bonnet-leaf-guide
+
+===
+
+@id: scotch-bonnet-leaf-guide
+@type: content
+@title: Leaf Guide
+@subtitle: Healthy color and problem signs
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Healthy Leaf Color and Problem Signs
+BR
+GUIDETABLE|Leaf appearance|Likely meaning|Action||Medium to deep green|Generally healthy|Keep watering and pest checks consistent.||New leaves light green|Normal if they darken in 7 to 14 days|Watch; do not overfeed immediately.||Pale green all over|Low nitrogen, poor soil, low light, or water stress|Check sun and water first; add compost/light feed if needed.||Yellow lower leaves|Age, overwatering, low nitrogen, root stress|Check drainage and soil moisture. Remove badly yellow leaves.||Brown leaf edges|Heat, fertilizer burn, underwatering, salt buildup|Water deeply, avoid strong fertilizer, flush pots if needed.||Curling leaves|Whiteflies, aphids, mites, thrips, heat, or virus|Inspect under leaves. Treat pests early.||Mosaic/mottled pattern|Possible viral disease|Wash hands/tools. Remove badly affected plants. Control insect vectors.
+@back: Timeline
+@next: Flowers and fruit
+@goto: scotch-bonnet-fruiting
+
+===
+
+@id: scotch-bonnet-fruiting
+@type: content
+@title: Flowers and Fruit
+@subtitle: Problems and harvesting
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Flowering, Fruiting, and Harvesting
+BR
+GUIDETABLE|Problem|Likely cause|What to do||Flowers drop before fruit forms|Heat, water stress, pests, poor pollination, too much nitrogen|Water consistently, mulch, check flowers for thrips, reduce nitrogen.||Plant has leaves but no flowers|Too much nitrogen or less than 6 hours sun|Give 6 to 8 hours sun; switch to fruiting support.||Small peppers|Water stress, weak roots, poor feeding, pest damage|Keep moisture steady, feed lightly, inspect leaves and flowers.||Deformed peppers|Thrips, mites, virus, poor pollination|Check new growth and flowers; remove badly affected fruit.||Fruit rots before harvest|Anthracnose, wet foliage, pest injury, poor airflow|Remove infected fruit, avoid overhead watering, improve spacing.
+BR
+GUIDETABLE|Harvest item|Specific guidance||Green harvest|Harvest when fruit reaches full size and is firm.||Ripe harvest|Harvest when fruit reaches mature variety color.||Harvest frequency|Every 5 to 10 days during active production.||Handling|Use scissors/pruner and wear gloves if harvesting many peppers.||After harvest|Keep fruit shaded and cool. Sort damaged fruit away from clean fruit.
+@back: Leaf guide
+@next: Weekly checklist
+@goto: scotch-bonnet-weekly-checklist
+
+===
+
+@id: scotch-bonnet-weekly-checklist
+@type: content
+@title: Weekly Checklist
+@subtitle: What to check and when
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Care Checklist
+BR
+GUIDETABLE|Frequency|Checklist||Every 1 to 2 days|Check soil moisture, underside of leaves, whiteflies, wilting, flowers, and young fruit.||Every 7 days|Remove yellow or diseased leaves, weed, check ants, aphids, whiteflies, mites, thrips, caterpillars, and stakes.||Every 2 to 4 weeks|Feed lightly if plant is growing and fruiting; top up compost or mulch; inspect airflow.||Before handling trays|Wash hands, clean tools, avoid tobacco handling.||After handling diseased plants|Wash hands, disinfect tools, handle healthy plants separately.
+BR
+## [c3] Need help?
+Send clear photos of the full plant, top leaves, underside of leaves, stem base, soil or pot, and any insects, spots, flowers, or fruit damage.
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20Scotch%20bonnet%20pepper%20plant.)
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Scotch_Bonnet_Grow_Guide.pdf)
+BR
+[Guides for other plants](/grow-guides)
+@back: Flowers and fruit
+@next: Visit shop
+@goto: /shop

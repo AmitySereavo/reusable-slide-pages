@@ -8,6 +8,12 @@ export type LocalVideoProgressRecord = {
   slideId: string;
   lastPositionSeconds: number;
   durationSeconds?: number | null;
+  totalWatchSeconds?: number;
+  maxPositionSeconds?: number;
+  playEventCount?: number;
+  seekForwardCount?: number;
+  seekBackwardCount?: number;
+  lastEventType?: "play" | "progress" | "seek_forward" | "seek_backward";
   watchedAt: string;
 };
 
@@ -92,13 +98,48 @@ export function writeLocalVideoProgress(params: {
   currentTime: number;
   duration?: number | null;
 }) {
-  const lastPositionSeconds = Math.max(0, Math.floor(params.currentTime));
+  const currentTimeSeconds = Math.max(0, params.currentTime);
+  const lastPositionSeconds = Math.floor(currentTimeSeconds);
 
   if (!Number.isFinite(lastPositionSeconds) || lastPositionSeconds < 3) {
     return;
   }
 
   const snapshot = readRaw(params.questionnaireSlug);
+  const existingRecord = snapshot.videoProgress.find(
+    (item) => item.slideId === params.slideId
+  );
+  const previousPosition =
+    typeof existingRecord?.lastPositionSeconds === "number"
+      ? Math.max(0, existingRecord.lastPositionSeconds)
+      : null;
+  const positionDelta =
+    previousPosition === null ? 0 : currentTimeSeconds - previousPosition;
+  const isNormalPlayback = positionDelta > 0 && positionDelta <= 3;
+  const isForwardSeek = positionDelta > 5;
+  const isBackwardSeek = positionDelta < -3;
+  const watchedDelta = isNormalPlayback ? Math.round(positionDelta) : 0;
+  const totalWatchSeconds = Math.max(
+    0,
+    Math.floor(existingRecord?.totalWatchSeconds ?? 0) + watchedDelta
+  );
+  const maxPositionSeconds = Math.max(
+    Math.floor(existingRecord?.maxPositionSeconds ?? 0),
+    lastPositionSeconds
+  );
+  const playEventCount =
+    (existingRecord?.playEventCount ?? 0) + (previousPosition === null ? 1 : 0);
+  const seekForwardCount =
+    (existingRecord?.seekForwardCount ?? 0) + (isForwardSeek ? 1 : 0);
+  const seekBackwardCount =
+    (existingRecord?.seekBackwardCount ?? 0) + (isBackwardSeek ? 1 : 0);
+  const lastEventType = isForwardSeek
+    ? "seek_forward"
+    : isBackwardSeek
+      ? "seek_backward"
+      : previousPosition === null
+        ? "play"
+        : "progress";
 
   const nextRecord: LocalVideoProgressRecord = {
     questionnaireSlug: params.questionnaireSlug,
@@ -108,6 +149,12 @@ export function writeLocalVideoProgress(params: {
       typeof params.duration === "number" && Number.isFinite(params.duration)
         ? Math.floor(params.duration)
         : null,
+    totalWatchSeconds,
+    maxPositionSeconds,
+    playEventCount,
+    seekForwardCount,
+    seekBackwardCount,
+    lastEventType,
     watchedAt: new Date().toISOString(),
   };
 

@@ -1,0 +1,249 @@
+// PARA-LIFE TREES
+// SCALLION / GREEN ONION GROW GUIDE
+// Source: Green_Onion_Grow_Guide.pdf
+
+@id: green-onion-guide-cover
+@type: media
+@title: Scallion / Green Onion Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@media: /media/paralife_trees/jpg/product_green_onion_scallion_still.jpg
+@mediatype: image
+@mediaaspect: horizontal
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Scallion / Green Onion Grow Guide
+## [c3] For scallion, green onion, and spring onion style harvests.
+BR
+GUIDEGRID|Guide focus::Transplanting, spacing, watering, feeding, pests, diseases, harvesting||Best for::Containers, raised beds, backyard gardens, and small farm plots||Support::Send clear plant photos by WhatsApp if leaves yellow, wilt, streak, rot, or get pests
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20scallion%20or%20green%20onion%20plants.)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Quick rescue
+@goto: green-onion-quick-rescue
+
+===
+
+@id: green-onion-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: If you see this, do this first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+BR
+GUIDETABLE|What you see|Most likely cause|What to do first||White/silver streaks on leaves|Onion thrips feeding damage|Inspect leaf folds; rinse or spray under leaves; repeat every 3 to 5 days; remove badly damaged leaves.||Leaves turning pale/yellow|Low nitrogen, water stress, old leaves, or root problem|Check soil moisture; feed lightly; improve drainage if soil stays wet.||Tips drying or browning|Heat, dry soil, fertilizer burn, or salt buildup|Water evenly; avoid strong fertilizer; mulch lightly; flush containers if needed.||Plant rotting at base|Too much water, poor drainage, bacterial soft rot, or fungal disease|Remove rotten plants; improve airflow and drainage; avoid splashing soil on leaves.||Leaves collapsing after transplant|Transplant shock, dry roots, or hot sun|Water immediately; shade 1 to 2 days; transplant early morning or late evening.||Leaves have holes or cut stems|Cutworms, caterpillars, slugs/snails, grasshoppers|Check evening or early morning; remove pests; use collars or barriers.||Purple/gray fuzzy growth|Downy mildew in humid/wet weather|Remove affected leaves; improve spacing; water at soil level.||Orange/rusty spots|Rust disease|Remove affected leaves; improve airflow; avoid overcrowding.||Bulb/base not swelling|Too crowded or harvested young as scallion|For spring onion, space 4 to 6 inches and let it grow longer.||Tall flower stalk forming|Bolting from age, stress, or temperature shift|Harvest soon; texture and flavor decline after bolting.
+@back: Cover
+@next: Quick numbers
+@goto: green-onion-quick-numbers
+
+===
+
+@id: green-onion-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Simple targets for scallion and green onion
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDEGRID|Crop names::Scallion / Green Onion / Spring Onion||Crop group::Allium; often Allium fistulosum or young Allium cepa||Seed germination::6 to 12 days in warm, moist conditions||Transplant age::6 to 8 weeks after sowing, or pencil-thin and strong enough to handle||Hardening off::5 to 7 days before field planting||Scallion harvest after transplant::30 to 45 days||Green onion harvest from seed::40 to 60 days||Spring onion harvest after transplant::45 to 75 days||Full sun target::6+ hours daily||Soil pH target::6.0 to 7.0||Water target::About 1 inch / 25 mm per week||Container depth::6 to 8 inches minimum
+BR
+GUIDETABLE|Use|Plant spacing|Row spacing||Scallion / green onion|2 to 3 inches apart|10 to 15 inches.||Spring onion|4 to 6 inches apart|12 to 18 inches.||Small farmer hand-weeding rows|3 to 4 inches apart|12 to 18 inches.||Container growing|2 to 4 inches apart|Container width decides row spacing.||Bunch harvest|Plant closer; harvest whole bunch younger|10 to 12 inches.
+@back: Quick rescue
+@next: Hardening off
+@goto: green-onion-hardening-off
+
+===
+
+@id: green-onion-hardening-off
+@type: content
+@title: Hardening Off
+@subtitle: Before transplanting
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Hardening Off
+BR
+GUIDETABLE|Day|Exposure||Day 1 to 2|Bright shade for 2 to 3 hours; keep tray moist.||Day 3 to 4|Morning sun for 2 to 4 hours; return to shade before harsh midday sun.||Day 5 to 6|Morning sun plus bright afternoon shade; avoid drying out tray cells.||Day 7|Ready to transplant, preferably early morning or late evening.
+BR
+[c3] Tray cells dry quickly. Check moisture morning and evening during hardening off.
+@back: Quick numbers
+@next: Transplanting
+@goto: green-onion-transplanting
+
+===
+
+@id: green-onion-transplanting
+@type: content
+@title: Transplanting
+@subtitle: From trays or small pots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting
+## [c3] Best transplanting times are before 8:30 a.m. or after 4:30 p.m.
+BR
+GUIDETABLE|Step|What to do||1|Water tray 1 to 2 hours before transplanting.||2|Prepare bed, rows, or container before removing seedlings.||3|Make holes deep enough for roots, but do not bury green leaves.||4|Lift seedlings gently; keep roots moist and shaded.||5|Plant upright with white base/root section covered and green leaves above soil.||6|Press soil gently around roots. Do not compact heavily.||7|Water immediately after planting.||8|Shade for 1 to 2 days if sun is harsh or plants are wilting.||9|Check morning and evening for the first 3 to 5 days.
+BR
+[c3] Bury the root section and lower white stem only. Keep the green leaf base above soil to reduce rot.
+@back: Hardening off
+@next: Sun and water
+@goto: green-onion-sun-water
+
+===
+
+@id: green-onion-sun-water
+@type: content
+@title: Sun and Water
+@subtitle: Keep growth steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Sunlight, Soil, and Water
+BR
+GUIDEGRID|Sunlight::6+ hours daily for strong upright leaves||Hot conditions::Light afternoon shade from about 12 p.m. to 3 p.m. can reduce stress||Soil texture::Loose, fertile, well-draining soil||Soil pH::6.0 to 7.0||Organic matter::Add compost before planting||Mulch::Use light mulch, kept off the stem base||Drainage::Water should not sit around roots
+BR
+GUIDETABLE|Stage|Watering direction||First 3 to 5 days after transplant|Check morning and evening; keep soil evenly moist.||Established plants|Water when top 1 inch of soil begins to dry.||Dry/hot weather|Water more often; containers may need daily checks.||Rainy periods|Reduce watering and improve drainage to avoid rot.||Best method|Water at soil level; avoid keeping leaves wet overnight.
+@back: Transplanting
+@next: Feeding
+@goto: green-onion-feeding
+
+===
+
+@id: green-onion-feeding
+@type: content
+@title: Feeding
+@subtitle: Mild nitrogen, not harsh fertilizer
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding Guide
+BR
+GUIDETABLE|Stage|Timing|Feeding direction||At transplanting|Day 0|Compost mixed into bed or container.||After settling|7 to 10 days after transplant|Light liquid feed or mild balanced fertilizer.||Active leaf growth|Every 14 to 21 days|Light nitrogen support if leaves are pale.||Spring onion swelling stage|After 30 to 45 days|Keep moisture even; avoid overdoing nitrogen.||Final week before harvest|Last 7 days|Avoid heavy feeding; focus on clean water and harvest quality.
+BR
+GUIDETABLE|Leaf look|Possible cause|What to do||Deep green, upright leaves|Healthy growth|Continue steady water and light feeding.||Pale green leaves|Low nitrogen, poor roots, or low sunlight|Feed lightly, improve sunlight, check root moisture.||Yellow leaves|Overwatering, old leaves, or nutrient stress|Check drainage, remove old leaves, feed lightly.||Dry brown tips|Heat, dry soil, fertilizer burn, salt buildup|Water evenly, reduce fertilizer, flush containers.||Silver/white streaks|Thrips feeding|Inspect leaf folds and treat early.||Soft slimy base|Rot from wet soil or poor airflow|Remove affected plants; improve drainage and spacing.
+@back: Sun and water
+@next: Pests
+@goto: green-onion-pests
+
+===
+
+@id: green-onion-pests
+@type: content
+@title: Common Pests
+@subtitle: Fast identification and action
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Pests
+BR
+GUIDETABLE|Pest|Signs|Action||Onion thrips|White/silver streaks, scarred leaves, tiny insects hiding between leaves|Spray or rinse into leaf folds; repeat every 3 to 5 days; remove badly damaged leaves; keep plants watered.||Cutworms|Seedlings cut near soil line, usually overnight|Use collars around young seedlings; check soil surface evening or early morning.||Slugs and snails|Ragged holes and slime trails, worse after rain or at night|Remove hiding places, lift containers, handpick, use safe bait/barriers.||Onion maggot / root maggot|Weak plants, wilting, damaged roots or base|Remove affected plants, rotate planting area, avoid repeatedly planting in infested soil.||Leafminers|Thin winding lines inside leaves|Remove affected leaves; keep weeds down; use insect netting where pressure is high.||Aphids / whiteflies|Sticky leaves, curling, insects under leaves|Spray under leaves; repeat every 3 to 5 days; manage ants and weeds.
+@back: Feeding
+@next: Diseases
+@goto: green-onion-diseases
+
+===
+
+@id: green-onion-diseases
+@type: content
+@title: Diseases
+@subtitle: Keep leaves dry and plants spaced
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Diseases
+BR
+GUIDETABLE|Disease|Signs|Action||Downy mildew|Purple-gray fuzzy growth on leaves; yellowing then browning tissue|Improve spacing, water early at soil level, remove affected leaves.||Rust|Orange or rusty spots/pustules on leaves|Remove affected leaves, improve airflow, avoid crowding and wet foliage.||Purple blotch / leaf blight|Purple/brown lesions, leaf dieback, worse after leaf damage or wet conditions|Remove debris, rotate crops, avoid overhead watering, manage thrips.||Bacterial soft rot|Soft, wet, smelly rot at base or leaves|Remove affected plants, reduce moisture, avoid damaging plants during harvest.||Basal rot / root rot|Yellowing, wilting, poor roots, rotting base|Improve drainage, avoid soggy soil, rotate planting location.||Damping off|Young seedlings collapse at soil line|Use clean trays/mix, avoid overwatering, improve airflow.
+BR
+[c3] Most disease problems become worse when plants are crowded, leaves stay wet overnight, or soil remains waterlogged.
+@back: Pests
+@next: Harvesting
+@goto: green-onion-harvesting
+
+===
+
+@id: green-onion-harvesting
+@type: content
+@title: Harvesting
+@subtitle: Scallion, green onion, and spring onion
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Harvesting Guide
+BR
+GUIDETABLE|Harvest type|Timing / method||Scallion / green onion whole plant|Harvest 30 to 45 days after transplant when 8 to 12 inches tall.||Cut-and-come-again greens|Cut green leaves 1 to 2 inches above base; regrowth can begin within 7 to 14 days.||Spring onion|Allow 45 to 75 days after transplant or until base swells to desired size.||Bunch harvest for market|Harvest early morning; wash roots/base; keep cool and shaded.||Home kitchen harvest|Cut leaves as needed, or pull whole plant for cooking.
+BR
+GUIDEGRID|Bolting sign::Tall firm center stalk||Common triggers::Age, heat stress, transplant stress, temperature changes||Action::Harvest soon if eating quality matters; leave a few plants only if saving seed
+@back: Diseases
+@next: Home and farm notes
+@goto: green-onion-home-farm-notes
+
+===
+
+@id: green-onion-home-farm-notes
+@type: content
+@title: Home and Farm Notes
+@subtitle: Two simple paths
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Small Farmer and Home Garden Notes
+BR
+GUIDETABLE|Grower type|Best approach||Small farmers|Plant straight rows for easier weeding and harvesting. Use 3 to 4 inches between plants. Use 12 to 18 inches between rows. Plant batches every 7 to 14 days for continuous sales. Scout thrips weekly. Rotate onion family crops when possible. Harvest and wash in clean water; keep bunches shaded and cool.||Home garden customers|For 2 to 6 plants, use a pot at least 6 to 8 inches deep with drainage holes. Space 2 to 4 inches apart for green onion harvest. Cut leaves as needed and allow regrowth. For spring onion size, give 4 to 6 inches spacing and more time. Keep pots in sun or bright light; water when top 1 inch begins to dry.
+@back: Harvesting
+@next: Clean handling
+@goto: green-onion-clean-handling
+
+===
+
+@id: green-onion-clean-handling
+@type: content
+@title: Clean Handling
+@subtitle: Seedling sanitation and support
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Clean Handling and Seedling Sanitation
+BR
+GUIDETABLE|Keep it clean|Why it matters||Hands|Wash hands with soap and water before handling seedlings.||Diseased plants|Do not handle rotten/diseased plants and then touch healthy plants without washing first.||Soil|Do not plant into soil that recently had serious onion-family disease.||Plant debris|Remove dead leaves and debris from the bed.||Wet leaves|Avoid harvesting or pruning when leaves are wet if disease is present.||Wash water|Use clean water for washing harvested scallions/green onions.||Harvested bunches|Keep bunches off the ground.
+BR
+## [c3] Need help?
+Send clear photos of the full plant, damaged leaves, base/root area, underside or folded leaves, and any insects you see.
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20scallion%20or%20green%20onion%20plants.)
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Green_Onion_Grow_Guide.pdf)
+BR
+[Guides for other plants](/grow-guides)
+@back: Home and farm notes
+@next: Visit shop
+@goto: /shop

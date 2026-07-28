@@ -374,7 +374,7 @@ export async function POST(request: Request) {
 
     if (!lines.length) {
       return NextResponse.json(
-        { ok: false, error: "Select at least one plant before submitting." },
+        { ok: false, error: "Select at least one item before submitting." },
         { status: 400 }
       );
     }
@@ -386,7 +386,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (contactMethod === "whatsapp" && deviceType === "shared_event_device" && !whatsappNumber) {
+    if (contactMethod === "whatsapp" && !whatsappNumber) {
       return NextResponse.json(
         { ok: false, error: "Enter your WhatsApp number." },
         { status: 400 }
@@ -410,6 +410,20 @@ export async function POST(request: Request) {
     if (contactMethod === "phone_call" && !phoneNumber) {
       return NextResponse.json(
         { ok: false, error: "Enter the phone number we should call." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      contactMethod === "phone_call" &&
+      phoneNumber &&
+      !hasCountryAndAreaCode(phoneNumber)
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Enter the phone number with country and area code.",
+        },
         { status: 400 }
       );
     }

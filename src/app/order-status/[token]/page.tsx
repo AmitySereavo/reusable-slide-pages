@@ -6,6 +6,7 @@ import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest"
 import { getCustomerOrderStageCopy } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import { getAdminSession } from "@/lib/auth/adminGuard";
+import CustomerDeviceTracker from "@/components/plantShop/CustomerDeviceTracker";
 import CountdownTimer from "./CountdownTimer";
 
 function normalizeToken(value: string) {
@@ -202,6 +203,7 @@ export default async function OrderStatusPage({
 
   return (
     <main style={pageStyle}>
+      <CustomerDeviceTracker token={token} source="order-status" />
       <section style={panelStyle}>
         <p style={eyebrowStyle}>Little Orchard Shop</p>
         <h1 style={titleStyle}>Order Status</h1>

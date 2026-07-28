@@ -20,6 +20,10 @@ function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function hasDeleteConfirmation(value: unknown) {
+  return cleanText(value).toLowerCase() === "delete";
+}
+
 function normalizeStatus(value: unknown) {
   const status = cleanText(value).toUpperCase();
   return fulfillmentStatuses.has(status) ? status : "";
@@ -747,6 +751,7 @@ export async function POST(request: Request) {
       action !== "add-little-orchard-catalog-order-item" &&
       action !== "add-little-orchard-order-item" &&
       action !== "remove-little-orchard-order-item" &&
+      action !== "delete-little-orchard-order" &&
       action !== "update-little-orchard-payment-allocations" &&
       action !== "update-little-orchard-customer-phone"
     ) {
@@ -1045,6 +1050,39 @@ export async function POST(request: Request) {
       );
     }
 
+    if (action === "delete-little-orchard-order") {
+      if (item.sourceType !== "little-orchard-shop" || !item.orderCode) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Order deletion is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!hasDeleteConfirmation(body?.confirmation)) {
+        return NextResponse.json(
+          { ok: false, error: "Type delete to confirm this action." },
+          { status: 400 }
+        );
+      }
+
+      const result = await delegate.deleteMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode: item.orderCode,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        deletedOrderCode: item.orderCode,
+        deletedItemCount: result.count,
+        message: `Order ${item.orderCode} and its receipt record were deleted.`,
+      });
+    }
+
     if (action === "remove-little-orchard-order-item") {
       if (item.sourceType !== "little-orchard-shop") {
         return NextResponse.json(
@@ -1052,6 +1090,13 @@ export async function POST(request: Request) {
             ok: false,
             error: "Item removal is only available for Little Orchard orders.",
           },
+          { status: 400 }
+        );
+      }
+
+      if (!hasDeleteConfirmation(body?.confirmation)) {
+        return NextResponse.json(
+          { ok: false, error: "Type delete to confirm this action." },
           { status: 400 }
         );
       }

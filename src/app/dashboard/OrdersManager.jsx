@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
+import {
+  downloadDeletionRecordPdf,
+  makeDeletionExportFilename,
+} from "./deletionExportPdf";
 
 const statusOptions = [
   "PENDING",
@@ -97,6 +101,15 @@ function cleanFulfillmentNotesForDisplay(value) {
       );
     })
     .join("\n");
+}
+
+function confirmTypedDelete(message) {
+  const response = window.prompt(`${message}\n\nType delete to confirm.`);
+  return String(response || "").trim().toLowerCase() === "delete";
+}
+
+function exportBeforeDelete({ title, filename, record }) {
+  downloadDeletionRecordPdf({ title, filename, record });
 }
 
 function getLittleOrchardOrderPhone(item) {
@@ -731,13 +744,31 @@ export default function OrdersManager() {
     const actionKey = `remove-order-item:${entry.id}`;
     if (busyActionLocksRef.current[actionKey]) return;
 
-    const confirmed = window.confirm(
-      `Remove ${getOrderItemTitle(entry)} from this customer's order and receipt?`
+    const confirmed = confirmTypedDelete(
+      `Delete ${getOrderItemTitle(entry)} from this customer's order and receipt?`
     );
 
     if (!confirmed) return;
 
-    await runBusyAction(actionKey, "Removing item from order...", async () => {
+    try {
+      exportBeforeDelete({
+        title: `Order item deletion export - ${getOrderItemTitle(entry)}`,
+        filename: makeDeletionExportFilename([
+          "Order Item",
+          entry.orderCode,
+          entry.recipientName,
+          getOrderItemTitle(entry),
+          entry.sizeLabel,
+        ]),
+        record: entry,
+      });
+      setMessage("Record downloaded as a PDF. Deletion will continue now.");
+    } catch {
+      setMessage("The PDF record could not be created. Deletion was cancelled.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "PDF downloaded. Removing item from order...", async () => {
       const response = await fetch("/api/dashboard/orders", {
         method: "POST",
         credentials: "same-origin",
@@ -747,6 +778,7 @@ export default function OrdersManager() {
         body: JSON.stringify({
           action: "remove-little-orchard-order-item",
           id: entry.id,
+          confirmation: "delete",
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -760,6 +792,73 @@ export default function OrdersManager() {
       }
 
       setMessage(payload.message || "Item removed from order.");
+      await loadOrders();
+    });
+  }
+
+  async function deleteLittleOrchardOrder(item) {
+    if (!item.id || !item.orderCode) return;
+    const actionKey = `delete-order:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+
+    const confirmed = confirmTypedDelete(
+      `Delete Little Orchard order ${item.orderCode} and its receipt record? This removes every item attached to this order.`
+    );
+
+    if (!confirmed) return;
+
+    const orderItems = items.filter(
+      (entry) =>
+        entry.sourceType === "little-orchard-shop" &&
+        entry.orderCode === item.orderCode
+    );
+
+    try {
+      exportBeforeDelete({
+        title: `Little Orchard order deletion export - ${item.orderCode}`,
+        filename: makeDeletionExportFilename([
+          "Little Orchard Order Receipt",
+          item.orderCode,
+          item.recipientName,
+          item.recipientEmail,
+          getLittleOrchardOrderPhone(item),
+        ]),
+        record: {
+          orderCode: item.orderCode,
+          item,
+          orderItems,
+        },
+      });
+      setMessage("Order record downloaded as a PDF. Deletion will continue now.");
+    } catch {
+      setMessage("The PDF order record could not be created. Deletion was cancelled.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "PDF downloaded. Deleting order and receipt...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "delete-little-orchard-order",
+          id: item.id,
+          confirmation: "delete",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Order could not be deleted."
+        );
+        return;
+      }
+
+      setMessage(payload.message || "Order and receipt deleted.");
       await loadOrders();
     });
   }
@@ -1351,6 +1450,18 @@ export default function OrdersManager() {
                         RECEIPT LINK
                       </a>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() => deleteLittleOrchardOrder(item)}
+                      disabled={Boolean(
+                        busyActions[`delete-order:${item.orderCode}`]
+                      )}
+                      style={styles.orderDeleteButton}
+                    >
+                      {busyActions[`delete-order:${item.orderCode}`]
+                        ? "DELETING..."
+                        : "DELETE ORDER / RECEIPT"}
+                    </button>
                   </div>
 
                   {expandedSection === "items" ? (
@@ -2982,6 +3093,17 @@ const styles = {
     color: "#241f1a",
     font: "inherit",
     textDecoration: "none",
+  },
+  orderDeleteButton: {
+    background: "transparent",
+    border: 0,
+    color: "#9f1f19",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: 0,
+    textAlign: "left",
+    textDecoration: "underline",
   },
   accordionPanel: {
     background: "rgba(255, 253, 250, 0.74)",

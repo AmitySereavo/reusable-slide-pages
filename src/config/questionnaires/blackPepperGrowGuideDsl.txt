@@ -1,0 +1,273 @@
+// PARA-LIFE TREES
+// BLACK PEPPER PLANT GROW GUIDE
+// Source: Black_Pepper_Grow_Guide.pdf
+
+@id: black-pepper-guide-cover
+@type: media
+@title: Black Pepper Plant Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@media: /media/paralife_trees/jpg/product_black_pepper_plant_still.jpg
+@mediatype: image
+@mediaaspect: horizontal
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Black Pepper Plant Grow Guide
+## [c3] For Piper nigrum vines: transplanting, support, shade, watering, feeding, pest and disease care, and harvest expectations.
+BR
+GUIDEGRID|Crop::Black pepper / peppercorn vine||Botanical name::Piper nigrum||Growth habit::Perennial climbing vine with aerial roots||Customer plant type::Potted/rooted vine plant||Main need::Strong support plus moist, well-drained soil plus filtered light
+BR
+[c3] Important: this guide is for the black pepper plant that produces peppercorns. It is not Scotch bonnet, sweet pepper, or hot pepper.
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20black%20pepper%20plant.)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Quick rescue
+@goto: black-pepper-quick-rescue
+
+===
+
+@id: black-pepper-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: If you see this, do this first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+BR
+GUIDETABLE|What you see|Most likely cause|What to do first||New plant wilts after planting|Transplant shock, dry root ball, hot sun|Move to bright shade for 2 to 3 days, water gently, keep soil evenly moist but not soggy.||Leaves pale or yellow, slow growth|Low fertility, water stress, too much sun, poor roots|Check drainage, add compost, feed lightly, keep in filtered light.||Leaf tips or edges brown|Sun scorch, dry soil, fertilizer burn, salt buildup|Give afternoon shade, water deeply, avoid strong fertilizer for 10 to 14 days.||Vine not climbing|No support or no training|Tie loosely to a pole, trellis, or living support every 8 to 12 inches of new growth.||Sticky leaves or cottony insects|Mealybugs, scale insects, aphids|Wipe or prune bad spots; spray mild soap/neem carefully every 5 to 7 days.||Stem base darkens and vine collapses|Foot rot / quick wilt risk|Improve drainage immediately; remove badly diseased vines; avoid water sitting at the base.||Black or brown spots on leaves|Anthracnose / leaf spot disease|Remove affected leaves, avoid overhead watering, increase spacing and airflow.
+@back: Cover
+@next: Quick numbers
+@goto: black-pepper-quick-numbers
+
+===
+
+@id: black-pepper-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Simple targets for black pepper
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDEGRID|Best climate::Humid tropical, about 23 to 32 C / 73 to 90 F||Cold stress risk::Below about 15 C / 59 F||Sunlight::Filtered light / partial shade||Shade target::About 25 to 50 percent shade||Field spacing::2 to 3 m apart; common pure crop spacing 3 m x 3 m||Home spacing::At least 6 to 10 ft from another large vine/support||Container size::Minimum 5 gallons; 10 to 15 gallons better long term||Support height::Start with 4 to 6 ft support||Root settling::14 to 30 days after transplant||Visible new growth::2 to 6 weeks after transplant||First flowering::Usually 2 to 3 years under good conditions||First meaningful harvest::Usually 3 to 4 years after planting
+BR
+[c3] A very small potted vine should be sold as a long-term crop, not a fast 90-day crop.
+@back: Quick rescue
+@next: Transplanting
+@goto: black-pepper-transplanting
+
+===
+
+@id: black-pepper-transplanting
+@type: content
+@title: Transplanting
+@subtitle: Pot to ground or bigger container
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting
+## [c3] Plant it where it can climb and where water will not sit around the roots.
+BR
+GUIDETABLE|Before transplanting|Do this||Water|Water the potted plant 1 to 2 hours before transplanting.||Timing|Choose early morning before 8:30 a.m. or late afternoon after 4:30 p.m.||Support|Prepare pole, trellis, fence, or living support tree before planting.||Root ball|Keep the root ball together; do not shake soil off the roots.||Acclimation|If the plant was under shade, harden it off for 5 to 7 days.
+BR
+GUIDETABLE|Step|What to do||1|Dig a hole wider than the root ball; in poor soil prepare about 18 to 20 inches wide and deep.||2|Mix compost or well-rotted organic matter into the backfill soil.||3|Plant at the same depth it was growing in the pot.||4|Press soil gently around roots; do not compact hard.||5|Shape soil so water drains outward and does not collect at the stem base.||6|Water immediately after planting.||7|Tie the vine loosely to support; do not strangle the stem.||8|Shade for 2 to 3 days if the sun is hot.
+BR
+[c3] Do not bury the stem deeply and do not let mulch touch the stem base.
+@back: Quick numbers
+@next: Support
+@goto: black-pepper-support
+
+===
+
+@id: black-pepper-support
+@type: content
+@title: Support and Layout
+@subtitle: Black pepper must climb
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Support, Spacing, and Layout
+BR
+GUIDETABLE|Growing setup|Recommended layout||Home garden single plant|One strong 4 to 6 ft pole, trellis, fence section, or living support. Keep base well drained.||Small farmer / field|2 to 3 m spacing between supports; 3 m x 3 m is common commercial layout.||Container plant|Use a 5 to 15 gallon pot with drainage and a firm pole/trellis tied into the pot.||Living support tree|Use a support that can be pruned to give filtered light and airflow. Avoid dense shade.||Wall/fence growing|Keep vine off hot metal surfaces and avoid roof water running onto the root zone.
+BR
+GUIDEGRID|Training::Tie new growth every 8 to 12 inches using soft ties||Tie fit::Keep ties loose enough for stem expansion||Direction::Guide the vine upward; do not let it crawl along wet soil||Pruning::Remove dead, diseased, or tangled growth||Base care::Keep the lower base area clean and airy
+@back: Transplanting
+@next: Sun and water
+@goto: black-pepper-sun-water
+
+===
+
+@id: black-pepper-sun-water
+@type: content
+@title: Sun and Water
+@subtitle: Moist and drained, never soggy
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Sunlight, Shade, Water, and Soil
+BR
+GUIDETABLE|Need|Target||Light|Bright filtered light or partial shade; morning sun is safer than harsh afternoon sun.||Shade|About 25 to 50 percent in hot lowland areas.||Soil|Loose, fertile, well-drained soil high in organic matter.||Drainage|Water must drain away from the base; raised mound or bed is better in wet spots.||Water|Keep evenly moist. Do not let the pot dry completely; do not keep it waterlogged.||Mulch|2 to 3 inches organic mulch, kept 2 to 4 inches away from the stem.||pH|Slightly acidic to near-neutral, about 5.5 to 7.0.
+BR
+[c3] Black pepper likes moisture, but foot rot likes stagnant wet soil. Moist and drained is good; soggy and airless is dangerous.
+@back: Support
+@next: Feeding
+@goto: black-pepper-feeding
+
+===
+
+@id: black-pepper-feeding
+@type: content
+@title: Feeding
+@subtitle: Build steady roots and leaves first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding and Soil Care
+BR
+GUIDETABLE|Stage|Timing|Feeding direction||At transplant|Day 0|Compost or well-rotted organic matter mixed into planting area. Avoid strong fertilizer directly on roots.||Settling period|First 14 to 30 days|Water consistently. Do not push hard fertilizer while roots recover.||Active growth|After new growth starts|Light balanced feeding every 4 to 6 weeks in ground, or every 3 to 4 weeks in containers.||Rainy season|Wet periods|Avoid overfeeding nitrogen; focus on drainage, mulch, disease prevention.||Mature bearing vine|After 2 to 3 years|Use compost plus balanced plant food. Add potassium support during flowering/spike development.
+BR
+[c3] Do not overfeed a stressed, wilted, or newly transplanted plant.
+@back: Sun and water
+@next: Pests
+@goto: black-pepper-pests
+
+===
+
+@id: black-pepper-pests
+@type: content
+@title: Common Pests
+@subtitle: Fast identification and action
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Pests
+BR
+GUIDETABLE|Pest|Signs|Action||Pollu beetle / flea beetle|Damage to tender leaves, spikes, berries; berries may become hollow or drop|Prune damaged parts, regulate shade, improve airflow, inspect young spikes early.||Scale insects|Brown or white bumps on stems or undersides; sticky residue; weak growth|Wipe or prune bad branches; spray mild oil/neem carefully; repeat in 7 to 10 days.||Mealybugs|White cottony clusters at nodes, roots, or leaf joints; ants may appear|Remove clusters, control ants, isolate badly infested potted plants.||Leaf gall thrips|Raised/gall-like leaf marks; distorted young leaves|Remove badly affected leaves, treat undersides, reduce overcrowding.||Mites|Fine speckling, dull leaves, sometimes webbing; worse in dry heat|Rinse undersides, keep plant evenly watered, treat every 5 to 7 days.||Nematodes|Weak roots, slow decline, yellowing, poor fertilizer response|Use healthy plants, add organic matter, avoid moving infected soil.
+@back: Feeding
+@next: Diseases
+@goto: black-pepper-diseases
+
+===
+
+@id: black-pepper-diseases
+@type: content
+@title: Diseases
+@subtitle: Prevention matters most
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Diseases
+BR
+GUIDETABLE|Disease / problem|Signs|Action||Foot rot / quick wilt|Base darkening, sudden wilt, leaf drop, vine collapse|Improve drainage, keep base dry, remove badly infected vines.||Slow wilt / decline|Gradual yellowing, leaf shedding, poor roots, weak growth|Add organic matter, reduce root stress, avoid waterlogging, improve soil health.||Anthracnose / pollu disease|Brown or black leaf spots, dieback, damaged berries or spikes|Remove infected leaves/spikes, improve airflow, avoid overhead watering.||Charcoal rot / stem disease|Dark dry lesions, weak stem, decline under stress|Avoid drought stress, mulch, remove affected tissue.||Root rot in pots|Wet soil smell, brown soft roots, wilting though soil is wet|Repot into fresh draining mix, trim dead roots, use pot with drainage.||Viral symptoms|Mosaic patterns, distorted leaves, stunting|Control sucking insects, prune or remove if severe, wash tools and hands.
+BR
+[c3] Strong protection starts with clean planting material, drainage, mulch kept away from the stem, airflow, and early removal of diseased parts.
+@back: Pests
+@next: Leaf guide
+@goto: black-pepper-leaf-guide
+
+===
+
+@id: black-pepper-leaf-guide
+@type: content
+@title: Leaf Guide
+@subtitle: Read the vine
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Leaf Color and Plant Problem Guide
+BR
+GUIDETABLE|Leaf look|Possible cause|What to do||Deep green, firm leaves|Healthy growth|Continue steady water, filtered light, and support training.||Light green new leaves|Normal if it darkens in 7 to 14 days|Watch; feed lightly only if whole plant stays pale.||Pale/yellow all over|Low nutrients, root stress, water issue, too much sun|Check roots and drainage first, then feed lightly.||Brown crispy patches|Sunburn, dry root ball, fertilizer burn|Move to filtered light, water deeply, avoid strong fertilizer.||Black/brown wet spots|Leaf spot or rot|Remove affected leaves, reduce wet leaves, improve airflow.||Curled/distorted new leaves|Thrips, mites, sucking pests, chemical drift|Inspect undersides and new shoots; remove damaged growth.||Wilting midday only|Heat/sun stress or dry soil|Shade afternoon, mulch, check soil moisture.||Wilting morning and evening|Root problem or disease|Check drainage and roots; isolate if severe.
+@back: Diseases
+@next: Timeline
+@goto: black-pepper-timeline
+
+===
+
+@id: black-pepper-timeline
+@type: content
+@title: Growth Timeline
+@subtitle: Harvest expectations
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Growth Timeline and Harvest Expectations
+BR
+GUIDETABLE|Stage|Expected time||After transplant: settling|14 to 30 days.||Visible active climbing growth|2 to 6 weeks after transplant.||Needs strong support|Immediately; train from the first week.||First flowering/spikes|Usually 2 to 3 years after planting, depending on age and care.||First small harvest|Often from year 3 under good conditions.||Fuller production|Often year 4 onward.||Harvest season|Depends on rainfall and flowering cycle; harvest spikes when berries are mature but not fully dry.||Processing black pepper|Harvest mature green/yellowing spikes, blanch optional, dry until peppercorns are hard and black.||Processing white pepper|Fully ripe red berries are soaked/processed to remove outer skin, then dried.
+BR
+[c3] Black pepper is a long-term spice vine. It is valuable, but it is not a quick crop like lettuce, tomato, or Scotch bonnet pepper.
+@back: Leaf guide
+@next: Home and farm notes
+@goto: black-pepper-home-farm-notes
+
+===
+
+@id: black-pepper-home-farm-notes
+@type: content
+@title: Home and Farm Notes
+@subtitle: Two simple paths
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Home Garden and Small Farmer Notes
+BR
+GUIDETABLE|Grower type|Best approach||Home garden customers buying 1 to 3 plants|Plant near a strong pole, trellis, fence, or living support. Use a 5 to 15 gallon container if not planting in ground. Give bright filtered light. Keep soil moist but never waterlogged. Expect vine growth first; harvest comes later.||Small farmers planting several vines|Plan support before buying many plants. Use 2 to 3 m spacing; 3 m x 3 m is common. Avoid wet low spots. Plant on mounds or raised beds where water collects. Mulch well but keep mulch away from stem. Scout weekly for pests and wilt problems.
+BR
+GUIDEGRID|Clean hands::Wash before handling vines, especially after touching diseased plants||Tools::Clean pruners before moving plant to plant||Smoking::Do not smoke over plants or rest cigarette butts in pots or beds||Soil movement::Do not move soil from a sick vine to a healthy vine
+@back: Timeline
+@next: Weekly checklist
+@goto: black-pepper-weekly-checklist
+
+===
+
+@id: black-pepper-weekly-checklist
+@type: content
+@title: Weekly Checklist
+@subtitle: What to check and when
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Care Checklist
+BR
+GUIDETABLE|How often|What to check||Daily for first 14 days|Soil moisture, wilting, sunburn, loose ties, and drainage around the stem.||Every 3 to 5 days|Look under leaves and around nodes for mealybugs, scale, thrips, mites, ants, and sticky residue.||Every 7 days|Train new growth to support, remove dead leaves, check mulch, inspect for leaf spots.||Every 3 to 4 weeks|Feed lightly if active growth is visible; inspect roots and pot drainage for container plants.||Every 2 to 3 months|Add compost or mulch; prune support plant or surrounding growth for filtered light and airflow.
+BR
+## [c3] Need help?
+Send clear photos of the full plant, stem base, underside of leaves, soil or pot, support setup, and any insects or spots you see.
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20black%20pepper%20plant.)
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Black_Pepper_Grow_Guide.pdf)
+BR
+[Guides for other plants](/grow-guides)
+@back: Home and farm notes
+@next: Visit shop
+@goto: /shop

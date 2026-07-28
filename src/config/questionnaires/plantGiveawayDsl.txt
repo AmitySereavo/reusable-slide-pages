@@ -3,6 +3,29 @@
 // Designed for reusable-slide-pages at commit:
 // 179038b9d97509288003b3ecdfe2449ca7791017
 
+@id: continue-giveaway-choice
+@type: choice
+@store: plantGiveawayResumeChoice
+@choiceplacement: inline
+@shownext: false
+@countstep: false
+@showsteptext: false
+@showprogressbar: false
+@syncurl: true
+@showif:
+- plantGiveawayResumeAvailable|eq|true
+---
+BR
+# [c2] Continue where you left off?
+BR
+[c3] We saved your answers on this device.
+[c3] You can continue from your last slide, or start again from the first video.
+@choices:
+- continue|Continue where I left off|plantGiveawayResumeTarget|primary
+- beginning|Start from the first video|plantGiveawayStartBeginning|secondary
+
+===
+
 @id: intro-what-plant-video
 @type: media
 @titleplacement: progress_overlay

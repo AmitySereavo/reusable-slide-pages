@@ -140,6 +140,10 @@ function sortLittleOrchardProducts<T extends { id: string }>(products: T[]) {
   });
 }
 
+function stripMarkdownLinks(text: string) {
+  return text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+}
+
 export const littleOrchardShopCatalog: ShopCatalog = {
   currencyCode: "JMD",
   weightUnit: "lb",
@@ -149,7 +153,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-BLACK-PEPPER",
       title: "Black Pepper",
       category: "Herbs and Seasoning Plants",
-      description: "Seasoning plant for Little Orchard pickup or delivery.",
+      description: "Seasoning plant for Little Orchard pickup or delivery. [Grow guide](/black-pepper)",
       media: productMedia.blackPepperPlant,
       variations: [
         {
@@ -167,7 +171,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-SCALLION",
       title: "Scallion",
       category: "Herbs and Seasoning Plants",
-      description: "Kitchen seasoning plant for Little Orchard pickup or delivery.",
+      description: "Kitchen seasoning plant for Little Orchard pickup or delivery. [Grow guide](/green-onion)",
       media: productMedia.greenOnionScallion,
       variations: [
         {
@@ -193,7 +197,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-LEMON-BALM",
       title: "Lemon Balm",
       category: "Herbs and Seasoning Plants",
-      description: "Fragrant balm plant for teas, garden edges, and pollinator interest.",
+      description: "Fragrant balm plant for teas, garden edges, and pollinator interest. [Grow guide](/lemon-balm)",
       media: productMedia.lemonBalm,
       variations: [
         {
@@ -363,7 +367,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-TOMATO-SEEDLINGS",
       title: "Slicing Tomato Seedlings",
       category: "Vegetable Plants",
-      description: "Young tomato plants ready for home garden transplanting.",
+      description: "Young tomato plants ready for home garden transplanting. [Grow guide](/slicing-tomato)",
       media: productMedia.slicingTomatoSeedlings,
       variations: [
         {
@@ -403,7 +407,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-SCOTCH-BONNET",
       title: "Scotch Bonnet Pepper",
       category: "Vegetable Plants",
-      description: "Classic Jamaican hot pepper plant for careful home growing.",
+      description: "Classic Jamaican hot pepper plant for careful home growing. [Grow guide](/scotch-bonnet)",
       media: productMedia.scotchBonnetPepper,
       variations: [
         {
@@ -525,7 +529,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-ALDERAN-LETTUCE-SEEDLINGS",
       title: "Alderan Lettuce Seedlings",
       category: "Seedlings",
-      description: "Individual lettuce seedlings. Choose the number of seedlings you wish to purchase.",
+      description: "Individual lettuce seedlings. Choose the number of seedlings you wish to purchase. [Grow guide](/lettuce)",
       media: productMedia.lettuceSeedlings,
       variations: [
         {
@@ -667,6 +671,7 @@ function makePlantProduct({
     (sum, variation) => sum + variation.eventQuantity,
     0
   );
+  const plainDescription = stripMarkdownLinks(description);
 
   return {
     id,
@@ -676,7 +681,7 @@ function makePlantProduct({
     imageUrl: media?.still || media?.gif || imageUrl || undefined,
     previewImageUrl: media?.gif || media?.still || imageUrl || undefined,
     description,
-    detailsDescription: `${category}. ${description} Inventory available: ${totalQuantity}. Variation availability is tracked separately. Nursery availability is separate and must be confirmed.`,
+    detailsDescription: `${category}. ${plainDescription} Inventory available: ${totalQuantity}. Variation availability is tracked separately. Nursery availability is separate and must be confirmed.`,
     fulfillmentType: "physical" as const,
     maxOrderQuantity: totalQuantity,
     metadata: {
