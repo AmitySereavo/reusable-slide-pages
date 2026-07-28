@@ -1372,6 +1372,8 @@ model User {
   emailSequenceEvents        EmailSequenceEvent[]
   tags                       UserTag[]
   identityVerifications      UserIdentityVerification[]
+  customerGrowGuideLinks     CustomerGrowGuideLink[]     @relation("CustomerGrowGuideLinkOwner")
+  createdGrowGuideLinks      CustomerGrowGuideLink[]     @relation("CustomerGrowGuideLinkCreator")
 }
 
 model UserIdentityVerification {
@@ -2049,6 +2051,81 @@ model UserVideoProgress {
   @@index([questionnaireSlug])
   @@index([slideId])
   @@index([watchedAt])
+}
+
+model CustomerGrowGuideLink {
+  id String @id @default(cuid())
+
+  token String @unique
+
+  ownerUserId String?
+  ownerUser   User?   @relation("CustomerGrowGuideLinkOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  createdByUserId String?
+  createdByUser   User?   @relation("CustomerGrowGuideLinkCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  orderCode         String?
+  fulfillmentItemId String?
+
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+  ownerIdentityKey String?
+
+  productId    String?
+  productSku   String?
+  productTitle String?
+  sizeLabel    String?
+
+  guideSlug String
+  guidePath String
+
+  openedCount   Int       @default(0)
+  firstOpenedAt DateTime?
+  lastOpenedAt  DateTime?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  visits CustomerGrowGuideVisit[]
+
+  @@index([ownerUserId])
+  @@index([orderCode])
+  @@index([fulfillmentItemId])
+  @@index([guideSlug])
+  @@index([ownerIdentityKey])
+  @@index([createdAt])
+}
+
+model CustomerGrowGuideVisit {
+  id String @id @default(cuid())
+
+  linkId String
+  link   CustomerGrowGuideLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  token String
+
+  deviceKey String?
+  ipHash    String?
+  userAgent String?
+  location  Json?
+  referrer  String?
+
+  eventType         String @default("opened_link")
+  questionnaireSlug String?
+  slideId           String?
+  metadata          Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([linkId, createdAt])
+  @@index([token])
+  @@index([deviceKey])
+  @@index([eventType])
+  @@index([questionnaireSlug])
+  @@index([slideId])
 }
 
 model PasswordResetToken {

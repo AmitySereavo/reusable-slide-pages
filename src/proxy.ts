@@ -73,8 +73,10 @@ function isAllowedGrowGuidePath(pathname: string) {
   return (
     pathname === GROW_GUIDE_HUB_PATH ||
     pathname === "/api/session" ||
+    pathname === "/api/grow-guide-links/track" ||
     pathname === "/privacy-policy" ||
     pathname === "/terms" ||
+    pathname.startsWith("/guide-link/") ||
     guidePaths.some(
       (guidePath) => pathname === guidePath || pathname.startsWith(`${guidePath}/`)
     ) ||

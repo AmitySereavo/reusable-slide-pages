@@ -389,6 +389,28 @@
   font-weight: 800;
 }
 
+.overlayContactStack {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  line-height: 1.12;
+  pointer-events: auto;
+}
+
+.page[data-questionnaire-slug$="-grow-guide"] .overlayContactStack {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #214F35;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.overlayGuideBrand {
+  color: #214F35;
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .overlayWhatsappContact {
   display: inline-flex;
   align-items: center;
@@ -1073,6 +1095,27 @@
     rgba(0, 0, 0, 0)
   );
   pointer-events: none;
+}
+
+.page[data-questionnaire-slug$="-grow-guide"] .mediaTextOverlay {
+  top: 78px;
+  bottom: 138px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 20px 24px;
+  pointer-events: auto;
+  scrollbar-gutter: stable;
+}
+
+.page[data-questionnaire-slug$="-grow-guide"] .mediaTextOverlay .title {
+  font-size: clamp(28px, 4.5vw, 40px);
+  line-height: 1.04;
+  margin-bottom: 10px;
+}
+
+.page[data-questionnaire-slug$="-grow-guide"] .mediaTextOverlay .subtitle {
+  font-size: clamp(17px, 2.5vw, 24px);
+  line-height: 1.32;
 }
 
 .recordListStack {

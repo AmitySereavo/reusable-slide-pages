@@ -151,6 +151,33 @@ const littleOrchardCatalogChoices = littleOrchardShopCatalog.products.flatMap(
     }))
 );
 
+const growGuideProductRules = [
+  { label: "Black pepper grow guide", terms: ["black pepper"] },
+  { label: "Green onion / scallion grow guide", terms: ["scallion", "green onion"] },
+  { label: "Lemon balm grow guide", terms: ["lemon balm"] },
+  { label: "Tomato grow guide", terms: ["tomato"] },
+  { label: "Scotch bonnet grow guide", terms: ["scotch bonnet"] },
+  { label: "Lettuce grow guide", terms: ["lettuce"] },
+];
+
+function getGrowGuideLabelForOrderItem(item) {
+  const text = [
+    item.productTitle,
+    item.sizeLabel,
+    item.productId,
+    item.sku,
+    item.productSku,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const rule = growGuideProductRules.find((entry) =>
+    entry.terms.some((term) => text.includes(term))
+  );
+
+  return rule?.label || "";
+}
+
 function useCurrentOriginUrl(value) {
   const raw = String(value || "").trim();
 
@@ -327,6 +354,175 @@ function buildCustomerMessage({ item, orderTotal, template }) {
     .join("\n");
 }
 
+function buildGrowGuideCustomerMessage({
+  item,
+  guideLink,
+  messageSet = "just-bought",
+}) {
+  const customerName = item?.recipientName || "there";
+  const productTitle = String(
+    guideLink?.productTitle || item?.productTitle || "your plant"
+  );
+  const linkUrl = guideLink?.linkUrl || "[INSERT URL]";
+  const normalizedProduct = productTitle.toLowerCase();
+  const messageTemplates = [
+    {
+      terms: ["lettuce"],
+      itemLabel: "lettuce seedlings",
+      justBoughtTitle:
+        "🥬 You bought Lettuce Seedlings - now grow them crisp, fresh and ready to harvest!",
+      followUpTitle: "🥬 From Seedling to Salad Bowl: Your Lettuce Grow Guide",
+      guideLabel: "Lettuce Grow Guide",
+      intro:
+        "Lettuce can struggle in hot conditions, but the right shade, watering and timing can help you produce tender, fresh leaves.",
+      points: [
+        "Harden off and transplant seedlings safely",
+        "Protect young plants from harsh sun",
+        "Choose the right spacing",
+        "Prevent wilting, yellowing and rot",
+        "Control caterpillars, slugs and sucking insects",
+        "Reduce bitterness and early bolting",
+        "Know when your lettuce is ready to harvest",
+      ],
+    },
+    {
+      terms: ["lemon balm"],
+      itemLabel: "Lemon Balm plant",
+      justBoughtTitle:
+        "🍋 You bought Lemon Balm - now learn how to keep it fresh, bushy and growing!",
+      followUpTitle:
+        "🍋 Your Lemon Balm Can Give You Fresh Leaves Again and Again - Here's How",
+      guideLabel: "Lemon Balm Grow Guide",
+      intro:
+        "Your lemon balm needs the right sunlight, watering, spacing and trimming to produce plenty of soft, lemon-scented leaves.",
+      points: [
+        "Transplant your seedling safely",
+        "Prevent wilting, yellow leaves and root rot",
+        "Choose the right pot or garden spacing",
+        "Identify common pests and leaf problems",
+        "Prune and harvest for fresh new growth",
+        "Keep the plant neat and under control",
+      ],
+    },
+    {
+      terms: ["tomato"],
+      itemLabel: "slicing tomato seedlings",
+      justBoughtTitle:
+        "🍅 You bought Tomato Seedlings - now grow them into big, juicy slicing tomatoes!",
+      followUpTitle:
+        "🍅 From Seedling to Sandwich: Your Slicing Tomato Grow Guide",
+      guideLabel: "Slicing Tomato Grow Guide",
+      intro:
+        "Your slicing tomato seedlings need proper transplanting, support, feeding and consistent watering to produce healthy fruit.",
+      points: [
+        "Transplant seedlings safely",
+        "Space and support tomato plants",
+        "Feed them without overfertilizing",
+        "Prevent cracking and blossom-end rot",
+        "Identify pests, leaf spots and wilt",
+        "Know when and how to harvest",
+      ],
+    },
+    {
+      terms: ["scotch bonnet"],
+      itemLabel: "Scotch Bonnet pepper plant",
+      justBoughtTitle:
+        "🌶️ You bought Scotch Bonnet Seedlings - now grow the heat!",
+      followUpTitle:
+        "🌶️ From Seedling to Fiery Harvest: Your Scotch Bonnet Grow Guide",
+      guideLabel: "Scotch Bonnet Pepper Grow Guide",
+      intro:
+        "Your Scotch bonnet plants need plenty of sunlight, good drainage, steady watering and the right feeding to produce a strong harvest.",
+      points: [
+        "Harden off and transplant seedlings",
+        "Choose the right spacing or container",
+        "Prevent overwatering and root problems",
+        "Identify whiteflies, aphids, mites and caterpillars",
+        "Reduce flower drop and weak fruiting",
+        "Care for plants through harvest",
+      ],
+    },
+    {
+      terms: ["scallion", "green onion"],
+      itemLabel: "Scallion / Green Onion plant",
+      justBoughtTitle:
+        "🌱 You bought Scallion - now learn how to keep it green, strong and growing!",
+      followUpTitle:
+        "🌱 Grow Scallion for Repeated Fresh Harvests - Start Here",
+      guideLabel: "Scallion / Green Onion Grow Guide",
+      intro:
+        "Your scallion seedlings need the right spacing, watering and soil care to grow healthy leaves and strong bases.",
+      points: [
+        "Transplant seedlings safely",
+        "Choose the right spacing",
+        "Prevent yellowing, browning and rot",
+        "Identify common pests and diseases",
+        "Grow scallion or allow it to mature longer as spring onion",
+        "Know when your crop is ready to harvest",
+      ],
+    },
+    {
+      terms: ["black pepper"],
+      itemLabel: "Black Pepper plant",
+      justBoughtTitle:
+        "🌿 You bought a Black Pepper Plant - now learn how to keep it growing!",
+      followUpTitle: "🌿 Your Black Pepper Plant Grow Guide",
+      guideLabel: "Black Pepper Plant Grow Guide",
+      intro:
+        "Your black pepper plant is a climbing vine that needs the right support, shade, watering and drainage to thrive.",
+      points: [
+        "Transplant it safely",
+        "Choose the right support",
+        "Prevent yellowing, wilting and root rot",
+        "Identify pests and diseases",
+        "Care for it until peppercorn harvest",
+      ],
+    },
+  ];
+  const guideTemplate = messageTemplates.find((template) =>
+    template.terms.some((term) => normalizedProduct.includes(term))
+  );
+  const linkBlock = ["", linkUrl, ""];
+
+  if (messageSet === "follow-up") {
+    return [
+      `*${guideTemplate?.followUpTitle || `🌱 Your ${productTitle} Grow Guide`}*`,
+      "",
+      `${customerName}, here is a quick guide to help you keep your ${
+        guideTemplate?.itemLabel || productTitle
+      } growing well now that you've brought it home.`,
+      "",
+      "*Tap the link below to view the guide:*",
+      ...linkBlock,
+      "_Para-life Trees - Planting a Life in Paradise._",
+    ].join("\n");
+  }
+
+  if (guideTemplate) {
+    return [
+      `*${guideTemplate.justBoughtTitle}*`,
+      "",
+      guideTemplate.intro,
+      "",
+      "*This complete guide shows you how to:*",
+      "",
+      ...guideTemplate.points.map((point) => `✅ ${point}`),
+      "",
+      `*Tap the link below to view your ${guideTemplate.guideLabel}:*`,
+      ...linkBlock,
+      "_Para-life Trees - Planting a Life in Paradise._",
+    ].join("\n");
+  }
+
+  return [
+    `*🌱 Grow guide for ${customerName}.*`,
+    "",
+    `Here is the grow guide for ${productTitle}.`,
+    ...linkBlock,
+    "_Para-life Trees - Planting a Life in Paradise._",
+  ].join("\n");
+}
+
 function openWhatsAppMessage(phone, message) {
   if (!phone) return;
   window.open(
@@ -384,9 +580,13 @@ export default function OrdersManager() {
   const [adHocItemDrafts, setAdHocItemDrafts] = useState({});
   const [catalogItemDrafts, setCatalogItemDrafts] = useState({});
   const [customerPhoneDrafts, setCustomerPhoneDrafts] = useState({});
+  const [customerContactDrafts, setCustomerContactDrafts] = useState({});
   const [paymentAllocationDrafts, setPaymentAllocationDrafts] = useState({});
   const [expandedAccordions, setExpandedAccordions] = useState({});
   const [messageTemplateByOrder, setMessageTemplateByOrder] = useState({});
+  const [growGuideDrafts, setGrowGuideDrafts] = useState({});
+  const [generatedGrowGuideLinks, setGeneratedGrowGuideLinks] = useState({});
+  const [growGuideMessageSets, setGrowGuideMessageSets] = useState({});
   const [busyActions, setBusyActions] = useState({});
   const busyActionLocksRef = useRef({});
 
@@ -904,6 +1104,58 @@ export default function OrdersManager() {
     });
   }
 
+  async function updateLittleOrchardCustomerContact(item) {
+    if (!item.id || !item.orderCode) return;
+    const actionKey = `customer-contact:${item.orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+    const currentDraft = customerContactDrafts[item.orderCode] || {};
+    const contact = {
+      name: currentDraft.name ?? item.recipientName ?? "",
+      phone: currentDraft.phone ?? getLittleOrchardOrderPhone(item),
+      email: currentDraft.email ?? getLittleOrchardOrderEmail(item),
+      contactMethod:
+        currentDraft.contactMethod ??
+        item.metadata?.plantShopContactMethod ??
+        "contact",
+    };
+
+    if (!String(contact.name || "").trim()) {
+      setMessage("Enter the customer name.");
+      return;
+    }
+
+    await runBusyAction(actionKey, "Updating customer contact...", async () => {
+      const response = await fetch("/api/dashboard/orders", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "update-little-orchard-customer-contact",
+          id: item.id,
+          contact,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Customer contact could not be updated."
+        );
+        return;
+      }
+
+      setMessage(payload.message || "Customer contact updated.");
+      await loadOrders();
+      setExpandedAccordions((current) => ({
+        ...current,
+        [item.orderCode]: "",
+      }));
+    });
+  }
+
   async function requestMailingAddressUpdate(item) {
     const actionKey = `mailing-address:${item.id}`;
     if (busyActionLocksRef.current[actionKey]) return;
@@ -984,6 +1236,40 @@ export default function OrdersManager() {
         current.map((entry) => (entry.id === item.id ? payload.item : entry))
       );
       setMessage(payload.message || "Customer email sent.");
+    });
+  }
+
+  async function generateGrowGuideLink({ orderItem, orderCode }) {
+    if (!orderItem?.id || !orderCode) return;
+    const actionKey = `grow-guide-link:${orderCode}`;
+    if (busyActionLocksRef.current[actionKey]) return;
+
+    await runBusyAction(actionKey, "Generating tracked grow guide link...", async () => {
+      const response = await fetch("/api/dashboard/grow-guide-links", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fulfillmentItemId: orderItem.id,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload?.link?.linkUrl) {
+        setMessage(
+          [payload?.error, payload?.details].filter(Boolean).join(" ") ||
+            "Grow guide link could not be generated."
+        );
+        return;
+      }
+
+      setGeneratedGrowGuideLinks((current) => ({
+        ...current,
+        [orderCode]: payload.link,
+      }));
+      setMessage(payload.message || "Tracked grow guide link generated.");
     });
   }
 
@@ -1109,6 +1395,33 @@ export default function OrdersManager() {
             catalogKey: littleOrchardCatalogChoices[0]?.key || "",
             quantity: 1,
           };
+          const guideEligibleOrderItems = orderItems.filter((entry) =>
+            getGrowGuideLabelForOrderItem(entry)
+          );
+          const guideDraftItemId =
+            growGuideDrafts[item.orderCode] ||
+            guideEligibleOrderItems[0]?.id ||
+            "";
+          const selectedGuideOrderItem =
+            guideEligibleOrderItems.find((entry) => entry.id === guideDraftItemId) ||
+            guideEligibleOrderItems[0] ||
+            null;
+          const generatedGrowGuideLink =
+            generatedGrowGuideLinks[item.orderCode] ||
+            item.metadata?.lastGrowGuideLink ||
+            null;
+          const growGuideMessageSet =
+            growGuideMessageSets[item.orderCode] || "just-bought";
+          const preparedGrowGuideMessage = generatedGrowGuideLink
+            ? buildGrowGuideCustomerMessage({
+                item: selectedGuideOrderItem || item,
+                guideLink: generatedGrowGuideLink,
+                messageSet: growGuideMessageSet,
+              })
+            : "";
+          const growGuideBusy = Boolean(
+            busyActions[`grow-guide-link:${item.orderCode}`]
+          );
           const selectedCatalogChoice =
             littleOrchardCatalogChoices.find(
               (choice) => choice.key === catalogDraft.catalogKey
@@ -1118,6 +1431,9 @@ export default function OrdersManager() {
           const socialContacts = getLittleOrchardSocialContacts(item);
           const cashierLink = getCashierLink(item);
           const receiptLink = getReceiptLink(item);
+          const order = item.invitationOrder;
+          const customerName =
+            item.recipientName || order?.purchaserName || "No customer name";
           const selectedMessageTemplate =
             messageTemplateByOrder[item.orderCode] ||
             (item.fulfillmentStatus === "READY"
@@ -1147,9 +1463,22 @@ export default function OrdersManager() {
           const customerPhoneBusy = Boolean(
             busyActions[`customer-phone:${item.orderCode}`]
           );
+          const customerContactBusy = Boolean(
+            busyActions[`customer-contact:${item.orderCode}`]
+          );
           const customerPhoneDraft =
             customerPhoneDrafts[item.orderCode] ?? customerPhone;
-          const order = item.invitationOrder;
+          const customerContactDraft = customerContactDrafts[item.orderCode] || {};
+          const contactDraftName =
+            customerContactDraft.name ?? customerName ?? "";
+          const contactDraftPhone =
+            customerContactDraft.phone ?? customerPhone ?? "";
+          const contactDraftEmail =
+            customerContactDraft.email ?? customerEmail ?? "";
+          const contactDraftMethod =
+            customerContactDraft.contactMethod ??
+            item.metadata?.plantShopContactMethod ??
+            "contact";
           const isPhysicalInvitationOrder =
             item.fulfillmentType === "physical" &&
             item.sourceType === "physical-invitation";
@@ -1158,8 +1487,6 @@ export default function OrdersManager() {
           const hasPhysicalInvitationAddress = Boolean(
             formatAddress(physicalInvitationAddress)
           );
-          const customerName =
-            item.recipientName || order?.purchaserName || "No customer name";
           const paymentAllocations =
             paymentAllocationDrafts[item.orderCode] ||
             getPaymentAllocations(item);
@@ -1214,10 +1541,100 @@ export default function OrdersManager() {
                       {customerEmail || "No email"}
                     </div>
                   </div>
-                  <button type="button" style={styles.textLinkButton}>
+                  <button
+                    type="button"
+                    style={styles.textLinkButton}
+                    onClick={() => toggleAccordion(item.orderCode, "contact")}
+                  >
                     adjust
                   </button>
                 </div>
+                {expandedSection === "contact" ? (
+                  <div style={styles.accordionPanel}>
+                    <div style={isNarrow ? styles.detailGridNarrow : styles.detailGrid}>
+                      <label style={styles.label}>
+                        Customer name
+                        <input
+                          value={contactDraftName}
+                          onChange={(event) =>
+                            setCustomerContactDrafts((current) => ({
+                              ...current,
+                              [item.orderCode]: {
+                                ...(current[item.orderCode] || {}),
+                                name: event.target.value,
+                              },
+                            }))
+                          }
+                          style={styles.input}
+                        />
+                      </label>
+                      <label style={styles.label}>
+                        Contact number
+                        <input
+                          type="tel"
+                          value={contactDraftPhone}
+                          onChange={(event) =>
+                            setCustomerContactDrafts((current) => ({
+                              ...current,
+                              [item.orderCode]: {
+                                ...(current[item.orderCode] || {}),
+                                phone: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="Include country and area code"
+                          style={styles.input}
+                        />
+                      </label>
+                      <label style={styles.label}>
+                        Email
+                        <input
+                          type="email"
+                          value={contactDraftEmail}
+                          onChange={(event) =>
+                            setCustomerContactDrafts((current) => ({
+                              ...current,
+                              [item.orderCode]: {
+                                ...(current[item.orderCode] || {}),
+                                email: event.target.value,
+                              },
+                            }))
+                          }
+                          style={styles.input}
+                        />
+                      </label>
+                      <label style={styles.label}>
+                        Preferred channel
+                        <select
+                          value={contactDraftMethod}
+                          onChange={(event) =>
+                            setCustomerContactDrafts((current) => ({
+                              ...current,
+                              [item.orderCode]: {
+                                ...(current[item.orderCode] || {}),
+                                contactMethod: event.target.value,
+                              },
+                            }))
+                          }
+                          style={styles.selectWide}
+                        >
+                          <option value="whatsapp">WhatsApp</option>
+                          <option value="email">Email</option>
+                          <option value="phone_call">Phone call / SMS</option>
+                          <option value="contact">Contact</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      style={styles.secondaryButton}
+                      disabled={customerContactBusy}
+                      onClick={() => updateLittleOrchardCustomerContact(item)}
+                    >
+                      {customerContactBusy ? "Saving contact..." : "Save contact information"}
+                    </button>
+                  </div>
+                ) : null}
 
                 <button
                   type="button"
@@ -1691,6 +2108,150 @@ export default function OrdersManager() {
                           {JSON.stringify(order.deliverySelection, null, 2)}
                         </pre>
                       ) : null}
+                      <div style={styles.growGuidePanel}>
+                        <strong>Grow guide link</strong>
+                        {guideEligibleOrderItems.length ? (
+                          <>
+                            <label style={styles.label}>
+                              Product guide to send
+                              <select
+                                value={guideDraftItemId}
+                                onChange={(event) =>
+                                  setGrowGuideDrafts((current) => ({
+                                    ...current,
+                                    [item.orderCode]: event.target.value,
+                                  }))
+                                }
+                                style={styles.selectWide}
+                              >
+                                {guideEligibleOrderItems.map((entry) => (
+                                  <option key={entry.id} value={entry.id}>
+                                    {getGrowGuideLabelForOrderItem(entry)} -{" "}
+                                    {getRequestedItemLabel(entry) ||
+                                      entry.productTitle}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              style={styles.secondaryButton}
+                              disabled={growGuideBusy || !selectedGuideOrderItem}
+                              onClick={() =>
+                                generateGrowGuideLink({
+                                  orderItem: selectedGuideOrderItem,
+                                  orderCode: item.orderCode,
+                                })
+                              }
+                            >
+                              {growGuideBusy
+                                ? "Generating guide link..."
+                                : "Generate tracked guide link"}
+                            </button>
+                            {generatedGrowGuideLink?.linkUrl ? (
+                              <div style={styles.generatedLinkBox}>
+                                <span style={styles.breakText}>
+                                  {generatedGrowGuideLink.linkUrl}
+                                </span>
+                                <div style={styles.messageTemplateList}>
+                                  {[
+                                    {
+                                      value: "just-bought",
+                                      label: "Just bought message",
+                                    },
+                                    {
+                                      value: "follow-up",
+                                      label: "Follow-up message",
+                                    },
+                                  ].map((template) => (
+                                    <label
+                                      key={`${item.orderCode}-grow-guide-${template.value}`}
+                                      style={styles.messageTemplateOption}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`grow-guide-message-set-${item.orderCode}`}
+                                        value={template.value}
+                                        checked={
+                                          growGuideMessageSet === template.value
+                                        }
+                                        onChange={() =>
+                                          setGrowGuideMessageSets((current) => ({
+                                            ...current,
+                                            [item.orderCode]: template.value,
+                                          }))
+                                        }
+                                      />
+                                      <span>{template.label}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                <div style={styles.inlineActionRow}>
+                                  <a
+                                    href={generatedGrowGuideLink.linkUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={styles.linkButton}
+                                  >
+                                    Open
+                                  </a>
+                                  <button
+                                    type="button"
+                                    style={styles.secondaryButton}
+                                    onClick={async () => {
+                                      const copied = await copyMessageToClipboard(
+                                        generatedGrowGuideLink.linkUrl
+                                      );
+                                      setMessage(
+                                        copied
+                                          ? "Grow guide link copied."
+                                          : "Grow guide link could not be copied automatically."
+                                      );
+                                    }}
+                                  >
+                                    Copy link
+                                  </button>
+                                  {customerPhone ? (
+                                    <button
+                                      type="button"
+                                      style={styles.secondaryButton}
+                                      onClick={() =>
+                                        openWhatsAppMessage(
+                                          customerPhone,
+                                          preparedGrowGuideMessage
+                                        )
+                                      }
+                                    >
+                                      Send guide message
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    style={styles.secondaryButton}
+                                    onClick={async () => {
+                                      const copied =
+                                        await copyMessageToClipboard(
+                                          preparedGrowGuideMessage
+                                        );
+                                      setMessage(
+                                        copied
+                                          ? "Grow guide message copied."
+                                          : "Grow guide message could not be copied automatically."
+                                      );
+                                    }}
+                                  >
+                                    Copy guide message
+                                  </button>
+                                </div>
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span style={styles.muted}>
+                            No grow guide is connected to the items in this order yet.
+                          </span>
+                        )}
+                      </div>
                       <div style={styles.communicationGrid}>
                         <div style={styles.messageTemplateList}>
                           {customerMessageTemplates.map((template) => (
@@ -3408,6 +3969,28 @@ const styles = {
     gap: "8px",
     gridTemplateColumns: "minmax(0, 1fr)",
     marginTop: "8px",
+  },
+  growGuidePanel: {
+    background: "rgba(151, 38, 66, 0.06)",
+    border: "1px solid rgba(151, 38, 66, 0.18)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    marginTop: "10px",
+    padding: "12px",
+  },
+  generatedLinkBox: {
+    background: "#fffdfa",
+    border: "1px solid rgba(32, 28, 29, 0.12)",
+    borderRadius: "6px",
+    display: "grid",
+    gap: "8px",
+    padding: "10px",
+  },
+  inlineActionRow: {
+    display: "grid",
+    gap: "8px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
   },
   inlineEditRow: {
     alignItems: "center",

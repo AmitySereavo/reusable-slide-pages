@@ -1527,14 +1527,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     Record<string, number>
   >({});
 
-  useQuestionnaireEngagement({
-    questionnaireSlug: config.slug,
-    authSessionUserId: authSessionUser?.id,
-    isAuthSessionLoaded,
-    setAnsweredQuestionSlideIds,
-    setDbVideoProgressBySlideId,
-  });
-
   const [videoResumeDecisionBySlideId, setVideoResumeDecisionBySlideId] =
   useState<Record<string, VideoResumeDecision>>({});
 
@@ -1955,6 +1947,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
   const isAdminUser = Number(authSessionUser?.adminLevel || 0) >= 1;
+
+  useQuestionnaireEngagement({
+    questionnaireSlug: config.slug,
+    authSessionUserId: authSessionUser?.id,
+    isAuthSessionLoaded,
+    setAnsweredQuestionSlideIds,
+    setDbVideoProgressBySlideId,
+    currentSlideId: currentSlide?.id,
+    guideLinkToken: searchParams.get("guideLink"),
+  });
 
   useEffect(() => {
     if (
@@ -6917,6 +6919,7 @@ async function handleNext() {
   return (
     <main
       className={styles.page}
+      data-questionnaire-slug={config.slug}
       style={{
         backgroundColor: theme.colors.background,
         color: theme.colors.text,
@@ -7444,24 +7447,31 @@ async function handleNext() {
                     ) : null}
 
                     {shouldShowPlainWhatsappContact ? (
-                      <a
-                        href={`https://wa.me/18763727415?text=${encodeURIComponent(
-                          plainWhatsappMessage
-                        )}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.overlayWhatsappContact}
-                        aria-label="WhatsApp 1 (876) 372-7415"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          focusable="false"
+                      <div className={styles.overlayContactStack}>
+                        {isGrowGuideDsl ? (
+                          <strong className={styles.overlayGuideBrand}>
+                            Para-life Trees
+                          </strong>
+                        ) : null}
+                        <a
+                          href={`https://wa.me/18763727415?text=${encodeURIComponent(
+                            plainWhatsappMessage
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={styles.overlayWhatsappContact}
+                          aria-label="WhatsApp 1 (876) 372-7415"
                         >
-                          <path d="M12 3.2a8.5 8.5 0 0 0-7.3 12.9l-1 3.6 3.7-1a8.5 8.5 0 1 0 4.6-15.5Zm0 1.6a6.9 6.9 0 0 1 5.8 10.7A6.9 6.9 0 0 1 7.7 17l-.3-.2-1.6.4.4-1.5-.2-.3A6.9 6.9 0 0 1 12 4.8Zm-2.6 3.5c-.2 0-.5.1-.7.4-.3.3-.9.9-.9 2.1s.9 2.4 1 2.5c.1.2 1.8 2.8 4.4 3.8 2.2.9 2.7.7 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.4l-1.7-.8c-.2-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2-1.2-.8-.7-1.3-1.5-1.4-1.8-.2-.2 0-.4.1-.5l.4-.5c.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5l-.8-1.8c-.2-.4-.4-.4-.6-.4h-.5Z" />
-                        </svg>
-                        <span>1 (876) 372-7415</span>
-                      </a>
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            focusable="false"
+                          >
+                            <path d="M12 3.2a8.5 8.5 0 0 0-7.3 12.9l-1 3.6 3.7-1a8.5 8.5 0 1 0 4.6-15.5Zm0 1.6a6.9 6.9 0 0 1 5.8 10.7A6.9 6.9 0 0 1 7.7 17l-.3-.2-1.6.4.4-1.5-.2-.3A6.9 6.9 0 0 1 12 4.8Zm-2.6 3.5c-.2 0-.5.1-.7.4-.3.3-.9.9-.9 2.1s.9 2.4 1 2.5c.1.2 1.8 2.8 4.4 3.8 2.2.9 2.7.7 3.2.7.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.5-.4l-1.7-.8c-.2-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2-1.2-.8-.7-1.3-1.5-1.4-1.8-.2-.2 0-.4.1-.5l.4-.5c.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5l-.8-1.8c-.2-.4-.4-.4-.6-.4h-.5Z" />
+                          </svg>
+                          <span>1 (876) 372-7415</span>
+                        </a>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}

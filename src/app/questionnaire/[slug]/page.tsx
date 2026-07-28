@@ -11,7 +11,7 @@ const LITTLE_ORCHARD_SHOP_PUBLIC_URL =
   "https://littleorchardnursery.paralifetrees.com/shop";
 const PLANT_GIVEAWAY_OG_IMAGE = "/icons/paralife_trees_og.png";
 const LITTLE_ORCHARD_SHOP_OG_IMAGE =
-  "/media/paralife_trees/jhs-plant-market.jpeg";
+  "/media/paralife_trees/little-orchard-shop-share.png";
 
 export async function generateMetadata({
   params,
@@ -63,7 +63,7 @@ export async function generateMetadata({
   if (slug === LITTLE_ORCHARD_SHOP_SLUG) {
     const title = "Little Orchard Shop - Para-life Trees";
     const description =
-      "Order plants for pickup at the Little Orchard Nursery tent during the Jamaica Horticultural Society Plant Market.";
+      "Order plants and nursery items from Little Orchard Shop by Para-life Trees.";
 
     return {
       metadataBase: new URL("https://littleorchardnursery.paralifetrees.com"),
@@ -85,9 +85,9 @@ export async function generateMetadata({
         images: [
           {
             url: LITTLE_ORCHARD_SHOP_OG_IMAGE,
-            width: 1080,
-            height: 1350,
-            alt: "Jamaica Horticultural Society Plant Market flyer for Little Orchard Shop",
+            width: 637,
+            height: 637,
+            alt: "Little Orchard Shop share image with potted plants and Para-life Trees branding",
           },
         ],
       },

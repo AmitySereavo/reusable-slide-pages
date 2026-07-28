@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { readLocalEngagementSnapshot } from "@/lib/questionnaire/engagementTracking";
 
@@ -10,6 +11,8 @@ type UseQuestionnaireEngagementParams = {
   isAuthSessionLoaded: boolean;
   setAnsweredQuestionSlideIds: Dispatch<SetStateAction<string[]>>;
   setDbVideoProgressBySlideId: Dispatch<SetStateAction<Record<string, number>>>;
+  currentSlideId?: string | null;
+  guideLinkToken?: string | null;
 };
 
 export function useQuestionnaireEngagement({
@@ -18,7 +21,38 @@ export function useQuestionnaireEngagement({
   isAuthSessionLoaded,
   setAnsweredQuestionSlideIds,
   setDbVideoProgressBySlideId,
+  currentSlideId,
+  guideLinkToken,
 }: UseQuestionnaireEngagementParams) {
+  const trackedGuideSlideRef = useRef("");
+
+  useEffect(() => {
+    if (!guideLinkToken || !questionnaireSlug.endsWith("-grow-guide") || !currentSlideId) {
+      return;
+    }
+
+    const trackingKey = `${guideLinkToken}:${questionnaireSlug}:${currentSlideId}`;
+    if (trackedGuideSlideRef.current === trackingKey) {
+      return;
+    }
+
+    trackedGuideSlideRef.current = trackingKey;
+
+    fetch("/api/grow-guide-links/track", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token: guideLinkToken,
+        questionnaireSlug,
+        slideId: currentSlideId,
+        eventType: "slide_view",
+      }),
+    }).catch(() => null);
+  }, [currentSlideId, guideLinkToken, questionnaireSlug]);
+
   useEffect(() => {
     if (!isAuthSessionLoaded || !authSessionUserId) {
       return;

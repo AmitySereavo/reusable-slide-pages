@@ -7,6 +7,7 @@ import {
   getProfilesForTargets,
   seedImportedConversationNotes,
 } from "@/lib/dashboard/personProfiles";
+import { ensureCustomerGrowGuideTables } from "@/lib/growGuides/trackedLinks";
 
 function toNumber(value: unknown) {
   if (value == null) return 0;
@@ -444,6 +445,77 @@ function serializeLittleOrchardCustomers(items: any[]) {
     );
 }
 
+function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
+  const linksByIdentity = new Map<string, any[]>();
+
+  for (const link of links) {
+    const key = String(link.ownerIdentityKey || "").trim();
+    if (!key) continue;
+
+    linksByIdentity.set(key, [...(linksByIdentity.get(key) || []), link]);
+  }
+
+  return customers.map((customer) => {
+    const growGuideLinks = (linksByIdentity.get(customer.id) || []).map((link) => {
+      const visits = Array.isArray(link.visits) ? link.visits : [];
+
+      return {
+        id: link.id,
+        token: link.token,
+        orderCode: link.orderCode,
+        productTitle: link.productTitle,
+        sizeLabel: link.sizeLabel,
+        guideSlug: link.guideSlug,
+        guidePath: link.guidePath,
+        openedCount: Number(link.openedCount || 0),
+        slideViewCount: Number(link.slideViewCount || 0),
+        deviceCount: Number(link.deviceCount || 0),
+        firstOpenedAt: toIso(link.firstOpenedAt),
+        lastOpenedAt: toIso(link.lastOpenedAt),
+        latestVisitAt: toIso(link.latestVisitAt),
+        createdAt: toIso(link.createdAt),
+        visits: visits.map((visit: any) => ({
+          id: visit.id,
+          eventType: visit.eventType,
+          questionnaireSlug: visit.questionnaireSlug,
+          slideId: visit.slideId,
+          slideLabel: makeSlideLabel(visit.slideId, visit.questionnaireSlug),
+          deviceKey: visit.deviceKey,
+          createdAt: toIso(visit.createdAt),
+        })),
+      };
+    });
+
+    if (!growGuideLinks.length) return customer;
+
+    return {
+      ...customer,
+      summary: {
+        ...customer.summary,
+        growGuideLinkCount: growGuideLinks.length,
+        growGuideVisitCount: growGuideLinks.reduce(
+          (sum, link) => sum + Number(link.slideViewCount || link.openedCount || 0),
+          0
+        ),
+      },
+      growGuideLinks,
+    };
+  });
+}
+
+function makeSlideLabel(slideId: unknown, questionnaireSlug?: unknown) {
+  const rawSlide = String(slideId || "").trim();
+  const rawSlug = String(questionnaireSlug || "").replace(/-grow-guide$/, "");
+  const labelSource = rawSlide || rawSlug || "grow guide";
+  const withoutGuidePrefix = rawSlug
+    ? labelSource.replace(new RegExp(`^${rawSlug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-`), "")
+    : labelSource;
+
+  return withoutGuidePrefix
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function attachPeopleProfile(record: any, profile: any) {
   const contactOverride =
     profile?.contactOverride &&
@@ -662,6 +734,29 @@ function mergePeopleByIdentity(records: any[]) {
           createdAt: order.createdAt,
         });
       }
+      for (const guideLink of record.growGuideLinks || []) {
+        person.activityLog.push({
+          type: "grow-guide-link",
+          label: `Opened ${String(guideLink.guideSlug || "grow guide").replace(
+            /-/g,
+            " "
+          )}`,
+          detail: [
+            guideLink.productTitle,
+            guideLink.orderCode ? `Order ${guideLink.orderCode}` : "",
+            guideLink.deviceCount
+              ? `${guideLink.deviceCount} device(s)`
+              : "",
+            guideLink.slideViewCount
+              ? `${guideLink.slideViewCount} guide page visit(s)`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" - "),
+          createdAt:
+            guideLink.latestVisitAt || guideLink.lastOpenedAt || guideLink.createdAt,
+        });
+      }
     }
 
     addMoneyToMap(person.summary.amountSpent, record.summary?.amountSpent);
@@ -767,6 +862,7 @@ export async function GET(request: Request) {
     : {};
 
   await ensureUserVideoProgressAnalyticsColumns(prisma);
+  await ensureCustomerGrowGuideTables();
 
   const littleOrchardCustomerWhere = query
     ? Prisma.sql`
@@ -781,7 +877,7 @@ export async function GET(request: Request) {
       `
     : Prisma.empty;
 
-  const [users, leads, littleOrchardItems, userCount, leadCount] = await Promise.all([
+  const [users, leads, littleOrchardItems, growGuideLinks, userCount, leadCount] = await Promise.all([
     prisma.user.findMany({
       where: userWhere,
       take,
@@ -821,15 +917,41 @@ export async function GET(request: Request) {
       ORDER BY "updatedAt" DESC
       LIMIT ${take * 8}
     `),
+    prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT
+        l.*,
+        COUNT(v."id")::int AS "slideViewCount",
+        COUNT(DISTINCT v."deviceKey")::int AS "deviceCount",
+        MAX(v."createdAt") AS "latestVisitAt",
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', v."id",
+              'eventType', v."eventType",
+              'questionnaireSlug', v."questionnaireSlug",
+              'slideId', v."slideId",
+              'deviceKey', v."deviceKey",
+              'createdAt', v."createdAt"
+            )
+            ORDER BY v."createdAt" ASC
+          ) FILTER (WHERE v."id" IS NOT NULL),
+          '[]'::json
+        ) AS "visits"
+      FROM "CustomerGrowGuideLink" l
+      LEFT JOIN "CustomerGrowGuideVisit" v ON v."linkId" = l."id"
+      GROUP BY l."id"
+      ORDER BY COALESCE(MAX(v."createdAt"), l."updatedAt") DESC
+      LIMIT ${take * 8}
+    `),
     prisma.user.count({ where: userWhere }),
     prisma.lead.count({ where: leadWhere }),
   ]);
   const serializedAccounts = users.map(serializeUser);
   const serializedLeads = leads.map(serializeLead);
-  const serializedCustomers = serializeLittleOrchardCustomers(littleOrchardItems).slice(
-    0,
-    take
-  );
+  const serializedCustomers = attachGrowGuideLinksToCustomers(
+    serializeLittleOrchardCustomers(littleOrchardItems),
+    growGuideLinks
+  ).slice(0, take);
   const targets = [
     ...serializedAccounts.map((record) => ({
       targetKind: "account",

@@ -516,6 +516,35 @@ function PersonDetails({ record, onProfileAction }) {
       />
 
       <DetailList
+        title="Grow Guide Visits"
+        items={(record.customers || []).flatMap(
+          (customer) => customer.growGuideLinks || []
+        )}
+        empty="No tracked grow guide visits saved yet."
+        renderItem={(guideLink) => (
+          <>
+            <strong>
+              {guideLink.productTitle || guideLink.guideSlug || "Grow guide"}
+            </strong>
+            <span>
+              {guideLink.orderCode ? `Order ${guideLink.orderCode} · ` : ""}
+              {guideLink.deviceCount || 0} device(s) ·{" "}
+              {guideLink.slideViewCount || 0} guide page visit(s)
+            </span>
+            {(guideLink.visits || []).map((visit, index) => (
+              <span key={visit.id || `${guideLink.id}-${index}`}>
+                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} ·{" "}
+                {formatDate(visit.createdAt)}
+                {visit.deviceKey
+                  ? ` · device ${String(visit.deviceKey).slice(0, 12)}`
+                  : ""}
+              </span>
+            ))}
+          </>
+        )}
+      />
+
+      <DetailList
         title="Source Records"
         items={record.sourceRecords}
         empty="No source records bundled yet."
@@ -661,6 +690,33 @@ function CustomerDetails({ record, onProfileAction }) {
             <strong>{note.source || "Note"} · {note.orderCode}</strong>
             <span>{note.text}</span>
             <span>{formatDate(note.createdAt)}</span>
+          </>
+        )}
+      />
+
+      <DetailList
+        title="Grow Guide Visits"
+        items={record.growGuideLinks}
+        empty="No tracked grow guide visits saved yet."
+        renderItem={(guideLink) => (
+          <>
+            <strong>
+              {guideLink.productTitle || guideLink.guideSlug || "Grow guide"}
+            </strong>
+            <span>
+              {guideLink.orderCode ? `Order ${guideLink.orderCode} · ` : ""}
+              {guideLink.deviceCount || 0} device(s) ·{" "}
+              {guideLink.slideViewCount || 0} guide page visit(s)
+            </span>
+            {(guideLink.visits || []).map((visit, index) => (
+              <span key={visit.id || `${guideLink.id}-${index}`}>
+                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} ·{" "}
+                {formatDate(visit.createdAt)}
+                {visit.deviceKey
+                  ? ` · device ${String(visit.deviceKey).slice(0, 12)}`
+                  : ""}
+              </span>
+            ))}
           </>
         )}
       />

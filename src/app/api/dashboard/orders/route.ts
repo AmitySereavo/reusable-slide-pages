@@ -753,7 +753,8 @@ export async function POST(request: Request) {
       action !== "remove-little-orchard-order-item" &&
       action !== "delete-little-orchard-order" &&
       action !== "update-little-orchard-payment-allocations" &&
-      action !== "update-little-orchard-customer-phone"
+      action !== "update-little-orchard-customer-phone" &&
+      action !== "update-little-orchard-customer-contact"
     ) {
       return NextResponse.json(
         { ok: false, error: "Unknown order action." },
@@ -1183,6 +1184,90 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
         message: "Customer phone number updated.",
+      });
+    }
+
+    if (action === "update-little-orchard-customer-contact") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Customer contact editing is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const contact = body?.contact || {};
+      const nextName = cleanText(contact.name);
+      const nextPhone = cleanText(contact.phone).replace(/[^\d+]/g, "");
+      const nextEmail = cleanText(contact.email).toLowerCase();
+      const nextContactMethod =
+        cleanText(contact.contactMethod) ||
+        cleanText(item.metadata?.plantShopContactMethod) ||
+        "contact";
+
+      if (!nextName) {
+        return NextResponse.json(
+          { ok: false, error: "Enter the customer name." },
+          { status: 400 }
+        );
+      }
+
+      if (nextPhone && nextPhone.replace(/\D/g, "").length < 10) {
+        return NextResponse.json(
+          { ok: false, error: "Enter a phone number with at least 10 digits." },
+          { status: 400 }
+        );
+      }
+
+      if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+        return NextResponse.json(
+          { ok: false, error: "Enter a valid email address." },
+          { status: 400 }
+        );
+      }
+
+      const orderCode = cleanText(item.orderCode);
+      const orderItems = await delegate.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+      });
+      const updatedAt = new Date().toISOString();
+      const updatedBy =
+        guard.session?.user?.name || guard.session?.user?.email || "Admin";
+
+      await Promise.all(
+        orderItems.map((orderItem: any) => {
+          const metadata = readSnapshotObject(orderItem.metadata);
+          const nextMetadata = {
+            ...metadata,
+            customerName: nextName,
+            customerPhoneNumber: nextPhone,
+            customerWhatsappNumber: nextPhone,
+            customerEmail: nextEmail,
+            plantShopContactMethod: nextContactMethod,
+            customerContactUpdatedAt: updatedAt,
+            customerContactUpdatedBy: updatedBy,
+          } as Prisma.InputJsonObject;
+
+          return delegate.update({
+            where: { id: orderItem.id },
+            data: {
+              recipientName: nextName,
+              recipientEmail: nextEmail || null,
+              metadata: nextMetadata,
+            },
+          });
+        })
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: "Customer contact updated.",
       });
     }
 
