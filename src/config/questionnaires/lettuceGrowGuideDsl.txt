@@ -3,14 +3,11 @@
 // Source: ParaLife_Trees_Lettuce_Grow_Guide.pdf
 
 @id: lettuce-guide-cover
-@type: media
+@type: content
 @title: Lettuce Seedling Grow Guide
 @subtitle: Para-life Trees
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/paralife_trees/png/product_lettuce_seedlings_generated.png
-@mediatype: image
-@mediaaspect: horizontal
 @showprogressbar: true
 @countstep: true
 @syncurl: true
@@ -19,8 +16,6 @@
 ## [c3] For Alderan / Alderaan lettuce and general lettuce seedlings.
 BR
 GUIDEGRID|Covers::Transplanting, spacing, watering, feeding, pest control, harvesting||Best for::Home gardens, kitchen gardens, raised beds, containers, small farm production||Support::Send clear plant photos by WhatsApp when you need help
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20lettuce%20seedlings.)
 @back: Guides for other plants
 @backgoto: /grow-guides
 @next: Quick rescue
@@ -304,8 +299,6 @@ GUIDETABLE|How often|Check for||Every day|Soil moisture, wilting, harsh afternoo
 BR
 ## [c3] Need help?
 Send clear photos by WhatsApp: full plant, damaged leaves, underside of leaves, soil or container, and any insects you see.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20lettuce%20seedlings.)
 BR
 [Download the full PDF guide](/media/paralife_trees/guides/lettuce-grow-guide.pdf)
 BR

@@ -3,14 +3,11 @@
 // Source: Lemon_Balm_Grow_Guide.pdf
 
 @id: lemon-balm-guide-cover
-@type: media
+@type: content
 @title: Lemon Balm Seedling Grow Guide
 @subtitle: Para-life Trees
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/paralife_trees/jpg/product_lemon_balm_still.jpg
-@mediatype: image
-@mediaaspect: horizontal
 @showprogressbar: true
 @countstep: true
 @syncurl: true
@@ -19,8 +16,6 @@
 ## [c3] For lemon balm seedlings transplanted from trays into pots, beds, kitchen gardens, or small farm rows.
 BR
 GUIDEGRID|Best for::Home gardens, herb gardens, containers, raised beds, small farm production, tea herb production||Main use::Seedlings transplanted from trays into beds, bags, pots, or rows||Support::Send clear photos by WhatsApp if you see pests, wilting, yellowing, leaf spots, or rot
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20lemon%20balm%20seedlings.)
 @back: Guides for other plants
 @backgoto: /grow-guides
 @next: Quick rescue
@@ -274,8 +269,6 @@ GUIDETABLE|Frequency|What to check||Every 1 to 2 days|Soil moisture, wilting, ye
 BR
 ## [c3] Need help?
 Send clear photos of the full plant, damaged leaves, underside of leaves, soil or container, and any insects you see.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20lemon%20balm%20seedlings.)
 BR
 [Download the full PDF guide](/media/paralife_trees/guides/Lemon_Balm_Grow_Guide.pdf)
 BR

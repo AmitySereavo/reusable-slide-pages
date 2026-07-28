@@ -3,14 +3,11 @@
 // Source: Slicing_Tomato_Grow_Guide.pdf
 
 @id: slicing-tomato-guide-cover
-@type: media
+@type: content
 @title: Slicing Tomato Seedling Grow Guide
 @subtitle: Para-life Trees
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/paralife_trees/jpg/product_tomato_seedling_slicing_still.jpg
-@mediatype: image
-@mediaaspect: horizontal
 @showprogressbar: true
 @countstep: true
 @syncurl: true
@@ -19,8 +16,6 @@
 ## [c3] Transplanting, spacing, feeding, pest control, disease control, and harvesting.
 BR
 GUIDEGRID|Tomato type::Large slicing/sandwich tomato seedlings||Transplant age::5 to 8 weeks from sowing, or 6 to 10 inches tall||Best transplant size::4 to 6 true leaves, thick stem, healthy green leaves||Main use::Small farmers planting trays; home gardeners planting 2 to 6 plants||First harvest estimate::65 to 90 days after transplanting
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20slicing%20tomato%20seedlings.)
 @back: Guides for other plants
 @backgoto: /grow-guides
 @next: Quick rescue
@@ -296,8 +291,6 @@ GUIDETABLE|Frequency|Checklist||Every 1 to 2 days|Check soil moisture, underside
 BR
 ## [c3] Need help?
 Send clear photos of the full plant, top leaves, underside of leaves, stem base, soil or pot, and any insects or fruit damage.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20slicing%20tomato%20seedlings.)
 BR
 [Download the full PDF guide](/media/paralife_trees/guides/Slicing_Tomato_Grow_Guide.pdf)
 BR

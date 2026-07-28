@@ -3,14 +3,11 @@
 // Source: Black_Pepper_Grow_Guide.pdf
 
 @id: black-pepper-guide-cover
-@type: media
+@type: content
 @title: Black Pepper Plant Grow Guide
 @subtitle: Para-life Trees
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/paralife_trees/jpg/product_black_pepper_plant_still.jpg
-@mediatype: image
-@mediaaspect: horizontal
 @showprogressbar: true
 @countstep: true
 @syncurl: true
@@ -21,8 +18,6 @@ BR
 GUIDEGRID|Crop::Black pepper / peppercorn vine||Botanical name::Piper nigrum||Growth habit::Perennial climbing vine with aerial roots||Customer plant type::Potted/rooted vine plant||Main need::Strong support plus moist, well-drained soil plus filtered light
 BR
 [c3] Important: this guide is for the black pepper plant that produces peppercorns. It is not Scotch bonnet, sweet pepper, or hot pepper.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20black%20pepper%20plant.)
 @back: Guides for other plants
 @backgoto: /grow-guides
 @next: Quick rescue
@@ -262,8 +257,6 @@ GUIDETABLE|How often|What to check||Daily for first 14 days|Soil moisture, wilti
 BR
 ## [c3] Need help?
 Send clear photos of the full plant, stem base, underside of leaves, soil or pot, support setup, and any insects or spots you see.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20black%20pepper%20plant.)
 BR
 [Download the full PDF guide](/media/paralife_trees/guides/Black_Pepper_Grow_Guide.pdf)
 BR

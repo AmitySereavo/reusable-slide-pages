@@ -389,7 +389,10 @@ function serializeLittleOrchardCustomers(items: any[]) {
 
     order.total += toNumber(item.lineTotal);
     order.items.push({
+      id: item.id,
       productTitle: item.productTitle,
+      productId: item.productId || null,
+      productSku: item.productSku || null,
       sku: item.sku || item.productSku || item.sizeSku || null,
       sizeLabel: item.sizeLabel,
       quantity: item.quantity,
@@ -488,6 +491,36 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
 
     if (!growGuideLinks.length) return customer;
 
+    const growGuideDeviceMap = new Map<string, any>();
+
+    for (const guideLink of growGuideLinks) {
+      for (const visit of guideLink.visits || []) {
+        const deviceKey = String(visit.deviceKey || "").trim();
+        if (!deviceKey) continue;
+
+        const previous = growGuideDeviceMap.get(deviceKey);
+        const visitAt = visit.createdAt;
+        const previousFirstMs = new Date(previous?.firstSeenAt || visitAt || 0).getTime();
+        const previousLastMs = new Date(previous?.lastSeenAt || visitAt || 0).getTime();
+        const visitMs = new Date(visitAt || 0).getTime();
+
+        growGuideDeviceMap.set(deviceKey, {
+          ...previous,
+          role: "grow-guide",
+          source: "Grow guide link",
+          deviceKey,
+          orderCode: guideLink.orderCode || previous?.orderCode || null,
+          guideSlug: guideLink.guideSlug || previous?.guideSlug || null,
+          productTitle: guideLink.productTitle || previous?.productTitle || null,
+          note: `Opened ${guideLink.productTitle || guideLink.guideSlug || "grow guide"}`,
+          firstSeenAt:
+            previous && previousFirstMs <= visitMs ? previous.firstSeenAt : visitAt,
+          lastSeenAt:
+            previous && previousLastMs >= visitMs ? previous.lastSeenAt : visitAt,
+        });
+      }
+    }
+
     return {
       ...customer,
       summary: {
@@ -499,6 +532,14 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
         ),
       },
       growGuideLinks,
+      devices: [
+        ...(customer.devices || []),
+        ...Array.from(growGuideDeviceMap.values()),
+      ].sort(
+        (a: any, b: any) =>
+          new Date(b.lastSeenAt || b.firstSeenAt || 0).getTime() -
+          new Date(a.lastSeenAt || a.firstSeenAt || 0).getTime()
+      ),
     };
   });
 }
@@ -755,6 +796,20 @@ function mergePeopleByIdentity(records: any[]) {
             .join(" - "),
           createdAt:
             guideLink.latestVisitAt || guideLink.lastOpenedAt || guideLink.createdAt,
+          details: (guideLink.visits || []).map((visit: any) => ({
+            id: visit.id,
+            label: visit.slideLabel || visit.slideId || "Guide page",
+            detail: [
+              visit.eventType ? `Event: ${visit.eventType}` : "",
+              visit.questionnaireSlug ? `Guide: ${visit.questionnaireSlug}` : "",
+              visit.deviceKey
+                ? `Device ${String(visit.deviceKey).slice(0, 12)}`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" - "),
+            createdAt: visit.createdAt,
+          })),
         });
       }
     }

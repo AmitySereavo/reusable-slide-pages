@@ -398,11 +398,7 @@
 }
 
 .page[data-questionnaire-slug$="-grow-guide"] .overlayContactStack {
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
   color: #214F35;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
 .overlayGuideBrand {
@@ -1576,6 +1572,20 @@
 .secondaryButton:hover:not(:disabled),
 .primaryButton:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+[data-questionnaire-slug$="-grow-guide"] .actionBarOverlay {
+  padding: 10px 16px max(12px, env(safe-area-inset-bottom));
+}
+
+[data-questionnaire-slug$="-grow-guide"] .navRow {
+  gap: 8px;
+}
+
+[data-questionnaire-slug$="-grow-guide"] .secondaryButton,
+[data-questionnaire-slug$="-grow-guide"] .primaryButton {
+  min-height: 44px;
+  padding: 10px 16px;
 }
 
 .secondaryButton:disabled,

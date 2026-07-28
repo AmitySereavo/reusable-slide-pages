@@ -6,6 +6,10 @@ import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
+import {
+  ensurePersonProfileTables,
+  makeProfileId,
+} from "@/lib/dashboard/personProfiles";
 
 const fulfillmentStatuses = new Set([
   "PENDING",
@@ -18,6 +22,28 @@ const fulfillmentStatuses = new Set([
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanLongText(value: unknown, maxLength = 3000) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+function contactIdentityKey({
+  name,
+  email,
+  phone,
+}: {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}) {
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (normalizedEmail) return `email:${normalizedEmail}`;
+
+  const normalizedPhone = String(phone || "").replace(/\D/g, "");
+  if (normalizedPhone) return `phone:${normalizedPhone}`;
+
+  return `name:${String(name || "unknown").trim().toLowerCase()}`;
 }
 
 function hasDeleteConfirmation(value: unknown) {
@@ -754,7 +780,9 @@ export async function POST(request: Request) {
       action !== "delete-little-orchard-order" &&
       action !== "update-little-orchard-payment-allocations" &&
       action !== "update-little-orchard-customer-phone" &&
-      action !== "update-little-orchard-customer-contact"
+      action !== "update-little-orchard-customer-contact" &&
+      action !== "update-little-orchard-customer-notes" &&
+      action !== "record-grow-guide-message-conversation"
     ) {
       return NextResponse.json(
         { ok: false, error: "Unknown order action." },
@@ -1268,6 +1296,171 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
         message: "Customer contact updated.",
+      });
+    }
+
+    if (action === "update-little-orchard-customer-notes") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Customer notes editing is only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const orderCode = cleanText(item.orderCode);
+      const nextNotes = cleanLongText(body?.customerNotes || "");
+      const orderItems = await delegate.findMany({
+        where: {
+          sourceType: "little-orchard-shop",
+          orderCode,
+        },
+      });
+      const updatedAt = new Date().toISOString();
+      const updatedBy =
+        guard.session?.user?.name || guard.session?.user?.email || "Admin";
+
+      await Promise.all(
+        orderItems.map((orderItem: any) => {
+          const metadata = readSnapshotObject(orderItem.metadata);
+          const nextMetadata: Record<string, any> = {
+            ...metadata,
+            customerNotesUpdatedAt: updatedAt,
+            customerNotesUpdatedBy: updatedBy,
+          };
+
+          if (nextNotes) {
+            nextMetadata.customerNotes = nextNotes;
+          } else {
+            delete nextMetadata.customerNotes;
+          }
+
+          return delegate.update({
+            where: { id: orderItem.id },
+            data: {
+              metadata: nextMetadata as Prisma.InputJsonObject,
+            },
+          });
+        })
+      );
+
+      return NextResponse.json({
+        ok: true,
+        message: nextNotes ? "Customer notes updated." : "Customer notes removed.",
+      });
+    }
+
+    if (action === "record-grow-guide-message-conversation") {
+      if (item.sourceType !== "little-orchard-shop") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Grow guide conversation notes are only available for Little Orchard orders.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const metadata = readSnapshotObject(item.metadata);
+      const customerName =
+        cleanText(item.recipientName) ||
+        cleanText(metadata.customerName) ||
+        "Customer";
+      const customerEmail =
+        cleanText(metadata.customerEmail).toLowerCase() ||
+        cleanText(item.recipientEmail).toLowerCase();
+      const customerPhone = cleanText(
+        metadata.customerWhatsappNumber ||
+          metadata.customerPhoneNumber ||
+          metadata.customerPhone
+      );
+      const targetKey = contactIdentityKey({
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+      });
+      const profileId = makeProfileId("person", targetKey);
+      const noteId = `pcn-${crypto.randomUUID()}`;
+      const messageSet = cleanText(body?.messageSet) || "just-bought";
+      const productTitle =
+        cleanText(body?.productTitle) || cleanText(item.productTitle);
+      const guideLinkUrl = cleanText(body?.guideLinkUrl);
+      const guideSlug = cleanText(body?.guideSlug);
+      const staffUser = guard.session?.user;
+      const staffName = staffUser?.name || staffUser?.email || "Admin";
+      const sentBy = cleanText(body?.sentBy) || "dashboard";
+
+      await ensurePersonProfileTables(prisma);
+      await prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "PersonProfile" ("id", "targetKind", "targetKey")
+        VALUES (${profileId}, ${"person"}, ${targetKey})
+        ON CONFLICT ("targetKind", "targetKey") DO NOTHING
+      `);
+      await prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "PersonConversationNote" (
+          "id",
+          "profileId",
+          "summary",
+          "currentGoals",
+          "currentPosition",
+          "immediateNextStep",
+          "relationshipImpact",
+          "nextQuestions",
+          "emotionalState",
+          "satisfaction",
+          "referralOpportunities",
+          "additionalNotes",
+          "createdByUserId",
+          "createdByUserName",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${noteId},
+          ${profileId},
+          ${`Grow guide ${messageSet === "follow-up" ? "follow-up" : "just bought"} message prepared for ${productTitle || "customer item"}.`},
+          ${`Help customer keep ${productTitle || "their plant"} healthy after purchase.`},
+          ${"Guide message was prepared from the Orders dashboard. Admin should update this block after confirming the message was actually sent and after the next customer response."},
+          ${"Check whether the customer opened the grow guide and ask how the plant is doing."},
+          ${""},
+          ${"How is the plant doing now? Did you open the grow guide? What is the next thing you want to grow?"},
+          ${""},
+          ${""},
+          ${""},
+          ${cleanLongText(
+            [
+              `Order: ${item.orderCode || "Not recorded"}`,
+              `Product: ${productTitle || "Not recorded"}`,
+              `Message set: ${messageSet}`,
+              `Prepared by action: ${sentBy}`,
+              guideSlug ? `Guide: ${guideSlug}` : "",
+              guideLinkUrl ? `Tracked link: ${guideLinkUrl}` : "",
+              "This block was created automatically when the grow guide message was sent/copied. Edit after the actual conversation.",
+            ]
+              .filter(Boolean)
+              .join("\n")
+          )},
+          ${staffUser?.id || null},
+          ${staffName},
+          CURRENT_TIMESTAMP,
+          CURRENT_TIMESTAMP
+        )
+      `);
+      await prisma.$executeRaw(Prisma.sql`
+        UPDATE "PersonProfile"
+        SET "deletedAt" = NULL,
+            "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${profileId}
+      `);
+
+      return NextResponse.json({
+        ok: true,
+        noteId,
+        message: "Grow guide conversation block created in People.",
       });
     }
 

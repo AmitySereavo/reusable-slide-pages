@@ -3,14 +3,11 @@
 // Source: Green_Onion_Grow_Guide.pdf
 
 @id: green-onion-guide-cover
-@type: media
+@type: content
 @title: Scallion / Green Onion Grow Guide
 @subtitle: Para-life Trees
 @pagebgcolor: #F6F0E3
 @cardopacity: 1
-@media: /media/paralife_trees/jpg/product_green_onion_scallion_still.jpg
-@mediatype: image
-@mediaaspect: horizontal
 @showprogressbar: true
 @countstep: true
 @syncurl: true
@@ -19,8 +16,6 @@
 ## [c3] For scallion, green onion, and spring onion style harvests.
 BR
 GUIDEGRID|Guide focus::Transplanting, spacing, watering, feeding, pests, diseases, harvesting||Best for::Containers, raised beds, backyard gardens, and small farm plots||Support::Send clear plant photos by WhatsApp if leaves yellow, wilt, streak, rot, or get pests
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20scallion%20or%20green%20onion%20plants.)
 @back: Guides for other plants
 @backgoto: /grow-guides
 @next: Quick rescue
@@ -238,8 +233,6 @@ GUIDETABLE|Keep it clean|Why it matters||Hands|Wash hands with soap and water be
 BR
 ## [c3] Need help?
 Send clear photos of the full plant, damaged leaves, base/root area, underside or folded leaves, and any insects you see.
-BR
-[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20scallion%20or%20green%20onion%20plants.)
 BR
 [Download the full PDF guide](/media/paralife_trees/guides/Green_Onion_Grow_Guide.pdf)
 BR

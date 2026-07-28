@@ -144,6 +144,80 @@ function getConversationPreview(conversation = {}) {
   );
 }
 
+const growGuideProductRules = [
+  { label: "Black pepper grow guide", terms: ["black pepper"] },
+  { label: "Green onion / scallion grow guide", terms: ["scallion", "green onion"] },
+  { label: "Lemon balm grow guide", terms: ["lemon balm"] },
+  { label: "Tomato grow guide", terms: ["tomato"] },
+  { label: "Scotch bonnet grow guide", terms: ["scotch bonnet"] },
+  { label: "Lettuce grow guide", terms: ["lettuce"] },
+];
+
+function getGrowGuideLabelForOrderItem(item) {
+  const text = [item.productTitle, item.sizeLabel, item.productId, item.sku, item.productSku]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const rule = growGuideProductRules.find((entry) =>
+    entry.terms.some((term) => text.includes(term))
+  );
+
+  return rule?.label || "";
+}
+
+function getRequestedItemLabel(item) {
+  return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
+}
+
+function buildPeopleGrowGuideMessage({ record, item, link }) {
+  const customerName = record.contact?.name || "there";
+  const guideLabel = getGrowGuideLabelForOrderItem(item) || "grow guide";
+  const productLabel = item.productTitle || "your item";
+
+  return [
+    `*${guideLabel} for ${customerName}*`,
+    "",
+    `Here is the guide to help you care for ${productLabel} now that you've brought it home.`,
+    "",
+    "*Tap the link below to view the guide:*",
+    "",
+    link.linkUrl,
+    "",
+    "_Para-life Trees - Planting a Life in Paradise._",
+  ].join("\n");
+}
+
+function openWhatsAppMessage(phone, message) {
+  if (!phone) return;
+  window.open(
+    `https://api.whatsapp.com/send/?phone=${encodeURIComponent(
+      phone.replace(/[^\d+]/g, "")
+    )}&text=${encodeURIComponent(message)}&type=phone_number&app_absent=0`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  return copied;
+}
+
 export default function PeopleManager() {
   const [query, setQuery] = useState("");
   const [data, setData] = useState({ summary: {}, accounts: [], leads: [] });
@@ -343,7 +417,11 @@ function AccountDetails({ record, onProfileAction }) {
 
       <DetailGroup title="Commercial">
         <InfoLine label="Amount spent" value={spent} />
-        <InfoLine label="Orders" value={record.summary?.orderCount} />
+        <InfoLine
+          label="Orders"
+          value={record.summary?.orderCount}
+          href={makeOrdersDashboardHref(record)}
+        />
         <InfoLine label="Tickets" value={record.summary?.ticketCount} />
         <InfoLine label="Purchased items" value={record.summary?.purchasedItemCount} />
         <InfoLine label="Gift claims" value={record.summary?.giftClaimCount} />
@@ -480,17 +558,13 @@ function PersonDetails({ record, onProfileAction }) {
     <div style={styles.detailGrid}>
       <PeopleCrmPanel record={record} onProfileAction={onProfileAction} />
 
-      <DetailGroup title="Profile">
-        <InfoLine label="Name" value={record.contact?.name} />
-        <InfoLine label="Email" value={record.contact?.email} />
-        <InfoLine label="Phone" value={record.contact?.phone} />
-        <InfoLine label="Labels" value={(record.labels || []).join(", ")} />
-        <InfoLine label="Interests" value={(record.interests || []).join(", ")} />
-      </DetailGroup>
-
-      <DetailGroup title="Summary">
+      <CollapsibleDetailGroup title="Summary" defaultOpen>
         <InfoLine label="Amount spent/requested" value={spent} />
-        <InfoLine label="Orders" value={record.summary?.orderCount} />
+        <InfoLine
+          label="Orders"
+          value={record.summary?.orderCount}
+          href={makeOrdersDashboardHref(record)}
+        />
         <InfoLine label="Items" value={record.summary?.itemCount} />
         <InfoLine label="Tickets" value={record.summary?.ticketCount} />
         <InfoLine label="Videos watched" value={record.summary?.videoCount} />
@@ -500,20 +574,11 @@ function PersonDetails({ record, onProfileAction }) {
         />
         <InfoLine label="Questions answered" value={record.summary?.questionAnswerCount} />
         <InfoLine label="Email events" value={record.summary?.emailEventCount} />
-      </DetailGroup>
+        <InfoLine label="Bundled records" value={record.sourceRecords?.length || 0} />
+        <SourceRecordsSummary items={record.sourceRecords} />
+      </CollapsibleDetailGroup>
 
-      <DetailList
-        title="Activity Log"
-        items={record.activityLog}
-        empty="No activity saved yet."
-        renderItem={(activity) => (
-          <>
-            <strong>{activity.label}</strong>
-            {activity.detail ? <span>{activity.detail}</span> : null}
-            <span>{formatDate(activity.createdAt)}</span>
-          </>
-        )}
-      />
+      <ActivityLogList items={record.activityLog} />
 
       <DetailList
         title="Grow Guide Visits"
@@ -587,7 +652,7 @@ function PersonDetails({ record, onProfileAction }) {
         renderItem={(device) => (
           <>
             <strong>
-              {device.role === "staff" ? "Staff/admin device" : "Customer device"}
+              {getDeviceRoleLabel(device)}
             </strong>
             <span>{String(device.deviceKey || "").slice(0, 18)}</span>
             <span>
@@ -619,7 +684,11 @@ function CustomerDetails({ record, onProfileAction }) {
 
       <DetailGroup title="Relationship">
         <InfoLine label="Interests" value={(record.interests || []).join(", ")} />
-        <InfoLine label="Orders" value={record.summary?.orderCount} />
+        <InfoLine
+          label="Orders"
+          value={record.summary?.orderCount}
+          href={makeOrdersDashboardHref(record)}
+        />
         <InfoLine label="Items" value={record.summary?.itemCount} />
         <InfoLine label="Amount spent/requested" value={spent} />
       </DetailGroup>
@@ -631,7 +700,7 @@ function CustomerDetails({ record, onProfileAction }) {
         renderItem={(device) => (
           <>
             <strong>
-              {device.role === "staff" ? "Staff/admin device" : "Customer device"}
+              {getDeviceRoleLabel(device)}
             </strong>
             <span>
               {String(device.deviceKey || "").slice(0, 18)}
@@ -732,9 +801,32 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   const [editingNoteId, setEditingNoteId] = useState("");
   const [editingNote, setEditingNote] = useState(emptyConversationNote);
   const [note, setNote] = useState(emptyConversationNote);
+  const [guideItemId, setGuideItemId] = useState("");
+  const [generatedGuideLink, setGeneratedGuideLink] = useState(null);
+  const [guideActionStatus, setGuideActionStatus] = useState("");
+  const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
   const profile = record.peopleProfile || {};
   const followUpStatus = profile.followUpStatus || {};
   const dotStyle = getFollowUpDotStyle(followUpStatus);
+  const growGuideItems = (record.customers || [])
+    .flatMap((customer) => customer.orders || [])
+    .flatMap((order) =>
+      (order.items || []).map((item) => ({
+        ...item,
+        orderCode: order.orderCode,
+      }))
+    )
+    .filter((item) => item.id && getGrowGuideLabelForOrderItem(item));
+  const selectedGuideItem =
+    growGuideItems.find((item) => item.id === guideItemId) || growGuideItems[0] || null;
+  const preparedGuideMessage =
+    generatedGuideLink && selectedGuideItem
+      ? buildPeopleGrowGuideMessage({
+          record,
+          item: selectedGuideItem,
+          link: generatedGuideLink,
+        })
+      : "";
 
   function updateNoteField(key, value) {
     setNote((current) => ({ ...current, [key]: value }));
@@ -801,6 +893,52 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   function startConversationEdit(conversation) {
     setEditingNoteId(conversation.id);
     setEditingNote(makeConversationDraft(conversation));
+  }
+
+  async function generateGrowGuideLink() {
+    if (!selectedGuideItem?.id || isGeneratingGuide) return;
+
+    setIsGeneratingGuide(true);
+    setGuideActionStatus("Generating tracked grow guide link...");
+
+    try {
+      const response = await fetch("/api/dashboard/grow-guide-links", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fulfillmentItemId: selectedGuideItem.id }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload?.link?.linkUrl) {
+        setGuideActionStatus(payload?.error || "Grow guide link could not be generated.");
+        return;
+      }
+
+      setGeneratedGuideLink(payload.link);
+      setGuideActionStatus("Tracked grow guide link generated.");
+    } finally {
+      setTimeout(() => setIsGeneratingGuide(false), 500);
+    }
+  }
+
+  async function recordGuideConversation(sentBy) {
+    if (!generatedGuideLink?.linkUrl || !selectedGuideItem) return;
+
+    await onProfileAction(record, {
+      action: "add-conversation-note",
+      note: {
+        ...emptyConversationNote,
+        summary: `Sent ${getGrowGuideLabelForOrderItem(selectedGuideItem)} for ${getRequestedItemLabel(selectedGuideItem)}.`,
+        immediateNextStep: "Follow up to see whether the customer opened and used the grow guide.",
+        nextQuestions: "Ask what happened after they followed the guide and what they need next.",
+        additionalNotes: [
+          `Message channel: ${sentBy}`,
+          `Order: ${selectedGuideItem.orderCode || "Not recorded"}`,
+          `Guide link: ${generatedGuideLink.linkUrl}`,
+        ].join("\n"),
+      },
+    });
   }
 
   return (
@@ -1077,6 +1215,99 @@ function PeopleCrmPanel({ record, onProfileAction }) {
         </button>
       )}
 
+      <section style={styles.growGuideConversationPanel}>
+        <div>
+          <strong>Send grow guide link</strong>
+          <p style={styles.crmSubtext}>
+            Use this for customer-care guide messages. Receipts and order updates stay under Orders.
+          </p>
+        </div>
+        {growGuideItems.length ? (
+          <>
+            <label style={styles.inlineLabel}>
+              Purchased item guide
+              <select
+                value={selectedGuideItem?.id || ""}
+                onChange={(event) => {
+                  setGuideItemId(event.target.value);
+                  setGeneratedGuideLink(null);
+                  setGuideActionStatus("");
+                }}
+                style={styles.select}
+              >
+                {growGuideItems.map((item) => (
+                  <option key={`${item.orderCode}-${item.id}`} value={item.id}>
+                    {getGrowGuideLabelForOrderItem(item)} -{" "}
+                    {getRequestedItemLabel(item)} - {item.orderCode}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={styles.formButtonRow}>
+              <button
+                type="button"
+                style={styles.secondarySmallButton}
+                disabled={isGeneratingGuide || !selectedGuideItem}
+                onClick={generateGrowGuideLink}
+              >
+                {isGeneratingGuide ? "Generating..." : "Generate tracked link"}
+              </button>
+              {generatedGuideLink?.linkUrl ? (
+                <a
+                  href={generatedGuideLink.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={styles.inlineDetailLink}
+                >
+                  Open guide
+                </a>
+              ) : null}
+            </div>
+            {generatedGuideLink?.linkUrl ? (
+              <div style={styles.generatedGuideBox}>
+                <span style={styles.breakText}>{generatedGuideLink.linkUrl}</span>
+                <div style={styles.formButtonRow}>
+                  {record.contact?.phone ? (
+                    <button
+                      type="button"
+                      style={styles.primarySmallButton}
+                      onClick={async () => {
+                        openWhatsAppMessage(record.contact.phone, preparedGuideMessage);
+                        await recordGuideConversation("WhatsApp");
+                      }}
+                    >
+                      Send WhatsApp guide
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    style={styles.secondarySmallButton}
+                    onClick={async () => {
+                      const copied = await copyTextToClipboard(preparedGuideMessage);
+                      if (copied) await recordGuideConversation("copy");
+                      setGuideActionStatus(
+                        copied
+                          ? "Grow guide message copied and conversation block added."
+                          : "Grow guide message could not be copied."
+                      );
+                    }}
+                  >
+                    Copy guide message
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {guideActionStatus ? (
+              <p style={styles.crmSubtext}>{guideActionStatus}</p>
+            ) : null}
+          </>
+        ) : (
+          <p style={styles.emptyText}>
+            No purchased items with connected grow guides are bundled to this person yet.
+          </p>
+        )}
+      </section>
+
       <DetailList
         title="Conversation Timeline"
         items={record.conversationNotes}
@@ -1281,11 +1512,137 @@ function DetailGroup({ title, children }) {
   );
 }
 
-function DetailList({ title, items, empty, renderItem }) {
+function CollapsibleDetailGroup({ title, children, defaultOpen = false }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
   return (
     <section style={styles.detailGroup}>
-      <h3 style={styles.detailHeading}>{title}</h3>
-      {items?.length ? (
+      <button
+        type="button"
+        style={styles.collapsibleHeadingButton}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <span>{title}</span>
+        <span style={styles.expandText}>{isOpen ? "Close" : "Open"}</span>
+      </button>
+      {isOpen ? children : null}
+    </section>
+  );
+}
+
+function SourceRecordsSummary({ items = [] }) {
+  if (!items?.length) return null;
+
+  return (
+    <div style={styles.sourceRecordsInlineList}>
+      {items.map((source, index) => (
+        <p
+          key={source.id || `${source.kind || "source"}-${index}`}
+          style={styles.sourceRecordLine}
+        >
+          <strong>{source.label || source.kind || "Source"}</strong>
+          <span>{formatDate(source.createdAt)}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function ActivityLogList({ items = [] }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [expandedActivityId, setExpandedActivityId] = useState("");
+
+  return (
+    <section style={styles.detailGroup}>
+      <button
+        type="button"
+        style={styles.collapsibleHeadingButton}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <span>Activity Log</span>
+        <span style={styles.expandText}>{isOpen ? "Close" : "Open"}</span>
+      </button>
+      {isOpen && items?.length ? (
+        <div style={styles.miniList}>
+          {items.map((activity, index) => {
+            const details = Array.isArray(activity.details) ? activity.details : [];
+            const activityId =
+              activity.id ||
+              `${activity.type || "activity"}-${activity.createdAt || index}-${index}`;
+            const isExpanded = expandedActivityId === activityId;
+
+            return (
+              <div key={activityId} style={styles.miniItem}>
+                <div style={styles.activityHeaderRow}>
+                  <div style={styles.activitySummary}>
+                    <strong>{activity.label}</strong>
+                    {activity.detail ? <span>{activity.detail}</span> : null}
+                    <span>{formatDate(activity.createdAt)}</span>
+                  </div>
+                  {details.length ? (
+                    <button
+                      type="button"
+                      style={styles.textButton}
+                      onClick={() =>
+                        setExpandedActivityId(isExpanded ? "" : activityId)
+                      }
+                    >
+                      {isExpanded ? "Hide visits" : "View visits"}
+                    </button>
+                  ) : null}
+                </div>
+                {isExpanded ? (
+                  <div style={styles.activityDetailPanel}>
+                    {details.map((detail, detailIndex) => (
+                      <div
+                        key={detail.id || `${activityId}-${detailIndex}`}
+                        style={styles.activityDetailRow}
+                      >
+                        <strong>{detail.label || "Page visit"}</strong>
+                        {detail.detail ? <span>{detail.detail}</span> : null}
+                        <span>{formatDate(detail.createdAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : isOpen ? (
+        <p style={styles.emptyText}>No activity saved yet.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function DetailList({ title, items, empty, renderItem }) {
+  const isCollapsible = title === "Devices" || title === "Conversation Timeline";
+  const [isOpen, setIsOpen] = useState(!isCollapsible);
+
+  if (
+    title === "Grow Guide Visits" ||
+    title === "Little Orchard Orders" ||
+    title === "Source Records"
+  ) {
+    return null;
+  }
+
+  return (
+    <section style={styles.detailGroup}>
+      {isCollapsible ? (
+        <button
+          type="button"
+          style={styles.collapsibleHeadingButton}
+          onClick={() => setIsOpen((current) => !current)}
+        >
+          <span>{title}</span>
+          <span style={styles.expandText}>{isOpen ? "Close" : "Open"}</span>
+        </button>
+      ) : (
+        <h3 style={styles.detailHeading}>{title}</h3>
+      )}
+      {isOpen && items?.length ? (
         <div style={styles.miniList}>
           {items.map((item, index) => (
             <div key={item.id || item.itemKey || item.orderCode || index} style={styles.miniItem}>
@@ -1293,18 +1650,53 @@ function DetailList({ title, items, empty, renderItem }) {
             </div>
           ))}
         </div>
-      ) : (
+      ) : isOpen ? (
         <p style={styles.emptyText}>{empty}</p>
-      )}
+      ) : null}
     </section>
   );
 }
 
-function InfoLine({ label, value }) {
+function makeOrdersDashboardHref(record) {
+  const query = getOrdersDashboardQuery(record);
+  return `/dashboard/orders${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+}
+
+function getOrdersDashboardQuery(record) {
+  const contact = record?.contact || {};
+  const firstOrder = [
+    ...(record?.orders || []),
+    ...(record?.customers || []).flatMap((customer) => customer.orders || []),
+  ].find(Boolean);
+
+  return (
+    contact.phone ||
+    contact.email ||
+    contact.name ||
+    firstOrder?.orderCode ||
+    ""
+  );
+}
+
+function getDeviceRoleLabel(device) {
+  if (device?.role === "staff") return "Staff/admin device";
+  if (device?.role === "grow-guide") return "Grow guide device";
+  return "Customer device";
+}
+
+function InfoLine({ label, value, href }) {
+  const displayValue = value || "Not recorded";
+
   return (
     <p style={styles.infoLine}>
       <span style={styles.infoLabel}>{label}</span>
-      <span style={styles.infoValue}>{value || "Not recorded"}</span>
+      {href ? (
+        <a href={href} style={{ ...styles.infoValue, ...styles.inlineDetailLink }}>
+          {displayValue}
+        </a>
+      ) : (
+        <span style={styles.infoValue}>{displayValue}</span>
+      )}
     </p>
   );
 }
@@ -1460,6 +1852,22 @@ const styles = {
     fontSize: "14px",
     margin: "0 0 10px",
   },
+  collapsibleHeadingButton: {
+    alignItems: "center",
+    background: "transparent",
+    border: 0,
+    color: "#28231F",
+    cursor: "pointer",
+    display: "flex",
+    font: "inherit",
+    fontSize: "14px",
+    fontWeight: 900,
+    justifyContent: "space-between",
+    margin: "0 0 10px",
+    padding: 0,
+    textAlign: "left",
+    width: "100%",
+  },
   crmPanel: {
     background: "#fffdfa",
     border: "1px solid rgba(47, 116, 64, 0.22)",
@@ -1571,6 +1979,26 @@ const styles = {
     gap: "8px",
     flexWrap: "wrap",
   },
+  growGuideConversationPanel: {
+    background: "#eef5ee",
+    border: "1px solid rgba(47, 116, 64, 0.18)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    padding: "12px",
+  },
+  generatedGuideBox: {
+    background: "#fffdfa",
+    border: "1px solid rgba(32, 28, 29, 0.1)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    padding: "10px",
+  },
+  breakText: {
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
   primarySmallButton: {
     background: "#2f7440",
     border: "1px solid #2f7440",
@@ -1681,6 +2109,22 @@ const styles = {
     gap: "10px",
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   },
+  sourceRecordsInlineList: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.08)",
+    display: "grid",
+    gap: "6px",
+    marginTop: "8px",
+    paddingTop: "8px",
+  },
+  sourceRecordLine: {
+    alignItems: "baseline",
+    color: "#6b625c",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    justifyContent: "space-between",
+    margin: 0,
+  },
   infoLine: {
     borderTop: "1px solid rgba(32, 28, 29, 0.08)",
     display: "grid",
@@ -1707,6 +2151,38 @@ const styles = {
     gap: "4px",
     paddingTop: "8px",
     overflowWrap: "anywhere",
+  },
+  activityHeaderRow: {
+    alignItems: "start",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px",
+    justifyContent: "space-between",
+  },
+  activitySummary: {
+    display: "grid",
+    gap: "4px",
+    minWidth: 0,
+  },
+  activityDetailPanel: {
+    background: "#fbf7f1",
+    border: "1px solid rgba(32, 28, 29, 0.08)",
+    borderRadius: "7px",
+    display: "grid",
+    gap: "8px",
+    marginTop: "8px",
+    padding: "10px",
+  },
+  activityDetailRow: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.08)",
+    display: "grid",
+    gap: "3px",
+    paddingTop: "8px",
+  },
+  inlineDetailLink: {
+    color: "#2f7440",
+    fontWeight: 900,
+    textDecoration: "underline",
   },
   emptyText: {
     color: "#6b625c",
