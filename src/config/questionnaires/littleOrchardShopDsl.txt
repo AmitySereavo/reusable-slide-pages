@@ -19,11 +19,11 @@
 @back: Back
 @next: Continue
 ---
-[c3] Select items by opening details, then tap Add to cart.
+[c3] • Tap see details to view item options,
+[c3] • Tap Add to cart.
 BR
-[c3] Adjust quantity with the plus and minus buttons.
-BR
-[c3] When you are done, click Continue to process your order.
+[c3] • The plus and minus buttons Adjust the quantity.
+[c3] • Tap Continue to process your order.
 
 ===
 

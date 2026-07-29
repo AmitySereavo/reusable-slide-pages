@@ -12187,9 +12187,8 @@ function ShopSlideRenderer({
 
       {slideMode === "browse" && shopCategoryOptions.length > 1 ? (
         <div className={styles.shopCategoryPanel}>
-          <label className={styles.shopCategorySelectLabel}>
-            <strong>Shop by category</strong>
-            <span>Select a category, or view all products.</span>
+          <strong className={styles.shopCategoryTitle}>Shop by category</strong>
+          <div className={styles.shopCategorySelectShell}>
             <select
               className={styles.shopCategorySelect}
               value={selectedShopCategory}
@@ -12202,7 +12201,7 @@ function ShopSlideRenderer({
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
       ) : null}
 

@@ -2039,6 +2039,10 @@
   color: var(--lo-text);
 }
 
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .slideBody {
+  text-align: left;
+}
+
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCurrencyRow {
   color: var(--lo-muted);
 }
@@ -2623,47 +2627,70 @@
 
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel {
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
   border: 1px solid rgba(216, 199, 163, 0.92);
   border-radius: 8px;
-  background: rgba(255, 253, 247, 0.96);
+  background: linear-gradient(180deg, #fffdf8 0%, #fbf7ef 100%);
   color: #241c1d;
 }
 
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelectLabel {
-  display: grid;
-  gap: 5px;
-}
-
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel strong {
-  font-size: 0.9rem;
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryTitle {
+  color: var(--lo-green);
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 900;
   line-height: 1.25;
 }
 
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel span {
-  margin-top: 3px;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  opacity: 0.72;
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelectShell {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelectShell::after {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--lo-green);
+  border-bottom: 2px solid var(--lo-green);
+  content: "";
+  pointer-events: none;
+  transform: translateY(-65%) rotate(45deg);
 }
 
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelect {
+  display: block;
   width: 100%;
-  min-height: 46px;
-  padding: 10px 12px;
-  border: 1px solid rgba(216, 199, 163, 0.95);
+  min-height: 54px;
+  box-sizing: border-box;
+  padding: 13px 48px 13px 16px;
+  border: 1px solid rgba(200, 168, 90, 0.82);
   border-radius: 8px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #fff8ea 100%);
   color: #241c1d;
+  appearance: none;
+  -moz-appearance: none;
+  -webkit-appearance: none;
   font: inherit;
+  font-size: 1rem;
   font-weight: 800;
   outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 8px 22px rgba(36, 28, 29, 0.08);
 }
 
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelect:focus {
   border-color: #2f6f3e;
-  box-shadow: 0 0 0 3px rgba(47, 111, 62, 0.12);
+  box-shadow:
+    0 0 0 3px rgba(47, 111, 62, 0.12),
+    0 6px 18px rgba(36, 28, 29, 0.06);
 }
 
 .adminShopModePanel strong,
