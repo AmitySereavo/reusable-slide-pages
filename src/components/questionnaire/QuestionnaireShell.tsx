@@ -7786,6 +7786,46 @@ async function handleNext() {
                                     ))}
                                   </select>
                                 </label>
+                                {isAdminUser ? (
+                                  <div className={styles.adminShopModePanel}>
+                                    <div>
+                                      <strong>Admin shop mode</strong>
+                                      <span>
+                                        Customer mode shows the true storefront.
+                                        Assist customer creates an order for the
+                                        shopper. Edit shop shows live stock tools.
+                                      </span>
+                                    </div>
+                                    <div className={styles.adminShopModeOptions}>
+                                      {[
+                                        ["customer", "Customer"],
+                                        ["assist", "Assist"],
+                                        ["edit", "Edit"],
+                                      ].map(([mode, label]) => (
+                                        <label
+                                          key={mode}
+                                          className={styles.adminShopModeOption}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name="account-menu-admin-shop-mode"
+                                            value={mode}
+                                            checked={
+                                              String(
+                                                answers.plantShopAdminMode ??
+                                                  "customer"
+                                              ) === mode
+                                            }
+                                            onChange={() =>
+                                              setAnswer("plantShopAdminMode", mode)
+                                            }
+                                          />
+                                          <span>{label}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
                                 <button
                                   type="button"
                                   className={styles.accountMenuItem}
@@ -12065,7 +12105,12 @@ function ShopSlideRenderer({
   }, [products]);
 
   if (!catalog?.products.length) {
-    return <p className={styles.body}>No shop items available yet.</p>;
+    return (
+      <div className={styles.body}>
+        <p>No shop items are showing right now.</p>
+        <p>Try refreshing the page.</p>
+      </div>
+    );
   }
 
   if (slideMode === "review" && activeReviewLines.length === 0) {
@@ -12140,77 +12185,24 @@ function ShopSlideRenderer({
         </div>
       ) : null}
 
-      {isAdminUser && slideMode === "browse" ? (
-        <div className={styles.adminShopModePanel}>
-          <div>
-            <strong>Shop mode</strong>
-            <span>
-              Customer mode is what shoppers see. Assist customer creates the
-              order and opens the dashboard record. Edit shop shows live stock
-              tools.
-            </span>
-          </div>
-          <div className={styles.adminShopModeOptions}>
-            {[
-              ["customer", "Customer"],
-              ["assist", "Assist customer"],
-              ["edit", "Edit shop"],
-            ].map(([mode, label]) => (
-              <label key={mode} className={styles.adminShopModeOption}>
-                <input
-                  type="radio"
-                  name={`${slideId}-admin-shop-mode`}
-                  value={mode}
-                  checked={resolvedAdminShopMode === mode}
-                  onChange={() => onSetAdminShopMode?.(mode)}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-          {isAdminEditShopMode ? (
-            <div className={styles.adminShopEditNotice}>
-              Inventory edits save to the database immediately. Category,
-              product, option, and image editing are the next pieces for the
-              live storefront editor.
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {slideMode === "browse" && shopCategoryOptions.length > 1 ? (
         <div className={styles.shopCategoryPanel}>
-          <div>
+          <label className={styles.shopCategorySelectLabel}>
             <strong>Shop by category</strong>
             <span>Select a category, or view all products.</span>
-          </div>
-          <div className={styles.shopCategoryOptions}>
-            <button
-              type="button"
-              className={
-                selectedShopCategory === "all"
-                  ? `${styles.shopCategoryButton} ${styles.shopCategoryButtonActive}`
-                  : styles.shopCategoryButton
-              }
-              onClick={() => setSelectedShopCategory("all")}
+            <select
+              className={styles.shopCategorySelect}
+              value={selectedShopCategory}
+              onChange={(event) => setSelectedShopCategory(event.target.value)}
             >
-              View all products
-            </button>
-            {shopCategoryOptions.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={
-                  selectedShopCategory === category
-                    ? `${styles.shopCategoryButton} ${styles.shopCategoryButtonActive}`
-                    : styles.shopCategoryButton
-                }
-                onClick={() => setSelectedShopCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
+              <option value="all">View all products</option>
+              {shopCategoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       ) : null}
 

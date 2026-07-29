@@ -2623,17 +2623,17 @@
 
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel {
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 14px;
   border: 1px solid rgba(216, 199, 163, 0.92);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 253, 247, 0.96);
   color: #241c1d;
 }
 
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel strong,
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel span {
-  display: block;
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelectLabel {
+  display: grid;
+  gap: 5px;
 }
 
 .questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryPanel strong {
@@ -2648,28 +2648,22 @@
   opacity: 0.72;
 }
 
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryOptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryButton {
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid rgba(36, 28, 29, 0.14);
-  border-radius: 999px;
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelect {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(216, 199, 163, 0.95);
+  border-radius: 8px;
   background: #ffffff;
   color: #241c1d;
-  cursor: pointer;
   font: inherit;
   font-weight: 800;
+  outline: none;
 }
 
-.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategoryButtonActive {
+.questionnaire[data-questionnaire-slug="little-orchard-shop"] .shopCategorySelect:focus {
   border-color: #2f6f3e;
-  background: #2f6f3e;
-  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(47, 111, 62, 0.12);
 }
 
 .adminShopModePanel strong,
