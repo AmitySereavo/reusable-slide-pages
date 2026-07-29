@@ -71,6 +71,19 @@ export async function getUnifiedInventoryItems(db: Database) {
   `;
 }
 
+const littleOrchardCategorySortOrder = new Map([
+  ["Fruit Trees", 10],
+  ["Herbs and Seasoning Plants", 20],
+  ["Herbs", 30],
+  ["Leafy Vegetables", 40],
+  ["Seedlings", 50],
+  ["Fruiting Vegetables", 60],
+  ["Vegetable Plants", 70],
+  ["Root, Vine and Perennial Crops", 80],
+  ["Ornamental Plants", 90],
+  ["Apparel", 100],
+]);
+
 export async function upsertUnifiedInventoryItem(
   db: Database,
   input: UnifiedInventoryInput
@@ -150,12 +163,73 @@ export async function upsertUnifiedInventoryItem(
   `;
 }
 
+export async function updateUnifiedInventoryShopOrder(
+  db: Database,
+  shopKey: string,
+  orderedIds: string[]
+) {
+  await ensureUnifiedInventoryTable(db);
+
+  const normalizedShopKey = String(shopKey || "").trim();
+
+  if (!normalizedShopKey || !orderedIds.length) {
+    return;
+  }
+
+  const items = await db.$queryRaw<any[]>`
+    SELECT "id", "shopListings"
+    FROM "UnifiedInventoryItem"
+    WHERE "id" = ANY(${orderedIds})
+  `;
+  const orderIndex = new Map(
+    orderedIds.map((id, index) => [id, index])
+  );
+
+  for (const item of items) {
+    const sortOrder = orderIndex.get(item.id);
+
+    if (sortOrder === undefined) {
+      continue;
+    }
+
+    const currentListings: Record<string, any>[] = Array.isArray(
+      item.shopListings
+    )
+      ? item.shopListings
+      : [];
+    const nextListings = currentListings.map((listing) => {
+      if (
+        listing &&
+        typeof listing === "object" &&
+        listing.shopKey === normalizedShopKey
+      ) {
+        return {
+          ...listing,
+          sortOrder,
+        };
+      }
+
+      return listing;
+    });
+
+    await db.$executeRaw`
+      UPDATE "UnifiedInventoryItem"
+      SET
+        "shopListings" = CAST(${JSON.stringify(nextListings)} AS jsonb),
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${item.id}
+    `;
+  }
+}
+
 export async function syncLittleOrchardCatalogToUnifiedInventory(db: Database) {
   await ensureUnifiedInventoryTable(db);
 
-  for (const product of littleOrchardShopCatalog.products) {
+  for (const [index, product] of littleOrchardShopCatalog.products.entries()) {
     const metadata = normalizeObject(product.metadata);
     const category = String(metadata.category || "Uncategorized");
+    const categorySortOrder =
+      littleOrchardCategorySortOrder.get(category) ?? 999;
     const options = product.sizeOptions.map((option) => {
       const optionMetadata = normalizeObject(option.metadata);
 
@@ -199,8 +273,9 @@ export async function syncLittleOrchardCatalogToUnifiedInventory(db: Database) {
           shopLabel: "Little Orchard Shop",
           categoryKey: sanitizeSlug(category),
           categoryLabel: category,
+          categorySortOrder,
           active: true,
-          sortOrder: 0,
+          sortOrder: index,
         },
       ],
       options,
@@ -210,6 +285,152 @@ export async function syncLittleOrchardCatalogToUnifiedInventory(db: Database) {
         sourceProductId: product.id,
       },
     });
+  }
+}
+
+const nurseryPriceListItems = [
+  {
+    category: "Herbs",
+    products: [
+      ["Scallion (Green Onion)", 50, 400, 800],
+      ["Thyme", 100, 500, 1000],
+      ["Italian Basil", 75, 450, 900],
+      ["Genovese Basil", 75, 450, 900],
+      ["Dill", 75, 450, 900],
+      ["Parsley", 75, 450, 900],
+      ["Cilantro", 75, 450, 900],
+      ["Culantro", 100, 500, 900],
+      ["Rosemary", 100, 500, 1000],
+      ["Lemongrass", 100, 500, 900],
+      ["Spearmint", 100, 500, 900],
+      ["Peppermint", 100, 500, 900],
+      ["Lemon Balm", 100, 500, 900],
+    ],
+    headers: ["Starter Seedling", "Garden-Ready", "Harvest-Ready"],
+  },
+  {
+    category: "Leafy Vegetables",
+    products: [
+      ["Lettuce", 50, 250, null],
+      ["Pak Choi", 50, 250, null],
+      ["Callaloo", 50, 250, null],
+      ["Spinach", 50, 250, null],
+      ["Cabbage", 50, 250, null],
+    ],
+    headers: ["Starter Seedling", "Garden-Ready", "Harvest-Ready"],
+  },
+  {
+    category: "Fruiting Vegetables",
+    products: [
+      ["Sweet Pepper", 50, 350, 700],
+      ["Purple Sweet Pepper", 60, 420, 840],
+      ["Scotch Bonnet Pepper", 50, 350, 700],
+      ["Eggplant", 50, 350, 700],
+      ["Okra", 50, 350, 700],
+      ["Cucumber", 50, 350, 700],
+      ["String Beans", 40, 200, 400],
+    ],
+    headers: ["Starter Seedling", "Garden-Ready", "Harvest-Ready"],
+  },
+  {
+    category: "Root, Vine and Perennial Crops",
+    products: [
+      ["Sweet Potato Slips", 30, null, null],
+      ["Passion Fruit", 150, 700, 1500],
+      ["Moringa", 150, 700, 1500],
+      ["Black Pepper (4-inch pot)", null, 500, 900],
+      ["Banana Sucker", null, 600, 1200],
+      ["Plantain Sucker", null, 600, 1200],
+    ],
+    headers: ["Plant Starter", "Garden-Ready", "Harvest-Ready"],
+  },
+] as const;
+
+export async function syncNurseryPriceListToUnifiedInventory(db: Database) {
+  await ensureUnifiedInventoryTable(db);
+
+  for (const [categoryIndex, categoryGroup] of nurseryPriceListItems.entries()) {
+    for (const [productIndex, productRow] of categoryGroup.products.entries()) {
+      const [title, starterPrice, gardenReadyPrice, harvestReadyPrice] =
+        productRow;
+      const prices = [starterPrice, gardenReadyPrice, harvestReadyPrice];
+      const productSlug = sanitizeSlug(title);
+      const options = prices
+        .map((price, index) => {
+          if (price === null) {
+            return null;
+          }
+
+          const label = categoryGroup.headers[index];
+          const isStarterSeedling = label === "Starter Seedling";
+          const quantity = isStarterSeedling ? 1000 : 100;
+
+          return {
+            id: sanitizeSlug(label),
+            sku: `LO-${productSlug}-${sanitizeSlug(label)}`.toUpperCase(),
+            label,
+            description:
+              label === "Starter Seedling"
+                ? "Young and ready to transplant."
+                : label === "Garden-Ready"
+                ? "Established and hardened off."
+                : "Mature or close to producing, depending on the crop.",
+            price,
+            weight: 0.8,
+            quantityOnHand: quantity,
+            quantityReserved: 0,
+            quantityAvailable: quantity,
+            metadata: {
+              stage: label,
+              source: "nursery-price-list",
+            },
+          };
+        })
+        .filter(Boolean);
+      const totalQuantity = options.reduce(
+        (sum, option: any) => sum + toInt(option.quantityAvailable),
+        0
+      );
+      const categoryTags = splitCategoryTags(categoryGroup.category);
+      const primaryCategory = categoryTags[0] || "Uncategorized";
+      const categorySortOrder =
+        littleOrchardCategorySortOrder.get(categoryGroup.category) ??
+        littleOrchardCategorySortOrder.get(primaryCategory) ??
+        200 + categoryIndex;
+
+      await upsertUnifiedInventoryItem(db, {
+        id: `inventory-${productSlug}`,
+        sku: `LO-${productSlug}`.toUpperCase(),
+        slug: productSlug,
+        title,
+        description: `${primaryCategory}. Prices are in Jamaican dollars and based on growth stage and establishment.`,
+        detailsDescription: `${primaryCategory}. Starter Seedling: young and ready to transplant. Garden-Ready: established and hardened off. Harvest-Ready: mature or close to producing, depending on the crop.`,
+        fulfillmentType: "physical",
+        active: true,
+        quantityOnHand: totalQuantity,
+        quantityReserved: 0,
+        quantityAvailable: totalQuantity,
+        shopTags: ["little-orchard-shop"],
+        categoryTags,
+        shopListings: [
+          {
+            shopKey: "little-orchard-shop",
+            shopLabel: "Little Orchard Shop",
+            categoryKey: sanitizeSlug(primaryCategory),
+            categoryLabel: primaryCategory,
+            categorySortOrder,
+            active: true,
+            sortOrder: categorySortOrder * 1000 + productIndex,
+          },
+        ],
+        options: options as any[],
+        metadata: {
+          source: "nursery-price-list",
+          priceList: "Nursery price list",
+          category: primaryCategory,
+        },
+      });
+    }
   }
 }
 
@@ -230,6 +451,28 @@ function sanitizeSlug(value: unknown) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function splitCategoryTags(value: unknown) {
+  const seen = new Set<string>();
+
+  return String(value ?? "")
+    .split(",")
+    .flatMap((part) => part.split(/\s+|&|\/|\+/))
+    .map((tag) => tag.replace(/[^a-z0-9-]/gi, "").trim())
+    .filter((tag) => !["and", "or", "the", "for"].includes(tag.toLowerCase()))
+    .filter(Boolean)
+    .map((tag) => tag.slice(0, 1).toUpperCase() + tag.slice(1).toLowerCase())
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
 }
 
 function toInt(value: unknown) {

@@ -645,6 +645,20 @@ function getVisiblePurchaseModes(
   );
 }
 
+function getShopProductCategory(product: ShopCatalogProduct) {
+  const metadata = product.metadata;
+
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const category = String(metadata.category ?? "").trim();
+
+    if (category) {
+      return category;
+    }
+  }
+
+  return "Uncategorized";
+}
+
 const COMMERCE_WORKSPACE_SLIDE_IDS = new Set([
   "invitation-shop",
   "music-merch-shop",
@@ -11718,6 +11732,7 @@ function ShopSlideRenderer({
   const [adminQuantityMessages, setAdminQuantityMessages] = useState<
     Record<string, string>
   >({});
+  const [selectedShopCategory, setSelectedShopCategory] = useState("all");
   const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const shopSessionKeyRef = useRef("");
   const reviewCartLines = useMemo(
@@ -11949,6 +11964,43 @@ function ShopSlideRenderer({
         : catalog?.products ?? [],
     [catalog, displayReviewLines, slideMode]
   );
+  const shopCategoryOptions = useMemo(() => {
+    const categories = new Set<string>();
+
+    for (const product of catalog?.products ?? []) {
+      const category = getShopProductCategory(product);
+
+      if (category) {
+        categories.add(category);
+      }
+    }
+
+    return Array.from(categories).sort((first, second) => {
+      const firstProduct = (catalog?.products ?? []).find(
+        (product) => getShopProductCategory(product) === first
+      );
+      const secondProduct = (catalog?.products ?? []).find(
+        (product) => getShopProductCategory(product) === second
+      );
+      const firstOrder = Number(
+        firstProduct?.metadata?.shopCategorySortOrder ?? 999
+      );
+      const secondOrder = Number(
+        secondProduct?.metadata?.shopCategorySortOrder ?? 999
+      );
+
+      return firstOrder - secondOrder || first.localeCompare(second);
+    });
+  }, [catalog]);
+  const displayProducts = useMemo(() => {
+    if (slideMode !== "browse" || selectedShopCategory === "all") {
+      return products;
+    }
+
+    return products.filter(
+      (product) => getShopProductCategory(product) === selectedShopCategory
+    );
+  }, [products, selectedShopCategory, slideMode]);
 
   useEffect(() => {
     const needsVerifiedRecipients = products.some(
@@ -12051,11 +12103,11 @@ function ShopSlideRenderer({
 
   const sortedProducts =
     slideMode === "review"
-      ? [...products].sort(
+      ? [...displayProducts].sort(
           (first, second) =>
             productSectionRank(first.id) - productSectionRank(second.id)
         )
-      : products;
+      : displayProducts;
   const renderedReviewSections = new Set<number>();
 
   return (
@@ -12123,6 +12175,42 @@ function ShopSlideRenderer({
               live storefront editor.
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {slideMode === "browse" && shopCategoryOptions.length > 1 ? (
+        <div className={styles.shopCategoryPanel}>
+          <div>
+            <strong>Shop by category</strong>
+            <span>Select a category, or view all products.</span>
+          </div>
+          <div className={styles.shopCategoryOptions}>
+            <button
+              type="button"
+              className={
+                selectedShopCategory === "all"
+                  ? `${styles.shopCategoryButton} ${styles.shopCategoryButtonActive}`
+                  : styles.shopCategoryButton
+              }
+              onClick={() => setSelectedShopCategory("all")}
+            >
+              View all products
+            </button>
+            {shopCategoryOptions.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={
+                  selectedShopCategory === category
+                    ? `${styles.shopCategoryButton} ${styles.shopCategoryButtonActive}`
+                    : styles.shopCategoryButton
+                }
+                onClick={() => setSelectedShopCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 

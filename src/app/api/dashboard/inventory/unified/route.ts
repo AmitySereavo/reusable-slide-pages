@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import {
   getUnifiedInventoryItems,
+  syncNurseryPriceListToUnifiedInventory,
   syncLittleOrchardCatalogToUnifiedInventory,
+  updateUnifiedInventoryShopOrder,
   upsertUnifiedInventoryItem,
 } from "@/lib/inventory/unifiedInventory";
 
@@ -24,6 +26,13 @@ export async function POST(request: Request) {
 
   if (body?.action === "sync-little-orchard-config") {
     await syncLittleOrchardCatalogToUnifiedInventory(prisma as any);
+    const items = await getUnifiedInventoryItems(prisma as any);
+
+    return NextResponse.json({ ok: true, items });
+  }
+
+  if (body?.action === "sync-nursery-price-list") {
+    await syncNurseryPriceListToUnifiedInventory(prisma as any);
     const items = await getUnifiedInventoryItems(prisma as any);
 
     return NextResponse.json({ ok: true, items });
@@ -63,6 +72,29 @@ export async function POST(request: Request) {
           : {},
     });
 
+    const items = await getUnifiedInventoryItems(prisma as any);
+
+    return NextResponse.json({ ok: true, items });
+  }
+
+  if (body?.action === "reorder-shop-items") {
+    const shopKey = String(body?.shopKey ?? "").trim();
+    const orderedIds = Array.isArray(body?.orderedIds)
+      ? body.orderedIds.map((id: unknown) => String(id)).filter(Boolean)
+      : [];
+
+    if (!shopKey || !orderedIds.length) {
+      return NextResponse.json(
+        { error: "Shop and ordered inventory ids are required." },
+        { status: 400 }
+      );
+    }
+
+    await updateUnifiedInventoryShopOrder(
+      prisma as any,
+      shopKey,
+      orderedIds
+    );
     const items = await getUnifiedInventoryItems(prisma as any);
 
     return NextResponse.json({ ok: true, items });

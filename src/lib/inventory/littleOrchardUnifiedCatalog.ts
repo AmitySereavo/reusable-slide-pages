@@ -29,28 +29,51 @@ export async function getLittleOrchardUnifiedShopCatalog(
 
   return {
     ...littleOrchardShopCatalog,
-    products: littleOrchardItems.map(inventoryItemToShopProduct),
+    products: littleOrchardItems
+      .map(inventoryItemToShopProduct)
+      .sort((first, second) => {
+        const firstMetadata = normalizeMetadata(first.metadata);
+        const secondMetadata = normalizeMetadata(second.metadata);
+        const firstCategorySort = Number(
+          firstMetadata.shopCategorySortOrder ?? 999
+        );
+        const secondCategorySort = Number(
+          secondMetadata.shopCategorySortOrder ?? 999
+        );
+        const firstSort = Number(firstMetadata.shopSortOrder ?? 999999);
+        const secondSort = Number(secondMetadata.shopSortOrder ?? 999999);
+
+        return (
+          firstCategorySort - secondCategorySort ||
+          firstSort - secondSort ||
+          first.title.localeCompare(second.title)
+        );
+      }),
   };
 }
 
 function isLittleOrchardInventoryItem(item: any) {
-  return normalizeArray(item.shopTags).includes(LITTLE_ORCHARD_SHOP_SLUG);
+  if (!normalizeArray(item.shopTags).includes(LITTLE_ORCHARD_SHOP_SLUG)) {
+    return false;
+  }
+
+  const listing = getShopListing(item, LITTLE_ORCHARD_SHOP_SLUG);
+
+  return item.active !== false && listing?.active !== false;
 }
 
 function inventoryItemToShopProduct(item: any): ShopCatalogProduct {
   const metadata = normalizeMetadata(item.metadata);
-  const shopListings = normalizeArray(item.shopListings);
   const littleOrchardListing =
-    shopListings.find(
-      (listing) =>
-        listing &&
-        typeof listing === "object" &&
-        listing.shopKey === LITTLE_ORCHARD_SHOP_SLUG
-    ) || {};
+    getShopListing(item, LITTLE_ORCHARD_SHOP_SLUG) || {};
   const category =
     littleOrchardListing.categoryLabel ||
     normalizeArray(item.categoryTags)[0] ||
     "Uncategorized";
+  const shopSortOrder = Number(littleOrchardListing.sortOrder ?? 999999);
+  const shopCategorySortOrder = Number(
+    littleOrchardListing.categorySortOrder ?? 999
+  );
   const productId = String(metadata.sourceProductId || item.slug || item.id);
   const sizeOptions = normalizeArray(item.options).map((option: any) => {
     const optionMetadata = normalizeMetadata(option.metadata);
@@ -105,6 +128,8 @@ function inventoryItemToShopProduct(item: any): ShopCatalogProduct {
       category,
       eventQuantityAvailable: Number(item.quantityAvailable || 0),
       unifiedInventoryItemId: item.id,
+      shopSortOrder,
+      shopCategorySortOrder,
     },
     sizeOptions,
   } as ShopCatalogProduct;
@@ -112,6 +137,17 @@ function inventoryItemToShopProduct(item: any): ShopCatalogProduct {
 
 function normalizeArray(value: unknown): any[] {
   return Array.isArray(value) ? value : [];
+}
+
+function getShopListing(item: any, shopKey: string) {
+  return (
+    normalizeArray(item.shopListings).find(
+      (listing) =>
+        listing &&
+        typeof listing === "object" &&
+        listing.shopKey === shopKey
+    ) || null
+  );
 }
 
 function normalizeMetadata(
