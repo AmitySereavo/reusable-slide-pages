@@ -84,7 +84,40 @@ export async function GET(request: Request) {
   if (guard.response) return guard.response;
 
   const url = new URL(request.url);
-  const catalogKey = normalizeCatalogKey(url.searchParams.get("catalogKey"));
+  const rawCatalogKey = url.searchParams.get("catalogKey");
+  const catalogKey =
+    rawCatalogKey === "all" ? "all" : normalizeCatalogKey(rawCatalogKey);
+
+  if (catalogKey === "all") {
+    const products = await prisma.reusableShopProduct.findMany({
+      orderBy: [
+        { title: "asc" },
+        { catalogKey: "asc" },
+      ],
+      include: {
+        sizeOptions: {
+          orderBy: [
+            { sortOrder: "asc" },
+            { createdAt: "asc" },
+          ],
+          include: {
+            purchaseModes: {
+              orderBy: [
+                { sortOrder: "asc" },
+                { createdAt: "asc" },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      catalogKey,
+      products,
+      stockAdjustments: [],
+    });
+  }
 
   const products = await prisma.reusableShopProduct.findMany({
     where: {
@@ -132,8 +165,20 @@ export async function POST(request: Request) {
   if (guard.response) return guard.response;
 
   const body = (await request.json().catch(() => null)) as
-    | InventoryProductInput
+    | (InventoryProductInput & {
+        action?: string;
+        sourceCatalogKey?: string;
+        targetCatalogKey?: string;
+      })
     | null;
+
+  if (body?.action === "add-to-catalog") {
+    return copyProductToCatalog(body);
+  }
+
+  if (body?.action === "remove-from-catalog") {
+    return removeProductFromCatalog(body);
+  }
 
   const catalogKey = normalizeCatalogKey(body?.catalogKey);
   const productId = sanitizeId(body?.productId || body?.slug || body?.title);
@@ -297,6 +342,212 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ ok: true, product });
+}
+
+async function copyProductToCatalog(
+  body: InventoryProductInput & {
+    sourceCatalogKey?: string;
+    targetCatalogKey?: string;
+  }
+) {
+  const sourceCatalogKey = normalizeCatalogKey(body.sourceCatalogKey);
+  const targetCatalogKey = normalizeCatalogKey(body.targetCatalogKey);
+  const productId = sanitizeId(body.productId);
+
+  if (!productId) {
+    return NextResponse.json(
+      { error: "Choose an inventory item first." },
+      { status: 400 }
+    );
+  }
+
+  if (sourceCatalogKey === targetCatalogKey) {
+    return NextResponse.json({ ok: true, skipped: true });
+  }
+
+  const sourceProduct = await prisma.reusableShopProduct.findUnique({
+    where: {
+      catalogKey_productId: {
+        catalogKey: sourceCatalogKey,
+        productId,
+      },
+    },
+    include: {
+      sizeOptions: {
+        orderBy: [
+          { sortOrder: "asc" },
+          { createdAt: "asc" },
+        ],
+        include: {
+          purchaseModes: {
+            orderBy: [
+              { sortOrder: "asc" },
+              { createdAt: "asc" },
+            ],
+          },
+        },
+      },
+    },
+  });
+
+  if (!sourceProduct) {
+    return NextResponse.json(
+      { error: "The source inventory item could not be found." },
+      { status: 404 }
+    );
+  }
+
+  const product = await prisma.$transaction(async (tx) => {
+    const savedProduct = await tx.reusableShopProduct.upsert({
+      where: {
+        catalogKey_productId: {
+          catalogKey: targetCatalogKey,
+          productId,
+        },
+      },
+      create: {
+        catalogKey: targetCatalogKey,
+        productId,
+        sku: sourceProduct.sku,
+        slug: sourceProduct.slug,
+        title: sourceProduct.title,
+        description: sourceProduct.description,
+        detailsDescription: sourceProduct.detailsDescription,
+        imageUrl: sourceProduct.imageUrl,
+        fulfillmentType: sourceProduct.fulfillmentType,
+        active: sourceProduct.active,
+        featured: sourceProduct.featured,
+        sortOrder: sourceProduct.sortOrder,
+        enableStoreCreditPurchase: sourceProduct.enableStoreCreditPurchase,
+        enablePurchaseForOthers: sourceProduct.enablePurchaseForOthers,
+        maxPurchaseForOthers: sourceProduct.maxPurchaseForOthers,
+        minOrderQuantity: sourceProduct.minOrderQuantity,
+        maxOrderQuantity: sourceProduct.maxOrderQuantity,
+        minRecipientQuantity: sourceProduct.minRecipientQuantity,
+        maxRecipientQuantity: sourceProduct.maxRecipientQuantity,
+        stockOnHand: sourceProduct.stockOnHand,
+        stockReserved: sourceProduct.stockReserved,
+        stockAvailable: sourceProduct.stockAvailable,
+        eventVenueLabel: sourceProduct.eventVenueLabel,
+        eventAddress: sourceProduct.eventAddress,
+        eventDateLabel: sourceProduct.eventDateLabel,
+        eventTimeLabel: sourceProduct.eventTimeLabel,
+        metadata: sourceProduct.metadata ?? Prisma.JsonNull,
+      },
+      update: {
+        active: true,
+        updatedAt: new Date(),
+      },
+    });
+
+    for (const [index, sourceOption] of sourceProduct.sizeOptions.entries()) {
+      const savedOption = await tx.reusableShopSizeOption.upsert({
+        where: {
+          productId_optionId: {
+            productId: savedProduct.id,
+            optionId: sourceOption.optionId,
+          },
+        },
+        create: {
+          productId: savedProduct.id,
+          optionId: sourceOption.optionId,
+          sku: sourceOption.sku,
+          label: sourceOption.label,
+          description: sourceOption.description,
+          active: sourceOption.active,
+          featured: sourceOption.featured,
+          sortOrder: index,
+          price: sourceOption.price,
+          weight: sourceOption.weight,
+          stockOnHand: sourceOption.stockOnHand,
+          stockReserved: sourceOption.stockReserved,
+          stockAvailable: sourceOption.stockAvailable,
+          mealSelection: sourceOption.mealSelection ?? Prisma.JsonNull,
+          metadata: sourceOption.metadata ?? Prisma.JsonNull,
+        },
+        update: {
+          sku: sourceOption.sku,
+          label: sourceOption.label,
+          description: sourceOption.description,
+          active: sourceOption.active,
+          featured: sourceOption.featured,
+          sortOrder: index,
+          price: sourceOption.price,
+          weight: sourceOption.weight,
+          stockOnHand: sourceOption.stockOnHand,
+          stockReserved: sourceOption.stockReserved,
+          stockAvailable: sourceOption.stockAvailable,
+          mealSelection: sourceOption.mealSelection ?? Prisma.JsonNull,
+          metadata: sourceOption.metadata ?? Prisma.JsonNull,
+        },
+      });
+
+      await tx.reusableShopPurchaseMode.deleteMany({
+        where: {
+          sizeOptionId: savedOption.id,
+        },
+      });
+
+      if (sourceOption.purchaseModes.length) {
+        await tx.reusableShopPurchaseMode.createMany({
+          data: sourceOption.purchaseModes.map((mode, modeIndex) => ({
+            sizeOptionId: savedOption.id,
+            modeId: mode.modeId,
+            sku: mode.sku,
+            label: mode.label,
+            description: mode.description,
+            active: mode.active,
+            featured: mode.featured,
+            sortOrder: modeIndex,
+            priceAdjustment: mode.priceAdjustment,
+            requiresPhysicalFulfillment: mode.requiresPhysicalFulfillment,
+            mealSelection: mode.mealSelection ?? Prisma.JsonNull,
+            metadata: mode.metadata ?? Prisma.JsonNull,
+          })),
+        });
+      }
+    }
+
+    return tx.reusableShopProduct.findUnique({
+      where: {
+        id: savedProduct.id,
+      },
+      include: {
+        sizeOptions: {
+          include: {
+            purchaseModes: true,
+          },
+        },
+      },
+    });
+  });
+
+  return NextResponse.json({ ok: true, product });
+}
+
+async function removeProductFromCatalog(
+  body: InventoryProductInput & {
+    targetCatalogKey?: string;
+  }
+) {
+  const targetCatalogKey = normalizeCatalogKey(body.targetCatalogKey);
+  const productId = sanitizeId(body.productId);
+
+  if (!productId) {
+    return NextResponse.json(
+      { error: "Choose an inventory item first." },
+      { status: 400 }
+    );
+  }
+
+  await prisma.reusableShopProduct.deleteMany({
+    where: {
+      catalogKey: targetCatalogKey,
+      productId,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
 }
 
 function normalizeCatalogKey(value: unknown) {

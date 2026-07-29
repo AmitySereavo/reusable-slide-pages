@@ -15,6 +15,32 @@
   box-sizing: border-box;
 }
 
+.bookmarkStartToast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 620;
+  display: grid;
+  gap: 2px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(17, 17, 17, 0.92);
+  color: #ffffff;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  transform: translateX(-50%);
+}
+
+.bookmarkStartToast strong {
+  font-size: 0.9rem;
+}
+
+.bookmarkStartToast span {
+  font-size: 0.78rem;
+  opacity: 0.82;
+}
+
 .card {
   position: relative;
   width: 100%;
@@ -92,6 +118,9 @@
 
 .sidebarToggleWrap {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   pointer-events: auto;
 }
 
@@ -119,6 +148,64 @@
   height: 20px;
   display: block;
   fill: currentColor;
+}
+
+.sidebarToggleButtonHintPulse {
+  animation: sidebarHintButtonPulse 3.2s ease-in-out infinite;
+}
+
+.sidebarChapterHintImage {
+  position: absolute;
+  top: 30px;
+  left: clamp(-172px, -15vw, -48px);
+  z-index: 430;
+  display: block;
+  width: min(96vw, 1020px);
+  max-width: calc(100vw - 48px);
+  height: auto;
+  pointer-events: none;
+  animation: sidebarHintImagePulse 3.2s ease-in-out infinite;
+}
+
+@keyframes sidebarHintButtonPulse {
+  0%,
+  35% {
+    background: #c1121f;
+    color: #fff;
+    box-shadow: none;
+  }
+
+  50%,
+  85% {
+    background: rgba(255, 255, 255, 0.82);
+    color: inherit;
+    box-shadow: none;
+  }
+
+  100% {
+    background: #c1121f;
+    color: #fff;
+    box-shadow: none;
+  }
+}
+
+@keyframes sidebarHintImagePulse {
+  0%,
+  35% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  50%,
+  85% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .menuButton::before {
@@ -206,9 +293,11 @@
 }
 
 .sidebarTitle {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
 }
 
 .accountMenuName {
@@ -288,6 +377,51 @@
   gap: 4px;
 }
 
+.sidebarUtilityLinkList {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sidebarUtilityLink {
+  background: #111111;
+  color: #ffffff;
+  box-shadow: none;
+  border: 1px solid #111111;
+}
+
+.sidebarUtilityLink:hover {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: none;
+  border: 1px solid #111111;
+}
+
+.sidebarTabRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.sidebarTabButton {
+  border: 1px solid rgba(47, 113, 62, 0.28);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #31533c;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sidebarTabButtonActive {
+  background: #2f713e;
+  border-color: #2f713e;
+  color: #ffffff;
+}
+
 .sidebarDivider {
   height: 1px;
   margin: 6px 4px;
@@ -297,6 +431,45 @@
 .sidebarLink:hover,
 .accountMenuItem:hover {
   background: rgba(0, 0, 0, 0.06);
+}
+
+.sidebarLinkActive,
+.sidebarLinkActive:hover {
+  background: rgba(47, 113, 62, 0.14);
+  color: #1f5d34;
+  box-shadow: inset 4px 0 0 #2f713e;
+}
+
+.sidebarLinkLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebarBookmarkDot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #1f1f1f;
+  box-shadow: 0 0 0 2px rgba(31, 31, 31, 0.12);
+}
+
+.sidebarBookmarkAction {
+  margin-top: 8px;
+  border: 1px solid rgba(47, 113, 62, 0.28);
+  background: rgba(47, 113, 62, 0.08);
+  color: #1f5d34;
+  justify-content: center;
+}
+
+.sidebarBookmarkNotice {
+  margin: 6px 2px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(31, 31, 31, 0.08);
+  color: #1f1f1f;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .sidebarLinkLocked,
@@ -703,6 +876,7 @@
 }
 
 .slideFooterTransportRow .slideFooterTextLink {
+  position: relative;
   width: 38px;
   height: 38px;
   display: inline-grid;
@@ -723,6 +897,22 @@
   animation: nextReadyPulse 1.05s ease-in-out infinite;
   background: #fff;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.slideFooterTransportRow .slideFooterTextLinkChapterNextHint {
+  animation: chapterHintNextButtonPulse 3.2s ease-in-out infinite;
+}
+
+.slideFooterNextHintImage {
+  position: absolute;
+  left: 50%;
+  top: -250px;
+  width: min(92vw, 760px);
+  max-width: calc(100vw - 32px);
+  height: auto;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: chapterHintNextImagePulse 3.2s ease-in-out infinite;
 }
 
 .slideFooterTransportRow
@@ -1201,6 +1391,13 @@
   box-shadow: 0 12px 28px rgba(36, 25, 13, 0.16);
 }
 
+.page[data-questionnaire-slug$="-grow-guide"] .storyInlineImage {
+  width: min(132px, 34vw);
+  border-radius: 999px;
+  border: 4px solid rgba(255, 255, 255, 0.86);
+  box-shadow: 0 10px 22px rgba(36, 25, 13, 0.2);
+}
+
 .scrollBottomSpacer {
   height: 24px;
 }
@@ -1212,6 +1409,10 @@
   text-align: center;
   margin: 0 0 8px;
   font-weight: 700;
+}
+
+.headingLine {
+  display: block;
 }
 
 .subtitle {
@@ -1592,6 +1793,86 @@
 .primaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.actionBarNextHintWrap {
+  position: relative;
+  display: grid;
+}
+
+.actionBarNextHintWrapActive .actionBarNextHintButton {
+  animation: chapterHintNextButtonPulse 3.2s ease-in-out infinite;
+}
+
+.actionBarNextHintImage {
+  position: absolute;
+  left: 50%;
+  top: -280px;
+  z-index: 2;
+  width: min(92vw, 760px);
+  max-width: calc(100vw - 32px);
+  height: auto;
+  pointer-events: none;
+  animation: chapterHintNextImagePulse 3.2s ease-in-out infinite;
+}
+
+@media (max-width: 699px) {
+  .sidebarChapterHintImage {
+    top: 34px;
+    width: min(92vw, 460px);
+  }
+
+  .actionBarNextHintImage {
+    left: 50%;
+    top: -176px;
+    width: min(96vw, 560px);
+  }
+
+  .slideFooterNextHintImage {
+    left: 50%;
+    top: -164px;
+    width: min(96vw, 520px);
+  }
+}
+
+@keyframes chapterHintNextButtonPulse {
+  0%,
+  35% {
+    box-shadow: none;
+    filter: none;
+  }
+
+  50%,
+  85% {
+    background: #c1121f;
+    color: #fff;
+    box-shadow: none;
+    filter: none;
+  }
+
+  100% {
+    box-shadow: none;
+    filter: none;
+  }
+}
+
+@keyframes chapterHintNextImagePulse {
+  0%,
+  35% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+
+  50%,
+  85% {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
 }
 
 .formError {

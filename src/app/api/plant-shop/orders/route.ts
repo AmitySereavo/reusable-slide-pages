@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 import {
   littleOrchardPlantShowEvent,
   LITTLE_ORCHARD_SHOP_SLUG,
-  littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
+import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import {
@@ -354,7 +354,8 @@ export async function POST(request: Request) {
     const contactMethod = normalizeContactMethod(body.contactMethod);
     const orderEmail = email && isValidEmail(email) ? email : "";
     const cart = normalizeOrderCart(body.orderCart);
-    const lines = resolveShopSelectedLines(littleOrchardShopCatalog, cart).filter(
+    const shopCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
+    const lines = resolveShopSelectedLines(shopCatalog, cart).filter(
       (line) => line.selected !== false && line.availabilityStatus !== "unavailable"
     );
 
@@ -564,7 +565,7 @@ export async function POST(request: Request) {
       baseSubtotal: total,
       baseDiscount: 0,
       baseTotal: total,
-      displayCurrency: littleOrchardShopCatalog.currencyCode || "JMD",
+      displayCurrency: shopCatalog.currencyCode || "JMD",
       displayExchangeRate: 1,
       displayConvertedTotal: total,
       paymentStatus: "AWAITING_PAYMENT",
@@ -601,7 +602,7 @@ export async function POST(request: Request) {
         sku: line.sku,
         fulfillmentType: "physical",
         quantity: line.quantity,
-        currencyCode: littleOrchardShopCatalog.currencyCode || "JMD",
+        currencyCode: shopCatalog.currencyCode || "JMD",
         unitPrice: line.unitPrice,
         lineTotal: line.lineTotal,
         recipientName: fullName,

@@ -21,7 +21,7 @@ export default async function ReceiptTokenPage({
   return (
     <>
       <CustomerDeviceTracker token={token} source="receipt" />
-      <ReceiptView items={items} />
+      <ReceiptView items={items} token={token} />
     </>
   );
 }

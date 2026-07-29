@@ -15,10 +15,7 @@ import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
 import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
-import {
-  littleOrchardPlantShowEvent,
-  littleOrchardShopCatalog,
-} from "@/config/shops/littleOrchardShop";
+import { littleOrchardPlantShowEvent } from "@/config/shops/littleOrchardShop";
 import type {
   ShopCatalog,
   QuestionnaireVariableMap,
@@ -428,7 +425,11 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     showStepText: false,
     overlayMode: "opaque",
     variables: {
-      shopCatalog: littleOrchardShopCatalog,
+      shopCatalog: {
+        currencyCode: "JMD",
+        weightUnit: "lb",
+        products: [],
+      },
       littleOrchardPlantShowEvent,
     },
     dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 import {
   downloadDeletionRecordPdf,
   makeDeletionExportFilename,
@@ -138,18 +137,6 @@ function getLittleOrchardSocialContacts(item) {
       : "",
   ].filter(Boolean);
 }
-
-const littleOrchardCatalogChoices = littleOrchardShopCatalog.products.flatMap(
-  (product) =>
-    product.sizeOptions.map((sizeOption) => ({
-      key: `${product.id}::${sizeOption.id}`,
-      productId: product.id,
-      sizeOptionId: sizeOption.id,
-      label: `${product.title} - ${sizeOption.label}`,
-      price: sizeOption.price,
-      currencyCode: littleOrchardShopCatalog.currencyCode || "JMD",
-    }))
-);
 
 const growGuideProductRules = [
   { label: "Black pepper grow guide", terms: ["black pepper"] },
@@ -579,6 +566,8 @@ export default function OrdersManager() {
   const [cashTenderedByOrder, setCashTenderedByOrder] = useState({});
   const [adHocItemDrafts, setAdHocItemDrafts] = useState({});
   const [catalogItemDrafts, setCatalogItemDrafts] = useState({});
+  const [littleOrchardCatalogChoices, setLittleOrchardCatalogChoices] =
+    useState([]);
   const [customerPhoneDrafts, setCustomerPhoneDrafts] = useState({});
   const [customerContactDrafts, setCustomerContactDrafts] = useState({});
   const [customerNotesDrafts, setCustomerNotesDrafts] = useState({});
@@ -625,6 +614,86 @@ export default function OrdersManager() {
 
     return () => clearTimeout(timeout);
   }, [status, fulfillmentType, query]);
+
+  useEffect(() => {
+    void loadLittleOrchardCatalogChoices();
+  }, []);
+
+  async function loadLittleOrchardCatalogChoices() {
+    const response = await fetch("/api/dashboard/inventory/unified", {
+      credentials: "same-origin",
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return;
+    }
+
+    const choices = (payload.items || [])
+      .filter((item) =>
+        Array.isArray(item.shopTags)
+          ? item.shopTags.includes("little-orchard-shop")
+          : false
+      )
+      .flatMap((item) => {
+        const metadata =
+          item.metadata && typeof item.metadata === "object"
+            ? item.metadata
+            : {};
+        const productId = metadata.sourceProductId || item.slug || item.id;
+        const options = Array.isArray(item.options) ? item.options : [];
+
+        return options.map((option) => ({
+          key: `${productId}::${option.id || option.optionId || option.sku}`,
+          productId,
+          sizeOptionId: option.id || option.optionId || option.sku,
+          label: `${item.title} - ${option.label || "Default option"}`,
+          price: Number(option.price || 0),
+          currencyCode: "JMD",
+        }));
+      });
+
+    if (!choices.length) {
+      const syncResponse = await fetch("/api/dashboard/inventory/unified", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "sync-little-orchard-config" }),
+      });
+      const syncPayload = await syncResponse.json().catch(() => ({}));
+
+      if (syncResponse.ok) {
+        const syncedChoices = (syncPayload.items || [])
+          .filter((item) =>
+            Array.isArray(item.shopTags)
+              ? item.shopTags.includes("little-orchard-shop")
+              : false
+          )
+          .flatMap((item) => {
+            const metadata =
+              item.metadata && typeof item.metadata === "object"
+                ? item.metadata
+                : {};
+            const productId = metadata.sourceProductId || item.slug || item.id;
+            const options = Array.isArray(item.options) ? item.options : [];
+
+            return options.map((option) => ({
+              key: `${productId}::${option.id || option.optionId || option.sku}`,
+              productId,
+              sizeOptionId: option.id || option.optionId || option.sku,
+              label: `${item.title} - ${option.label || "Default option"}`,
+              price: Number(option.price || 0),
+              currencyCode: "JMD",
+            }));
+          });
+
+        setLittleOrchardCatalogChoices(syncedChoices);
+        return;
+      }
+    }
+
+    setLittleOrchardCatalogChoices(choices);
+  }
 
   async function loadOrders() {
     setMessage("Loading orders...");

@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  LITTLE_ORCHARD_SHOP_SLUG,
-  littleOrchardShopCatalog,
-} from "@/config/shops/littleOrchardShop";
+import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
+import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest";
@@ -50,8 +48,9 @@ export async function GET() {
 
   const confirmedByLine = buildConfirmedQuantityMap(confirmedRows);
 
+  const baseCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
   const shopCatalog = applyConfirmedQuantities(
-    littleOrchardShopCatalog,
+    baseCatalog,
     confirmedByLine,
     eventDateHasPassed,
     quantityOverrides,
@@ -73,6 +72,7 @@ export async function GET() {
     }
   );
 }
+
 
 function buildConfirmedQuantityMap(rows: ConfirmedQuantityRow[]) {
   const map = new Map<string, number>();

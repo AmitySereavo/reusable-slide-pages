@@ -98,8 +98,10 @@ export async function getLittleOrchardOrderItemsByCode(orderCode: string) {
 
 export default async function ReceiptView({
   items,
+  token,
 }: {
   items: any[];
+  token?: string;
 }) {
   if (!items.length) {
     return null;
@@ -112,6 +114,7 @@ export default async function ReceiptView({
     String(metadata.receiptCode || "") ||
     (orderCode ? await ensureLittleOrchardReceiptCode(prisma, orderCode) : "");
   const customerName = String(firstItem.recipientName || "Customer");
+  const receiptToken = token || String(metadata.cashierToken || "");
   const currencyCode = String(firstItem.currencyCode || "JMD");
   const orderTotal = items.reduce(
     (sum, item) => sum + Number(item.lineTotal || 0),
@@ -194,7 +197,7 @@ export default async function ReceiptView({
         </section>
 
         <div className="receipt-page-actions" style={buttonRowStyle}>
-          <PrintReceiptButton style={printButtonStyle} />
+          <PrintReceiptButton style={printButtonStyle} token={receiptToken} />
           <Link href="/shop" style={shopButtonStyle}>
             Visit shop
           </Link>

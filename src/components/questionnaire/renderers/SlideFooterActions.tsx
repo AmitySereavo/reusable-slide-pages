@@ -22,6 +22,7 @@ type Props = {
   progressControl?: ReactNode;
   panelContent?: ReactNode;
   canTogglePanel?: boolean;
+  shouldShowChapterHint?: boolean;
   textPanelMode: TextPanelMode;
   textPanelSongModeLabel?: string;
   onAction: (action: SlideFooterAction) => void;
@@ -39,6 +40,7 @@ export default function SlideFooterActions({
   progressControl,
   panelContent,
   canTogglePanel,
+  shouldShowChapterHint,
   textPanelMode,
   textPanelSongModeLabel,
   onAction,
@@ -131,6 +133,7 @@ export default function SlideFooterActions({
           isAuthSessionLoaded={isAuthSessionLoaded}
           mediaState={mediaState}
           variant="transport"
+          shouldShowChapterHint={shouldShowChapterHint}
           onAction={onAction}
         />
       ) : null}
@@ -195,6 +198,7 @@ function FooterActionRow({
   mediaState,
   variant,
   afterContent,
+  shouldShowChapterHint,
   onAction,
 }: {
   actions: SlideFooterAction[];
@@ -203,6 +207,7 @@ function FooterActionRow({
   mediaState: MediaState;
   variant: "format" | "transport";
   afterContent?: ReactNode;
+  shouldShowChapterHint?: boolean;
   onAction: (action: SlideFooterAction) => void;
 }) {
   return (
@@ -230,6 +235,8 @@ function FooterActionRow({
           action.label.toLowerCase().includes("next");
         const shouldPulseAfterVideoEnded =
           variant === "transport" && isNextAction && mediaState.hasEnded;
+        const shouldShowNextChapterHint =
+          Boolean(shouldShowChapterHint) && variant === "transport" && isNextAction;
 
         return (
           <span key={`${action.kind}-${action.key}`}>
@@ -261,6 +268,10 @@ function FooterActionRow({
                   shouldPulseAfterVideoEnded
                     ? styles.slideFooterTextLinkNextReady
                     : ""
+                } ${
+                  shouldShowNextChapterHint
+                    ? styles.slideFooterTextLinkChapterNextHint
+                    : ""
                 }`}
                 disabled={disabled}
                 onClick={() => onAction(action)}
@@ -271,6 +282,14 @@ function FooterActionRow({
                   label={label}
                   iconOnly={isIconOnly}
                 />
+                {shouldShowNextChapterHint ? (
+                  <img
+                    src="/icons/ui/tap_to_select_chapter_arrow_desktop_small.png"
+                    alt=""
+                    className={styles.slideFooterNextHintImage}
+                    aria-hidden="true"
+                  />
+                ) : null}
               </button>
             )}
           </span>

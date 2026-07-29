@@ -33,18 +33,31 @@ function upsertDeviceRecord({
   now: string;
   patch: Record<string, unknown>;
 }) {
+  const nextEvent = {
+    source: patch.source || "customer-link",
+    role: patch.role || "customer",
+    seenAt: now,
+  };
+
   const existingIndex = records.findIndex(
     (record) => String(record.deviceKey || "") === deviceKey
   );
 
   if (existingIndex >= 0) {
     const existing = records[existingIndex];
+    const existingEvents = Array.isArray(existing.activityEvents)
+      ? existing.activityEvents.filter(
+          (event) => event && typeof event === "object" && !Array.isArray(event)
+        )
+      : [];
+
     records[existingIndex] = {
       ...existing,
       ...patch,
       deviceKey,
       firstSeenAt: existing.firstSeenAt || now,
       lastSeenAt: now,
+      activityEvents: [...existingEvents, nextEvent].slice(-80),
     };
     return records;
   }
@@ -56,6 +69,7 @@ function upsertDeviceRecord({
       deviceKey,
       firstSeenAt: now,
       lastSeenAt: now,
+      activityEvents: [nextEvent],
     },
   ];
 }

@@ -378,6 +378,32 @@ model ReusableShopPurchaseMode {
   @@index([sku])
 }
 
+model UnifiedInventoryItem {
+  id               String   @id
+  sku              String?
+  slug             String   @unique
+  title            String
+  description      String?
+  detailsDescription String?
+  imageUrl         String?
+  previewImageUrl  String?
+  fulfillmentType  String   @default("physical")
+  active           Boolean  @default(true)
+  quantityOnHand   Int      @default(0)
+  quantityReserved Int      @default(0)
+  quantityAvailable Int     @default(0)
+  shopTags         Json?
+  categoryTags     Json?
+  shopListings     Json?
+  options          Json?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([sku])
+  @@index([active, title])
+}
+
 model EmailSequence {
   id          String  @id @default(cuid())
   sequenceKey String  @unique

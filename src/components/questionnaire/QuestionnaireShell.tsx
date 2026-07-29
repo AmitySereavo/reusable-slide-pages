@@ -223,6 +223,8 @@ import {
 
 import {
   readLocalEngagementSnapshot,
+  getLocalVisitorDeviceKey,
+  writeLocalBookmarkEvent,
   writeLocalQuestionAnswer,
   writeLocalVideoProgress,
 } from "@/lib/questionnaire/engagementTracking";
@@ -237,6 +239,14 @@ const CHECKOUT_DRAFT_SLUGS = new Set([
   "ticket-purchase-assistant",
   "home-gardener-plant-giveaway",
 ]);
+
+function formatVideoTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds || 0));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 const SHARED_COMMERCE_DRAFT_SLUGS = new Set([
   "invitation",
@@ -329,6 +339,9 @@ const CHECKOUT_DRAFT_KEYS = [
 ] as const;
 const CHECKOUT_RESERVATION_SECONDS = 25;
 const SHARED_COMMERCE_DRAFT_KEY = "questionnaire:commerce:answers";
+const CONTENT_SIDEBAR_HINT_STORAGE_KEY = "questionnaire:content-sidebar-hint-seen";
+const CONTENT_SIDEBAR_BOOKMARK_STORAGE_PREFIX =
+  "questionnaire:content-sidebar-bookmark:";
 const TICKET_ASSISTANT_EVENT_DRAFTS_KEY =
   "questionnaire:ticket-purchase-assistant:event-drafts";
 const TICKET_ASSISTANT_DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1496,6 +1509,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isTrackSidebarOpen, setIsTrackSidebarOpen] = useState(false);
+  const [trackSidebarTab, setTrackSidebarTab] = useState<"content" | "admin">(
+    "content"
+  );
+  const [bookmarkedSidebarSlideId, setBookmarkedSidebarSlideId] = useState<
+    string | null
+  >(null);
+  const [sidebarBookmarkNotice, setSidebarBookmarkNotice] = useState<
+    string | null
+  >(null);
+  const [bookmarkStartNotice, setBookmarkStartNotice] = useState<string | null>(
+    null
+  );
+  const [hasSeenContentSidebarHint, setHasSeenContentSidebarHint] =
+    useState(false);
+  const [isContentSidebarHintActive, setIsContentSidebarHintActive] =
+    useState(false);
   const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("JMD");
   const [dripUnlockKeys, setDripUnlockKeys] = useState<string[]>([]);
   const [dripOpenedKeys, setDripOpenedKeys] = useState<string[]>([]);
@@ -1538,6 +1567,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
   const [videoCurrentTimeSeconds, setVideoCurrentTimeSeconds] = useState(0);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState<number | null>(
+    null
+  );
   const [renderedMediaWidth, setRenderedMediaWidth] = useState(0);
   const [videoSeekRequest, setVideoSeekRequest] =
     useState<VideoSeekRequest | null>(null);
@@ -1559,6 +1591,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const invitationOrderRequestKeyRef = useRef<string | null>(null);
   const plantShopOrderRequestKeyRef = useRef<string | null>(null);
   const shopReservationKeyRef = useRef<string | null>(null);
+  const sidebarBookmarkLongPressTimeoutRef = useRef<number | null>(null);
+  const sidebarBookmarkHydratedRef = useRef(false);
+  const sidebarBookmarkHydratedSlugRef = useRef<string | null>(null);
+  const suppressSidebarBookmarkClickRef = useRef(false);
+  const videoBookmarkAppliedRef = useRef<Record<string, boolean>>({});
   const checkoutDraftHydratedRef = useRef(false);
   const shouldSkipNextCheckoutDraftWriteRef = useRef(true);
   const checkoutDraftCompletedRef = useRef(false);
@@ -1947,6 +1984,106 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const currentSlide = visibleSlides[currentIndex];
   const isAdminUser = Number(authSessionUser?.adminLevel || 0) >= 1;
+
+  useEffect(() => {
+    const bookmarkStorageKey = `${CONTENT_SIDEBAR_BOOKMARK_STORAGE_PREFIX}${config.slug}`;
+
+    if (sidebarBookmarkHydratedSlugRef.current !== config.slug) {
+      sidebarBookmarkHydratedRef.current = false;
+      sidebarBookmarkHydratedSlugRef.current = config.slug;
+    }
+
+    try {
+      const savedSlideId = window.localStorage.getItem(bookmarkStorageKey);
+      setBookmarkedSidebarSlideId(savedSlideId);
+
+      if (
+        !sidebarBookmarkHydratedRef.current &&
+        savedSlideId &&
+        !searchParams.get("slide") &&
+        visibleSlides.some((slide) => slide.id === savedSlideId)
+      ) {
+        const targetIndex = getSlideIndexById(visibleSlides, savedSlideId);
+
+        if (targetIndex >= 0 && targetIndex !== currentIndex) {
+          setHistory([]);
+          setCurrentIndex(targetIndex);
+        }
+
+        const targetLabel =
+          visibleSlides.find((slide) => slide.id === savedSlideId)?.title ??
+          "Bookmarked chapter";
+        setBookmarkStartNotice(`Starting from bookmark: ${targetLabel}`);
+        syncBookmarkEvent({
+          slideId: savedSlideId,
+          slideLabel: targetLabel,
+          bookmarkKind: "chapter",
+          action: "started",
+          triggerType: "automatic",
+        });
+        window.setTimeout(() => {
+          setBookmarkStartNotice(null);
+        }, 3200);
+      }
+
+      sidebarBookmarkHydratedRef.current = true;
+    } catch {
+      setBookmarkedSidebarSlideId(null);
+      sidebarBookmarkHydratedRef.current = true;
+    }
+  }, [config.slug, currentIndex, searchParams, visibleSlides]);
+
+  useEffect(() => {
+    return () => {
+      if (sidebarBookmarkLongPressTimeoutRef.current) {
+        window.clearTimeout(sidebarBookmarkLongPressTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentSlide || currentSlide.mediaType !== "video") {
+      return;
+    }
+
+    const storageKey = `questionnaire:video-bookmark:${config.slug}:${currentSlide.id}`;
+    const applyKey = `${config.slug}:${currentSlide.id}`;
+
+    try {
+      const rawSeconds = window.localStorage.getItem(storageKey);
+      const savedSeconds = Number(rawSeconds);
+
+      if (
+        !Number.isFinite(savedSeconds) ||
+        savedSeconds <= 0 ||
+        videoBookmarkAppliedRef.current[applyKey]
+      ) {
+        return;
+      }
+
+      const startSeconds = Math.floor(savedSeconds);
+      videoBookmarkAppliedRef.current[applyKey] = true;
+
+      setVideoResumeOverrides((prev) => ({
+        ...prev,
+        [currentSlide.id]: startSeconds,
+      }));
+      setVideoSeekRequest({
+        id: `${currentSlide.id}-video-bookmark-${Date.now()}`,
+        seconds: startSeconds,
+      });
+      syncBookmarkEvent({
+        slideId: currentSlide.id,
+        slideLabel: currentSlide.title,
+        bookmarkKind: "video",
+        action: "started",
+        triggerType: "automatic",
+        videoTimestampSeconds: startSeconds,
+      });
+    } catch {
+      // Local video bookmark resume is optional.
+    }
+  }, [config.slug, currentSlide]);
 
   useQuestionnaireEngagement({
     questionnaireSlug: config.slug,
@@ -2443,6 +2580,49 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     dashboardSidebarLinks.length > 0 ||
     sidebarSlideLinks.length > 0 ||
     Boolean(sidebarAlbumDownloadItemId);
+  const canShowContentSidebarHint = sidebarSlideLinks.length > 0;
+
+  useEffect(() => {
+    if (!canShowContentSidebarHint) {
+      setIsContentSidebarHintActive(false);
+      return;
+    }
+
+    try {
+      setHasSeenContentSidebarHint(
+        window.localStorage.getItem(CONTENT_SIDEBAR_HINT_STORAGE_KEY) === "true"
+      );
+    } catch {
+      setHasSeenContentSidebarHint(false);
+    }
+  }, [canShowContentSidebarHint, config.slug]);
+
+  useEffect(() => {
+    if (!canShowContentSidebarHint || hasSeenContentSidebarHint) {
+      setIsContentSidebarHintActive(false);
+      return;
+    }
+
+    setIsContentSidebarHintActive(true);
+    const timeout = window.setTimeout(() => {
+      setIsContentSidebarHintActive(false);
+    }, 9000);
+
+    return () => window.clearTimeout(timeout);
+  }, [canShowContentSidebarHint, hasSeenContentSidebarHint, config.slug]);
+
+  const markContentSidebarHintSeen = useCallback(() => {
+    if (!canShowContentSidebarHint) return;
+
+    setHasSeenContentSidebarHint(true);
+    setIsContentSidebarHintActive(false);
+
+    try {
+      window.localStorage.setItem(CONTENT_SIDEBAR_HINT_STORAGE_KEY, "true");
+    } catch {
+      // Ignore unavailable storage; the hint will simply be session-only.
+    }
+  }, [canShowContentSidebarHint]);
 
   useEffect(() => {
     if (!purchaseAccessConfig?.itemKey) {
@@ -4300,10 +4480,181 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     )}`;
   }
 
+  function syncBookmarkEvent(params: {
+    slideId: string;
+    slideLabel?: string | null;
+    bookmarkKind: "chapter" | "video";
+    action?: "saved" | "started";
+    triggerType?: "manual" | "automatic";
+    videoTimestampSeconds?: number | null;
+    videoDurationSeconds?: number | null;
+  }) {
+    const bookmarkEvent = writeLocalBookmarkEvent({
+      questionnaireSlug: config.slug,
+      slideId: params.slideId,
+      slideLabel: params.slideLabel,
+      bookmarkKind: params.bookmarkKind,
+      action: params.action,
+      triggerType: params.triggerType,
+      videoTimestampSeconds: params.videoTimestampSeconds,
+      videoDurationSeconds: params.videoDurationSeconds,
+    });
+
+    if (!authSessionUser?.id) {
+      const deviceKey = getLocalVisitorDeviceKey();
+
+      if (deviceKey) {
+        fetch("/api/visitors/activity", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            deviceKey,
+            eventType:
+              params.bookmarkKind === "video"
+                ? "video_bookmark_saved"
+                : params.action === "started"
+                  ? "chapter_bookmark_started"
+                  : "chapter_bookmark_saved",
+            questionnaireSlug: config.slug,
+            slideId: params.slideId,
+            slideLabel: params.slideLabel,
+            path: window.location.pathname + window.location.search,
+            metadata: {
+              bookmarkKind: params.bookmarkKind,
+              action: params.action || "saved",
+              triggerType: params.triggerType || "manual",
+              videoTimestampSeconds: params.videoTimestampSeconds ?? null,
+              videoDurationSeconds: params.videoDurationSeconds ?? null,
+            },
+          }),
+        }).catch(() => null);
+      }
+
+      return;
+    }
+
+    fetch("/api/questionnaires/engagement/sync", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        questionnaireSlug: config.slug,
+        source: "bookmark",
+        snapshot: {
+          questionnaireSlug: config.slug,
+          bookmarkEvents: [bookmarkEvent],
+        },
+      }),
+    }).catch(() => null);
+  }
+
+  function saveSidebarSlideBookmark(
+    slideId: string,
+    slideLabel?: string,
+    triggerType: "manual" | "automatic" = "manual"
+  ) {
+    const bookmarkStorageKey = `${CONTENT_SIDEBAR_BOOKMARK_STORAGE_PREFIX}${config.slug}`;
+
+    try {
+      window.localStorage.setItem(bookmarkStorageKey, slideId);
+    } catch {
+      // If storage is blocked, still show feedback for this session.
+    }
+
+    setBookmarkedSidebarSlideId(slideId);
+    setSidebarBookmarkNotice(`${slideLabel || "Chapter"} bookmarked`);
+    syncBookmarkEvent({
+      slideId,
+      slideLabel,
+      bookmarkKind: "chapter",
+      action: "saved",
+      triggerType,
+    });
+
+    window.setTimeout(() => {
+      setSidebarBookmarkNotice(null);
+    }, 2200);
+  }
+
+  function saveCurrentVideoBookmark() {
+    if (!currentSlide || currentSlide.mediaType !== "video") {
+      return;
+    }
+
+    const bookmarkedSeconds = Math.max(0, Math.floor(videoCurrentTimeSeconds));
+
+    try {
+      window.localStorage.setItem(
+        `questionnaire:video-bookmark:${config.slug}:${currentSlide.id}`,
+        String(bookmarkedSeconds)
+      );
+    } catch {
+      // The server-side activity event still matters even if local storage fails.
+    }
+
+    setVideoResumeOverrides((prev) => ({
+      ...prev,
+      [currentSlide.id]: bookmarkedSeconds,
+    }));
+    setSidebarBookmarkNotice(
+      `${currentSlide.title || "Video"} bookmarked at ${formatVideoTime(
+        bookmarkedSeconds
+      )}`
+    );
+    syncBookmarkEvent({
+      slideId: currentSlide.id,
+      slideLabel: currentSlide.title,
+      bookmarkKind: "video",
+      action: "saved",
+      triggerType: "manual",
+      videoTimestampSeconds: bookmarkedSeconds,
+      videoDurationSeconds,
+    });
+
+    window.setTimeout(() => {
+      setSidebarBookmarkNotice(null);
+    }, 2600);
+  }
+
+  function handleSidebarBookmarkLongPressStart(
+    slideId: string,
+    slideLabel: string
+  ) {
+    if (sidebarBookmarkLongPressTimeoutRef.current) {
+      window.clearTimeout(sidebarBookmarkLongPressTimeoutRef.current);
+    }
+
+    sidebarBookmarkLongPressTimeoutRef.current = window.setTimeout(() => {
+      saveSidebarSlideBookmark(slideId, slideLabel);
+      suppressSidebarBookmarkClickRef.current = true;
+      sidebarBookmarkLongPressTimeoutRef.current = null;
+    }, 650);
+  }
+
+  function handleSidebarBookmarkLongPressEnd() {
+    if (!sidebarBookmarkLongPressTimeoutRef.current) {
+      return;
+    }
+
+    window.clearTimeout(sidebarBookmarkLongPressTimeoutRef.current);
+    sidebarBookmarkLongPressTimeoutRef.current = null;
+  }
+
   function handleTrackSidebarSlideClick(
     event: MouseEvent<HTMLAnchorElement>,
     slideId: string
   ) {
+    if (suppressSidebarBookmarkClickRef.current) {
+      event.preventDefault();
+      suppressSidebarBookmarkClickRef.current = false;
+      return;
+    }
+
     if (blockPlantGiveawayNavigationUntilRequiredInfo(slideId)) {
       event.preventDefault();
       return;
@@ -4348,6 +4699,25 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     if (target) {
       window.location.href = target;
     }
+  }
+
+  function handleShowChapterHintClick() {
+    if (!canShowContentSidebarHint) return;
+
+    try {
+      window.localStorage.removeItem(CONTENT_SIDEBAR_HINT_STORAGE_KEY);
+    } catch {
+      // The hint can still be shown for this page view if storage is blocked.
+    }
+
+    setHasSeenContentSidebarHint(false);
+    setIsContentSidebarHintActive(false);
+    setIsTrackSidebarOpen(false);
+    setIsAccountMenuOpen(false);
+
+    window.setTimeout(() => {
+      setIsContentSidebarHintActive(true);
+    }, 0);
   }
 
   async function handleAuthLogoutClick() {
@@ -4550,6 +4920,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     const { currentTime, duration } = payload;
     setVideoCurrentTimeSeconds(currentTime);
+    setVideoDurationSeconds(
+      Number.isFinite(duration) && duration > 0 ? duration : null
+    );
 
     if (Number.isFinite(duration) && duration > 0) {
       setVideoProgress((currentTime / duration) * 100);
@@ -6764,6 +7137,12 @@ async function handleNext() {
         }.`
       : "Does signing up make me automatically eligible to receive plants?";
   const shouldShowAccountMenu = !isPlantGiveawayDsl;
+  const hasContentSidebarItems =
+    isGrowGuideDsl ||
+    sidebarSlideLinks.length > 0 ||
+    Boolean(sidebarAlbumDownloadItemId);
+  const shouldShowTrackSidebarTabs =
+    dashboardSidebarLinks.length > 0 && hasContentSidebarItems;
   const backButtonStyle = resolveButtonStyle(
     theme,
     currentSlide.backStyleKey,
@@ -6925,6 +7304,13 @@ async function handleNext() {
         color: theme.colors.text,
       }}
     >
+      {bookmarkStartNotice ? (
+        <div className={styles.bookmarkStartToast} role="status">
+          <strong>Starting from bookmark</strong>
+          <span>{bookmarkStartNotice.replace(/^Starting from bookmark:\s*/, "")}</span>
+        </div>
+      ) : null}
+
       <div className={styles.pageInner}>
         <div
           className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
@@ -6962,9 +7348,19 @@ async function handleNext() {
                       <div className={styles.sidebarToggleWrap}>
                         <button
                           type="button"
-                          className={`${styles.sidebarToggleButton} ${styles.sidebarToggleButtonLeft}`}
+                          className={`${styles.sidebarToggleButton} ${styles.sidebarToggleButtonLeft} ${
+                            isContentSidebarHintActive
+                              ? styles.sidebarToggleButtonHintPulse
+                              : ""
+                          }`}
                           onClick={() => {
-                            setIsTrackSidebarOpen((prev) => !prev);
+                            setIsTrackSidebarOpen((prev) => {
+                              const next = !prev;
+                              if (next) {
+                                markContentSidebarHintSeen();
+                              }
+                              return next;
+                            });
                             setIsAccountMenuOpen(false);
                           }}
                           aria-label="Open content sidebar"
@@ -6972,6 +7368,13 @@ async function handleNext() {
                         >
                           <SidebarToggleIcon side="left" />
                         </button>
+                        {isContentSidebarHintActive ? (
+                          <img
+                            src="/icons/ui/tap_to_select_chapter_arrow_desktop_big.png"
+                            alt="Click to select chapters"
+                            className={styles.sidebarChapterHintImage}
+                          />
+                        ) : null}
 
                         {isTrackSidebarOpen ? (
                           <>
@@ -6995,7 +7398,64 @@ async function handleNext() {
                                 .join(" ") || "Content"}
                             </div>
 
-                            {dashboardSidebarLinks.length ? (
+                            {shouldShowTrackSidebarTabs ? (
+                              <div
+                                className={styles.sidebarTabRow}
+                                aria-label="Sidebar sections"
+                              >
+                                <button
+                                  type="button"
+                                  className={`${styles.sidebarTabButton} ${
+                                    trackSidebarTab === "content"
+                                      ? styles.sidebarTabButtonActive
+                                      : ""
+                                  }`}
+                                  onClick={() => setTrackSidebarTab("content")}
+                                >
+                                  Chapters
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`${styles.sidebarTabButton} ${
+                                    trackSidebarTab === "admin"
+                                      ? styles.sidebarTabButtonActive
+                                      : ""
+                                  }`}
+                                  onClick={() => setTrackSidebarTab("admin")}
+                                >
+                                  Admin
+                                </button>
+                              </div>
+                            ) : null}
+
+                            {(!shouldShowTrackSidebarTabs ||
+                              trackSidebarTab === "content") &&
+                            isGrowGuideDsl ? (
+                              <div className={styles.sidebarUtilityLinkList}>
+                                <a
+                                  className={`${styles.sidebarLink} ${styles.sidebarUtilityLink}`}
+                                  href="/shop"
+                                  onClick={(event) =>
+                                    handleSidebarHrefClick(event, "/shop")
+                                  }
+                                >
+                                  Shop
+                                </a>
+                                <a
+                                  className={`${styles.sidebarLink} ${styles.sidebarUtilityLink}`}
+                                  href="/grow-guides"
+                                  onClick={(event) =>
+                                    handleSidebarHrefClick(event, "/grow-guides")
+                                  }
+                                >
+                                  Guides for other plants
+                                </a>
+                              </div>
+                            ) : null}
+
+                            {dashboardSidebarLinks.length &&
+                            (!shouldShowTrackSidebarTabs ||
+                              trackSidebarTab === "admin") ? (
                               <div className={styles.sidebarLinkList}>
                                 {dashboardSidebarLinks.map((link) => (
                                   <a
@@ -7012,42 +7472,140 @@ async function handleNext() {
                               </div>
                             ) : null}
 
-                            {sidebarSlideLinks.length ? (
-                              <div className={styles.sidebarLinkList}>
-                                {dashboardSidebarLinks.length ? (
-                                  <div className={styles.sidebarDivider} />
+                            {sidebarSlideLinks.length &&
+                            (!shouldShowTrackSidebarTabs ||
+                              trackSidebarTab === "content") ? (
+                              <>
+                                <div className={styles.sidebarLinkList}>
+                                  {dashboardSidebarLinks.length &&
+                                  !shouldShowTrackSidebarTabs ? (
+                                    <div className={styles.sidebarDivider} />
+                                  ) : null}
+                                  {sidebarSlideLinks.map((track) => {
+                                    const isActiveTrack =
+                                      track.id === currentSlide.id;
+                                    const isBookmarkedTrack =
+                                      track.id === bookmarkedSidebarSlideId;
+                                    const sidebarLinkClassName = `${
+                                      styles.sidebarLink
+                                    } ${
+                                      isActiveTrack
+                                        ? styles.sidebarLinkActive
+                                        : ""
+                                    }`;
+
+                                    return track.locked ? (
+                                      <button
+                                        key={track.id}
+                                        type="button"
+                                        className={`${sidebarLinkClassName} ${styles.sidebarLinkLocked}`}
+                                        disabled
+                                        title="Enter the required information on earlier pages first."
+                                        aria-current={
+                                          isActiveTrack ? "page" : undefined
+                                        }
+                                      >
+                                        <span
+                                          className={styles.sidebarLinkLabel}
+                                        >
+                                          {track.label}
+                                        </span>
+                                        {isBookmarkedTrack ? (
+                                          <span
+                                            className={
+                                              styles.sidebarBookmarkDot
+                                            }
+                                            aria-label="Bookmarked chapter"
+                                          />
+                                        ) : null}
+                                      </button>
+                                    ) : (
+                                      <a
+                                        key={track.id}
+                                        className={sidebarLinkClassName}
+                                        href={getSlideHref(track.id)}
+                                        aria-current={
+                                          isActiveTrack ? "page" : undefined
+                                        }
+                                        title="Double-click or long-press to bookmark this chapter."
+                                        onDoubleClick={(event) => {
+                                          event.preventDefault();
+                                          saveSidebarSlideBookmark(
+                                            track.id,
+                                            track.label
+                                          );
+                                        }}
+                                        onMouseDown={() =>
+                                          handleSidebarBookmarkLongPressStart(
+                                            track.id,
+                                            track.label
+                                          )
+                                        }
+                                        onMouseUp={
+                                          handleSidebarBookmarkLongPressEnd
+                                        }
+                                        onMouseLeave={
+                                          handleSidebarBookmarkLongPressEnd
+                                        }
+                                        onTouchStart={() => {
+                                          handleSidebarBookmarkLongPressStart(
+                                            track.id,
+                                            track.label
+                                          );
+                                        }}
+                                        onTouchEnd={
+                                          handleSidebarBookmarkLongPressEnd
+                                        }
+                                        onTouchCancel={
+                                          handleSidebarBookmarkLongPressEnd
+                                        }
+                                        onClick={(event) =>
+                                          handleTrackSidebarSlideClick(
+                                            event,
+                                            track.id
+                                          )
+                                        }
+                                      >
+                                        <span
+                                          className={styles.sidebarLinkLabel}
+                                        >
+                                          {track.label}
+                                        </span>
+                                        {isBookmarkedTrack ? (
+                                          <span
+                                            className={
+                                              styles.sidebarBookmarkDot
+                                            }
+                                            aria-label="Bookmarked chapter"
+                                          />
+                                        ) : null}
+                                      </a>
+                                    );
+                                  })}
+                                </div>
+                                {currentSlide.mediaType === "video" ? (
+                                  <button
+                                    type="button"
+                                    className={`${styles.sidebarLink} ${styles.sidebarBookmarkAction}`}
+                                    onClick={saveCurrentVideoBookmark}
+                                  >
+                                    Bookmark video time
+                                  </button>
                                 ) : null}
-                                {sidebarSlideLinks.map((track) =>
-                                  track.locked ? (
-                                    <button
-                                      key={track.id}
-                                      type="button"
-                                      className={`${styles.sidebarLink} ${styles.sidebarLinkLocked}`}
-                                      disabled
-                                      title="Enter the required information on earlier pages first."
-                                    >
-                                      {track.label}
-                                    </button>
-                                  ) : (
-                                    <a
-                                      key={track.id}
-                                      className={styles.sidebarLink}
-                                      href={getSlideHref(track.id)}
-                                      onClick={(event) =>
-                                        handleTrackSidebarSlideClick(
-                                          event,
-                                          track.id
-                                        )
-                                      }
-                                    >
-                                      {track.label}
-                                    </a>
-                                  )
-                                )}
-                              </div>
+                                {sidebarBookmarkNotice ? (
+                                  <div
+                                    className={styles.sidebarBookmarkNotice}
+                                    role="status"
+                                  >
+                                    {sidebarBookmarkNotice}
+                                  </div>
+                                ) : null}
+                              </>
                             ) : null}
 
-                            {sidebarAlbumDownloadItemId ? (
+                            {sidebarAlbumDownloadItemId &&
+                            (!shouldShowTrackSidebarTabs ||
+                              trackSidebarTab === "content") ? (
                               <>
                                 <div className={styles.sidebarDivider} />
 
@@ -7321,6 +7879,16 @@ async function handleNext() {
 
                                 <div className={styles.sidebarDivider} />
 
+                                {isAdminUser && canShowContentSidebarHint ? (
+                                  <button
+                                    type="button"
+                                    className={styles.accountMenuItem}
+                                    onClick={handleShowChapterHintClick}
+                                  >
+                                    Show chapter hint
+                                  </button>
+                                ) : null}
+
                                 <button
                                   type="button"
                                   className={styles.accountMenuItem}
@@ -7390,6 +7958,16 @@ async function handleNext() {
                                 </button>
 
                                 <div className={styles.sidebarDivider} />
+
+                                {isAdminUser && canShowContentSidebarHint ? (
+                                  <button
+                                    type="button"
+                                    className={styles.accountMenuItem}
+                                    onClick={handleShowChapterHintClick}
+                                  >
+                                    Show chapter hint
+                                  </button>
+                                ) : null}
 
                                 <button
                                   type="button"
@@ -8591,7 +9169,7 @@ async function handleNext() {
                                     className={styles.slideFooterFormHeading}
                                     style={{ color: resolvedColor }}
                                   >
-                                    {content}
+                                    {renderBalancedHeadingText(content ?? "")}
                                   </h3>
                                 );
                               })}
@@ -8675,6 +9253,7 @@ async function handleNext() {
                       </div>
                     ) : undefined
                   }
+                  shouldShowChapterHint={isContentSidebarHintActive}
                   canTogglePanel={Boolean(
                     (currentSlide.footerFormEnabled &&
                       currentSlide.fields?.length) ||
@@ -8895,23 +9474,39 @@ async function handleNext() {
                   {hasVisibleNav ? (
                     <div className={styles.navRow}>
                       {showNextButton ? (
-                        <button
-                          type="button"
-                          onClick={handleNext}
-                          disabled={
-                            isSubmitting ||
-                            (!currentSlide.fields?.length && !canGoNext())
-                          }
-                          className={`${styles.primaryButton} ${styles.actionButton}`}
-                          style={{
-                            background: nextButtonStyle.background,
-                            color: nextButtonStyle.color,
-                            borderColor: nextButtonStyle.borderColor,
-                            borderRadius: theme.radius?.button ?? "14px",
-                          }}
+                        <div
+                          className={`${styles.actionBarNextHintWrap} ${
+                            isContentSidebarHintActive
+                              ? styles.actionBarNextHintWrapActive
+                              : ""
+                          }`}
                         >
-                          {nextLabel}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={handleNext}
+                            disabled={
+                              isSubmitting ||
+                              (!currentSlide.fields?.length && !canGoNext())
+                            }
+                            className={`${styles.primaryButton} ${styles.actionButton} ${styles.actionBarNextHintButton}`}
+                            style={{
+                              background: nextButtonStyle.background,
+                              color: nextButtonStyle.color,
+                              borderColor: nextButtonStyle.borderColor,
+                              borderRadius: theme.radius?.button ?? "14px",
+                            }}
+                          >
+                            {nextLabel}
+                          </button>
+                          {isContentSidebarHintActive ? (
+                            <img
+                              src="/icons/ui/tap_to_select_chapter_arrow_desktop_small.png"
+                              alt=""
+                              className={styles.actionBarNextHintImage}
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                        </div>
                       ) : null}
 
                       {currentSlide.showAuthControls ? (
@@ -13064,7 +13659,9 @@ function renderSections(
                   theme.colors.primary,
               }}
             >
-              {replaceDynamicText(section.text, answers, variables)}
+              {renderBalancedHeadingText(
+                replaceDynamicText(section.text, answers, variables)
+              )}
             </h1>
           );
         }
@@ -13174,6 +13771,55 @@ function renderSections(
       })}
     </div>
   );
+}
+
+function renderBalancedHeadingText(text: string | undefined) {
+  const lines = getBalancedHeadingLines(text);
+
+  return lines.map((line, index) => (
+    <span key={`${line}-${index}`} className={styles.headingLine}>
+      {line}
+    </span>
+  ));
+}
+
+function getBalancedHeadingLines(text: string | undefined) {
+  const normalizedText = text ?? "";
+  const words = normalizedText.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let index = 0;
+
+  while (index < words.length) {
+    const current = words[index] ?? "";
+    const next = words[index + 1] ?? "";
+
+    if (
+      current.toLowerCase() === "grow" &&
+      next.toLowerCase().replace(/[^\w]+$/g, "") === "guide"
+    ) {
+      lines.push(`${current} ${next}`);
+      index += 2;
+      continue;
+    }
+
+    if (
+      next &&
+      !(
+        next.toLowerCase() === "grow" &&
+        (words[index + 2] ?? "").toLowerCase().replace(/[^\w]+$/g, "") ===
+          "guide"
+      )
+    ) {
+      lines.push(`${current} ${next}`);
+      index += 2;
+      continue;
+    }
+
+    lines.push(current);
+    index += 1;
+  }
+
+  return lines.length ? lines : [normalizedText];
 }
 
 function hasRenderableSections(sections: SlideSection[] | undefined) {

@@ -5,7 +5,7 @@ import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
-import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
+import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import {
   ensurePersonProfileTables,
   makeProfileId,
@@ -806,7 +806,8 @@ export async function POST(request: Request) {
       const productId = cleanText(body?.productId);
       const sizeOptionId = cleanText(body?.sizeOptionId);
       const quantity = normalizePositiveInteger(body?.quantity, 1);
-      const product = littleOrchardShopCatalog.products.find(
+      const shopCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
+      const product = shopCatalog.products.find(
         (item) => item.id === productId
       );
       const sizeOption = product?.sizeOptions.find(
@@ -882,7 +883,7 @@ export async function POST(request: Request) {
           fulfillmentType: product.fulfillmentType || "physical",
           quantity,
           currencyCode:
-            littleOrchardShopCatalog.currencyCode ||
+            shopCatalog.currencyCode ||
             firstItem.currencyCode ||
             "JMD",
           unitPrice: new Prisma.Decimal(unitPrice),

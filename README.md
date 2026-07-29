@@ -23,6 +23,8 @@ Current reusable foundations:
 - media/video slides with progress tracking, resume behavior, seek controls, and
   footer-edge progress placement
 - reusable footer content labels, footer actions, and expandable text panels
+- balanced DSL heading rendering that keeps headings to one- or two-word lines
+  and keeps `Grow Guide` together as its own line
 - timed text parsing with `[00:00.000 --> 00:00.000]` ranges
 - reusable auth, account, verification, and gated-access helpers
 - signup-slide tagging for tag-triggered email sequences

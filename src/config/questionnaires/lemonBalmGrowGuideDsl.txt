@@ -13,12 +13,28 @@
 @syncurl: true
 ---
 # [c2] Lemon Balm Seedling Grow Guide
+![Lemon balm plant](/media/paralife_trees/jpg/product_lemon_balm_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: lemon-balm-guide-about
+
+===
+
+@id: lemon-balm-guide-about
+@type: content
+@title: About This Guide
+@subtitle: Lemon balm seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
 ## [c3] For lemon balm seedlings transplanted from trays into pots, beds, kitchen gardens, or small farm rows.
 BR
 GUIDEGRID|Best for::Home gardens, herb gardens, containers, raised beds, small farm production, tea herb production||Main use::Seedlings transplanted from trays into beds, bags, pots, or rows||Support::Send clear photos by WhatsApp if you see pests, wilting, yellowing, leaf spots, or rot
-@back: Guides for other plants
-@backgoto: /grow-guides
-@next: Quick rescue
+@back: Cover
+@next: Next
 @goto: lemon-balm-quick-rescue
 
 ===
@@ -36,8 +52,8 @@ GUIDEGRID|Best for::Home gardens, herb gardens, containers, raised beds, small f
 ## [c3] Most lemon balm problems come from too much wetness, harsh heat, poor airflow, or small insects under the leaves.
 BR
 GUIDETABLE|What you see|Most likely cause|What to do first||Seedling wilts after planting|Transplant shock, hot sun, dry root ball|Shade for 2 to 3 days, water gently, transplant evening or early morning next time.||Leaves yellow and soil is wet|Overwatering or root stress|Pause watering, improve drainage, raise pot off wet ground.||Brown spots on leaves|Leaf spot, wet leaves, poor airflow|Remove bad leaves, space plants, water at soil level.||White powder on leaves|Powdery mildew|Remove affected leaves, improve airflow, avoid overhead watering.||Tiny insects on soft new growth|Aphids|Spray with water first, then mild soap if needed. Repeat every 3 to 5 days.||Fine webbing or dusty speckles|Spider mites|Rinse undersides, reduce drought stress, repeat every 3 to 5 days.||Plant gets tall and flowers|Age, heat stress, or not harvesting|Cut back by one third, harvest more often, give afternoon shade.||Plant spreads too much|Self-seeding or rhizome spread|Grow in pot, cut flowers before seed, trim edges monthly.
-@back: Cover
-@next: Quick numbers
+@back: About this guide
+@next: Next
 @goto: lemon-balm-quick-numbers
 
 ===
@@ -57,7 +73,7 @@ GUIDEGRID|Botanical name::Melissa officinalis||Plant type::Perennial herb in the
 BR
 [c3] The young new leaves usually have better flavor than older mature leaves, so regular trimming is part of quality care.
 @back: Quick rescue
-@next: Harden seedlings
+@next: Next
 @goto: lemon-balm-hardening-off
 
 ===
@@ -77,7 +93,7 @@ GUIDETABLE|Timing|Exposure||Day 1 to 2|Bright shade for 2 to 3 hours; keep tray 
 BR
 GUIDETABLE|Transplant step|What to do||1|Water tray 1 to 2 hours before planting so the root ball stays together.||2|Prepare the hole or container before removing seedlings from the tray.||3|Push the seedling out from the bottom of the cell; do not pull by the stem.||4|Plant at the same depth as the tray soil line; do not bury the crown too deeply.||5|Press soil gently around roots and water immediately.||6|Give light shade for 2 to 3 days in hot weather, then move gradually into morning sun.||7|Check morning and evening for the first 3 to 5 days.
 @back: Quick numbers
-@next: Spacing
+@next: Next
 @goto: lemon-balm-spacing
 
 ===
@@ -97,7 +113,7 @@ GUIDETABLE|Growing situation|Recommended spacing||Home garden small space|12 to 
 BR
 [c3] Containers help control spread because lemon balm can self-seed and spread by rhizomes.
 @back: Harden seedlings
-@next: Sun and water
+@next: Next
 @goto: lemon-balm-sun-water
 
 ===
@@ -117,7 +133,7 @@ GUIDEGRID|Daily sunlight::4 to 6 hours morning sun in hot areas; 6+ hours if wea
 BR
 [c3] Water at soil level where possible. Avoid keeping leaves wet overnight.
 @back: Spacing
-@next: Soil and feeding
+@next: Next
 @goto: lemon-balm-soil-feeding
 
 ===
@@ -137,7 +153,7 @@ GUIDETABLE|Item|Guide||Best soil|Rich, humus-filled, moist, well-drained.||pH ta
 BR
 GUIDEGRID|Simple container mix::50 percent potting mix or good topsoil; 30 percent compost; 20 percent coco coir, dry leaf mold, or other drainage material
 @back: Sun and water
-@next: Pests
+@next: Next
 @goto: lemon-balm-pests
 
 ===
@@ -155,7 +171,7 @@ GUIDEGRID|Simple container mix::50 percent potting mix or good topsoil; 30 perce
 BR
 GUIDETABLE|Pest|Signs|Action||Aphids|Soft insects on new shoots, curled leaves, sticky residue, ants|Spray with water first. Use mild soap under leaves if needed. Repeat every 3 to 5 days.||Spider mites|Tiny speckles, dusty leaves, fine webbing, worse in hot/dry weather|Rinse undersides, remove badly damaged leaves, reduce drought stress.||Whiteflies|Tiny white insects fly up when leaves are touched|Spray undersides, use yellow sticky traps, remove nearby weeds.||Leafhoppers|Small jumping insects, pale stippling, some browning or spotting|Keep weeds down, remove badly damaged leaves, monitor weekly.||Slugs/snails|Ragged holes, slime trails, worse after rain or at night|Lift pots, remove hiding spots, check at night or early morning.||Caterpillars|Chewed leaves and black droppings|Handpick, remove damaged leaves, check early morning or evening.
 @back: Soil and feeding
-@next: Diseases
+@next: Next
 @goto: lemon-balm-diseases
 
 ===
@@ -173,7 +189,7 @@ GUIDETABLE|Pest|Signs|Action||Aphids|Soft insects on new shoots, curled leaves, 
 BR
 GUIDETABLE|Problem|Signs|First action||Powdery mildew|White powdery coating on leaves|Remove affected leaves, improve airflow, avoid wetting leaves.||Leaf spot|Brown or black spots; yellowing around spots|Remove affected leaves, space plants, water at soil level, rotate beds.||Root rot|Yellowing, wilting while soil is wet, rotten smell, soft roots|Stop overwatering, improve drainage, repot if needed.||Gray mold/blight|Soft gray mold or rotting leaves in wet/humid conditions|Remove infected leaves, improve airflow, reduce leaf wetness.||Stem/crown rot|Base soft or brown; plant collapses|Remove badly affected plant; avoid burying crown and soggy soil.
 @back: Pests
-@next: Harvesting
+@next: Next
 @goto: lemon-balm-harvesting
 
 ===
@@ -193,7 +209,7 @@ GUIDETABLE|Action|Timing / amount||First light harvest|21 to 30 days after trans
 BR
 [c3] Cut above a leaf node so the plant can branch again. For tea, use fresh leaves or dry them in shade.
 @back: Diseases
-@next: Spread control
+@next: Next
 @goto: lemon-balm-spread-control
 
 ===
@@ -213,7 +229,7 @@ GUIDETABLE|Issue|Prevention||Self-seeding|Cut flower stalks before seeds mature.
 BR
 [c3] For tea or bundles, clean leaves are the product. Keep weeds down, harvest before flowering, dry in shade, and avoid mixing weeds or diseased leaves into harvested material.
 @back: Harvesting
-@next: Leaf guide
+@next: Next
 @goto: lemon-balm-leaf-guide
 
 ===
@@ -231,7 +247,7 @@ BR
 BR
 GUIDETABLE|Leaf look|Possible cause|What to do||Bright green, slightly crinkled, lemon scent|Healthy lemon balm|Continue steady water and light harvest.||New growth lighter green|Normal young growth|Watch for darkening over 7 to 14 days.||Pale green all over|Low nutrients, weak light, overwatering|Check drainage, add compost or light feed, improve morning sun.||Yellow lower leaves|Old leaves, too much water, low nitrogen|Remove old leaves, check soil moisture, feed lightly if needed.||Brown edges|Dry roots, heat stress, fertilizer burn|Shade in afternoon, water evenly, reduce fertilizer strength.||Spots on leaves|Leaf spot, insects, wet leaves|Remove affected leaves and check undersides.||White powder|Powdery mildew|Improve airflow and remove affected leaves.||Plant tall and flowering|Needs cutting or stressed by heat/age|Harvest or cut back by one third and give afternoon shade.
 @back: Spread control
-@next: Home and farm notes
+@next: Next
 @goto: lemon-balm-home-farm-notes
 
 ===
@@ -249,7 +265,7 @@ GUIDETABLE|Leaf look|Possible cause|What to do||Bright green, slightly crinkled,
 BR
 GUIDETABLE|Grower type|Best approach||Small farmers|Use 18 to 24 inch spacing for repeated cutting. Leave 24 to 36 inches between rows. Plant in batches for continuous bundles. Harvest before flowering. Dry leaves in shade with airflow.||Home garden customers|Use one plant per 1 to 3 gallon pot, or space plants 18 inches apart in a bed. Give morning sun and afternoon shade. Harvest small amounts often. Keep in a pot if you do not want it to spread.
 @back: Leaf guide
-@next: Weekly checklist
+@next: Next
 @goto: lemon-balm-weekly-checklist
 
 ===

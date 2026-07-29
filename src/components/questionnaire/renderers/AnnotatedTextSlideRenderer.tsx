@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Slide, TextPanelMode, ThemeConfig } from "@/types/questionnaire";
 import {
@@ -510,9 +510,58 @@ function renderHeadingBlock(
         color: theme.colors.primary,
       }}
     >
-      {block.text}
+      {renderBalancedHeadingText(block.text)}
     </HeadingTag>
   );
+}
+
+function renderBalancedHeadingText(text: string) {
+  const lines = getBalancedHeadingLines(text);
+
+  return lines.map((line, index) => (
+    <Fragment key={`${line}-${index}`}>
+      {index > 0 ? <br /> : null}
+      {line}
+    </Fragment>
+  ));
+}
+
+function getBalancedHeadingLines(text: string) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let index = 0;
+
+  while (index < words.length) {
+    const current = words[index] ?? "";
+    const next = words[index + 1] ?? "";
+
+    if (
+      current.toLowerCase() === "grow" &&
+      next.toLowerCase().replace(/[^\w]+$/g, "") === "guide"
+    ) {
+      lines.push(`${current} ${next}`);
+      index += 2;
+      continue;
+    }
+
+    if (
+      next &&
+      !(
+        next.toLowerCase() === "grow" &&
+        (words[index + 2] ?? "").toLowerCase().replace(/[^\w]+$/g, "") ===
+          "guide"
+      )
+    ) {
+      lines.push(`${current} ${next}`);
+      index += 2;
+      continue;
+    }
+
+    lines.push(current);
+    index += 1;
+  }
+
+  return lines.length ? lines : [text];
 }
 
 function renderTextBlock(

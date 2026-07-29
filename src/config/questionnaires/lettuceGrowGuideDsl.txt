@@ -13,12 +13,28 @@
 @syncurl: true
 ---
 # [c2] Lettuce Seedling Grow Guide
+![Lettuce seedlings](/media/paralife_trees/png/product_lettuce_seedlings_generated.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: lettuce-guide-about
+
+===
+
+@id: lettuce-guide-about
+@type: content
+@title: About This Guide
+@subtitle: Lettuce seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
 ## [c3] For Alderan / Alderaan lettuce and general lettuce seedlings.
 BR
 GUIDEGRID|Covers::Transplanting, spacing, watering, feeding, pest control, harvesting||Best for::Home gardens, kitchen gardens, raised beds, containers, small farm production||Support::Send clear plant photos by WhatsApp when you need help
-@back: Guides for other plants
-@backgoto: /grow-guides
-@next: Quick rescue
+@back: Cover
+@next: Next
 @goto: lettuce-quick-rescue
 
 ===
@@ -36,8 +52,8 @@ GUIDEGRID|Covers::Transplanting, spacing, watering, feeding, pest control, harve
 ## [c3] Use this slide first when something looks wrong.
 BR
 GUIDETABLE|Problem|First action||Seedling wilts after planting|Shade for 2 to 3 days. Water gently. Transplant in the evening or early morning next time.||Leaves have holes|Check early morning or evening for caterpillars, slugs, snails, or grasshoppers. Remove pests and use barriers where needed.||Leaves look sticky or curled|Check underside of leaves for aphids or whiteflies. Spray a mild soap solution and repeat every 3 to 5 days.||Leaf edges turn brown|Give afternoon shade, water evenly, and avoid strong fertilizer.||Tall center stalk appears|This is bolting. Harvest immediately and plant fresh seedlings.
-@back: Cover
-@next: Quick numbers
+@back: About this guide
+@next: Next
 @goto: lettuce-quick-numbers
 
 ===
@@ -57,7 +73,7 @@ GUIDEGRID|Best temperature::15 to 21 C / 59 to 70 F||Heat stress risk::Above 24 
 BR
 [c3] In hot Jamaican conditions, lettuce often performs better with morning sun and light afternoon shade than harsh full-day sun.
 @back: Quick rescue
-@next: Harden seedlings
+@next: Next
 @goto: lettuce-hardening-off
 
 ===
@@ -78,7 +94,7 @@ GUIDETABLE|Timing|Exposure||Day 1 to 2|Bright shade for 2 to 3 hours.||Day 3 to 
 BR
 [c3] Keep tray cells moist while hardening off. If seedlings wilt badly, move them back to shade and water gently.
 @back: Quick numbers
-@next: Transplanting
+@next: Next
 @goto: lettuce-transplanting
 
 ===
@@ -99,7 +115,7 @@ BR
 [c2] Lettuce warning:
 [c3] Do not cover the middle crown with soil. If soil packs into the center, the plant can rot or grow poorly.
 @back: Harden seedlings
-@next: Spacing
+@next: Next
 @goto: lettuce-spacing
 
 ===
@@ -117,7 +133,7 @@ BR
 BR
 GUIDETABLE|Lettuce use|Spacing||Baby leaf harvest|Plants 4 to 6 inches apart. Rows 8 to 12 inches apart.||Loose leaf lettuce|Plants 6 to 10 inches apart. Rows 12 to 18 inches apart.||Romaine or butterhead|Plants 8 to 12 inches apart.||Head lettuce|Plants 12 to 15 inches apart.||Simple customer instruction|For 2 to 6 plants, use 8 to 10 inches apart in a container at least 6 to 8 inches deep, with drainage holes.
 @back: Transplanting
-@next: Sun and water
+@next: Next
 @goto: lettuce-sun-water
 
 ===
@@ -137,7 +153,7 @@ GUIDEGRID|Best sun::Morning sun||Hot conditions::4 to 6 hours sun plus afternoon
 BR
 [c3] Water at soil level where possible. Avoid splashing soil onto leaves and avoid soaking leaves late in the evening.
 @back: Spacing
-@next: Soil and feeding
+@next: Next
 @goto: lettuce-soil-feeding
 
 ===
@@ -159,7 +175,7 @@ GUIDETABLE|Timing|Feed lightly||At transplant|Use compost in the soil.||After 7 
 BR
 [c3] Avoid overfeeding. Too much fertilizer can cause soft weak leaves, leaf burn, bitter taste, pest problems, and rot in wet weather.
 @back: Sun and water
-@next: Pests
+@next: Next
 @goto: lettuce-pests
 
 ===
@@ -179,7 +195,7 @@ GUIDETABLE|Pest|Signs|Action||Aphids|Small soft insects, curled leaves, sticky l
 BR
 [c3] Spray early morning or late evening, not in harsh sun. Always test homemade spray on a few leaves first.
 @back: Soil and feeding
-@next: Diseases
+@next: Next
 @goto: lettuce-diseases
 
 ===
@@ -199,7 +215,7 @@ GUIDETABLE|Disease|Signs|Prevention or response||Damping off|Young seedling coll
 BR
 [c3] Disease prevention starts with clean hands, clean tools, good spacing, morning watering, and removing diseased leaves early.
 @back: Pests
-@next: Clean hands
+@next: Next
 @goto: lettuce-clean-hands
 
 ===
@@ -221,7 +237,7 @@ GUIDETABLE|Before handling seedlings|Keep it clean||Hands|Wash hands with soap a
 BR
 [c3] This rule is especially important for small farmers handling many seedlings from trays.
 @back: Diseases
-@next: Bolting
+@next: Next
 @goto: lettuce-bolting
 
 ===
@@ -241,7 +257,7 @@ GUIDETABLE|What you see|Meaning|Response||Bright green, firm leaves|Healthy plan
 BR
 [c3] Bolting means lettuce is switching from leaf production to flowering or seed production. Main causes are heat, plant age, dry soil, and stress.
 @back: Clean hands
-@next: Harvesting
+@next: Next
 @goto: lettuce-harvesting
 
 ===
@@ -261,7 +277,7 @@ GUIDEGRID|Baby leaves::About 20 to 30 days after transplant||Outer-leaf harvest:
 BR
 GUIDETABLE|Harvest rule|Why it matters||Use clean scissors or a clean knife|Keeps the plant and harvest cleaner.||Harvest outer leaves first|Allows continued production.||Do not remove more than one third at once|Helps the plant recover.||Keep harvested lettuce out of direct sun|Protects freshness and texture.
 @back: Bolting
-@next: Home and farm notes
+@next: Next
 @goto: lettuce-home-farm-notes
 
 ===
@@ -279,7 +295,7 @@ GUIDETABLE|Harvest rule|Why it matters||Use clean scissors or a clean knife|Keep
 BR
 GUIDETABLE|Grower type|Best approach||Small farmers planting many seedlings|Use raised beds if soil holds water. Keep rows straight. Use 8 to 12 inch spacing for most leaf lettuce. Use 30 to 50 percent shade cloth in hot conditions. Plant batches every 7 to 14 days for continuous harvest.||Home garden customers buying 2 to 6 seedlings|Use a container at least 6 to 8 inches deep with drainage holes. Space plants 8 to 10 inches apart. Give morning sun and afternoon shade. Water before leaves wilt. Harvest outer leaves every 3 to 7 days once plants are large enough.
 @back: Harvesting
-@next: Weekly checklist
+@next: Next
 @goto: lettuce-weekly-checklist
 
 ===

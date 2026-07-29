@@ -56,9 +56,50 @@ function normalizeVideoProgress(snapshot, questionnaireSlug) {
     .filter((item) => item.slideId);
 }
 
+function normalizeBookmarkEvents(snapshot, questionnaireSlug) {
+  const records = Array.isArray(snapshot?.bookmarkEvents)
+    ? snapshot.bookmarkEvents
+    : [];
+
+  return records
+    .map((item) => {
+      const bookmarkKind =
+        item.bookmarkKind === "video" ? "video" : "chapter";
+      const action = item.action === "started" ? "started" : "saved";
+      const triggerType =
+        item.triggerType === "automatic" ? "automatic" : "manual";
+      const bookmarkedAt = item.bookmarkedAt
+        ? new Date(item.bookmarkedAt)
+        : new Date();
+
+      return {
+        id: asString(item.id),
+        questionnaireSlug: asString(item.questionnaireSlug) || questionnaireSlug,
+        slideId: asString(item.slideId),
+        slideLabel: asString(item.slideLabel) || null,
+        bookmarkKind,
+        action,
+        triggerType,
+        bookmarkedAt,
+        videoTimestampSeconds:
+          item.videoTimestampSeconds === null ||
+          item.videoTimestampSeconds === undefined
+            ? null
+            : asPositiveInt(item.videoTimestampSeconds),
+        videoDurationSeconds:
+          item.videoDurationSeconds === null ||
+          item.videoDurationSeconds === undefined
+            ? null
+            : asPositiveInt(item.videoDurationSeconds),
+      };
+    })
+    .filter((item) => item.slideId && Number.isFinite(item.bookmarkedAt.getTime()));
+}
+
 export async function syncEngagementForUser({ userId, questionnaireSlug, snapshot, source }) {
   const questionAnswers = normalizeQuestionAnswers(snapshot, questionnaireSlug);
   const videoProgress = normalizeVideoProgress(snapshot, questionnaireSlug);
+  const bookmarkEvents = normalizeBookmarkEvents(snapshot, questionnaireSlug);
   const dripUnlock = snapshot?.dripUnlock;
 
   for (const item of questionAnswers) {
@@ -141,6 +182,69 @@ export async function syncEngagementForUser({ userId, questionnaireSlug, snapsho
     `;
   }
 
+  if (bookmarkEvents.length) {
+    const bookmarkRows = bookmarkEvents.map((item) => ({
+      userId,
+      eventType:
+        item.bookmarkKind === "video"
+          ? item.action === "started"
+            ? "video_bookmark_started"
+            : "video_bookmark_saved"
+          : item.action === "started"
+            ? "chapter_bookmark_started"
+            : "chapter_bookmark_saved",
+      eventKey:
+        item.id ||
+        `${item.questionnaireSlug}:${item.bookmarkKind}:${item.action}:${item.slideId}:${item.bookmarkedAt.toISOString()}`,
+      metadata: {
+        questionnaireSlug: item.questionnaireSlug,
+        slideId: item.slideId,
+        slideLabel: item.slideLabel,
+        bookmarkKind: item.bookmarkKind,
+        action: item.action,
+        triggerType: item.triggerType,
+        bookmarkedAt: item.bookmarkedAt.toISOString(),
+        videoTimestampSeconds: item.videoTimestampSeconds,
+        videoDurationSeconds: item.videoDurationSeconds,
+        source,
+      },
+      createdAt: item.bookmarkedAt,
+    }));
+    const eventKeys = bookmarkRows
+      .map((item) => item.eventKey)
+      .filter(Boolean);
+    const existingEvents = eventKeys.length
+      ? await prisma.emailSequenceEvent.findMany({
+          where: {
+            userId,
+            eventKey: { in: eventKeys },
+            eventType: {
+              in: [
+                "chapter_bookmark_saved",
+                "chapter_bookmark_started",
+                "video_bookmark_saved",
+                "video_bookmark_started",
+              ],
+            },
+          },
+          select: { eventKey: true },
+        })
+      : [];
+    const existingEventKeys = new Set(
+      existingEvents.map((event) => event.eventKey).filter(Boolean)
+    );
+
+    const newBookmarkRows = bookmarkRows.filter(
+      (item) => !existingEventKeys.has(item.eventKey)
+    );
+
+    if (newBookmarkRows.length) {
+      await prisma.emailSequenceEvent.createMany({
+        data: newBookmarkRows,
+      });
+    }
+  }
+
   if (dripUnlock && typeof dripUnlock === "object") {
     const sequenceKey = asString(dripUnlock.sequenceKey);
     const unlockKey = asString(dripUnlock.unlockKey);
@@ -166,6 +270,7 @@ export async function syncEngagementForUser({ userId, questionnaireSlug, snapsho
         return {
           questionAnswerCount: questionAnswers.length,
           videoProgressCount: videoProgress.length,
+          bookmarkEventCount: bookmarkEvents.length,
           dripUnlocked: false,
         };
       }
@@ -227,6 +332,7 @@ export async function syncEngagementForUser({ userId, questionnaireSlug, snapsho
   return {
     questionAnswerCount: questionAnswers.length,
     videoProgressCount: videoProgress.length,
+    bookmarkEventCount: bookmarkEvents.length,
     dripUnlocked: Boolean(dripUnlock),
   };
 }

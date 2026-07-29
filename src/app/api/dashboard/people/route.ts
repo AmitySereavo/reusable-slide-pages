@@ -8,6 +8,7 @@ import {
   seedImportedConversationNotes,
 } from "@/lib/dashboard/personProfiles";
 import { ensureCustomerGrowGuideTables } from "@/lib/growGuides/trackedLinks";
+import { ensureUnregisteredVisitorActivityTable } from "@/lib/visitors/unregisteredVisitors";
 
 function toNumber(value: unknown) {
   if (value == null) return 0;
@@ -87,6 +88,7 @@ function serializeUser(user: any) {
     verifiedAt: toIso(user.emailVerifiedAt || user.phoneVerifiedAt),
     adminLevel: user.adminLevel,
     createdBy: user.createdBy,
+    passwordUpdatedAt: toIso(user.passwordUpdatedAt),
     preferredCurrencyCode: user.preferredCurrencyCode,
     contact: compactContact(user),
     tags: (user.tags || []).map((tag: any) => ({
@@ -114,6 +116,7 @@ function serializeUser(user: any) {
       questionAnswerCount: questionAnswers.length,
       giftClaimCount: giftClaims.length,
       emailEventCount: emailEvents.length,
+      sessionCount: user.sessions?.length || 0,
     },
     purchasedItems: purchasedItems.map((item: any) => ({
       itemKey: item.itemKey,
@@ -544,6 +547,232 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
   });
 }
 
+function serializeUnnamedDeviceLeads(links: any[]) {
+  const byDevice = new Map<string, any>();
+
+  for (const link of links) {
+    const visits = Array.isArray(link.visits) ? link.visits : [];
+
+    for (const visit of visits) {
+      const deviceKey = String(visit.deviceKey || "").trim();
+      if (!deviceKey) continue;
+
+      const existing =
+        byDevice.get(deviceKey) ??
+        {
+          kind: "device-lead",
+          id: `device:${deviceKey}`,
+          createdAt: toIso(visit.createdAt),
+          updatedAt: toIso(visit.createdAt),
+          verifiedAt: null,
+          bucket: "Unnamed leads",
+          labels: ["unnamed-lead", "device-only"],
+          contact: {
+            name: `Unknown device ${deviceKey.slice(0, 8)}`,
+            email: null,
+            phone: null,
+          },
+          summary: {
+            activityCount: 0,
+            deviceCount: 1,
+            growGuideVisitCount: 0,
+            amountSpent: [],
+            orderCount: 0,
+            itemCount: 0,
+            ticketCount: 0,
+            purchasedItemCount: 0,
+            videoCount: 0,
+            totalWatchedSeconds: 0,
+            questionAnswerCount: 0,
+            emailEventCount: 0,
+            giftClaimCount: 0,
+          },
+          devices: [
+            {
+              role: "unnamed-lead",
+              source: "Tracked site activity",
+              deviceKey,
+              firstSeenAt: toIso(visit.createdAt),
+              lastSeenAt: toIso(visit.createdAt),
+              userAgent: visit.userAgent || null,
+              referrer: visit.referrer || null,
+              location: visit.location || null,
+            },
+          ],
+          activityLog: [],
+        };
+
+      const visitAt = toIso(visit.createdAt);
+      const existingCreatedMs = new Date(existing.createdAt || visitAt || 0).getTime();
+      const existingUpdatedMs = new Date(existing.updatedAt || visitAt || 0).getTime();
+      const visitMs = new Date(visitAt || 0).getTime();
+      existing.createdAt =
+        existingCreatedMs && existingCreatedMs < visitMs
+          ? existing.createdAt
+          : visitAt;
+      existing.updatedAt =
+        existingUpdatedMs > visitMs ? existing.updatedAt : visitAt;
+      existing.summary.activityCount += 1;
+      existing.summary.growGuideVisitCount += 1;
+      existing.devices[0].firstSeenAt =
+        new Date(existing.devices[0].firstSeenAt || visitAt || 0).getTime() <=
+        visitMs
+          ? existing.devices[0].firstSeenAt
+          : visitAt;
+      existing.devices[0].lastSeenAt =
+        new Date(existing.devices[0].lastSeenAt || visitAt || 0).getTime() >=
+        visitMs
+          ? existing.devices[0].lastSeenAt
+          : visitAt;
+      existing.activityLog.push({
+        type: "unnamed-device-activity",
+        label: `Visited ${makeSlideLabel(visit.slideId, visit.questionnaireSlug)}`,
+        detail: [
+          link.productTitle || link.guideSlug || "Grow guide",
+          link.orderCode ? `Shared from order ${link.orderCode}` : "",
+        ]
+          .filter(Boolean)
+          .join(" - "),
+        createdAt: visitAt,
+        details: [
+          {
+            label: "Device",
+            detail: deviceKey,
+            createdAt: visitAt,
+          },
+          {
+            label: "Flow",
+            detail: visit.questionnaireSlug || "Not recorded",
+            createdAt: visitAt,
+          },
+          {
+            label: "Referrer",
+            detail: visit.referrer || "Not recorded",
+            createdAt: visitAt,
+          },
+        ],
+      });
+
+      byDevice.set(deviceKey, existing);
+    }
+  }
+
+  return Array.from(byDevice.values()).sort(
+    (a, b) =>
+      new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+  );
+}
+
+function serializeUnregisteredVisitorActivities(activities: any[]) {
+  const byDevice = new Map<string, any>();
+
+  for (const activity of activities) {
+    const deviceKey = String(activity.deviceKey || "").trim();
+    if (!deviceKey) continue;
+
+    const createdAt = toIso(activity.createdAt);
+    const existing =
+      byDevice.get(deviceKey) ??
+      {
+        kind: "device-lead",
+        id: `visitor:${deviceKey}`,
+        createdAt,
+        updatedAt: createdAt,
+        verifiedAt: null,
+        bucket: "Unregistered visitors",
+        labels: ["unregistered-visitor", "interested-visitor", "device-only"],
+        contact: {
+          name: `Unregistered visitor ${deviceKey.slice(0, 8)}`,
+          email: null,
+          phone: null,
+        },
+        summary: {
+          activityCount: 0,
+          deviceCount: 1,
+          growGuideVisitCount: 0,
+          amountSpent: [],
+          orderCount: 0,
+          itemCount: 0,
+          ticketCount: 0,
+          purchasedItemCount: 0,
+          videoCount: 0,
+          totalWatchedSeconds: 0,
+          questionAnswerCount: 0,
+          emailEventCount: 0,
+          giftClaimCount: 0,
+        },
+        devices: [
+          {
+            role: "unregistered-visitor",
+            source: "Interest threshold activity",
+            deviceKey,
+            firstSeenAt: createdAt,
+            lastSeenAt: createdAt,
+          },
+        ],
+        activityLog: [],
+      };
+
+    const existingCreatedMs = new Date(existing.createdAt || createdAt || 0).getTime();
+    const existingUpdatedMs = new Date(existing.updatedAt || createdAt || 0).getTime();
+    const activityMs = new Date(createdAt || 0).getTime();
+    existing.createdAt =
+      existingCreatedMs && existingCreatedMs < activityMs
+        ? existing.createdAt
+        : createdAt;
+    existing.updatedAt =
+      existingUpdatedMs > activityMs ? existing.updatedAt : createdAt;
+    existing.summary.activityCount += 1;
+    existing.devices[0].firstSeenAt =
+      new Date(existing.devices[0].firstSeenAt || createdAt || 0).getTime() <=
+      activityMs
+        ? existing.devices[0].firstSeenAt
+        : createdAt;
+    existing.devices[0].lastSeenAt =
+      new Date(existing.devices[0].lastSeenAt || createdAt || 0).getTime() >=
+      activityMs
+        ? existing.devices[0].lastSeenAt
+        : createdAt;
+    existing.activityLog.push({
+      type: activity.eventType || "visitor-activity",
+      label: String(activity.eventType || "Visitor activity").replace(/_/g, " "),
+      detail: [
+        activity.questionnaireSlug
+          ? `Flow: ${String(activity.questionnaireSlug).replace(/-/g, " ")}`
+          : "",
+        activity.slideLabel || activity.slideId || "",
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      createdAt,
+      details: [
+        {
+          label: "Device",
+          detail: deviceKey,
+          createdAt,
+        },
+        {
+          label: "Path",
+          detail: activity.path || "Not recorded",
+          createdAt,
+        },
+        {
+          label: "Expires",
+          detail: toIso(activity.expiresAt) || "Not recorded",
+          createdAt,
+        },
+      ],
+    });
+
+    byDevice.set(deviceKey, existing);
+  }
+
+  return Array.from(byDevice.values()).sort(
+    (a, b) =>
+      new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+  );
+}
+
 function makeSlideLabel(slideId: unknown, questionnaireSlug?: unknown) {
   const rawSlide = String(slideId || "").trim();
   const rawSlug = String(questionnaireSlug || "").replace(/-grow-guide$/, "");
@@ -695,6 +924,93 @@ function addMoneyToMap(map: Map<string, number>, values: any[] = []) {
   }
 }
 
+function formatActivitySeconds(value: unknown) {
+  const seconds = Math.max(0, Math.floor(Number(value) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function isBookmarkActivityEvent(eventType: string) {
+  return [
+    "chapter_bookmark_saved",
+    "chapter_bookmark_started",
+    "video_bookmark_saved",
+    "video_bookmark_started",
+  ].includes(eventType);
+}
+
+function getBookmarkActivityRecord(event: any) {
+  const metadata =
+    event.metadata && typeof event.metadata === "object" ? event.metadata : {};
+  const isVideo = String(metadata.bookmarkKind || event.eventType).includes("video");
+  const isStarted = event.eventType.endsWith("_started");
+  const triggerType = metadata.triggerType === "automatic" ? "automatic" : "manual";
+  const slideLabel =
+    metadata.slideLabel ||
+    String(metadata.slideId || "chapter").replace(/-/g, " ");
+  const timestampLine =
+    isVideo && metadata.videoTimestampSeconds != null
+      ? `Video timestamp ${formatActivitySeconds(metadata.videoTimestampSeconds)}`
+      : "";
+
+  return {
+    type: event.eventType,
+    label: isVideo
+      ? isStarted
+        ? `Started video from bookmark: ${slideLabel}`
+        : `Bookmarked video: ${slideLabel}`
+      : isStarted
+        ? `Started from chapter bookmark: ${slideLabel}`
+        : `Bookmarked chapter: ${slideLabel}`,
+    detail: [
+      metadata.questionnaireSlug
+        ? `Flow: ${String(metadata.questionnaireSlug).replace(/-/g, " ")}`
+        : "",
+      timestampLine,
+      triggerType === "automatic"
+        ? "Automatic website trigger"
+        : "User-created bookmark",
+    ]
+      .filter(Boolean)
+      .join(" - "),
+    createdAt: event.createdAt,
+    details: [
+      {
+        label: "Slide",
+        detail: metadata.slideId || "Not recorded",
+        createdAt: event.createdAt,
+      },
+      {
+        label: "Trigger",
+        detail:
+          triggerType === "automatic"
+            ? "Automatically triggered by code/site"
+            : "Made by the user",
+        createdAt: event.createdAt,
+      },
+      {
+        label: "Logged at",
+        detail: event.createdAt || "Not recorded",
+        createdAt: event.createdAt,
+      },
+      ...(isVideo
+        ? [
+            {
+              label: "Video timestamp",
+              detail:
+                metadata.videoTimestampSeconds != null
+                  ? formatActivitySeconds(metadata.videoTimestampSeconds)
+                  : "Not recorded",
+              createdAt: event.createdAt,
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 function mergePeopleByIdentity(records: any[]) {
   const byIdentity = new Map<string, any>();
 
@@ -755,6 +1071,11 @@ function mergePeopleByIdentity(records: any[]) {
         detail: record.createdBy ? `Created by ${record.createdBy}` : "",
         createdAt: record.createdAt,
       });
+
+      for (const event of record.emailActivity || []) {
+        if (!isBookmarkActivityEvent(event.eventType)) continue;
+        person.activityLog.push(getBookmarkActivityRecord(event));
+      }
     } else if (record.kind === "lead") {
       person.leads.push(record);
       person.activityLog.push({
@@ -918,6 +1239,7 @@ export async function GET(request: Request) {
 
   await ensureUserVideoProgressAnalyticsColumns(prisma);
   await ensureCustomerGrowGuideTables();
+  await ensureUnregisteredVisitorActivityTable();
 
   const littleOrchardCustomerWhere = query
     ? Prisma.sql`
@@ -932,7 +1254,7 @@ export async function GET(request: Request) {
       `
     : Prisma.empty;
 
-  const [users, leads, littleOrchardItems, growGuideLinks, userCount, leadCount] = await Promise.all([
+  const [users, leads, littleOrchardItems, growGuideLinks, unregisteredVisitorActivities, userCount, leadCount] = await Promise.all([
     prisma.user.findMany({
       where: userWhere,
       take,
@@ -957,6 +1279,7 @@ export async function GET(request: Request) {
         recipientGiftClaims: { orderBy: { createdAt: "desc" }, take: 20 },
         purchaseRecipients: { orderBy: { createdAt: "desc" }, take: 20 },
         emailSequenceEvents: { orderBy: { createdAt: "desc" }, take: 40 },
+        sessions: { orderBy: { lastUsedAt: "desc" }, take: 3 },
       },
     }),
     prisma.lead.findMany({
@@ -986,6 +1309,9 @@ export async function GET(request: Request) {
               'questionnaireSlug', v."questionnaireSlug",
               'slideId', v."slideId",
               'deviceKey', v."deviceKey",
+              'userAgent', v."userAgent",
+              'location', v."location",
+              'referrer', v."referrer",
               'createdAt', v."createdAt"
             )
             ORDER BY v."createdAt" ASC
@@ -996,6 +1322,13 @@ export async function GET(request: Request) {
       LEFT JOIN "CustomerGrowGuideVisit" v ON v."linkId" = l."id"
       GROUP BY l."id"
       ORDER BY COALESCE(MAX(v."createdAt"), l."updatedAt") DESC
+      LIMIT ${take * 8}
+    `),
+    prisma.$queryRaw<any[]>(Prisma.sql`
+      SELECT *
+      FROM "UnregisteredVisitorActivity"
+      WHERE "expiresAt" IS NULL OR "expiresAt" > CURRENT_TIMESTAMP
+      ORDER BY "createdAt" DESC
       LIMIT ${take * 8}
     `),
     prisma.user.count({ where: userWhere }),
@@ -1043,6 +1376,16 @@ export async function GET(request: Request) {
       )
     )
     .filter((record) => !record.peopleProfile?.deletedAt);
+  const unregisteredInterestedVisitors = [
+    ...serializeUnregisteredVisitorActivities(unregisteredVisitorActivities),
+    ...serializeUnnamedDeviceLeads(growGuideLinks),
+  ]
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt || 0).getTime() -
+        new Date(a.updatedAt || 0).getTime()
+    )
+    .slice(0, take);
   const rawPeople = mergePeopleByIdentity([
     ...accounts,
     ...leadsWithProfiles,
@@ -1080,10 +1423,13 @@ export async function GET(request: Request) {
       leadCount: leadsWithProfiles.length,
       customerCount: customers.length,
       personCount: people.length,
+      unregisteredVisitorCount: unregisteredInterestedVisitors.length,
     },
     people,
     accounts,
     leads: leadsWithProfiles,
     customers,
+    unregisteredInterestedVisitors,
+    unnamedDeviceLeads: unregisteredInterestedVisitors,
   });
 }

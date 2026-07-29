@@ -52,6 +52,7 @@ function exportBeforeDelete({ title, filename, record }) {
 }
 
 function getPeopleKindLabel(record) {
+  if (record.kind === "device-lead") return "Unregistered visitor";
   if (record.kind === "person") return "Person";
   if (record.kind === "account") return "Account";
   if (record.kind === "customer") {
@@ -59,6 +60,87 @@ function getPeopleKindLabel(record) {
   }
 
   return "Lead";
+}
+
+function hasAccountHolderSignal(record) {
+  return (record.accounts || []).some(
+    (account) => account.passwordUpdatedAt || account.summary?.sessionCount
+  );
+}
+
+function getRelationshipStageGroups(rows, unnamedDeviceLeads = []) {
+  const peopleRows = rows.filter((record) => record.kind === "person");
+  const fallbackRows = rows.filter((record) => record.kind !== "person");
+  const registeredLeadRows = peopleRows.filter(
+    (record) => (record.leads || []).length && !(record.accounts || []).length
+  );
+  const accountHolderRows = peopleRows.filter(
+    (record) => (record.accounts || []).length
+  );
+  const customerRows = peopleRows.filter(
+    (record) => (record.customers || []).length
+  );
+
+  return [
+    {
+      key: "unnamed-leads",
+      title: "Unregistered Interested Visitors",
+      description:
+        "Known by device activity only after meaningful interest signals. Invite these visitors to register when the timing is right.",
+      rows: unnamedDeviceLeads.map((record) => ({
+        ...record,
+        rowKey: `device-lead-${record.id}`,
+      })),
+    },
+    {
+      key: "registered-leads",
+      title: "Registered Leads",
+      description:
+        "People who gave contact information but have not become account holders yet.",
+      rows:
+        registeredLeadRows.length || peopleRows.length
+          ? registeredLeadRows.map((record) => ({
+              ...record,
+              rowKey: `registered-lead-${record.id}`,
+            }))
+          : fallbackRows
+              .filter((record) => record.kind === "lead")
+              .map((record) => ({ ...record, rowKey: `lead-${record.id}` })),
+    },
+    {
+      key: "account-holders",
+      title: "Account Holders",
+      description:
+        "People with an account/login relationship. Encourage them toward the right purchase or next action.",
+      rows:
+        accountHolderRows.length || peopleRows.length
+          ? accountHolderRows.map((record) => ({
+              ...record,
+              rowKey: `account-holder-${record.id}`,
+              relationshipHint: hasAccountHolderSignal(record)
+                ? "Password or login activity recorded"
+                : "Account exists; password/login signal not confirmed",
+            }))
+          : fallbackRows
+              .filter((record) => record.kind === "account")
+              .map((record) => ({ ...record, rowKey: `account-${record.id}` })),
+    },
+    {
+      key: "customers",
+      title: "Customers",
+      description:
+        "People with purchase records. Follow up to understand motivation, encourage repeat purchases, and invite referrals.",
+      rows:
+        customerRows.length || peopleRows.length
+          ? customerRows.map((record) => ({
+              ...record,
+              rowKey: `customer-stage-${record.id}`,
+            }))
+          : fallbackRows
+              .filter((record) => record.kind === "customer")
+              .map((record) => ({ ...record, rowKey: `customer-${record.id}` })),
+    },
+  ];
 }
 
 function getFollowUpLabel(value) {
@@ -223,6 +305,7 @@ export default function PeopleManager() {
   const [data, setData] = useState({ summary: {}, accounts: [], leads: [] });
   const [status, setStatus] = useState("Loading people...");
   const [expandedKey, setExpandedKey] = useState(null);
+  const [activeStageKey, setActiveStageKey] = useState("all");
   const [actionStatus, setActionStatus] = useState("");
 
   useEffect(() => {
@@ -296,6 +379,77 @@ export default function PeopleManager() {
           ],
     [data.accounts, data.customers, data.leads, data.people]
   );
+  const relationshipStageGroups = useMemo(
+    () =>
+      getRelationshipStageGroups(
+        rows,
+        data.unregisteredInterestedVisitors || data.unnamedDeviceLeads || []
+      ),
+    [data.unregisteredInterestedVisitors, data.unnamedDeviceLeads, rows]
+  );
+  const visibleRows = useMemo(() => {
+    if (activeStageKey === "all") return rows;
+
+    return (
+      relationshipStageGroups.find((group) => group.key === activeStageKey)
+        ?.rows || []
+    );
+  }, [activeStageKey, relationshipStageGroups, rows]);
+
+  function renderPeopleRecord(record) {
+    const isExpanded = expandedKey === record.rowKey;
+
+    return (
+      <article key={record.rowKey} style={styles.card}>
+        <button
+          type="button"
+          onClick={() => setExpandedKey(isExpanded ? null : record.rowKey)}
+          style={styles.cardButton}
+        >
+          <span style={styles.identityBlock}>
+            <strong style={styles.name}>
+              {getFollowUpDotStyle(record.peopleProfile?.followUpStatus) ? (
+                <span
+                  aria-label={record.peopleProfile?.followUpStatus?.label}
+                  title={record.peopleProfile?.followUpStatus?.label}
+                  style={getFollowUpDotStyle(record.peopleProfile?.followUpStatus)}
+                />
+              ) : null}
+              {record.contact?.name || record.contact?.email || "Unnamed person"}
+            </strong>
+            <span style={styles.metaLine}>
+              {getPeopleKindLabel(record)} -{" "}
+              {record.contact?.email || record.contact?.phone || "No contact saved"}
+            </span>
+            {record.relationshipHint ? (
+              <span style={styles.metaLine}>{record.relationshipHint}</span>
+            ) : null}
+            <span style={styles.metaLine}>
+              Created {formatDate(record.createdAt)}
+              {record.verifiedAt ? ` - Verified ${formatDate(record.verifiedAt)}` : ""}
+            </span>
+          </span>
+          <span style={styles.expandText}>
+            {isExpanded ? "Hide details" : "See details"}
+          </span>
+        </button>
+
+        {isExpanded ? (
+          record.kind === "device-lead" ? (
+            <DeviceLeadDetails record={record} />
+          ) : record.kind === "person" ? (
+            <PersonDetails record={record} onProfileAction={updatePeopleProfile} />
+          ) : record.kind === "account" ? (
+            <AccountDetails record={record} onProfileAction={updatePeopleProfile} />
+          ) : record.kind === "customer" ? (
+            <CustomerDetails record={record} onProfileAction={updatePeopleProfile} />
+          ) : (
+            <LeadDetails record={record} onProfileAction={updatePeopleProfile} />
+          )
+        ) : null}
+      </article>
+    );
+  }
 
   return (
     <section id="dashboard-people" style={styles.section}>
@@ -307,6 +461,9 @@ export default function PeopleManager() {
           </p>
         </div>
         <div style={styles.countGrid}>
+          <span style={styles.countPill}>
+            {data.summary?.unregisteredVisitorCount || data.summary?.unnamedLeadCount || 0} unregistered visitors
+          </span>
           <span style={styles.countPill}>{data.summary?.accountCount || 0} accounts</span>
           <span style={styles.countPill}>{data.summary?.leadCount || 0} leads</span>
           <span style={styles.countPill}>{data.summary?.customerCount || 0} customers</span>
@@ -326,8 +483,48 @@ export default function PeopleManager() {
 
       {status ? <p style={styles.status}>{status}</p> : null}
 
+      <div style={styles.stageList}>
+        <button
+          type="button"
+          style={{
+            ...styles.stageHeaderButton,
+            ...(activeStageKey === "all" ? styles.stageHeaderButtonActive : {}),
+          }}
+          onClick={() => setActiveStageKey("all")}
+        >
+          <span style={styles.stageHeaderText}>
+            <strong>All People</strong>
+            <span>Every merged relationship record in one list.</span>
+          </span>
+          <span style={styles.stageCount}>
+            {rows.length} {rows.length === 1 ? "record" : "records"}
+          </span>
+        </button>
+        {relationshipStageGroups.map((group) => (
+          <button
+            key={group.key}
+            type="button"
+            style={{
+              ...styles.stageHeaderButton,
+              ...(activeStageKey === group.key
+                ? styles.stageHeaderButtonActive
+                : {}),
+            }}
+            onClick={() => setActiveStageKey(group.key)}
+          >
+            <span style={styles.stageHeaderText}>
+              <strong>{group.title}</strong>
+              <span>{group.description}</span>
+            </span>
+            <span style={styles.stageCount}>
+              {group.rows.length} {group.rows.length === 1 ? "record" : "records"}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div style={styles.list}>
-        {rows.map((record) => {
+        {visibleRows.map((record) => {
           const isExpanded = expandedKey === record.rowKey;
           return (
             <article key={record.rowKey} style={styles.card}>
@@ -360,7 +557,9 @@ export default function PeopleManager() {
               </button>
 
               {isExpanded ? (
-                record.kind === "person" ? (
+                record.kind === "device-lead" ? (
+                  <DeviceLeadDetails record={record} />
+                ) : record.kind === "person" ? (
                   <PersonDetails record={record} onProfileAction={updatePeopleProfile} />
                 ) : record.kind === "account" ? (
                   <AccountDetails record={record} onProfileAction={updatePeopleProfile} />
@@ -376,6 +575,40 @@ export default function PeopleManager() {
       </div>
       {actionStatus ? <p style={styles.status}>{actionStatus}</p> : null}
     </section>
+  );
+}
+
+function DeviceLeadDetails({ record }) {
+  return (
+    <div style={styles.detailGrid}>
+      <DetailGroup title="Unregistered Visitor">
+        <InfoLine label="Known by" value={record.devices?.[0]?.deviceKey} />
+        <InfoLine label="First visited" value={formatDate(record.createdAt)} />
+        <InfoLine label="Last activity" value={formatDate(record.updatedAt)} />
+        <InfoLine
+          label="Tracked activities"
+          value={record.summary?.activityCount || 0}
+        />
+      </DetailGroup>
+      <ActivityLogList items={record.activityLog} />
+      <DetailList
+        title="Devices"
+        items={record.devices}
+        empty="No device details saved."
+        renderItem={(device) => (
+          <>
+            <strong>{getDeviceRoleLabel(device)}</strong>
+            <span>{device.deviceKey || "No device key"}</span>
+            <span>
+              First seen {formatDate(device.firstSeenAt)} - Last seen{" "}
+              {formatDate(device.lastSeenAt)}
+            </span>
+            {device.referrer ? <span>Referrer: {device.referrer}</span> : null}
+            <DeviceActivityEvents device={device} />
+          </>
+        )}
+      />
+    </div>
   );
 }
 
@@ -659,6 +892,7 @@ function PersonDetails({ record, onProfileAction }) {
               First seen {formatDate(device.firstSeenAt)} Â· Last seen{" "}
               {formatDate(device.lastSeenAt)}
             </span>
+            <DeviceActivityEvents device={device} />
           </>
         )}
       />
@@ -718,6 +952,7 @@ function CustomerDetails({ record, onProfileAction }) {
               </span>
             ) : null}
             {device.note ? <span>{device.note}</span> : null}
+            <DeviceActivityEvents device={device} />
           </>
         )}
       />
@@ -1684,6 +1919,38 @@ function getDeviceRoleLabel(device) {
   return "Customer device";
 }
 
+function getDeviceActivityLabel(source) {
+  return (
+    {
+      "order-status": "Opened order status link",
+      receipt: "Opened receipt link",
+      "receipt-download-print": "Downloaded / printed receipt",
+    }[source] || String(source || "Device activity").replace(/-/g, " ")
+  );
+}
+
+function DeviceActivityEvents({ device }) {
+  const events = Array.isArray(device?.activityEvents)
+    ? device.activityEvents.filter(
+        (event) => event && typeof event === "object" && !Array.isArray(event)
+      )
+    : [];
+
+  if (!events.length) {
+    return null;
+  }
+
+  return (
+    <span style={styles.deviceActivityList}>
+      {events.map((event, index) => (
+        <span key={`${event.source || "activity"}-${event.seenAt || index}`}>
+          {getDeviceActivityLabel(event.source)} - {formatDate(event.seenAt)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function InfoLine({ label, value, href }) {
   const displayValue = value || "Not recorded";
 
@@ -1776,6 +2043,44 @@ const styles = {
     display: "grid",
     gap: "10px",
     marginTop: "14px",
+  },
+  stageList: {
+    display: "grid",
+    gap: "8px",
+    marginTop: "14px",
+  },
+  stageHeaderButton: {
+    alignItems: "center",
+    background: "#fffdfa",
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    color: "#28231F",
+    cursor: "pointer",
+    display: "flex",
+    gap: "12px",
+    justifyContent: "space-between",
+    padding: "12px",
+    textAlign: "left",
+    width: "100%",
+  },
+  stageHeaderButtonActive: {
+    background: "#eef5ee",
+    borderColor: "rgba(47, 116, 64, 0.35)",
+    boxShadow: "inset 4px 0 0 #2f7440",
+  },
+  stageHeaderText: {
+    display: "grid",
+    gap: "3px",
+    minWidth: 0,
+  },
+  stageCount: {
+    background: "#28231F",
+    borderRadius: "999px",
+    color: "#fff",
+    flex: "0 0 auto",
+    fontSize: "12px",
+    fontWeight: 900,
+    padding: "6px 9px",
   },
   card: {
     border: "1px solid rgba(32, 28, 29, 0.12)",
@@ -1998,6 +2303,13 @@ const styles = {
   breakText: {
     overflowWrap: "anywhere",
     wordBreak: "break-word",
+  },
+  deviceActivityList: {
+    borderLeft: "3px solid rgba(47, 116, 64, 0.22)",
+    display: "grid",
+    gap: "3px",
+    marginTop: "4px",
+    paddingLeft: "8px",
   },
   primarySmallButton: {
     background: "#2f7440",

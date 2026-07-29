@@ -250,6 +250,12 @@ Do not create duplicate downloader systems for one project. Reuse:
 Reusable behavior belongs in shared code. Project wording, sequence decisions,
 and campaign-specific flows belong in DSL/config/database records.
 
+DSL headings should be written to read well as short display lines. The runtime
+balances heading text into one- or two-word lines and keeps the phrase
+`Grow Guide` together on its own line. If a thought needs to read as a longer
+sentence, put it in `@subtitle`, `@body`, or a subheading/text section instead
+of making it the heading.
+
 Website-operation email wording belongs in protected Email Sequence records
 tagged `Permanent Website Op` or in their shared default template file. Do not
 add email-channel wording for auth, ticket, album, password-reset, or recipient

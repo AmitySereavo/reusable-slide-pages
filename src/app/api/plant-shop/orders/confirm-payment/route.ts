@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
-import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
+import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import {
@@ -35,7 +35,7 @@ function cleanFulfillmentNotes(value: string | null) {
     .join("\n");
 }
 
-function getVariationLimit(
+async function getVariationLimit(
   productId: string | null,
   sizeOptionId: string | null,
   quantityOverrides: Map<string, number>
@@ -47,7 +47,8 @@ function getVariationLimit(
     return Math.max(0, Math.floor(Number(overrideQuantity || 0)));
   }
 
-  const sizeOption = littleOrchardShopCatalog.products
+  const shopCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
+  const sizeOption = shopCatalog.products
     .find((product) => product.id === productId)
     ?.sizeOptions.find((option) => option.id === sizeOptionId);
   const limit = Number(sizeOption?.metadata?.eventQuantityAvailable ?? 0);
@@ -238,7 +239,7 @@ export async function POST(request: Request) {
       continue;
     }
 
-    const limit = getVariationLimit(
+    const limit = await getVariationLimit(
       item.productId,
       item.sizeOptionId,
       quantityOverrides

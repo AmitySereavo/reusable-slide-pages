@@ -13,12 +13,28 @@
 @syncurl: true
 ---
 # [c2] Slicing Tomato Seedling Grow Guide
+![Slicing tomato seedling](/media/paralife_trees/jpg/product_tomato_seedling_slicing_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: slicing-tomato-guide-about
+
+===
+
+@id: slicing-tomato-guide-about
+@type: content
+@title: About This Guide
+@subtitle: Slicing tomato seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
 ## [c3] Transplanting, spacing, feeding, pest control, disease control, and harvesting.
 BR
 GUIDEGRID|Tomato type::Large slicing/sandwich tomato seedlings||Transplant age::5 to 8 weeks from sowing, or 6 to 10 inches tall||Best transplant size::4 to 6 true leaves, thick stem, healthy green leaves||Main use::Small farmers planting trays; home gardeners planting 2 to 6 plants||First harvest estimate::65 to 90 days after transplanting
-@back: Guides for other plants
-@backgoto: /grow-guides
-@next: Quick rescue
+@back: Cover
+@next: Next
 @goto: slicing-tomato-quick-rescue
 
 ===
@@ -36,8 +52,8 @@ GUIDEGRID|Tomato type::Large slicing/sandwich tomato seedlings||Transplant age::
 ## [c3] Check the underside of leaves and soft new growth before spraying or fertilizing.
 BR
 GUIDETABLE|What you see|Most likely cause|First action today||Tiny white insects fly up when plant is touched|Whiteflies|Spray leaf undersides. Add yellow sticky traps. Repeat every 3 to 5 days.||Leaves curling, sticky leaves, ants|Aphids or whiteflies|Check under leaves. Spray mild soap. Control ants. Repeat every 3 to 5 days.||Bronze/silver marks, damaged flowers or new leaves|Thrips|Remove badly damaged growth. Use sticky traps. Treat early.||Holes in leaves or fruit, black droppings|Hornworm, fruitworm, caterpillar|Check early morning/evening. Handpick. Remove damaged fruit.||Lower leaves with brown target spots|Early blight|Remove affected lower leaves. Mulch. Avoid splashing soil onto leaves.||Many tiny brown spots, yellowing leaves|Septoria leaf spot|Remove spotted leaves. Improve airflow. Keep leaves dry.||Plant wilts suddenly but soil is moist|Bacterial wilt/root disease|Remove badly collapsed plants. Do not reuse infected soil. Rotate crops.||Blossom end turns black/brown and sunken|Blossom-end rot|Water consistently. Mulch. Avoid heavy nitrogen. Add calcium only if soil needs it.||Fruit cracks near stem|Uneven watering or rain after dry spell|Keep moisture even. Harvest breaker-stage fruit before heavy rain.||Mottled leaves, twisted growth, stunting|Virus, including mosaic viruses|Remove badly infected plants. Control insects. Wash hands/tools.
-@back: Cover
-@next: Pests
+@back: About this guide
+@next: Next
 @goto: slicing-tomato-pests
 
 ===
@@ -57,7 +73,7 @@ GUIDETABLE|Pest|Signs|Action range||Whiteflies|Tiny white flies under leaves; ye
 BR
 [c3] Spray early morning or late evening, not in hot sun. Test a few leaves first.
 @back: Quick rescue
-@next: Diseases
+@next: Next
 @goto: slicing-tomato-diseases
 
 ===
@@ -77,7 +93,7 @@ GUIDETABLE|Problem|Signs|First action||Early blight|Brown target-like spots, usu
 BR
 [c3] Cigarettes and other tobacco products can carry tobacco mosaic virus. Wash hands well before touching tomato seedlings, trays, tools, leaves, stakes, or fruit.
 @back: Pests
-@next: Quick facts
+@next: Next
 @goto: slicing-tomato-quick-facts
 
 ===
@@ -95,7 +111,7 @@ BR
 BR
 GUIDEGRID|Seed germination::5 to 10 days in warm moist seedling mix||Seed to transplant age::5 to 8 weeks from sowing||Best transplant height::6 to 10 inches tall; sturdy stem; 4 to 6 true leaves||Hardening off::7 to 10 days before full field sun||Root settling::7 to 14 days after transplant||First flowering::20 to 35 days after transplant||Flower to full-size fruit::About 25 to 35 days||First harvest::65 to 90 days for most large slicing tomatoes||Full sun target::6 to 8 hours minimum; 8 to 10 hours best||Good daytime temperature::21 to 29 C / 70 to 85 F||Pollination stress::Above 32 C daytime or above 24 C nighttime||Home yield estimate::10 to 20 lb / 4.5 to 9 kg per plant with good care
 @back: Diseases
-@next: Transplanting
+@next: Next
 @goto: slicing-tomato-transplanting
 
 ===
@@ -115,7 +131,7 @@ GUIDETABLE|Before removing seedlings|Do this||Water|Water tray 1 to 2 hours befo
 BR
 GUIDETABLE|Planting depth / aftercare|Instruction||Normal seedlings|Plant slightly deeper than tray plug, covering plug by about 1 inch.||Tall or leggy seedlings|Remove lowest leaves and bury part of stem 2 to 3 inches deep.||Leaves|Do not bury leaves under soil.||After transplant|Water immediately. Shade lightly for 1 to 2 days if sun is very harsh.||First 7 days|Check every day. Avoid strong fertilizer for 7 to 14 days unless clearly hungry.
 @back: Quick facts
-@next: Hardening off
+@next: Next
 @goto: slicing-tomato-hardening-off
 
 ===
@@ -135,7 +151,7 @@ GUIDETABLE|Day|Sun exposure target|What to watch||1 to 2|1 to 2 hours morning su
 BR
 [c3] Seedlings moved from shade to full sun in one day can wilt, scorch, stall for 7 to 14 days, or die.
 @back: Transplanting
-@next: Spacing
+@next: Next
 @goto: slicing-tomato-spacing
 
 ===
@@ -155,7 +171,7 @@ GUIDETABLE|Planting style|Plant spacing|Row spacing / container||Small farmer, s
 BR
 [c3] Do not crowd slicing tomatoes. Crowding increases wet leaves, disease pressure, whiteflies, poor airflow, and small fruit.
 @back: Hardening off
-@next: Soil and water
+@next: Next
 @goto: slicing-tomato-soil-water
 
 ===
@@ -175,7 +191,7 @@ GUIDEGRID|Sunlight::6 to 8 hours minimum; 8 to 10 hours best for fruiting||Soil:
 BR
 [c3] Water the soil, not the leaves. Wet leaves plus poor airflow can increase fungal and bacterial diseases.
 @back: Spacing
-@next: Feeding
+@next: Next
 @goto: slicing-tomato-feeding
 
 ===
@@ -195,7 +211,7 @@ GUIDETABLE|Stage|Timing|Feeding direction||At planting|Day 0|Compost or well-rot
 BR
 [c3] Too much nitrogen can make a big green plant with fewer flowers and softer growth that pests enjoy.
 @back: Soil and water
-@next: Staking
+@next: Next
 @goto: slicing-tomato-staking
 
 ===
@@ -213,7 +229,7 @@ BR
 BR
 GUIDETABLE|Task|When|Specific instruction||Stake/cage|At transplanting or within 7 days|Install support early to avoid root damage later.||Tie plant|Every 7 to 10 days as it grows|Use soft tie. Do not cut into stem.||Remove low leaves|When plant is 12 to 18 inches tall|Remove leaves touching soil or within 6 to 8 inches of soil.||Prune suckers|For staked/vining plants|Remove some lower suckers; do not over-prune in hot sun.||Mulch|After watering in|Use 2 to 3 inches mulch, kept 2 inches away from stem.
 @back: Feeding
-@next: Leaf guide
+@next: Next
 @goto: slicing-tomato-leaf-guide
 
 ===
@@ -231,7 +247,7 @@ GUIDETABLE|Task|When|Specific instruction||Stake/cage|At transplanting or within
 BR
 GUIDETABLE|Leaf / plant appearance|Possible meaning|First action||Medium to deep green|Normal healthy growth|Continue steady watering and weekly checks.||Light green new leaves only|Often normal if it darkens in 7 to 14 days|Watch; do not rush fertilizer.||Pale whole plant|Low nitrogen, poor soil, low sunlight, water stress|Check sun/water first, then feed lightly.||Yellow lower leaves|Age, overwatering, nitrogen shortage, disease start|Remove if spotted; check drainage.||Brown target spots on lower leaves|Early blight|Remove lower infected leaves; mulch.||Many small spots|Septoria leaf spot|Remove spotted leaves; improve airflow.||Purple stems/leaves|Cool stress or phosphorus stress|Warm soil, improve roots, balanced feeding.||Curling with sticky leaves|Aphids/whiteflies or virus|Check undersides; treat pests; isolate bad plants.||Mosaic/mottled pattern|Possible virus|Wash hands/tools; remove severely infected plants.
 @back: Staking
-@next: Flowers and fruit
+@next: Next
 @goto: slicing-tomato-fruiting
 
 ===
@@ -251,7 +267,7 @@ GUIDETABLE|Problem|Likely cause|What to do||Flowers dropping|Heat above 32 C, wa
 BR
 [c3] Tomato flowers are self-pollinating, but wind or gentle vibration helps pollen move.
 @back: Leaf guide
-@next: Harvesting
+@next: Next
 @goto: slicing-tomato-harvesting
 
 ===
@@ -271,7 +287,7 @@ GUIDETABLE|Harvest point|What it means||Breaker stage|First pink/red/yellow colo
 BR
 [c3] Harvesting slightly early at breaker stage can reduce cracking, bird damage, and fruitworm damage.
 @back: Flowers and fruit
-@next: Weekly checklist
+@next: Next
 @goto: slicing-tomato-weekly-checklist
 
 ===

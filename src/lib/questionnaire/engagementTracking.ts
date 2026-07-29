@@ -25,14 +25,49 @@ export type LocalQuestionAnswerRecord = {
   answeredAt: string;
 };
 
+export type LocalBookmarkEventRecord = {
+  id: string;
+  questionnaireSlug: string;
+  slideId: string;
+  slideLabel?: string | null;
+  bookmarkKind: "chapter" | "video";
+  action: "saved" | "started";
+  triggerType: "manual" | "automatic";
+  bookmarkedAt: string;
+  videoTimestampSeconds?: number | null;
+  videoDurationSeconds?: number | null;
+};
+
 export type LocalEngagementSnapshot = {
   questionnaireSlug: string;
   videoProgress: LocalVideoProgressRecord[];
   questionAnswers: LocalQuestionAnswerRecord[];
+  bookmarkEvents: LocalBookmarkEventRecord[];
 };
 
 function getStorageKey(questionnaireSlug: string) {
   return `questionnaire-engagement:${questionnaireSlug}`;
+}
+
+export function getLocalVisitorDeviceKey() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const storageKey = "questionnaire:visitor-device-key";
+  const existing = window.localStorage.getItem(storageKey);
+
+  if (existing) {
+    return existing;
+  }
+
+  const nextKey =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? `visitor-${crypto.randomUUID()}`
+      : `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  window.localStorage.setItem(storageKey, nextKey);
+  return nextKey;
 }
 
 function readRaw(questionnaireSlug: string): LocalEngagementSnapshot {
@@ -41,6 +76,7 @@ function readRaw(questionnaireSlug: string): LocalEngagementSnapshot {
       questionnaireSlug,
       videoProgress: [],
       questionAnswers: [],
+      bookmarkEvents: [],
     };
   }
 
@@ -51,6 +87,7 @@ function readRaw(questionnaireSlug: string): LocalEngagementSnapshot {
       questionnaireSlug,
       videoProgress: [],
       questionAnswers: [],
+      bookmarkEvents: [],
     };
   }
 
@@ -65,12 +102,16 @@ function readRaw(questionnaireSlug: string): LocalEngagementSnapshot {
       questionAnswers: Array.isArray(parsed?.questionAnswers)
         ? parsed.questionAnswers
         : [],
+      bookmarkEvents: Array.isArray(parsed?.bookmarkEvents)
+        ? parsed.bookmarkEvents
+        : [],
     };
   } catch {
     return {
       questionnaireSlug,
       videoProgress: [],
       questionAnswers: [],
+      bookmarkEvents: [],
     };
   }
 }
@@ -192,6 +233,51 @@ export function writeLocalQuestionAnswer(params: {
   ];
 
   writeRaw(params.questionnaireSlug, snapshot);
+}
+
+export function writeLocalBookmarkEvent(params: {
+  questionnaireSlug: string;
+  slideId: string;
+  slideLabel?: string | null;
+  bookmarkKind: "chapter" | "video";
+  action?: "saved" | "started";
+  triggerType?: "manual" | "automatic";
+  videoTimestampSeconds?: number | null;
+  videoDurationSeconds?: number | null;
+}) {
+  const snapshot = readRaw(params.questionnaireSlug);
+  const bookmarkedAt = new Date().toISOString();
+  const safeTimestamp =
+    typeof params.videoTimestampSeconds === "number" &&
+    Number.isFinite(params.videoTimestampSeconds)
+      ? Math.max(0, Math.floor(params.videoTimestampSeconds))
+      : null;
+  const safeDuration =
+    typeof params.videoDurationSeconds === "number" &&
+    Number.isFinite(params.videoDurationSeconds)
+      ? Math.max(0, Math.floor(params.videoDurationSeconds))
+      : null;
+
+  const nextRecord: LocalBookmarkEventRecord = {
+    id: `bookmark-${bookmarkedAt}-${params.slideId}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`,
+    questionnaireSlug: params.questionnaireSlug,
+    slideId: params.slideId,
+    slideLabel: params.slideLabel || null,
+    bookmarkKind: params.bookmarkKind,
+    action: params.action || "saved",
+    triggerType: params.triggerType || "manual",
+    bookmarkedAt,
+    videoTimestampSeconds: safeTimestamp,
+    videoDurationSeconds: safeDuration,
+  };
+
+  snapshot.bookmarkEvents = [...snapshot.bookmarkEvents, nextRecord].slice(-80);
+
+  writeRaw(params.questionnaireSlug, snapshot);
+
+  return nextRecord;
 }
 
 export function mergeAnsweredQuestionAnswers(

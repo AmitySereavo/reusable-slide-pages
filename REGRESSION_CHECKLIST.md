@@ -25,6 +25,7 @@
 - New DSL directives are parser-supported and type-supported.
 - Existing directives still work: @goto, @showreturnhome, @showauthcontrols, @videostart, @videogoto, @autoplay.
 - New shop flows should add catalog/order logic outside QuestionnaireShell whenever practical; shell changes should be limited to reusable wiring.
+- DSL headings render in balanced one- or two-word lines, with `Grow Guide` kept together on its own line.
 ```
 
 ---

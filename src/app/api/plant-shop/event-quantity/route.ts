@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
-import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
+import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import { prisma } from "@/lib/prisma";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import { setPlantShopEventQuantityOverride } from "@/lib/plantShop/eventQuantityOverrides";
@@ -57,7 +57,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const product = littleOrchardShopCatalog.products.find(
+  const shopCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
+  const product = shopCatalog.products.find(
     (entry) => entry.id === productId
   );
   const sizeOption = product?.sizeOptions.find(
