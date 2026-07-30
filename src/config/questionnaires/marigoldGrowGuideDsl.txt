@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// MARIGOLD GROW GUIDE
+// Source: Marigold_Grow_Guide.pdf
+
+@id: marigold-guide-cover
+@type: content
+@title: Marigold Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Marigold
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: marigold-quick-rescue
+
+===
+
+@id: marigold-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Marigold care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Wilting after planting|Transplant shock, hot sun, dry root ball|Shade briefly and water gently.||Few flowers|Too little sun or too much nitrogen|Give more sun and reduce leaf-growth feeding.||Leaves yellow|Overwatering, old leaves, poor drainage|Check drainage and remove old leaves.||Chewed leaves|Caterpillars, beetles, slugs|Inspect early and remove pests.||White powder|Powdery mildew|Improve airflow and avoid wet leaves overnight.||Flower heads fading|Normal aging|Deadhead to encourage more blooms.
+@back: Cover
+@next: Next
+@goto: marigold-quick-numbers
+
+===
+
+@id: marigold-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Marigold||Main use::Flowers, borders, containers, and garden color||Sunlight::Full sun for best flowering||Soil::Well-drained garden soil||Water::Moderate, steady moisture while establishing||Spacing::Depends on variety; avoid crowding||Flower care::Remove spent blooms||Seed saving::Let selected flower heads dry fully
+@back: Quick rescue
+@next: Next
+@goto: marigold-care-basics
+
+===
+
+@id: marigold-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Strong flowers
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Sun|Give full sun for strongest flowering.||Water|Water while establishing, then avoid keeping soil soggy.||Soil|Use well-drained soil. Compost helps, but do not overfeed.||Feeding|Too much nitrogen can make leaves instead of flowers.||Deadheading|Remove faded flowers for a cleaner plant and more blooms.||Containers|Use containers with drainage holes.
+@back: Quick numbers
+@next: Next
+@goto: marigold-pests-diseases
+
+===
+
+@id: marigold-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Keep blooms clean
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky growth|Rinse and monitor.||Spider mites|Speckled leaves|Rinse undersides and reduce drought stress.||Caterpillars|Chewed leaves or petals|Handpick and remove damaged parts.||Slugs/snails|Ragged holes and slime|Remove hiding spots and check at night.||Powdery mildew|White powder|Improve airflow and sun.||Root rot|Wilting with wet soil|Improve drainage and reduce watering.
+@back: Care basics
+@next: Next
+@goto: marigold-checklist
+
+===
+
+@id: marigold-checklist
+@type: content
+@title: Checklist
+@subtitle: Flowers and seed
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Flowers|Remove spent blooms unless saving seed.||Sun|Keep plants in strong light.||Water|Avoid long drought, but do not swamp roots.||Leaves|Inspect for pests and mildew.||Airflow|Thin crowded growth if needed.||Seed heads|Let selected heads dry before collecting seed.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Marigold_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

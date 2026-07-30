@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// PEPPERMINT, SPEARMINT AND BLACK MINT GROW GUIDE
+// Source: Peppermint_Spearmint_Black_Mint_Grow_Guide.pdf
+
+@id: mint-guide-cover
+@type: content
+@title: Mint Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Mint
+# [c2] Grow Guide
+![Spearmint plant](/media/paralife_trees/jpg/product_spearmint_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: mint-quick-rescue
+
+===
+
+@id: mint-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Peppermint, spearmint, black mint
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Wilting|Dry roots, transplant shock, hot sun|Water gently and shade briefly.||Yellow leaves with wet soil|Overwatering or poor drainage|Pause watering and improve drainage.||Tall weak stems|Low light or no pruning|Move brighter and cut back.||Brown crispy edges|Heat, drought, fertilizer burn|Water evenly and reduce stress.||Tiny pests under leaves|Aphids, mites, whiteflies|Rinse undersides and repeat checks.||Plant taking over|Mint spreading by roots|Keep in containers or prune edges.
+@back: Cover
+@next: Next
+@goto: mint-quick-numbers
+
+===
+
+@id: mint-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Plants::Peppermint, spearmint, and black mint||Main use::Tea, culinary use, scent, and garden herbs||Sunlight::Morning sun or bright partial sun||Soil::Moist, rich, well-drained soil||Water::Even moisture; avoid soggy roots||Container::Recommended for controlling spread||Pruning::Cut often to encourage fresh leaves||Harvest::Take young leaves before flowering when possible
+@back: Quick rescue
+@next: Next
+@goto: mint-care-basics
+
+===
+
+@id: mint-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Container control
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Light|Use morning sun and bright shade in harsh heat.||Water|Keep soil evenly moist. Mints dislike drying hard.||Soil|Use rich soil with drainage.||Feeding|Feed lightly after heavy harvests.||Containers|Containers help keep mint from spreading everywhere.||Harvest|Cut stems above leaf nodes for new branching.
+@back: Quick numbers
+@next: Next
+@goto: mint-pests-diseases
+
+===
+
+@id: mint-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Leaf care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky curled growth|Rinse or use mild soap if needed.||Mites|Fine webbing and speckles|Rinse undersides and reduce dry stress.||Whiteflies|White insects fly up|Spray undersides and use sticky traps.||Leaf spot|Spotted leaves|Remove affected leaves and improve airflow.||Rust-like marks|Orange or brown markings|Remove affected leaves and avoid wet foliage.||Root rot|Wet soil plus yellowing|Improve drainage immediately.
+@back: Care basics
+@next: Next
+@goto: mint-checklist
+
+===
+
+@id: mint-checklist
+@type: content
+@title: Checklist
+@subtitle: Fresh leaves
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Spread|Trim runners and keep containers managed.||Leaves|Harvest young healthy leaves.||Water|Keep soil moist but draining.||Pests|Inspect undersides.||Airflow|Remove crowded old leaves.||Flowers|Cut flowering stems if you want more leaf production.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Peppermint_Spearmint_Black_Mint_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

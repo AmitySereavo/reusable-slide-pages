@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// DILL GROW GUIDE
+// Source: Dill_Grow_Guide.pdf
+
+@id: dill-guide-cover
+@type: content
+@title: Dill Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Dill
+# [c2] Grow Guide
+![Dill plant](/media/paralife_trees/jpg/product_dill_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: dill-quick-rescue
+
+===
+
+@id: dill-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Dill care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Seedling wilts|Transplant shock, hot sun, dry roots|Shade briefly and water gently.||Plant bolts fast|Heat, age, dry soil, or stress|Harvest leaves and allow some seed heads if wanted.||Yellow leaves|Too wet, hungry soil, poor light|Check drainage and feed lightly after recovery.||Stems fall over|Wind, weak light, or crowding|Give support, thin crowded plants, improve light.||Chewed leaves|Caterpillars or beetles|Inspect early and handpick.||Sticky growth|Aphids|Spray with water and repeat checks.
+@back: Cover
+@next: Next
+@goto: dill-quick-numbers
+
+===
+
+@id: dill-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Dill||Botanical name::Anethum graveolens||Main uses::Leaves, flowers, and seeds||Sunlight::Full sun to bright morning sun||Soil::Loose, fertile, well-drained soil||Water::Even moisture; avoid soggy roots||Spacing::8 to 12 inches apart for leaf harvest||Harvest::Cut leaves young; let some plants flower for seed
+@back: Quick rescue
+@next: Next
+@goto: dill-care-basics
+
+===
+
+@id: dill-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Leaves and seeds
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Sun|Give bright light. Afternoon relief helps in intense heat.||Water|Keep soil evenly moist, especially while young.||Soil|Use loose soil with compost and good drainage.||Feeding|Feed lightly; too much nitrogen can create weak growth.||Bolting|Dill naturally flowers as it matures, especially in heat.||Harvest|Take small leaf harvests often and leave some plants for seed heads.
+@back: Quick numbers
+@next: Next
+@goto: dill-pests-diseases
+
+===
+
+@id: dill-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Inspect gently
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Clusters on soft growth|Spray with water and monitor.||Caterpillars|Chewed leaves|Handpick when damage is high; some butterfly larvae may use dill.||Leaf spot|Brown spots|Remove affected leaves and improve airflow.||Powdery mildew|White powder|Improve airflow and avoid wet leaves overnight.||Root rot|Yellowing with wet soil|Improve drainage and reduce watering.||Weak growth|Crowding or low light|Thin plants and improve sunlight.
+@back: Care basics
+@next: Next
+@goto: dill-checklist
+
+===
+
+@id: dill-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep it useful
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Moisture|Keep soil evenly moist.||Leaves|Harvest small amounts for fresh use.||Pests|Check soft new growth and undersides.||Crowding|Thin if stems are weak or tangled.||Flowers|Decide whether to harvest leaves or allow seed heads.||Seeds|Collect dry seed heads when mature.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Dill_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

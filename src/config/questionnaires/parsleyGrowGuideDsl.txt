@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// PARSLEY GROW GUIDE
+// Source: Parsley_Grow_Guide.pdf
+
+@id: parsley-guide-cover
+@type: content
+@title: Parsley Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Parsley
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: parsley-quick-rescue
+
+===
+
+@id: parsley-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Parsley care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Wilting after planting|Transplant shock, dry root ball, heat|Shade briefly and water gently.||Yellow leaves|Too wet, low nutrients, old leaves, root stress|Check drainage and remove old leaves.||Slow growth|Low light, weak roots, poor feeding|Give brighter light and feed lightly after recovery.||Holes in leaves|Caterpillars or beetles|Inspect and handpick.||Sticky curled leaves|Aphids or whiteflies|Rinse undersides and monitor.||Leaf spots|Wet leaves and poor airflow|Remove spotted leaves and water at soil level.
+@back: Cover
+@next: Next
+@goto: parsley-quick-numbers
+
+===
+
+@id: parsley-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Parsley||Main use::Fresh leaves and stems||Sunlight::Morning sun or bright partial sun in hot areas||Soil::Rich, loose, well-drained soil||Water::Even moisture||Spacing::8 to 12 inches apart||Harvest::Cut outer stems first||Container::Use a pot deep enough for roots
+@back: Quick rescue
+@next: Next
+@goto: parsley-care-basics
+
+===
+
+@id: parsley-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Leaf harvest
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Sun|Give bright light, with afternoon relief during heat.||Water|Keep evenly moist. Parsley suffers when it dries hard.||Soil|Use compost-rich soil that drains well.||Feeding|Feed lightly if harvesting often.||Harvest|Cut outer stems near the base and leave center growth.||Containers|Use deeper containers than shallow trays for better roots.
+@back: Quick numbers
+@next: Next
+@goto: parsley-pests-diseases
+
+===
+
+@id: parsley-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Inspect leaves
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky curled growth|Rinse and repeat checks.||Whiteflies|Tiny white insects under leaves|Spray undersides and manage weeds.||Caterpillars|Chewed leaves|Handpick when damage is high.||Leaf spot|Spotted leaves|Remove affected leaves and improve airflow.||Powdery mildew|White powder|Avoid crowding and wet leaves overnight.||Root rot|Yellowing with wet soil|Improve drainage and reduce watering.
+@back: Care basics
+@next: Next
+@goto: parsley-checklist
+
+===
+
+@id: parsley-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep leaves coming
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Outer stems|Harvest older outer stems first.||Center growth|Leave the center growing point healthy.||Moisture|Avoid both drought and soggy roots.||Pests|Check undersides and new growth.||Airflow|Remove yellow or diseased leaves.||Feeding|Feed lightly after repeated harvests.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Parsley_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

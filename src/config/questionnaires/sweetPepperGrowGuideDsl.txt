@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// SWEET PEPPER GROW GUIDE
+// Source: Sweet_Pepper_Grow_Guide.pdf
+
+@id: sweet-pepper-guide-cover
+@type: content
+@title: Sweet Pepper Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Sweet Pepper
+# [c2] Grow Guide
+![Sweet pepper plant](/media/paralife_trees/jpg/product_bell_pepper_plant_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: sweet-pepper-quick-rescue
+
+===
+
+@id: sweet-pepper-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Sweet pepper care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Seedling wilts after planting|Transplant shock, hot sun, dry root ball|Shade 1 to 2 days, water gently, and avoid fertilizer until recovery.||Leaves yellow while soil is wet|Overwatering, poor drainage, root stress|Reduce watering, improve drainage, and keep pots off wet ground.||Tiny white insects fly up|Whiteflies|Spray under leaves, use yellow sticky traps, repeat every 3 to 5 days.||Flowers dropping|Heat stress, water stress, low pollination, excess nitrogen|Water evenly, mulch, reduce heavy nitrogen, and avoid severe drying.||Dark sunken spot on fruit bottom|Blossom-end rot from uneven water|Keep watering even, mulch, and avoid root damage.||Plant suddenly collapses|Root rot, bacterial wilt, or severe root damage|Remove badly affected plant and improve drainage.
+@back: Cover
+@next: Next
+@goto: sweet-pepper-quick-numbers
+
+===
+
+@id: sweet-pepper-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Sweet pepper / bell pepper||Botanical name::Capsicum annuum||Sunlight::6 to 10 hours daily||Soil::Rich, loose, well-drained soil||Water::Even moisture; do not let roots sit soggy||Transplant timing::Plant out after hardening off and when seedlings are strong||Spacing::18 to 24 inches apart for most home gardens||Harvest::Pick green or allow fruit to mature to yellow, orange, red, or variety color
+@back: Quick rescue
+@next: Next
+@goto: sweet-pepper-care-basics
+
+===
+
+@id: sweet-pepper-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Sun, soil, water, feeding
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Sun|Give strong light. In very hot conditions, protect from harsh afternoon stress.||Soil|Use rich soil with compost and reliable drainage. Avoid compacted or waterlogged areas.||Water|Keep moisture steady. Uneven watering is a major cause of blossom-end rot.||Feeding|Start gentle feeding after transplant recovery. Use less nitrogen once flowering begins.||Mulch|Mulch helps keep moisture even and keeps fruit cleaner.||Support|Stake plants if fruit load gets heavy or wind is strong.
+@back: Quick numbers
+@next: Next
+@goto: sweet-pepper-pests-diseases
+
+===
+
+@id: sweet-pepper-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Inspect early
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky curled new growth|Spray undersides early and repeat checks.||Whiteflies|White insects fly up when plant is disturbed|Spray undersides, use sticky traps, manage weeds.||Mites|Speckled leaves, fine webbing|Rinse undersides and reduce drought stress.||Caterpillars|Chewed leaves or fruit holes|Check early morning and handpick.||Bacterial/fungal spots|Brown or black leaf spots|Remove affected leaves, improve airflow, avoid wet leaves.||Root rot|Wilting with wet soil|Improve drainage and avoid soggy soil.
+@back: Care basics
+@next: Next
+@goto: sweet-pepper-checklist
+
+===
+
+@id: sweet-pepper-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep plants productive
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Leaves|Look under leaves for pests and spots.||Soil|Keep moisture even, not soggy.||Flowers|Watch for flower drop and adjust water, shade, and feeding.||Fruit|Check for sunken bottoms, insect holes, and disease spots.||Growth|Stake or support heavy branches.||Records|Note what improves fruit set and plant health.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Sweet_Pepper_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

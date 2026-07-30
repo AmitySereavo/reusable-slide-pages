@@ -15,6 +15,21 @@
 
 ---
 
+## 1A. App-wide visitor activity
+
+```txt
+- Root layout mounts ActivityTrackingProvider without breaking static/public pages.
+- Public routes emit local page_view and engaged_page_view events through one visitor/session identity.
+- Anonymous visitor activity remains local-only until an interest threshold is reached.
+- Meaningful events such as questionnaire_answered, bookmark_created, video_progress_50, product_viewed, cart_item_added, checkout_started, and download_requested can persist through /api/visitors/activity.
+- Dashboard and admin routes do not persist visitor tracking events.
+- Logged-in admin/staff sessions no-op the app-wide tracker.
+- Existing questionnaire engagement sync for logged-in users still works.
+- Existing grow-guide tracked links still record page visits through /api/grow-guide-links/track.
+```
+
+---
+
 ## 2. Reusable shell / DSL safety
 
 ```txt

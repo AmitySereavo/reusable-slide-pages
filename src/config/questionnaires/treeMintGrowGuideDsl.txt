@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// JAMAICAN TREE MINT GROW GUIDE
+// Source: Costa_Rican_Peppermint_Jamaican_Tree_Mint_Grow_Guide.pdf
+
+@id: tree-mint-guide-cover
+@type: content
+@title: Jamaican Tree Mint Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Jamaican Tree
+# [c2] Mint Guide
+![Jamaican tree mint plant](/media/paralife_trees/jpg/product_tree_mint_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: tree-mint-quick-rescue
+
+===
+
+@id: tree-mint-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Tree mint care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Wilting after planting|Shock, dry roots, hot sun|Shade briefly and water gently.||Yellow leaves|Wet soil, hunger, root stress|Check drainage and feed lightly after recovery.||Leggy growth|Low light or no pruning|Move to brighter light and pinch tips.||Brown leaf edges|Dry stress, heat, fertilizer burn|Water evenly and reduce harsh feeding.||Sticky curled growth|Aphids or whiteflies|Rinse undersides and monitor.||Leaf spots|Wet foliage or poor airflow|Remove affected leaves and improve airflow.
+@back: Cover
+@next: Next
+@goto: tree-mint-quick-numbers
+
+===
+
+@id: tree-mint-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Common names::Costa Rican peppermint / Jamaican tree mint||Main use::Aromatic leaves for tea and garden use||Sunlight::Bright morning sun or partial sun||Soil::Rich, well-drained soil||Water::Even moisture; avoid waterlogging||Container::Use a pot with strong drainage||Pruning::Pinch and cut back to keep plant bushy||Harvest::Take young healthy leaves and avoid stripping the plant
+@back: Quick rescue
+@next: Next
+@goto: tree-mint-care-basics
+
+===
+
+@id: tree-mint-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Bushy growth
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Light|Use bright light with protection from punishing afternoon heat.||Water|Keep evenly moist but not swampy.||Soil|Use compost-rich soil that drains freely.||Feeding|Feed lightly after harvests if growth slows.||Pruning|Pinch tips so the plant branches.||Containers|Container growing helps manage size and placement.
+@back: Quick numbers
+@next: Next
+@goto: tree-mint-pests-diseases
+
+===
+
+@id: tree-mint-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Protect leaves
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky soft growth|Rinse and repeat checks.||Whiteflies|Tiny white insects fly up|Spray undersides and reduce weeds.||Mites|Speckled dusty leaves|Rinse undersides and avoid drought stress.||Leaf spot|Brown spots|Remove affected leaves and water at soil level.||Root rot|Yellowing with wet soil|Improve drainage quickly.||Weak growth|Low light or old woody stems|Prune and move to brighter light.
+@back: Care basics
+@next: Next
+@goto: tree-mint-checklist
+
+===
+
+@id: tree-mint-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep leaves fresh
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||New growth|Pinch tips if plant is getting tall.||Leaves|Inspect undersides for pests.||Soil|Keep moisture even.||Airflow|Remove old damaged leaves.||Harvest|Cut lightly and let the plant recover.||Container|Make sure drainage holes are clear.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Costa_Rican_Peppermint_Jamaican_Tree_Mint_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

@@ -1,3 +1,5 @@
+import ActivityTrackingProvider from "@/components/activity/ActivityTrackingProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -12,7 +14,7 @@ export default function RootLayout({
             'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
-        {children}
+        <ActivityTrackingProvider>{children}</ActivityTrackingProvider>
       </body>
     </html>
   );

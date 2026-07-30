@@ -1,0 +1,223 @@
+// REUSABLE SLIDE PAGES
+// ADMIN PROJECT DOCUMENTATION FLOW
+// Source: README.md and REGRESSION_CHECKLIST.md
+
+@id: docs-cover
+@type: content
+@title: Project Docs
+@subtitle: Admin guide
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Project
+# [c2] Docs
+BR
+[c3] A readable admin-only walkthrough of the README, project notes, and regression checklist.
+BR
+GUIDEGRID|Purpose::Make project knowledge easier to review inside the same DSL system used by the site||Audience::Admins and developers working on Reusable Slide Pages||Source files::README.md, REGRESSION_CHECKLIST.md, Project Notes.txt||Best use::Review before releases, deployments, larger feature changes, or handoffs
+@back: Dashboard
+@backgoto: /dashboard
+@next: Next
+@goto: docs-core-system
+
+===
+
+@id: docs-core-system
+@type: content
+@title: Core System
+@subtitle: What powers the app
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Core
+# [c2] System
+BR
+GUIDETABLE|Area|What it does||Questionnaire route|`/questionnaire/[slug]` renders registry-backed DSL flows.||QuestionnaireShell|Shared runtime for slides, side panels, media, footer actions, forms, blocks, carts, and navigation.||DSL parser|Turns plain-text DSL files into typed slide config.||Registry|Connects slugs to themes, DSL paths, variables, dynamic endpoints, and blocks.||Themes|Keep flow colors and reusable visual decisions outside individual slide code.||Reusable blocks|Render dashboards, records, forms, account sections, shops, tickets, meals, and guide tables.||Public aliases|Routes such as `/gift`, `/shop`, and grow-guide plant URLs point visitors to the intended flows.
+@back: Cover
+@next: Next
+@goto: docs-separation-rules
+
+===
+
+@id: docs-separation-rules
+@type: content
+@title: Separation Rules
+@subtitle: Keep the codebase humane
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Separation
+# [c2] Rules
+BR
+GUIDETABLE|Keep reusable behavior in|Keep project-specific behavior in||QuestionnaireShell and shared renderers|DSL files and registry entries||`src/lib/questionnaire`|Catalog and database-backed records||`src/lib/activity` and activity provider|Business wording, flow-specific copy, and branded content||`src/lib/auth` and verification helpers|Theme/config variables for a specific offer||Shared route handlers and types|Isolated server helpers for one business process
+BR
+[c3] Rule of thumb: if wording belongs only to one offer, it should not be hardcoded in the shell.
+@back: Core system
+@next: Next
+@goto: docs-dsl-rules
+
+===
+
+@id: docs-dsl-rules
+@type: content
+@title: DSL Rules
+@subtitle: Content and slides
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] DSL
+# [c2] Rules
+BR
+GUIDETABLE|Rule|Reason||Use short headings|Headings should render in one- or two-word lines so mobile and desktop stay readable.||Use `@syncurl` on useful chapters|Admins and users can link directly to a slide.||Use side-panel chapters|Long flows become easier to browse and bookmark.||Use `GUIDEGRID` and `GUIDETABLE` for reference content|Tables beat walls of text for care guides, docs, and checklists.||Keep action labels simple|Use `Next` and `Back` when the chapter title already appears in the side panel.||Use existing blocks where possible|Avoid rebuilding shops, cart, forms, records, tickets, meals, and account UI inside DSL copy.
+@back: Separation rules
+@next: Next
+@goto: docs-media
+
+===
+
+@id: docs-media
+@type: content
+@title: Media Rules
+@subtitle: Public and protected files
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Media
+# [c2] Rules
+BR
+GUIDETABLE|Media type|Rule||Public media|Store in `public/media/...` and reference with paths like `/media/...`.||Large public videos|Use Git LFS or external storage such as R2 when needed.||Paid media|Never place paid album, ticket, or download files in `public/`.||Protected downloads|Use `/api/downloads/[downloadkey]` so entitlement can be checked.||Video slides|Use metadata preload and track meaningful progress rather than every tick.||Text/SRT support|Use associated text and caption files to support readable footer/article content.
+@back: DSL rules
+@next: Next
+@goto: docs-dashboard
+
+===
+
+@id: docs-dashboard
+@type: content
+@title: Dashboard
+@subtitle: Admin surfaces
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Dashboard
+BR
+GUIDETABLE|Route|Purpose||`/dashboard`|Lightweight admin index.||`/dashboard/projects`|Project and DSL builder work.||`/dashboard/people`|Leads, accounts, customers, activity, devices, notes, and follow-up records.||`/dashboard/orders`|Digital and physical order fulfillment, payment, delivery, messages, and receipts.||`/dashboard/tickets`|Reusable ticket publishing.||`/dashboard/inventory`|Master inventory and shop/category assignment.||`/dashboard/currencies`|Currency exchange-rate settings.||`/dashboard/email-sequences`|Operational emails, templates, and nurture sequences.
+BR
+[c3] Dashboard pages require `adminLevel >= 1`.
+@back: Media rules
+@next: Next
+@goto: docs-activity
+
+===
+
+@id: docs-activity
+@type: content
+@title: Activity Tracking
+@subtitle: Visitor timeline
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Activity
+# [c2] Tracking
+BR
+GUIDETABLE|Event group|Meaningful events||Navigation|`page_view`, `engaged_page_view`, `return_session`||Questionnaire|Started, step viewed, answered, completed, bookmark created, bookmark resumed||Video|Started, 50 percent, 90 percent, completed, video bookmark, resume||Commerce|Product viewed, item added, item removed, checkout started, purchase completed||Downloads|Download requested||CRM|Future customer relationship actions
+BR
+GUIDEGRID|Identity model::One local visitor/session identity across public pages||Persistence rule::Anonymous activity stays local until interest threshold is crossed||Noise control::Do not store every click, tiny scroll, mouse movement, or repeated tick||Admin exclusion::Dashboard routes and logged-in admins should not persist visitor tracking
+@back: Dashboard
+@next: Next
+@goto: docs-shop-orders
+
+===
+
+@id: docs-shop-orders
+@type: content
+@title: Shops Orders
+@subtitle: Commerce checks
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Shops
+# [c2] Orders
+BR
+GUIDETABLE|Area|Regression focus||Little Orchard Shop|Products load from database-backed catalog, categories filter cleanly, and empty-shop fallback tells user to refresh.||Cart|Adjust links return to the source shop and empty cart cannot submit.||Checkout|Contact method requirements match the selected channel.||Orders|One customer order can contain multiple items.||Payment|Confirm payment applies inventory once and records payment method.||Receipts|Receipt links work, lookup works, and print/download views hide non-receipt buttons.||Inventory|Confirmed paid orders reduce available quantity; tests can be reset by admin inventory tools.
+@back: Activity tracking
+@next: Next
+@goto: docs-regression
+
+===
+
+@id: docs-regression
+@type: content
+@title: Regression
+@subtitle: Release checks
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Regression
+# [c2] Checks
+BR
+GUIDETABLE|Checklist group|What to verify||Build and startup|`npm run build`, Prisma generate after schema changes, dev startup, core routes.||Reusable shell|No project-only wording or behavior leaks into shared shell code.||Auth|Login, return-to-slide, verification links, reset password, temporary lead sessions.||Side panels|Logged-out, logged-in, admin tabs, active chapter highlights, bookmarks.||Video|Progress tracking, resume behavior, autoplay/ended behavior, footer progress alignment.||Shops and orders|Inventory, cart, checkout, payments, receipts, dashboard order records.||People and CRM|Profiles, notes, activity, devices, follow-up reminders, deletion safeguards.||Grow guides|Hub search, public aliases, side-panel chapters, tracked guide links.
+@back: Shops orders
+@next: Next
+@goto: docs-release
+
+===
+
+@id: docs-release
+@type: content
+@title: Release
+@subtitle: Before deploying
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Release
+# [c2] Routine
+BR
+GUIDETABLE|Step|Check||1|Run `npm run build` locally.||2|Review changed files and confirm no accidental media/temp files are included.||3|Update README, regression checklist, and project notes when architecture changes.||4|Confirm required environment variables exist in Vercel.||5|Deploy or redeploy from Vercel after pushing to GitHub.||6|Test public aliases on the production URL, not only localhost.||7|Check dashboard pages as admin after deploy.
+BR
+[c3] Existing known build warning: Turbopack may warn that `next.config.ts` is traced through the downloads route. It does not currently block the build.
+@back: Regression checks
+@next: Next
+@goto: docs-source-files
+
+===
+
+@id: docs-source-files
+@type: content
+@title: Source Files
+@subtitle: Where to read more
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Source
+# [c2] Files
+BR
+GUIDETABLE|File|Use||README.md|High-level architecture, source of truth, stack, dashboard map, media rules, and dev commands.||DSL_FILES_README.md|DSL syntax, flow notes, directives, media/download behavior.||SHOPS_README.md|Shop, cart, ticket, gift, recipient, inventory, currency, and store-credit behavior.||ORDER_FULFILLMENT_README.md|Courier, shipment, fulfillment, manual confirmation, activity history.||EMAIL_SEQUENCES_README.md|Operational emails, nurture sequences, templates, admin use.||REGRESSION_CHECKLIST.md|Manual checks before release.||Project Notes.txt|Current planning, deferred decisions, and working notes.
+BR
+[c3] These files live in the project root. Open them from the workspace when you need the full raw text.
+@back: Release routine
+@next: Dashboard
+@goto: /dashboard

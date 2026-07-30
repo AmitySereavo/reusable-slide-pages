@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// ROSEMARY GROW GUIDE
+// Source: Rosemary_Grow_Guide.pdf
+
+@id: rosemary-guide-cover
+@type: content
+@title: Rosemary Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Rosemary
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: rosemary-quick-rescue
+
+===
+
+@id: rosemary-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Rosemary care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Plant wilts but soil is wet|Root rot or poor drainage|Stop watering, improve drainage, and move pot out of standing water.||Leaves dry after pruning|Too much leaf removal, root stress, or wet roots|Prune lightly and check drainage.||Yellow leaves|Overwatering, poor drainage, low light|Give brighter light and let soil dry more between watering.||Black stems|Stem rot or fungal stress|Remove affected growth and reduce wetness.||Fine webbing or speckles|Spider mites|Rinse undersides and reduce drought stress.||Weak stretched growth|Not enough light|Move to stronger light gradually.
+@back: Cover
+@next: Next
+@goto: rosemary-quick-numbers
+
+===
+
+@id: rosemary-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Rosemary||Botanical type::Woody perennial herb||Sunlight::Strong sun or very bright light||Soil::Fast-draining soil||Water::Water deeply, then let soil dry partly||Container::Drainage is essential||Pruning::Light frequent pruning is safer than hard cuts||Harvest::Cut small sprigs and keep green growth on the plant
+@back: Quick rescue
+@next: Next
+@goto: rosemary-care-basics
+
+===
+
+@id: rosemary-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Drainage first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Light|Give strong light and introduce more sun gradually.||Water|Do not water on a fixed schedule. Check the soil first.||Soil|Use fast-draining soil and never keep the pot sitting in water.||Feeding|Feed lightly. Rosemary does not need heavy feeding.||Pruning|Trim green tips lightly. Avoid cutting deep into old bare wood.||Airflow|Good airflow helps prevent fungal stress.
+@back: Quick numbers
+@next: Next
+@goto: rosemary-pests-diseases
+
+===
+
+@id: rosemary-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Prevent rot
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Root rot|Wilting while soil is wet|Improve drainage and reduce watering.||Powdery mildew|White powder on leaves|Improve airflow and avoid wet foliage.||Spider mites|Speckles and fine webbing|Rinse gently and reduce drought stress.||Aphids|Sticky soft growth|Rinse and monitor.||Scale/mealybugs|Small bumps or cottony patches|Remove manually and isolate if heavy.||Stem dieback|Branches brown from the tip|Check roots, drainage, and pruning stress.
+@back: Care basics
+@next: Next
+@goto: rosemary-checklist
+
+===
+
+@id: rosemary-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep it alive
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Soil|Let the top layer dry before watering again.||Drainage|Make sure the pot is not holding water.||Light|Give enough bright light.||Pruning|Take only small green sprigs.||Pests|Check undersides and branch joints.||Airflow|Keep space around the plant open.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Rosemary_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

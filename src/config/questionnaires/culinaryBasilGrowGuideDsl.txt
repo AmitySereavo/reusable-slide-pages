@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// CULINARY BASIL GROW GUIDE
+// Source: Culinary_Basil_Grow_Guide.pdf
+
+@id: culinary-basil-guide-cover
+@type: content
+@title: Culinary Basil Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Culinary Basil
+# [c2] Grow Guide
+![Culinary basil plant](/media/paralife_trees/jpg/product_basil_italian_sweet_still.jpg)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: culinary-basil-quick-rescue
+
+===
+
+@id: culinary-basil-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Basil care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Wilting after transplant|Transplant shock, dry root ball, hot sun|Shade briefly, water gently, and avoid strong fertilizer.||Yellow leaves|Too much water, poor drainage, low feeding, or old leaves|Check drainage, remove old leaves, feed lightly after recovery.||Tall plant with flowers|Bolting or not enough pruning|Pinch flower tips and harvest regularly.||Black stems or collapse|Stem/root rot from wet soil|Improve drainage and remove badly affected plants.||Holes in leaves|Caterpillars or beetles|Inspect early morning and remove pests.||Sticky curled growth|Aphids or whiteflies|Spray undersides and repeat every few days.
+@back: Cover
+@next: Next
+@goto: culinary-basil-quick-numbers
+
+===
+
+@id: culinary-basil-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Culinary basil||Common types::Italian sweet basil and Genovese basil||Sunlight::6 or more hours of bright light||Soil::Rich, loose, well-drained soil||Water::Even moisture; avoid soggy roots||Spacing::12 to 18 inches apart||First harvest::When plants are established and branching well||Harvest rule::Cut above a leaf pair to encourage branching
+@back: Quick rescue
+@next: Next
+@goto: culinary-basil-care-basics
+
+===
+
+@id: culinary-basil-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Keep leaves tender
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Sun|Give strong morning sun and bright light. Avoid long periods of harsh drought stress.||Water|Water deeply, then allow the top layer to begin drying before watering again.||Feeding|Use compost or light balanced feeding if harvesting often.||Pruning|Pinch tips regularly so plants branch instead of flowering early.||Containers|Use pots with drainage holes and enough root space.||Harvest|Harvest leaves often, but do not strip the whole plant at once.
+@back: Quick numbers
+@next: Next
+@goto: culinary-basil-pests-diseases
+
+===
+
+@id: culinary-basil-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Protect leaf quality
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky curled shoots|Rinse, then mild soap if needed.||Whiteflies|Tiny white insects under leaves|Spray undersides and use sticky traps.||Caterpillars|Chewed leaves|Handpick and remove damaged leaves.||Leaf spots|Brown or black spots|Remove affected leaves and keep leaves dry overnight.||Downy mildew|Yellowing and gray growth under leaves|Improve airflow, avoid overhead watering, remove affected growth.||Root rot|Yellowing, wilting, wet soil|Reduce watering and improve drainage.
+@back: Care basics
+@next: Next
+@goto: culinary-basil-checklist
+
+===
+
+@id: culinary-basil-checklist
+@type: content
+@title: Checklist
+@subtitle: Harvest often
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Tips|Pinch flower buds and growing tips.||Leaves|Look under leaves for pests and spots.||Soil|Keep soil moist but never swampy.||Harvest|Cut above leaf pairs to create branching.||Airflow|Remove crowded or diseased leaves.||Flavor|Harvest young leaves for best quality.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Culinary_Basil_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

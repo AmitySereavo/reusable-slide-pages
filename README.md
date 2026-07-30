@@ -31,6 +31,9 @@ Current reusable foundations:
 - account email history and verified email switching
 - protected download API for private files
 - reusable shop/cart engine with database-backed inventory support
+- app-wide visitor activity tracker with one anonymous visitor/session identity,
+  local-first interest thresholds, and shared event helpers for navigation,
+  questionnaires, video, products, cart, checkout, downloads, and CRM actions
 - verified purchase-for-others recipient flow
 - database-backed digital/physical order fulfillment items
 - ticket assignment and meal-selection primitives
@@ -84,6 +87,8 @@ After committing the next local changes, update this README source-of-truth SHA.
 Keep reusable behavior in:
 
 - `src/components/questionnaire/QuestionnaireShell.tsx`
+- `src/components/activity`
+- `src/lib/activity`
 - `src/lib/questionnaire`
 - `src/lib/auth`
 - `src/lib/verification`

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
 import { getQuestionnaireBySlug } from "@/config/questionnaires/registry";
+import { getAdminSession } from "@/lib/auth/adminGuard";
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
 const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
@@ -12,6 +13,7 @@ const LITTLE_ORCHARD_SHOP_PUBLIC_URL =
 const PLANT_GIVEAWAY_OG_IMAGE = "/icons/paralife_trees_og.png";
 const LITTLE_ORCHARD_SHOP_OG_IMAGE =
   "/media/paralife_trees/little-orchard-shop-share.png";
+const ADMIN_ONLY_QUESTIONNAIRE_SLUGS = new Set(["project-docs"]);
 
 export async function generateMetadata({
   params,
@@ -117,6 +119,14 @@ export default async function QuestionnairePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  if (ADMIN_ONLY_QUESTIONNAIRE_SLUGS.has(slug)) {
+    const adminSession = await getAdminSession();
+    if (!adminSession) {
+      notFound();
+    }
+  }
+
   const questionnaire = await getQuestionnaireBySlug(slug);
 
   if (!questionnaire) {

@@ -228,6 +228,7 @@ import {
   writeLocalQuestionAnswer,
   writeLocalVideoProgress,
 } from "@/lib/questionnaire/engagementTracking";
+import { trackActivity } from "@/lib/activity/trackActivity";
 
 type Props = {
   config: QuestionnaireConfig;
@@ -2110,6 +2111,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   });
 
   useEffect(() => {
+    if (!currentSlide?.id) {
+      return;
+    }
+
+    trackActivity({
+      type: "questionnaire_step_viewed",
+      source: "questionnaire",
+      properties: {
+        questionnaireSlug: config.slug,
+        slideId: currentSlide.id,
+        slideLabel: currentSlide.title || currentSlide.id,
+      },
+    });
+  }, [config.slug, currentSlide?.id, currentSlide?.title]);
+
+  useEffect(() => {
     if (
       !isCheckoutDraftSlug(config.slug) ||
       !checkoutDraftHydratedRef.current ||
@@ -2584,6 +2601,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       { href: "/dashboard/currencies", label: "Currencies" },
       { href: "/dashboard/identity-verifications", label: "ID Verifications" },
       { href: "/dashboard/email-sequences", label: "Email Sequences" },
+      { href: "/shop", label: "Little Orchard Shop" },
+      { href: "/questionnaire/project-docs", label: "Project Docs" },
       { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
       { href: "/questionnaire/escape-album", label: "Escape Album" },
       { href: "/questionnaire/itasl", label: "ITASL Sequence" },
@@ -2595,6 +2614,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sidebarSlideLinks.length > 0 ||
     Boolean(sidebarAlbumDownloadItemId);
   const canShowContentSidebarHint = sidebarSlideLinks.length > 0;
+  const shouldForceGrowGuideCoverHint =
+    config.slug.endsWith("-grow-guide") &&
+    Boolean(currentSlide?.id) &&
+    currentSlide?.id === visibleSlides[0]?.id;
 
   useEffect(() => {
     if (!canShowContentSidebarHint) {
@@ -2612,9 +2635,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }, [canShowContentSidebarHint, config.slug]);
 
   useEffect(() => {
-    if (!canShowContentSidebarHint || hasSeenContentSidebarHint) {
+    if (
+      !canShowContentSidebarHint ||
+      (!shouldForceGrowGuideCoverHint && hasSeenContentSidebarHint)
+    ) {
       setIsContentSidebarHintActive(false);
       return;
+    }
+
+    if (shouldForceGrowGuideCoverHint) {
+      setHasSeenContentSidebarHint(true);
     }
 
     setIsContentSidebarHintActive(true);
@@ -2623,7 +2653,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     }, 9000);
 
     return () => window.clearTimeout(timeout);
-  }, [canShowContentSidebarHint, hasSeenContentSidebarHint, config.slug]);
+  }, [
+    canShowContentSidebarHint,
+    hasSeenContentSidebarHint,
+    shouldForceGrowGuideCoverHint,
+    config.slug,
+  ]);
 
   const markContentSidebarHintSeen = useCallback(() => {
     if (!canShowContentSidebarHint) return;
@@ -4015,6 +4050,19 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       });
     }
 
+    if (currentSlide?.id) {
+      trackActivity({
+        type: "questionnaire_answered",
+        source: "questionnaire",
+        properties: {
+          questionnaireSlug: config.slug,
+          slideId: currentSlide.id,
+          slideLabel: currentSlide.title || currentSlide.id,
+          questionKey: key,
+        },
+      });
+    }
+
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -4512,6 +4560,22 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       triggerType: params.triggerType,
       videoTimestampSeconds: params.videoTimestampSeconds,
       videoDurationSeconds: params.videoDurationSeconds,
+    });
+
+    trackActivity({
+      type:
+        params.bookmarkKind === "video" ? "video_bookmark_created" : "bookmark_created",
+      source: params.bookmarkKind === "video" ? "video" : "questionnaire",
+      properties: {
+        questionnaireSlug: config.slug,
+        slideId: params.slideId,
+        slideLabel: params.slideLabel,
+        bookmarkKind: params.bookmarkKind,
+        action: params.action || "saved",
+        triggerType: params.triggerType || "manual",
+        videoTimestampSeconds: params.videoTimestampSeconds ?? null,
+        videoDurationSeconds: params.videoDurationSeconds ?? null,
+      },
     });
 
     if (!authSessionUser?.id) {
@@ -8190,6 +8254,68 @@ async function handleNext() {
                                 currentTime: payload.currentTime,
                                 duration: payload.duration,
                               });
+
+                              trackActivity({
+                                type: "video_started",
+                                source: "video",
+                                properties: {
+                                  questionnaireSlug: config.slug,
+                                  slideId: currentSlide.id,
+                                  slideLabel: currentSlide.title || currentSlide.id,
+                                  videoId: currentSlide.id,
+                                  currentTimeSeconds: Math.floor(payload.currentTime),
+                                  durationSeconds:
+                                    typeof payload.duration === "number" &&
+                                    Number.isFinite(payload.duration)
+                                      ? Math.floor(payload.duration)
+                                      : null,
+                                },
+                              });
+                            }
+
+                            if (
+                              typeof payload.duration === "number" &&
+                              Number.isFinite(payload.duration) &&
+                              payload.duration > 0
+                            ) {
+                              const progressRatio =
+                                payload.currentTime / payload.duration;
+
+                              if (progressRatio >= 0.5) {
+                                trackActivity({
+                                  type: "video_progress_50",
+                                  source: "video",
+                                  properties: {
+                                    questionnaireSlug: config.slug,
+                                    slideId: currentSlide.id,
+                                    slideLabel:
+                                      currentSlide.title || currentSlide.id,
+                                    videoId: currentSlide.id,
+                                    currentTimeSeconds: Math.floor(
+                                      payload.currentTime
+                                    ),
+                                    durationSeconds: Math.floor(payload.duration),
+                                  },
+                                });
+                              }
+
+                              if (progressRatio >= 0.9) {
+                                trackActivity({
+                                  type: "video_progress_90",
+                                  source: "video",
+                                  properties: {
+                                    questionnaireSlug: config.slug,
+                                    slideId: currentSlide.id,
+                                    slideLabel:
+                                      currentSlide.title || currentSlide.id,
+                                    videoId: currentSlide.id,
+                                    currentTimeSeconds: Math.floor(
+                                      payload.currentTime
+                                    ),
+                                    durationSeconds: Math.floor(payload.duration),
+                                  },
+                                });
+                              }
                             }
 
                             if (authSessionUser?.id && Math.floor(payload.currentTime) % 15 === 0) {
@@ -8211,6 +8337,19 @@ async function handleNext() {
                           }
                         }}
                         onVideoEnded={() => {
+                          if (currentSlide.mediaType === "video") {
+                            trackActivity({
+                              type: "video_completed",
+                              source: "video",
+                              properties: {
+                                questionnaireSlug: config.slug,
+                                slideId: currentSlide.id,
+                                slideLabel: currentSlide.title || currentSlide.id,
+                                videoId: currentSlide.id,
+                              },
+                            });
+                          }
+
                           if (currentSlide.videoEndGoto === "footer") {
                             openCurrentSlideFooterPanel();
                             return;

@@ -1,0 +1,113 @@
+// PARA-LIFE TREES
+// CILANTRO GROW GUIDE
+// Source: Cilantro_Grow_Guide.pdf
+
+@id: cilantro-guide-cover
+@type: content
+@title: Cilantro Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Cilantro
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: cilantro-quick-rescue
+
+===
+
+@id: cilantro-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: Cilantro care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+GUIDETABLE|What you see|Most likely cause|What to do first||Plant wilts after planting|Transplant shock, dry root ball, too much sun|Shade 1 to 3 days, water gently, avoid strong fertilizer.||Leaves turn pale or yellow|Low nitrogen, overwatering, poor light, root stress|Check drainage, give brighter light, feed lightly after settling.||Plant sends flower stalk|Bolting from heat, age, dry soil, or stress|Harvest leaves, pinch flower stalk, plant a new batch for leaves.||Flat leaves turn feathery|Plant moving into flowering/seed stage|Harvest remaining leaves or allow seed production.||Sticky new growth|Aphids or whiteflies|Spray undersides with water or mild soap.||Seedlings cut off near soil|Cutworms|Check at night or early morning and remove worms.
+@back: Cover
+@next: Next
+@goto: cilantro-quick-numbers
+
+===
+
+@id: cilantro-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+GUIDEGRID|Crop::Cilantro / coriander||Botanical name::Coriandrum sativum||Main use::Fresh leaves, stems, flowers, and dry seeds||Best climate::Cooler conditions give better leaf harvest||Sunlight::Bright light with afternoon relief in heat||Soil::Loose, well-drained soil||Water::Even moisture, especially while young||Harvest::Cut leaves early; allow flowers for coriander seed
+@back: Quick rescue
+@next: Next
+@goto: cilantro-care-basics
+
+===
+
+@id: cilantro-care-basics
+@type: content
+@title: Care Basics
+@subtitle: Leaves and seed
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Basics
+GUIDETABLE|Care area|Guide||Temperature|Cilantro naturally has a short leaf window in hot weather.||Sun|Use morning sun and afternoon relief in very hot spaces.||Water|Keep evenly moist but not waterlogged.||Feeding|Feed lightly; avoid harsh fertilizer on stressed seedlings.||Bolting|Bolting is not always failure. It means the plant is moving to flowers and seed.||Harvest|Harvest leaves early and sow fresh batches for ongoing leaves.
+@back: Quick numbers
+@next: Next
+@goto: cilantro-pests-diseases
+
+===
+
+@id: cilantro-pests-diseases
+@type: content
+@title: Pests Diseases
+@subtitle: Protect leaves
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pests
+# [c2] Diseases
+GUIDETABLE|Problem|Signs|Action||Aphids|Sticky curled new growth|Spray undersides and repeat every 3 to 5 days.||Whiteflies|Tiny white insects fly up|Spray undersides and manage weeds.||Cutworms|Seedlings cut near soil|Use collars and check soil at night.||Caterpillars|Holes in leaves|Handpick and remove badly damaged leaves.||Powdery mildew|White powdery coating|Improve airflow and avoid crowding.||Leaf spot|Dark wet spots|Remove affected leaves and avoid overhead watering.
+@back: Care basics
+@next: Next
+@goto: cilantro-checklist
+
+===
+
+@id: cilantro-checklist
+@type: content
+@title: Checklist
+@subtitle: Keep harvest steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Weekly Checklist
+GUIDETABLE|Every week|Check||Leaves|Harvest before plants bolt.||Moisture|Keep young plants evenly moist.||Heat|Give relief during hot afternoons.||Pests|Inspect new growth and leaf undersides.||Flowers|Decide whether to pinch flowers or save coriander seed.||Succession|Start another batch for fresh leaves.
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Cilantro_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Pests diseases
+@next: Visit shop
+@goto: /shop

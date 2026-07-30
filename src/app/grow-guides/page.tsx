@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import GrowGuidesSearch, { type GrowGuideSummary } from "./GrowGuidesSearch";
 
-const guides = [
+const guides: GrowGuideSummary[] = [
   {
     href: "/lettuce",
     title: "Lettuce Seedling Grow Guide",
@@ -37,6 +37,69 @@ const guides = [
     title: "Slicing Tomato Seedling Grow Guide",
     description: "Transplanting, staking, spacing, feeding, pest care, disease prevention, and harvest.",
     image: "/media/paralife_trees/jpg/product_tomato_seedling_slicing_still.jpg",
+  },
+  {
+    href: "/sweet-pepper",
+    title: "Sweet Pepper Grow Guide",
+    description: "Sun, drainage, feeding, blossom care, pest control, diseases, and harvest.",
+    image: "/media/paralife_trees/jpg/product_bell_pepper_plant_still.jpg",
+    keywords: ["bell pepper", "capsicum", "seedling"],
+  },
+  {
+    href: "/culinary-basil",
+    title: "Culinary Basil Grow Guide",
+    description: "Transplanting, sunlight, pruning, harvesting, pest care, and leaf quality.",
+    image: "/media/paralife_trees/jpg/product_basil_italian_sweet_still.jpg",
+    keywords: ["italian sweet basil", "genovese basil", "herb"],
+  },
+  {
+    href: "/dill",
+    title: "Dill Grow Guide",
+    description: "Cooler growing conditions, spacing, watering, harvesting leaves and seed heads.",
+    image: "/media/paralife_trees/jpg/product_dill_still.jpg",
+    keywords: ["herb", "seed", "seed head"],
+  },
+  {
+    href: "/tree-mint",
+    title: "Jamaican Tree Mint Grow Guide",
+    description: "Tree mint care, containers, pruning, heat, water, pests, and harvesting.",
+    image: "/media/paralife_trees/jpg/product_tree_mint_still.jpg",
+    keywords: ["costa rican peppermint", "jamaican peppermint", "tree mint"],
+  },
+  {
+    href: "/mint",
+    title: "Peppermint, Spearmint and Black Mint Grow Guide",
+    description: "Mint container control, sunlight, trimming, harvesting, water, pests, and leaf quality.",
+    image: "/media/paralife_trees/jpg/product_spearmint_still.jpg",
+    keywords: ["peppermint", "spearmint", "black mint", "mint"],
+  },
+  {
+    href: "/cilantro",
+    title: "Cilantro Grow Guide",
+    description: "Leaf harvest, coriander seed, bolting, cooler weather, pests, and transplanting.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["coriander", "herb", "bolting"],
+  },
+  {
+    href: "/parsley",
+    title: "Parsley Grow Guide",
+    description: "Transplanting, leaf harvest, watering, feeding, pests, diseases, and containers.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["herb", "leaf harvest"],
+  },
+  {
+    href: "/rosemary",
+    title: "Rosemary Grow Guide",
+    description: "Drainage, pruning, sunlight, root rot prevention, pest care, and harvest.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["herb", "woody herb", "root rot"],
+  },
+  {
+    href: "/marigold",
+    title: "Marigold Grow Guide",
+    description: "Sun, spacing, deadheading, pest observation, flowering, seed saving, and containers.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["flower", "ornamental", "companion plant"],
   },
 ];
 
@@ -96,16 +159,7 @@ export default function GrowGuidesHubPage() {
         </a>
       </section>
 
-      <section style={styles.grid} aria-label="Available grow guides">
-        {guides.map((guide) => (
-          <Link key={guide.href} href={guide.href} style={styles.card}>
-            <img src={guide.image} alt="" style={styles.image} />
-            <span style={styles.cardTitle}>{guide.title}</span>
-            <span style={styles.cardCopy}>{guide.description}</span>
-            <span style={styles.cardAction}>Open guide</span>
-          </Link>
-        ))}
-      </section>
+      <GrowGuidesSearch guides={guides} />
     </main>
   );
 }
@@ -145,43 +199,5 @@ const styles = {
     display: "inline-block",
     fontWeight: 700,
     textDecoration: "none",
-  },
-  grid: {
-    display: "grid",
-    gap: "16px",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    margin: "34px auto 0",
-    maxWidth: "980px",
-  },
-  card: {
-    background: "rgba(255, 255, 255, 0.82)",
-    border: "1px solid rgba(123, 63, 42, 0.25)",
-    borderRadius: "8px",
-    color: "inherit",
-    display: "grid",
-    gap: "10px",
-    padding: "14px",
-    textDecoration: "none",
-  },
-  image: {
-    aspectRatio: "4 / 3",
-    borderRadius: "6px",
-    objectFit: "cover" as const,
-    width: "100%",
-  },
-  cardTitle: {
-    color: "#2F6F3E",
-    fontSize: "1.25rem",
-    fontWeight: 900,
-    lineHeight: 1.1,
-  },
-  cardCopy: {
-    color: "#5E5144",
-    lineHeight: 1.4,
-  },
-  cardAction: {
-    color: "#7B3F2A",
-    fontWeight: 800,
-    marginTop: "4px",
   },
 };
