@@ -77,6 +77,7 @@ import {
   QuestionnaireVariableMap,
   QuestionnaireVariableValue,
   ShopCart,
+  ShopCartLine,
   ShopCatalog,
   ShopCatalogProduct,
   ShopPurchaseRecipient,
@@ -2602,6 +2603,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       { href: "/dashboard/identity-verifications", label: "ID Verifications" },
       { href: "/dashboard/email-sequences", label: "Email Sequences" },
       { href: "/shop", label: "Little Orchard Shop" },
+      { href: "/test-package-shop", label: "Test Package Shop" },
       { href: "/questionnaire/project-docs", label: "Project Docs" },
       { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
       { href: "/questionnaire/escape-album", label: "Escape Album" },
@@ -7264,6 +7266,15 @@ async function handleNext() {
         )}`
       : "";
 
+  const currentShopSelectedTotal = currentShopSelectedLines.reduce(
+    (sum, line) => sum + line.lineTotal,
+    0
+  );
+  const activeShopNextTotal =
+    currentSlide.type === "shop" && currentSlide.shopMode === "browse"
+      ? currentShopSelectedTotal
+      : sharedOrderGrandTotalWithMeals;
+
   const cartReturnActive =
     String(answers.cartReturnTarget ?? "") === "review-order" &&
     currentSlide.id !== "review-order";
@@ -7299,7 +7310,7 @@ async function handleNext() {
         )}`
       : currentSlide.type === "shop"
         ? `${shopNextLabel} · ${formatCurrency(
-            sharedOrderGrandTotalWithMeals,
+            activeShopNextTotal,
             sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
           )}`
         : currentSlide.type === "delivery"
@@ -8673,6 +8684,23 @@ async function handleNext() {
                               )
                             )
                           }
+                          onUpdateCart={(updater) =>
+                            updateCurrentShopCart((cart) => updater(cart))
+                          }
+                          onUpdateCartLineByKey={(lineKey, updater) =>
+                            updateCurrentShopCart((cart) => {
+                              const nextLine = updater(cart[lineKey], cart);
+                              const nextCart = { ...cart };
+
+                              if (nextLine) {
+                                nextCart[lineKey] = nextLine;
+                              } else {
+                                delete nextCart[lineKey];
+                              }
+
+                              return nextCart;
+                            })
+                          }
                           onRequestNurseryStock={(productId, sizeOptionId) => {
                             updateCurrentShopCart((cart) => {
                               const key = makeShopLineKey(productId, sizeOptionId);
@@ -9000,6 +9028,23 @@ async function handleNext() {
                                 recipients
                               )
                             )
+                          }
+                          onUpdateCart={(updater) =>
+                            updateCurrentShopCart((cart) => updater(cart))
+                          }
+                          onUpdateCartLineByKey={(lineKey, updater) =>
+                            updateCurrentShopCart((cart) => {
+                              const nextLine = updater(cart[lineKey], cart);
+                              const nextCart = { ...cart };
+
+                              if (nextLine) {
+                                nextCart[lineKey] = nextLine;
+                              } else {
+                                delete nextCart[lineKey];
+                              }
+
+                              return nextCart;
+                            })
                           }
                           onRequestNurseryStock={(productId, sizeOptionId) => {
                             updateCurrentShopCart((cart) => {
@@ -11834,6 +11879,8 @@ function ShopSlideRenderer({
   onSetLineSelected,
   onSetPurchaseMode,
   onSetPurchaseRecipients,
+  onUpdateCart,
+  onUpdateCartLineByKey,
   onRequestNurseryStock,
   onRemoveLine,
   onAdjustLine,
@@ -11880,6 +11927,11 @@ function ShopSlideRenderer({
     sizeOptionId: string,
     recipients: ShopPurchaseRecipient[]
   ) => void;
+  onUpdateCart?: (updater: (cart: ShopCart) => ShopCart) => void;
+  onUpdateCartLineByKey?: (
+    lineKey: string,
+    updater: (line: ShopCartLine | undefined, cart: ShopCart) => ShopCartLine | null
+  ) => void;
   onRequestNurseryStock?: (productId: string, sizeOptionId: string) => void;
   onRemoveLine: (productId: string, sizeOptionId: string) => void;
   onAdjustLine?: (productId: string, sizeOptionId: string) => void;
@@ -11914,6 +11966,7 @@ function ShopSlideRenderer({
   const [selectedShopCategory, setSelectedShopCategory] = useState("all");
   const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const shopSessionKeyRef = useRef("");
+  const packageRepairKeyRef = useRef("");
   const reviewCartLines = useMemo(
     () =>
       slideMode === "review"
@@ -12140,13 +12193,15 @@ function ShopSlideRenderer({
         ? catalog.products.filter((product) =>
             displayReviewLines.some((line) => line.productId === product.id)
           )
-        : catalog?.products ?? [],
+        : (catalog?.products ?? []).filter(
+            (product) => product.metadata?.hideFromBrowse !== true
+          ),
     [catalog, displayReviewLines, slideMode]
   );
   const shopCategoryOptions = useMemo(() => {
     const categories = new Set<string>();
 
-    for (const product of catalog?.products ?? []) {
+    for (const product of products) {
       const category = getShopProductCategory(product);
 
       if (category) {
@@ -12155,10 +12210,10 @@ function ShopSlideRenderer({
     }
 
     return Array.from(categories).sort((first, second) => {
-      const firstProduct = (catalog?.products ?? []).find(
+      const firstProduct = products.find(
         (product) => getShopProductCategory(product) === first
       );
-      const secondProduct = (catalog?.products ?? []).find(
+      const secondProduct = products.find(
         (product) => getShopProductCategory(product) === second
       );
       const firstOrder = Number(
@@ -12170,7 +12225,7 @@ function ShopSlideRenderer({
 
       return firstOrder - secondOrder || first.localeCompare(second);
     });
-  }, [catalog]);
+  }, [products]);
   const displayProducts = useMemo(() => {
     if (slideMode !== "browse" || selectedShopCategory === "all") {
       return products;
@@ -12180,6 +12235,163 @@ function ShopSlideRenderer({
       (product) => getShopProductCategory(product) === selectedShopCategory
     );
   }, [products, selectedShopCategory, slideMode]);
+  const packageProductIdSet = useMemo(
+    () =>
+      new Set(
+        products
+          .filter(
+            (product) =>
+              product.metadata?.isPackage === true ||
+              String(product.metadata?.category ?? "").toLowerCase() ===
+                "package"
+          )
+          .map((product) => product.id)
+      ),
+    [products]
+  );
+
+  useEffect(() => {
+    if (
+      slideId !== "test-package-adjust" ||
+      slideMode !== "browse" ||
+      !catalog ||
+      !onUpdateCart
+    ) {
+      return;
+    }
+
+    const packageShellEntry = Object.entries(cart).find(
+      ([, line]) =>
+        line.selected === true &&
+        (line.metadata?.packageShell === true ||
+          packageProductIdSet.has(line.productId))
+    );
+
+    if (!packageShellEntry) {
+      return;
+    }
+
+    const [sourceLineKey, sourceLine] = packageShellEntry;
+    const hasPackageComponents = Object.values(cart).some(
+      (line) => line.bundledFromLineKey === sourceLineKey
+    );
+
+    if (hasPackageComponents) {
+      return;
+    }
+
+    const sourceProduct = catalog.products.find(
+      (product) => product.id === sourceLine.productId
+    );
+    const sourceSizeOption = sourceProduct?.sizeOptions.find(
+      (option) => option.id === sourceLine.sizeOptionId
+    );
+    const packageMode =
+      sourceSizeOption?.purchaseModes?.find(
+        (mode) => mode.id === sourceLine.purchaseModeId
+      ) ?? sourceSizeOption?.purchaseModes?.[0];
+    const bundledCartItems = packageMode?.bundledCartItems ?? [];
+
+    if (!sourceSizeOption || bundledCartItems.length === 0 || !packageMode) {
+      return;
+    }
+
+    const repairKey = `${sourceLineKey}:${sourceLine.sizeOptionId}:${
+      sourceLine.purchaseModeId ?? packageMode.id
+    }`;
+
+    if (packageRepairKeyRef.current === repairKey) {
+      return;
+    }
+
+    let repairableItemCount = 0;
+    for (const bundledItem of bundledCartItems) {
+      const bundledProduct = catalog.products.find(
+        (candidate) => candidate.id === bundledItem.productId
+      );
+      const bundledSizeOption = bundledProduct?.sizeOptions.find(
+        (option) => option.id === bundledItem.sizeOptionId
+      );
+
+      if (bundledProduct && bundledSizeOption) {
+        repairableItemCount += 1;
+      }
+    }
+
+    if (repairableItemCount === 0) {
+      return;
+    }
+
+    packageRepairKeyRef.current = repairKey;
+    onUpdateCart((currentCart) => {
+      const currentShell = currentCart[sourceLineKey];
+
+      if (
+        !currentShell ||
+        Object.values(currentCart).some(
+          (line) => line.bundledFromLineKey === sourceLineKey
+        )
+      ) {
+        return currentCart;
+      }
+
+      const nextCart: ShopCart = {
+        ...currentCart,
+        [sourceLineKey]: {
+          ...currentShell,
+          purchaseModeId: packageMode.id,
+          unitPriceOverride: 0,
+          compareAtUnitPrice: sourceSizeOption.price,
+          lockedQuantity: true,
+          lockedPurchaseMode: true,
+          metadata: {
+            ...(currentShell.metadata ?? {}),
+            packageShell: true,
+          },
+        },
+      };
+
+      for (const bundledItem of bundledCartItems) {
+        const bundledProduct = catalog.products.find(
+          (candidate) => candidate.id === bundledItem.productId
+        );
+        const bundledSizeOption = bundledProduct?.sizeOptions.find(
+          (option) => option.id === bundledItem.sizeOptionId
+        );
+
+        if (!bundledProduct || !bundledSizeOption) {
+          continue;
+        }
+
+        const bundledPurchaseModeId =
+          bundledItem.purchaseModeId ??
+          bundledSizeOption.purchaseModes?.[0]?.id;
+        const bundledQuantity = Math.max(1, bundledItem.quantity ?? 1);
+        const bundledLineKey = `${sourceLineKey}::bundle::${bundledItem.productId}::${bundledItem.sizeOptionId}${
+          bundledPurchaseModeId ? `::${bundledPurchaseModeId}` : ""
+        }`;
+
+        nextCart[bundledLineKey] = {
+          productId: bundledItem.productId,
+          sizeOptionId: bundledItem.sizeOptionId,
+          selected: true,
+          quantity: bundledQuantity,
+          purchaseModeId: bundledPurchaseModeId,
+          bundledFromLineKey: sourceLineKey,
+          bundledByPurchaseModeId: packageMode.id,
+          lockedQuantity: false,
+          lockedPurchaseMode: false,
+          metadata: {
+            packageComponent: true,
+            packageBaseQuantity: bundledQuantity,
+            packageSourceSku: bundledItem.sourceSku,
+          },
+        };
+      }
+
+      return nextCart;
+    });
+  }, [cart, catalog?.products, onUpdateCart, packageProductIdSet, slideId, slideMode]);
 
   useEffect(() => {
     const needsVerifiedRecipients = products.some(
@@ -12293,6 +12505,899 @@ function ShopSlideRenderer({
         )
       : displayProducts;
   const renderedReviewSections = new Set<number>();
+  const isPackageComparisonShop =
+    slideId === "test-package-shop" && slideMode === "browse";
+
+  const getPackageFormatLabel = (label: string) => {
+    const normalized = label.toLowerCase();
+
+    if (normalized.includes("seedling")) return "Seedling";
+    if (normalized.includes("10-inch")) return "Garden ready";
+    if (normalized.includes("16-inch") || normalized.includes("premium")) {
+      return "Near harvest ready";
+    }
+
+    return label.replace(/\s+pack$/i, "");
+  };
+  const cleanPackageSkuLabel = (value: string) =>
+    value
+      .replace(/^LO-/i, "")
+      .replace(/-(STARTER-SEEDLING|GARDEN-READY|HARVEST-READY)$/i, "")
+      .split("-")
+      .filter(Boolean)
+      .map((part) =>
+        part.length <= 3
+          ? part.toUpperCase()
+          : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`
+      )
+      .join(" ");
+  const findPackageProductBySku = (sku: string | undefined) => {
+    const normalizedSku = String(sku ?? "").trim().toUpperCase();
+
+    if (!normalizedSku) {
+      return undefined;
+    }
+
+    return catalog.products.find((product) =>
+      product.sizeOptions.some(
+        (option) =>
+          String(option.sku ?? product.sku ?? "")
+            .trim()
+            .toUpperCase() === normalizedSku
+      )
+    );
+  };
+  const markPackageShellAdjusted = (
+    nextCart: ShopCart,
+    sourceLineKey: string | undefined
+  ) => {
+    if (!sourceLineKey || !nextCart[sourceLineKey]) {
+      return nextCart;
+    }
+
+    return {
+      ...nextCart,
+      [sourceLineKey]: {
+        ...nextCart[sourceLineKey],
+        unitPriceOverride: 0,
+        compareAtUnitPrice: nextCart[sourceLineKey].compareAtUnitPrice,
+        metadata: {
+          ...(nextCart[sourceLineKey].metadata ?? {}),
+          packageAdjusted: true,
+        },
+      },
+    };
+  };
+
+  const getPackageContentRows = (
+    sizeOption: ShopCatalogSizeOption
+  ): Array<{ section: string; label: string; quantity: number }> => {
+    const bundledItems = sizeOption.purchaseModes?.[0]?.bundledCartItems ?? [];
+    const getPackageContentSection = (label: string) => {
+      const normalized = label.toLowerCase();
+
+      if (
+        normalized.includes("scallion") ||
+        normalized.includes("thyme") ||
+        normalized.includes("basil") ||
+        normalized.includes("dill") ||
+        normalized.includes("parsley") ||
+        normalized.includes("cilantro") ||
+        normalized.includes("culantro") ||
+        normalized.includes("lemongrass") ||
+        normalized.includes("fever grass")
+      ) {
+        return "Culinary herbs";
+      }
+
+      if (
+        normalized.includes("spearmint") ||
+        normalized.includes("common mint") ||
+        normalized.includes("peppermint") ||
+        normalized.includes("black mint") ||
+        normalized.includes("tree mint") ||
+        normalized.includes("bolo mint") ||
+        normalized.includes("panadol plant") ||
+        normalized.includes("french thyme") ||
+        normalized.includes("cuban mint") ||
+        normalized.includes("lemon balm")
+      ) {
+        return "Tea mints";
+      }
+
+      if (
+        normalized.includes("lettuce") ||
+        normalized.includes("spinach") ||
+        normalized.includes("pak choi") ||
+        normalized.includes("callaloo") ||
+        normalized.includes("cabbage")
+      ) {
+        return "Leafy vegetables";
+      }
+
+      if (
+        normalized.includes("scotch bonnet") ||
+        normalized.includes("sweet pepper") ||
+        normalized.includes("pepper - sweet") ||
+        normalized.includes("pepper - scotch") ||
+        normalized.includes("tomato") ||
+        normalized.includes("eggplant") ||
+        normalized.includes("okra") ||
+        normalized.includes("cucumber") ||
+        normalized.includes("string bean")
+      ) {
+        return "Fruit vegetables";
+      }
+
+      if (
+        normalized.includes("black pepper") ||
+        normalized.includes("pepper - black") ||
+        normalized.includes("sweet potato") ||
+        normalized.includes("coco root") ||
+        normalized.includes("yam slips") ||
+        normalized.includes("irish potato") ||
+        normalized.includes("carrot") ||
+        normalized.includes("beetroot") ||
+        normalized.includes("banana sucker") ||
+        normalized.includes("plantain sucker")
+      ) {
+        return "Root and vine crops";
+      }
+
+      if (
+        normalized.includes("mulberry") ||
+        normalized.includes("lime tree") ||
+        normalized.includes("star fruit") ||
+        normalized.includes("cherry tree")
+      ) {
+        return "Trees";
+      }
+
+      return "Other items";
+    };
+
+    return bundledItems.map((bundledItem) => {
+      const sourceProduct = catalog.products.find(
+        (product) => product.id === bundledItem.productId
+      );
+      const sourceOption = sourceProduct?.sizeOptions.find(
+        (option) => option.id === bundledItem.sizeOptionId
+      );
+
+      const label =
+        sourceProduct?.title ||
+        cleanPackageSkuLabel(bundledItem.sourceSku ?? "") ||
+        "Package item";
+
+      return {
+        section: getPackageContentSection(label),
+        label,
+        quantity: bundledItem.quantity ?? 1,
+      };
+    });
+  };
+  const getPackageFormatKey = (label: string) => {
+    const normalized = label.toLowerCase();
+
+    if (normalized.includes("seedling")) return "seedling";
+    if (normalized.includes("10-inch") || normalized.includes("ready-to-harvest")) {
+      return "garden";
+    }
+    if (normalized.includes("16-inch") || normalized.includes("premium")) {
+      return "harvest";
+    }
+
+    return normalized.replace(/[^a-z0-9]+/g, "-");
+  };
+  const getPackageComponentSection = (label: string) => {
+    const normalized = label.toLowerCase();
+
+    if (
+      normalized.includes("scallion") ||
+      normalized.includes("thyme") ||
+      normalized.includes("basil") ||
+      normalized.includes("dill") ||
+      normalized.includes("parsley") ||
+      normalized.includes("cilantro") ||
+      normalized.includes("culantro") ||
+      normalized.includes("lemongrass") ||
+      normalized.includes("fever grass")
+    ) {
+      return "Culinary herbs";
+    }
+
+      if (
+        normalized.includes("spearmint") ||
+        normalized.includes("common mint") ||
+        normalized.includes("peppermint") ||
+        normalized.includes("black mint") ||
+        normalized.includes("tree mint") ||
+        normalized.includes("bolo mint") ||
+        normalized.includes("panadol plant") ||
+        normalized.includes("french thyme") ||
+        normalized.includes("cuban mint") ||
+        normalized.includes("lemon balm")
+      ) {
+      return "Tea mints";
+    }
+
+    if (
+      normalized.includes("lettuce") ||
+      normalized.includes("spinach") ||
+      normalized.includes("pak choi") ||
+      normalized.includes("callaloo") ||
+      normalized.includes("cabbage")
+    ) {
+      return "Leafy vegetables";
+    }
+
+    if (
+      normalized.includes("scotch bonnet") ||
+      normalized.includes("sweet pepper") ||
+      normalized.includes("pepper - sweet") ||
+      normalized.includes("pepper - scotch") ||
+      normalized.includes("tomato") ||
+      normalized.includes("eggplant") ||
+      normalized.includes("okra") ||
+      normalized.includes("cucumber") ||
+      normalized.includes("string bean")
+    ) {
+      return "Fruit vegetables";
+    }
+
+    if (
+      normalized.includes("black pepper") ||
+      normalized.includes("pepper - black") ||
+      normalized.includes("sweet potato") ||
+      normalized.includes("coco root") ||
+      normalized.includes("yam slips") ||
+      normalized.includes("irish potato") ||
+      normalized.includes("carrot") ||
+      normalized.includes("beetroot") ||
+      normalized.includes("banana sucker") ||
+      normalized.includes("plantain sucker")
+    ) {
+      return "Root and vine crops";
+    }
+
+    if (
+      normalized.includes("mulberry") ||
+      normalized.includes("lime tree") ||
+      normalized.includes("star fruit") ||
+      normalized.includes("cherry tree")
+    ) {
+      return "Trees";
+    }
+
+    return "Other items";
+  };
+  const getPackageSectionOrder = (section: string) => {
+    const order = [
+      "Culinary herbs",
+      "Tea mints",
+      "Leafy vegetables",
+      "Fruit vegetables",
+      "Root and vine crops",
+      "Trees",
+      "Other items",
+    ];
+
+    const index = order.indexOf(section);
+    return index === -1 ? order.length : index;
+  };
+
+  if (slideId === "test-package-adjust" && slideMode === "browse") {
+    const packageShellEntries = Object.entries(cart).filter(
+      ([, line]) =>
+        line.selected === true &&
+        (line.metadata?.packageShell === true ||
+          packageProductIdSet.has(line.productId))
+    );
+    const packageShellKeys = new Set(packageShellEntries.map(([key]) => key));
+    const cartPackageComponentEntries = Object.entries(cart)
+      .filter(([, line]) => line.bundledFromLineKey && packageShellKeys.has(line.bundledFromLineKey))
+      .map(([lineKey, line]) => {
+        const product = catalog.products.find(
+          (candidate) => candidate.id === line.productId
+        );
+        const sizeOption = product?.sizeOptions.find(
+          (option) => option.id === line.sizeOptionId
+        );
+        const formatOptions =
+          product?.sizeOptions.map((option) => ({
+            id: option.id,
+            label: getPackageFormatLabel(option.label),
+            price: option.price,
+          })) ?? [];
+        const label = product?.title ?? "Package item";
+
+        return {
+          lineKey,
+          line,
+          product,
+          sizeOption,
+          formatOptions,
+          label,
+          section: getPackageComponentSection(label),
+        };
+      })
+      .filter((entry) => entry.product && entry.sizeOption)
+    const selectedShellEntry = packageShellEntries[0];
+    const selectedShellKey = selectedShellEntry?.[0] ?? "";
+    const selectedShell = selectedShellEntry?.[1];
+    const selectedShellProduct = selectedShell
+      ? catalog.products.find((product) => product.id === selectedShell.productId)
+      : undefined;
+    const selectedShellOption = selectedShellProduct?.sizeOptions.find(
+      (option) => option.id === selectedShell?.sizeOptionId
+    );
+    const selectedPackageMode =
+      selectedShellOption?.purchaseModes?.find(
+        (mode) => mode.id === selectedShell?.purchaseModeId
+      ) ?? selectedShellOption?.purchaseModes?.[0];
+    const fallbackPackageComponentEntries =
+      selectedShell && selectedShellKey
+        ? (selectedPackageMode?.bundledCartItems ?? []).map((bundledItem) => {
+            const product =
+              catalog.products.find(
+                (candidate) => candidate.id === bundledItem.productId
+              ) ?? findPackageProductBySku(bundledItem.sourceSku);
+            const sizeOption =
+              product?.sizeOptions.find(
+                (option) => option.id === bundledItem.sizeOptionId
+              ) ??
+              product?.sizeOptions.find(
+                (option) =>
+                  String(option.sku ?? product.sku ?? "")
+                    .trim()
+                    .toUpperCase() ===
+                  String(bundledItem.sourceSku ?? "").trim().toUpperCase()
+              ) ??
+              product?.sizeOptions[0];
+            const purchaseModeId =
+              bundledItem.purchaseModeId ?? sizeOption?.purchaseModes?.[0]?.id;
+            const lineKey = `${selectedShellKey}::bundle::${
+              product?.id ?? bundledItem.productId
+            }::${sizeOption?.id ?? bundledItem.sizeOptionId}${
+              purchaseModeId ? `::${purchaseModeId}` : ""
+            }`;
+            const existingLine = cart[lineKey];
+            const quantity = Math.max(
+              1,
+              existingLine?.quantity ?? bundledItem.quantity ?? 1
+            );
+            const line: ShopCartLine = existingLine ?? {
+              productId: product?.id ?? bundledItem.productId,
+              sizeOptionId: sizeOption?.id ?? bundledItem.sizeOptionId,
+              selected: true,
+              quantity,
+              purchaseModeId,
+              bundledFromLineKey: selectedShellKey,
+              bundledByPurchaseModeId: selectedPackageMode?.id,
+              lockedQuantity: false,
+              lockedPurchaseMode: false,
+              metadata: {
+                packageComponent: true,
+                packageBaseQuantity: Math.max(1, bundledItem.quantity ?? 1),
+                packageSourceSku: bundledItem.sourceSku,
+              },
+            };
+            const label =
+              product?.title ||
+              cleanPackageSkuLabel(bundledItem.sourceSku ?? "") ||
+              "Package item";
+            const formatOptions =
+              product?.sizeOptions.map((option) => ({
+                id: option.id,
+                label: getPackageFormatLabel(option.label),
+                price: option.price,
+              })) ?? [];
+
+            return {
+              lineKey,
+              line,
+              product,
+              sizeOption,
+              formatOptions,
+              label,
+              section: getPackageComponentSection(label),
+            };
+          })
+        : [];
+    const packageComponentEntries = (
+      cartPackageComponentEntries.length > 0
+        ? cartPackageComponentEntries
+        : fallbackPackageComponentEntries
+    ).sort(
+      (first, second) =>
+        getPackageSectionOrder(first.section) -
+          getPackageSectionOrder(second.section) ||
+        first.label.localeCompare(second.label)
+    );
+    const packageSections = Array.from(
+      new Set(packageComponentEntries.map((entry) => entry.section))
+    ).map((section) => ({
+      section,
+      rows: packageComponentEntries.filter((entry) => entry.section === section),
+    }));
+    const resolvedPackageComponentEntries = packageComponentEntries.flatMap(
+      (entry) =>
+        entry.product && entry.sizeOption
+          ? [
+              {
+                ...entry,
+                product: entry.product,
+                sizeOption: entry.sizeOption,
+              },
+            ]
+          : []
+    );
+    const packageInventoryReady =
+      resolvedPackageComponentEntries.length > 0 &&
+      resolvedPackageComponentEntries.length === packageComponentEntries.length;
+    const materializePackageRows = (
+      currentCart: ShopCart,
+      overrides: Record<string, ShopCartLine | null> = {}
+    ) => {
+      if (!packageInventoryReady) {
+        return currentCart;
+      }
+
+      let nextCart = markPackageShellAdjusted(
+        { ...currentCart },
+        selectedShellKey
+      );
+
+      for (const entry of resolvedPackageComponentEntries) {
+        const override = Object.prototype.hasOwnProperty.call(
+          overrides,
+          entry.lineKey
+        )
+          ? overrides[entry.lineKey]
+          : undefined;
+
+        if (override === null) {
+          delete nextCart[entry.lineKey];
+          continue;
+        }
+
+        nextCart[entry.lineKey] = {
+          ...(currentCart[entry.lineKey] ?? entry.line),
+          ...(override ?? {}),
+          productId: override?.productId ?? entry.product.id,
+          sizeOptionId: override?.sizeOptionId ?? entry.sizeOption.id,
+          purchaseModeId:
+            override?.purchaseModeId ??
+            entry.line.purchaseModeId ??
+            entry.sizeOption.purchaseModes?.[0]?.id,
+          bundledFromLineKey:
+            override?.bundledFromLineKey ??
+            entry.line.bundledFromLineKey ??
+            selectedShellKey,
+          bundledByPurchaseModeId:
+            override?.bundledByPurchaseModeId ??
+            entry.line.bundledByPurchaseModeId ??
+            selectedPackageMode?.id,
+          metadata: {
+            ...(entry.line.metadata ?? {}),
+            ...(override?.metadata ?? {}),
+            packageComponent: true,
+          },
+        };
+      }
+
+      return nextCart;
+    };
+
+    return (
+      <div className={styles.shopStack}>
+        <div className={styles.packageAdjustmentHeader}>
+          <span>Selected starting point</span>
+          <strong>
+            {[
+              selectedShellProduct?.title,
+              selectedShellOption?.label,
+              selectedShell?.metadata?.packageAdjusted === true
+                ? "(adjusted)"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" - ") || "No package selected"}
+          </strong>
+          <p>
+            Keep the items you want, remove the ones you do not need, and mix
+            formats item by item.
+          </p>
+        </div>
+
+        {packageComponentEntries.length === 0 ? (
+          <div className={styles.packageAdjustmentEmpty}>
+            Select a package first, then continue here to adjust the contents.
+          </div>
+        ) : (
+          <div className={styles.packageAdjustmentStack}>
+            {packageSections.map((section) => (
+              <section key={section.section} className={styles.packageAdjustmentSection}>
+                <h3>{section.section}</h3>
+                <div className={styles.packageAdjustmentColumnHeadings}>
+                  <span>Plant</span>
+                  <span>Format</span>
+                  <span>Quantity</span>
+                </div>
+                <div className={styles.packageAdjustmentRows}>
+                  {section.rows.map((entry) => {
+                    const selected = entry.line.selected !== false;
+                    const quantity = Math.max(1, entry.line.quantity ?? 1);
+
+                    return (
+                      <div
+                        key={entry.lineKey}
+                        className={`${styles.packageAdjustmentRow} ${
+                          selected ? "" : styles.packageAdjustmentRowInactive
+                        }`}
+                      >
+                        <label className={styles.packageAdjustmentCheck}>
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={(event) => {
+                              onUpdateCart?.((currentCart) =>
+                                materializePackageRows(currentCart, {
+                                  [entry.lineKey]: {
+                                    ...(currentCart[entry.lineKey] ?? entry.line),
+                                    productId:
+                                      entry.product?.id ?? entry.line.productId,
+                                    sizeOptionId:
+                                      entry.sizeOption?.id ??
+                                      entry.line.sizeOptionId,
+                                    selected: event.target.checked,
+                                  },
+                                })
+                              );
+                            }}
+                          />
+                          <span>
+                            {entry.label}
+                            <em>{selected ? "Included" : "Removed from pack"}</em>
+                          </span>
+                        </label>
+
+                        <label className={styles.packageAdjustmentFormat}>
+                          <span>Format</span>
+                          <select
+                            value={entry.sizeOption?.id}
+                            disabled={!entry.product || !entry.sizeOption}
+                            onChange={(event) => {
+                              const nextSizeOptionId = event.target.value;
+                              const nextSizeOption = entry.product?.sizeOptions.find(
+                                (option) => option.id === nextSizeOptionId
+                              );
+
+                              if (!nextSizeOption || !onUpdateCart) {
+                                return;
+                              }
+
+                              onUpdateCart((currentCart) => {
+                                const currentLine =
+                                  currentCart[entry.lineKey] ?? entry.line;
+
+                                if (!currentLine?.bundledFromLineKey) {
+                                  return currentCart;
+                                }
+
+                                const nextPurchaseModeId =
+                                  nextSizeOption.purchaseModes?.[0]?.id;
+                                const nextProductId =
+                                  entry.product?.id ?? currentLine.productId;
+                                const nextKey = `${currentLine.bundledFromLineKey}::bundle::${nextProductId}::${nextSizeOption.id}${
+                                  nextPurchaseModeId
+                                    ? `::${nextPurchaseModeId}`
+                                    : ""
+                                }`;
+                                const nextCart = materializePackageRows(
+                                  currentCart,
+                                  {
+                                    [entry.lineKey]: null,
+                                  }
+                                );
+
+                                delete nextCart[entry.lineKey];
+                                nextCart[nextKey] = {
+                                  ...currentLine,
+                                  productId: nextProductId,
+                                  sizeOptionId: nextSizeOption.id,
+                                  purchaseModeId: nextPurchaseModeId,
+                                  metadata: {
+                                    ...(currentLine.metadata ?? {}),
+                                    packageComponent: true,
+                                    packageSourceSku:
+                                      nextSizeOption.sku ??
+                                      currentLine.metadata?.packageSourceSku,
+                                  },
+                                };
+
+                                return nextCart;
+                              });
+                            }}
+                          >
+                            {entry.formatOptions.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label} -{" "}
+                                {formatCurrency(option.price, catalog.currencyCode)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className={styles.packageAdjustmentQuantity}>
+                          <span>Quantity</span>
+                          <QuantityControl
+                            quantity={quantity}
+                            minQuantity={1}
+                            disabled={!selected}
+                            onDecrease={() =>
+                              onUpdateCart?.((currentCart) =>
+                                materializePackageRows(currentCart, {
+                                  [entry.lineKey]: {
+                                    ...(currentCart[entry.lineKey] ?? entry.line),
+                                    productId:
+                                      entry.product?.id ?? entry.line.productId,
+                                    sizeOptionId:
+                                      entry.sizeOption?.id ??
+                                      entry.line.sizeOptionId,
+                                  quantity: Math.max(1, quantity - 1),
+                                  },
+                                })
+                              )
+                            }
+                            onIncrease={() =>
+                              onUpdateCart?.((currentCart) =>
+                                materializePackageRows(currentCart, {
+                                  [entry.lineKey]: {
+                                    ...(currentCart[entry.lineKey] ?? entry.line),
+                                    productId:
+                                      entry.product?.id ?? entry.line.productId,
+                                    sizeOptionId:
+                                      entry.sizeOption?.id ??
+                                      entry.line.sizeOptionId,
+                                  quantity: quantity + 1,
+                                  },
+                                })
+                              )
+                            }
+                            theme={theme}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isPackageComparisonShop) {
+    const packageProducts = sortedProducts.filter(
+      (product) => packageProductIdSet.has(product.id)
+    );
+
+    return (
+      <div className={styles.shopStack}>
+        {reviewSection === "primary" ? (
+          <div className={styles.shopCurrencyRow}>
+            <span>Currency</span>
+            {canChangeCurrency ? (
+              <select
+                className={styles.shopCurrencySelect}
+                value={activeCurrencyCode}
+                onChange={(event) => onChangeCurrency(event.target.value)}
+              >
+                {SUPPORTED_CURRENCIES.map((currencyCode) => (
+                  <option key={currencyCode} value={currencyCode}>
+                    {currencyCode}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong>{activeCurrencyCode}</strong>
+            )}
+          </div>
+        ) : null}
+
+        <div className={styles.packageComparisonIntro}>
+          <p>
+            Choose the household size first, then choose how established you want
+            the plants to be.
+          </p>
+        </div>
+
+        <div className={styles.packageComparisonGrid}>
+          {packageProducts.map((product) => (
+            <section key={product.id} className={styles.packagePlanCard}>
+              <div className={styles.packagePlanHeader}>
+                <h3>{product.title}</h3>
+                {product.description ? <p>{product.description}</p> : null}
+              </div>
+
+              <div className={styles.packageFormatStack}>
+                {product.sizeOptions.map((sizeOption) => {
+                  const lineKey = makeShopLineKey(product.id, sizeOption.id);
+                  const cartLine = cart[lineKey];
+                  const selected = cartLine?.selected === true;
+                  const quantity = Math.max(1, cartLine?.quantity ?? 1);
+                  const packageRows = getPackageContentRows(sizeOption);
+                  const packageSections = [
+                    "Culinary herbs",
+                    "Tea mints",
+                    "Leafy vegetables",
+                    "Fruit vegetables",
+                    "Root and vine crops",
+                    "Trees",
+                    "Other items",
+                  ]
+                    .map((section) => ({
+                      section,
+                      rows: packageRows.filter(
+                        (row) => row.section === section
+                      ),
+                    }))
+                    .filter((section) => section.rows.length > 0);
+
+                  return (
+                    <div
+                      key={sizeOption.id}
+                      className={`${styles.packageFormatPanel} ${
+                        selected ? styles.packageFormatPanelSelected : ""
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className={styles.packageFormatSelect}
+                        onClick={() => {
+                          if (!onUpdateCart) {
+                            if (selected) {
+                              onRemoveLine(product.id, sizeOption.id);
+                            } else {
+                              onSetLineSelected(product.id, sizeOption.id, true);
+                            }
+
+                            return;
+                          }
+
+                          onUpdateCart((currentCart) => {
+                            const nextCart: ShopCart = {};
+                            const packageProductIds = new Set(
+                              packageProducts.map((packageProduct) => packageProduct.id)
+                            );
+
+                            for (const [key, line] of Object.entries(currentCart)) {
+                              const isPackageLine =
+                                line.metadata?.packageShell === true ||
+                                line.metadata?.packageComponent === true ||
+                                Boolean(line.bundledFromLineKey) ||
+                                packageProductIds.has(line.productId);
+
+                              if (!isPackageLine) {
+                                nextCart[key] = line;
+                              }
+                            }
+
+                            if (selected) {
+                              return nextCart;
+                            }
+
+                            const packageMode = sizeOption.purchaseModes?.[0];
+                            const sourceLineKey = makeShopLineKey(
+                              product.id,
+                              sizeOption.id
+                            );
+
+                            nextCart[sourceLineKey] = {
+                              productId: product.id,
+                              sizeOptionId: sizeOption.id,
+                              selected: true,
+                              quantity: 1,
+                              purchaseModeId: packageMode?.id,
+                              unitPriceOverride: 0,
+                              compareAtUnitPrice: sizeOption.price,
+                              lockedQuantity: true,
+                              lockedPurchaseMode: true,
+                              metadata: {
+                                packageShell: true,
+                              },
+                            };
+
+                            for (const bundledItem of packageMode?.bundledCartItems ?? []) {
+                              const bundledProduct = catalog.products.find(
+                                (candidate) =>
+                                  candidate.id === bundledItem.productId
+                              );
+                              const bundledSizeOption =
+                                bundledProduct?.sizeOptions.find(
+                                  (option) =>
+                                    option.id === bundledItem.sizeOptionId
+                                );
+
+                              if (!bundledProduct || !bundledSizeOption) {
+                                continue;
+                              }
+
+                              const bundledPurchaseModeId =
+                                bundledItem.purchaseModeId ??
+                                bundledSizeOption.purchaseModes?.[0]?.id;
+                              const bundledQuantity = Math.max(
+                                1,
+                                bundledItem.quantity ?? 1
+                              );
+                              const bundledLineKey = `${sourceLineKey}::bundle::${bundledItem.productId}::${bundledItem.sizeOptionId}${
+                                bundledPurchaseModeId
+                                  ? `::${bundledPurchaseModeId}`
+                                  : ""
+                              }`;
+
+                              nextCart[bundledLineKey] = {
+                                productId: bundledProduct.id,
+                                sizeOptionId: bundledSizeOption.id,
+                                selected: true,
+                                quantity: bundledQuantity,
+                                purchaseModeId: bundledPurchaseModeId,
+                                bundledFromLineKey: sourceLineKey,
+                                bundledByPurchaseModeId: packageMode?.id,
+                                lockedQuantity: false,
+                                lockedPurchaseMode: false,
+                                metadata: {
+                                  packageComponent: true,
+                                  packageBaseQuantity: bundledQuantity,
+                                  packageSourceSku: bundledItem.sourceSku,
+                                },
+                              };
+                            }
+
+                            return nextCart;
+                          });
+                        }}
+                      >
+                        <span>{getPackageFormatLabel(sizeOption.label)}</span>
+                        <strong>
+                          {formatCurrency(sizeOption.price, catalog.currencyCode)}
+                        </strong>
+                        <em>{selected ? "Selected" : "Select pack"}</em>
+                      </button>
+
+                      <details className={styles.packageContentDetails}>
+                        <summary>What is included</summary>
+                        <div className={styles.packageContentSectionStack}>
+                          {packageSections.map((section) => (
+                            <section key={`${sizeOption.id}-${section.section}`}>
+                              <h4>{section.section}</h4>
+                              <div className={styles.packageContentList}>
+                                {section.rows.map((row, rowIndex) => (
+                                  <div
+                                    key={`${sizeOption.id}-${section.section}-${row.label}-${rowIndex}`}
+                                  >
+                                    <span>{row.label}</span>
+                                    <strong>x {row.quantity}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.shopStack}>
@@ -12763,6 +13868,38 @@ function ShopSlideRenderer({
                   Boolean(resolvedLine?.purchaseModeLabel);
                 const canAddToCart =
                   !sizeOptionSoldOut || isNurseryStockRequest;
+                const packageReviewLines =
+                  slideMode === "review" && resolvedLine
+                    ? activeReviewLines
+                        .filter(
+                          (line) =>
+                            line.bundledFromLineKey === resolvedLine.lineKey &&
+                            line.selected !== false
+                        )
+                        .sort(
+                          (first, second) =>
+                            getPackageSectionOrder(
+                              getPackageComponentSection(first.productTitle)
+                            ) -
+                              getPackageSectionOrder(
+                                getPackageComponentSection(second.productTitle)
+                              ) ||
+                            first.productTitle.localeCompare(second.productTitle)
+                        )
+                    : [];
+                const packageReviewSections = Array.from(
+                  new Set(
+                    packageReviewLines.map((line) =>
+                      getPackageComponentSection(line.productTitle)
+                    )
+                  )
+                ).map((section) => ({
+                  section,
+                  rows: packageReviewLines.filter(
+                    (line) =>
+                      getPackageComponentSection(line.productTitle) === section
+                  ),
+                }));
                 const handleAddToCart = () => {
                   if (!canAddToCart) {
                     return;
@@ -13177,6 +14314,40 @@ function ShopSlideRenderer({
                             ) : null}
                           </div>
                         ) : null}
+                      </div>
+                    ) : null}
+
+                    {slideMode === "review" && packageReviewSections.length > 0 ? (
+                      <div className={styles.packageInvoiceSummary}>
+                        <h4>Package items</h4>
+                        {packageReviewSections.map((section) => (
+                          <section key={`${lineKey}-${section.section}`}>
+                            <h5>{section.section}</h5>
+                            <div className={styles.packageInvoiceRows}>
+                              {section.rows.map((line) => (
+                                <div key={line.lineKey}>
+                                  <span>
+                                    {line.productTitle}
+                                    <small>{line.sizeLabel}</small>
+                                  </span>
+                                  <strong>
+                                    {line.quantity} x{" "}
+                                    {formatCurrency(
+                                      line.unitPrice,
+                                      catalog.currencyCode
+                                    )}
+                                  </strong>
+                                  <em>
+                                    {formatCurrency(
+                                      line.lineTotal,
+                                      catalog.currencyCode
+                                    )}
+                                  </em>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        ))}
                       </div>
                     ) : null}
 

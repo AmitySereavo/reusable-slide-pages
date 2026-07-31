@@ -33,6 +33,11 @@ const PRODUCT_GUIDE_RULES = [
     guidePath: "/lettuce",
     labels: ["lettuce"],
   },
+  {
+    guideSlug: "cabbage-grow-guide",
+    guidePath: "/cabbage",
+    labels: ["cabbage"],
+  },
 ] as const;
 
 export type GrowGuideMatch = {

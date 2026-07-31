@@ -5,8 +5,14 @@ import { prisma } from "@/lib/prisma";
 import {
   littleOrchardPlantShowEvent,
   LITTLE_ORCHARD_SHOP_SLUG,
+  TEST_PACKAGE_SHOP_SLUG,
+  littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
-import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
+import {
+  getLittleOrchardUnifiedShopCatalog,
+  getUnifiedShopCatalog,
+} from "@/lib/inventory/littleOrchardUnifiedCatalog";
+import { syncHomeGardenPackagesToUnifiedInventory } from "@/lib/inventory/unifiedInventory";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import {
@@ -74,6 +80,19 @@ function normalizeOrderCart(value: unknown): ShopCart {
   }
 
   return value as ShopCart;
+}
+
+async function getOrderShopCatalog(questionnaireSlug: string) {
+  if (questionnaireSlug === TEST_PACKAGE_SHOP_SLUG) {
+    await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
+
+    return getUnifiedShopCatalog(prisma as any, TEST_PACKAGE_SHOP_SLUG, {
+      ...littleOrchardShopCatalog,
+      products: [],
+    });
+  }
+
+  return getLittleOrchardUnifiedShopCatalog(prisma as any);
 }
 
 function toJsonValue<T>(value: T): T {
@@ -350,11 +369,12 @@ export async function POST(request: Request) {
     const facebookMessengerHandle = cleanText(
       body.facebookMessengerHandle || body.answers?.facebookMessengerHandle
     );
+    const questionnaireSlug = cleanText(body.questionnaireSlug);
     const deviceType = normalizeDeviceType(body.deviceType);
     const contactMethod = normalizeContactMethod(body.contactMethod);
     const orderEmail = email && isValidEmail(email) ? email : "";
     const cart = normalizeOrderCart(body.orderCart);
-    const shopCatalog = await getLittleOrchardUnifiedShopCatalog(prisma as any);
+    const shopCatalog = await getOrderShopCatalog(questionnaireSlug);
     const lines = resolveShopSelectedLines(shopCatalog, cart).filter(
       (line) => line.selected !== false && line.availabilityStatus !== "unavailable"
     );
@@ -545,7 +565,7 @@ export async function POST(request: Request) {
     const shippingMethod = fulfillmentOption.shippingMethod;
     const metadata = toJsonValue({
       event: littleOrchardPlantShowEvent,
-      questionnaireSlug: cleanText(body.questionnaireSlug),
+      questionnaireSlug,
       orderRequestKey,
       deviceType,
       contactMethod,

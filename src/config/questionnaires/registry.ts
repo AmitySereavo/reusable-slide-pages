@@ -435,12 +435,43 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",
   },
 
+  "test-package-shop": {
+    slug: "test-package-shop",
+    name: "Test Package Shop",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/testPackageShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {
+      shopCatalog: {
+        currencyCode: "JMD",
+        weightUnit: "lb",
+        products: [],
+      },
+      littleOrchardPlantShowEvent,
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/test-package-shop/catalog",
+  },
+
   "lettuce-grow-guide": {
     slug: "lettuce-grow-guide",
     name: "Para-life Trees Lettuce Seedling Grow Guide",
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/lettuceGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "cabbage-grow-guide": {
+    slug: "cabbage-grow-guide",
+    name: "Para-life Trees Cabbage Seedling Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/cabbageGrowGuideDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
     variables: {},

@@ -6,6 +6,7 @@ import {
   syncNurseryPriceListToUnifiedInventory,
   syncLittleOrchardCatalogToUnifiedInventory,
   updateUnifiedInventoryShopOrder,
+  syncHomeGardenPackagesToUnifiedInventory,
   upsertUnifiedInventoryItem,
 } from "@/lib/inventory/unifiedInventory";
 
@@ -33,6 +34,13 @@ export async function POST(request: Request) {
 
   if (body?.action === "sync-nursery-price-list") {
     await syncNurseryPriceListToUnifiedInventory(prisma as any);
+    const items = await getUnifiedInventoryItems(prisma as any);
+
+    return NextResponse.json({ ok: true, items });
+  }
+
+  if (body?.action === "sync-home-garden-packages") {
+    await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
     const items = await getUnifiedInventoryItems(prisma as any);
 
     return NextResponse.json({ ok: true, items });

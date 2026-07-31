@@ -373,6 +373,26 @@ function buildGrowGuideCustomerMessage({
       ],
     },
     {
+      terms: ["cabbage"],
+      itemLabel: "cabbage seedlings",
+      justBoughtTitle:
+        "🥬 You bought Cabbage Seedlings - now grow firm, clean heads!",
+      followUpTitle:
+        "🥬 Your Cabbage Seedlings Can Grow Into Firm Heads - Start Here",
+      guideLabel: "Cabbage Seedling Grow Guide",
+      intro:
+        "Your cabbage seedlings need steady moisture, enough spacing, balanced feeding and early pest control to form clean, firm heads.",
+      points: [
+        "Harden off and transplant seedlings safely",
+        "Choose the right spacing for small or larger heads",
+        "Keep watering steady to reduce cracking",
+        "Feed cabbage without creating soft pest-prone growth",
+        "Protect young plants from caterpillars, aphids and whiteflies",
+        "Identify black rot, clubroot and other disease signs early",
+        "Know when the head is firm enough to harvest",
+      ],
+    },
+    {
       terms: ["lemon balm"],
       itemLabel: "Lemon Balm plant",
       justBoughtTitle:

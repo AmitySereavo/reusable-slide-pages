@@ -1,5 +1,8 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { littleOrchardShopCatalog } from "@/config/shops/littleOrchardShop";
+import {
+  TEST_PACKAGE_SHOP_SLUG,
+  littleOrchardShopCatalog,
+} from "@/config/shops/littleOrchardShop";
 
 type Database = PrismaClient | Prisma.TransactionClient;
 
@@ -294,16 +297,22 @@ const nurseryPriceListItems = [
     products: [
       ["Scallion (Green Onion)", 50, 400, 800],
       ["Thyme", 100, 500, 1000],
-      ["Italian Basil", 75, 450, 900],
-      ["Genovese Basil", 75, 450, 900],
+      ["Basil - Italian Sweet", 75, 450, 900],
+      ["Basil - Genovese", 75, 450, 900],
       ["Dill", 75, 450, 900],
       ["Parsley", 75, 450, 900],
       ["Cilantro", 75, 450, 900],
       ["Culantro", 100, 500, 900],
       ["Rosemary", 100, 500, 1000],
       ["Lemongrass", 100, 500, 900],
+      ["Fever Grass", 100, 500, 900],
       ["Spearmint", 100, 500, 900],
+      ["Common Mint", 100, 500, 900],
       ["Peppermint", 100, 500, 900],
+      ["Black Mint", 100, 500, 900],
+      ["Jamaican Peppermint (Tree Mint)", 100, 500, 900],
+      ["Bolo Mint (Panadol Plant)", 100, 500, 900],
+      ["French Thyme (Cuban Mint)", 100, 500, 900],
       ["Lemon Balm", 100, 500, 900],
     ],
     headers: ["Starter Seedling", "Garden-Ready", "Harvest-Ready"],
@@ -311,10 +320,10 @@ const nurseryPriceListItems = [
   {
     category: "Leafy Vegetables",
     products: [
-      ["Lettuce", 50, 250, null],
+      ["Lettuce", 50, 250, 500],
       ["Pak Choi", 50, 250, null],
       ["Callaloo", 50, 250, null],
-      ["Spinach", 50, 250, null],
+      ["Malabar Spinach", 50, 250, 500],
       ["Cabbage", 50, 250, null],
     ],
     headers: ["Starter Seedling", "Garden-Ready", "Harvest-Ready"],
@@ -322,9 +331,12 @@ const nurseryPriceListItems = [
   {
     category: "Fruiting Vegetables",
     products: [
-      ["Sweet Pepper", 50, 350, 700],
-      ["Purple Sweet Pepper", 60, 420, 840],
-      ["Scotch Bonnet Pepper", 50, 350, 700],
+      ["Pepper - Sweet", 50, 350, 700],
+      ["Pepper - Sweet (Purple)", 60, 420, 840],
+      ["Pepper - Scotch Bonnet", 50, 350, 700],
+      ["Tomato - Slicing (Salad or Sandwich Tomato)", 50, 350, 700],
+      ["Tomato - Cherry", 50, 350, 700],
+      ["Tomato - Plummy (Cooking Tomato)", 50, 350, 700],
       ["Eggplant", 50, 350, 700],
       ["Okra", 50, 350, 700],
       ["Cucumber", 50, 350, 700],
@@ -335,12 +347,20 @@ const nurseryPriceListItems = [
   {
     category: "Root, Vine and Perennial Crops",
     products: [
-      ["Sweet Potato Slips", 30, null, null],
+      ["Sweet Potato Slips", 30, 250, 500],
+      ["Coco Root", 100, 500, 900],
+      ["Yam Slips", 100, 500, 900],
+      ["Irish Potato Slips", 100, 500, 900],
+      ["Carrot", 50, 250, 500],
+      ["Beetroot", 50, 250, 500],
       ["Passion Fruit", 150, 700, 1500],
-      ["Moringa", 150, 700, 1500],
-      ["Black Pepper (4-inch pot)", null, 500, 900],
-      ["Banana Sucker", null, 600, 1200],
-      ["Plantain Sucker", null, 600, 1200],
+      ["Mulberry Tree", 150, 700, 1500],
+      ["Key Lime Tree", 150, 700, 1500],
+      ["Star Fruit Tree", 150, 700, 1500],
+      ["Cherry Tree", 150, 700, 1500],
+      ["Pepper - Black Pepper", 500, 500, 900],
+      ["Banana Sucker", 600, 600, 1200],
+      ["Plantain Sucker", 600, 600, 1200],
     ],
     headers: ["Plant Starter", "Garden-Ready", "Harvest-Ready"],
   },
@@ -432,6 +452,528 @@ export async function syncNurseryPriceListToUnifiedInventory(db: Database) {
       });
     }
   }
+}
+
+type HomeGardenPackageSize = "small" | "family" | "large";
+type HomeGardenPackageFormat = "starter" | "garden" | "premium";
+
+const homeGardenPackageQuantities: Record<
+  HomeGardenPackageSize,
+  Record<string, number>
+> = {
+  small: {
+    "Scallion (Green Onion)": 10,
+    Thyme: 2,
+    "Basil - Italian Sweet": 2,
+    "Basil - Genovese": 2,
+    Dill: 2,
+    Parsley: 2,
+    Cilantro: 2,
+    Culantro: 1,
+    Lemongrass: 1,
+    "Fever Grass": 1,
+    Spearmint: 1,
+    "Common Mint": 1,
+    Peppermint: 1,
+    "Black Mint": 1,
+    "Jamaican Peppermint (Tree Mint)": 1,
+    "Bolo Mint (Panadol Plant)": 1,
+    "French Thyme (Cuban Mint)": 1,
+    "Lemon Balm": 1,
+    "Pepper - Scotch Bonnet": 2,
+    "Pepper - Sweet": 2,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 3,
+    "Tomato - Cherry": 2,
+    "Tomato - Plummy (Cooking Tomato)": 2,
+    Eggplant: 2,
+    Okra: 2,
+    Cucumber: 2,
+    "String Beans": 10,
+    Lettuce: 12,
+    "Pak Choi": 12,
+    Callaloo: 12,
+    "Malabar Spinach": 12,
+    Cabbage: 12,
+    "Mulberry Tree": 1,
+    "Key Lime Tree": 1,
+    "Star Fruit Tree": 1,
+    "Cherry Tree": 1,
+    "Pepper - Black Pepper": 1,
+    "Sweet Potato Slips": 6,
+    "Coco Root": 2,
+    "Yam Slips": 2,
+    "Irish Potato Slips": 4,
+    Carrot: 12,
+    Beetroot: 12,
+    "Banana Sucker": 1,
+    "Plantain Sucker": 1,
+  },
+  family: {
+    "Scallion (Green Onion)": 20,
+    Thyme: 3,
+    "Basil - Italian Sweet": 3,
+    "Basil - Genovese": 3,
+    Dill: 3,
+    Parsley: 3,
+    Cilantro: 3,
+    Culantro: 2,
+    Lemongrass: 2,
+    "Fever Grass": 2,
+    Spearmint: 2,
+    "Common Mint": 2,
+    Peppermint: 2,
+    "Black Mint": 2,
+    "Jamaican Peppermint (Tree Mint)": 2,
+    "Bolo Mint (Panadol Plant)": 2,
+    "French Thyme (Cuban Mint)": 2,
+    "Lemon Balm": 2,
+    "Pepper - Scotch Bonnet": 3,
+    "Pepper - Sweet": 4,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 6,
+    "Tomato - Cherry": 4,
+    "Tomato - Plummy (Cooking Tomato)": 4,
+    Eggplant: 4,
+    Okra: 4,
+    Cucumber: 3,
+    "String Beans": 20,
+    Lettuce: 24,
+    "Pak Choi": 24,
+    Callaloo: 24,
+    "Malabar Spinach": 24,
+    Cabbage: 24,
+    "Mulberry Tree": 2,
+    "Key Lime Tree": 2,
+    "Star Fruit Tree": 2,
+    "Cherry Tree": 2,
+    "Pepper - Black Pepper": 2,
+    "Sweet Potato Slips": 12,
+    "Coco Root": 4,
+    "Yam Slips": 4,
+    "Irish Potato Slips": 8,
+    Carrot: 24,
+    Beetroot: 24,
+    "Banana Sucker": 2,
+    "Plantain Sucker": 2,
+  },
+  large: {
+    "Scallion (Green Onion)": 30,
+    Thyme: 4,
+    "Basil - Italian Sweet": 4,
+    "Basil - Genovese": 4,
+    Dill: 4,
+    Parsley: 4,
+    Cilantro: 4,
+    Culantro: 3,
+    Lemongrass: 3,
+    "Fever Grass": 3,
+    Spearmint: 3,
+    "Common Mint": 3,
+    Peppermint: 3,
+    "Black Mint": 3,
+    "Jamaican Peppermint (Tree Mint)": 3,
+    "Bolo Mint (Panadol Plant)": 3,
+    "French Thyme (Cuban Mint)": 3,
+    "Lemon Balm": 3,
+    "Pepper - Scotch Bonnet": 4,
+    "Pepper - Sweet": 6,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 10,
+    "Tomato - Cherry": 6,
+    "Tomato - Plummy (Cooking Tomato)": 6,
+    Eggplant: 6,
+    Okra: 6,
+    Cucumber: 4,
+    "String Beans": 30,
+    Lettuce: 36,
+    "Pak Choi": 36,
+    Callaloo: 36,
+    "Malabar Spinach": 36,
+    Cabbage: 36,
+    "Mulberry Tree": 3,
+    "Key Lime Tree": 3,
+    "Star Fruit Tree": 3,
+    "Cherry Tree": 3,
+    "Pepper - Black Pepper": 3,
+    "Sweet Potato Slips": 18,
+    "Coco Root": 6,
+    "Yam Slips": 6,
+    "Irish Potato Slips": 12,
+    Carrot: 36,
+    Beetroot: 36,
+    "Banana Sucker": 3,
+    "Plantain Sucker": 3,
+  },
+};
+
+const homeGardenPackageFormats: Array<{
+  id: HomeGardenPackageFormat;
+  label: string;
+  description: string;
+  optionSuffix: string;
+}> = [
+  {
+    id: "starter",
+    label: "Seedling Pack",
+    description: "Ready to transplant immediately. Lowest cost.",
+    optionSuffix: "STARTER-SEEDLING",
+  },
+  {
+    id: "garden",
+    label: "10-inch Ready-to-Harvest Pack",
+    description: "Established plants that start producing sooner.",
+    optionSuffix: "GARDEN-READY",
+  },
+  {
+    id: "premium",
+    label: "16-inch Premium Pack",
+    description: "Larger, more mature plants for an almost instant garden.",
+    optionSuffix: "HARVEST-READY",
+  },
+];
+
+const homeGardenPackageDefinitions = [
+  {
+    id: "starter-home-garden-pack",
+    title: "Small Household Garden Pack",
+    subtitle: "For 1-2 people",
+    description:
+      "Enough core garden items for a small household without wasting growing space.",
+    size: "small" as HomeGardenPackageSize,
+    sortOrder: 0,
+  },
+  {
+    id: "family-home-garden-pack",
+    title: "Family Kitchen Garden Pack",
+    subtitle: "For 3-5 people",
+    description:
+      "A fuller kitchen garden package for a family that cooks and harvests regularly.",
+    size: "family" as HomeGardenPackageSize,
+    sortOrder: 1,
+  },
+  {
+    id: "large-family-homestead-pack",
+    title: "Homestead Garden Pack",
+    subtitle: "For 6+ people",
+    description:
+      "A larger food-garden package for bigger households and serious home growing.",
+    size: "large" as HomeGardenPackageSize,
+    sortOrder: 2,
+  },
+];
+
+const homeGardenPackagePrices: Record<
+  HomeGardenPackageFormat,
+  Record<string, number>
+> = {
+  starter: {
+    "Scallion (Green Onion)": 50,
+    Thyme: 100,
+    "Basil - Italian Sweet": 75,
+    "Basil - Genovese": 75,
+    Dill: 75,
+    Parsley: 75,
+    Cilantro: 75,
+    Culantro: 100,
+    Lemongrass: 100,
+    "Fever Grass": 100,
+    Spearmint: 100,
+    "Common Mint": 100,
+    Peppermint: 100,
+    "Black Mint": 100,
+    "Jamaican Peppermint (Tree Mint)": 100,
+    "Bolo Mint (Panadol Plant)": 100,
+    "French Thyme (Cuban Mint)": 100,
+    "Lemon Balm": 100,
+    "Pepper - Scotch Bonnet": 50,
+    "Pepper - Sweet": 50,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 50,
+    "Tomato - Cherry": 50,
+    "Tomato - Plummy (Cooking Tomato)": 50,
+    Eggplant: 50,
+    Okra: 50,
+    Cucumber: 50,
+    "String Beans": 40,
+    Lettuce: 50,
+    "Pak Choi": 50,
+    Callaloo: 50,
+    "Malabar Spinach": 50,
+    Cabbage: 50,
+    "Mulberry Tree": 150,
+    "Key Lime Tree": 150,
+    "Star Fruit Tree": 150,
+    "Cherry Tree": 150,
+    "Pepper - Black Pepper": 500,
+    "Sweet Potato Slips": 30,
+    "Coco Root": 100,
+    "Yam Slips": 100,
+    "Irish Potato Slips": 100,
+    Carrot: 50,
+    Beetroot: 50,
+    "Banana Sucker": 600,
+    "Plantain Sucker": 600,
+  },
+  garden: {
+    "Scallion (Green Onion)": 400,
+    Thyme: 500,
+    "Basil - Italian Sweet": 450,
+    "Basil - Genovese": 450,
+    Dill: 450,
+    Parsley: 450,
+    Cilantro: 450,
+    Culantro: 500,
+    Lemongrass: 500,
+    "Fever Grass": 500,
+    Spearmint: 500,
+    "Common Mint": 500,
+    Peppermint: 500,
+    "Black Mint": 500,
+    "Jamaican Peppermint (Tree Mint)": 500,
+    "Bolo Mint (Panadol Plant)": 500,
+    "French Thyme (Cuban Mint)": 500,
+    "Lemon Balm": 500,
+    "Pepper - Scotch Bonnet": 350,
+    "Pepper - Sweet": 350,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 350,
+    "Tomato - Cherry": 350,
+    "Tomato - Plummy (Cooking Tomato)": 350,
+    Eggplant: 350,
+    Okra: 350,
+    Cucumber: 350,
+    "String Beans": 200,
+    Lettuce: 250,
+    "Pak Choi": 250,
+    Callaloo: 250,
+    "Malabar Spinach": 250,
+    Cabbage: 250,
+    "Mulberry Tree": 700,
+    "Key Lime Tree": 700,
+    "Star Fruit Tree": 700,
+    "Cherry Tree": 700,
+    "Pepper - Black Pepper": 500,
+    "Sweet Potato Slips": 250,
+    "Coco Root": 500,
+    "Yam Slips": 500,
+    "Irish Potato Slips": 500,
+    Carrot: 250,
+    Beetroot: 250,
+    "Banana Sucker": 600,
+    "Plantain Sucker": 600,
+  },
+  premium: {
+    "Scallion (Green Onion)": 800,
+    Thyme: 1000,
+    "Basil - Italian Sweet": 900,
+    "Basil - Genovese": 900,
+    Dill: 900,
+    Parsley: 900,
+    Cilantro: 900,
+    Culantro: 900,
+    Lemongrass: 900,
+    "Fever Grass": 900,
+    Spearmint: 900,
+    "Common Mint": 900,
+    Peppermint: 900,
+    "Black Mint": 900,
+    "Jamaican Peppermint (Tree Mint)": 900,
+    "Bolo Mint (Panadol Plant)": 900,
+    "French Thyme (Cuban Mint)": 900,
+    "Lemon Balm": 900,
+    "Pepper - Scotch Bonnet": 700,
+    "Pepper - Sweet": 700,
+    "Tomato - Slicing (Salad or Sandwich Tomato)": 700,
+    "Tomato - Cherry": 700,
+    "Tomato - Plummy (Cooking Tomato)": 700,
+    Eggplant: 700,
+    Okra: 700,
+    Cucumber: 700,
+    "String Beans": 400,
+    Lettuce: 500,
+    "Pak Choi": 500,
+    Callaloo: 500,
+    "Malabar Spinach": 500,
+    Cabbage: 500,
+    "Mulberry Tree": 1500,
+    "Key Lime Tree": 1500,
+    "Star Fruit Tree": 1500,
+    "Cherry Tree": 1500,
+    "Pepper - Black Pepper": 900,
+    "Sweet Potato Slips": 500,
+    "Coco Root": 900,
+    "Yam Slips": 900,
+    "Irish Potato Slips": 900,
+    Carrot: 500,
+    Beetroot: 500,
+    "Banana Sucker": 1200,
+    "Plantain Sucker": 1200,
+  },
+};
+
+export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
+  await ensureUnifiedInventoryTable(db);
+  await ensureHomeGardenPackageComponentItems(db);
+
+  for (const definition of homeGardenPackageDefinitions) {
+    const slug = definition.id;
+    const options = homeGardenPackageFormats.map((format) => {
+      const packageContents = makeHomeGardenPackageContents(
+        definition.size,
+        format.id
+      );
+      const price = packageContents.reduce((sum, content) => {
+        const title = content.productTitle;
+        const unitPrice = homeGardenPackagePrices[format.id][title] ?? 0;
+
+        return sum + unitPrice * content.quantity;
+      }, 0);
+
+      return {
+        id: `${slug}-${format.id}`,
+        sku: `LO-PACK-${definition.size.toUpperCase()}-${format.id.toUpperCase()}`,
+        label: format.label,
+        description: format.description,
+        price,
+        weight: null,
+        quantityOnHand: 100,
+        quantityReserved: 0,
+        quantityAvailable: 100,
+        metadata: {
+          source: "home-garden-package",
+          format: format.id,
+          packageContents: packageContents.map(({ productTitle, ...content }) => content),
+          eventQuantityAvailable: 100,
+        },
+      };
+    });
+
+    await upsertUnifiedInventoryItem(db, {
+      id: `inventory-${slug}`,
+      sku: `LO-PACK-${definition.size.toUpperCase()}`,
+      slug,
+      title: definition.title,
+      description: `${definition.subtitle}. ${definition.description}`,
+      detailsDescription:
+        "Package. Choose a format based on budget and how quickly you want to harvest. Package content is fulfilled from the linked inventory items.",
+      fulfillmentType: "physical",
+      active: true,
+      quantityOnHand: 100,
+      quantityReserved: 0,
+      quantityAvailable: 100,
+      shopTags: [TEST_PACKAGE_SHOP_SLUG],
+      categoryTags: ["Package", "Garden"],
+      shopListings: [
+        {
+          shopKey: TEST_PACKAGE_SHOP_SLUG,
+          shopLabel: "Test Package Shop",
+          categoryKey: "package",
+          categoryLabel: "Package",
+          categorySortOrder: 5,
+          active: true,
+          sortOrder: definition.sortOrder,
+        },
+      ],
+      options,
+      metadata: {
+        source: "home-garden-package",
+        category: "Package",
+        packageType: "home-garden",
+      },
+    });
+  }
+}
+
+async function ensureHomeGardenPackageComponentItems(db: Database) {
+  const productTitles = Array.from(
+    new Set(
+      Object.values(homeGardenPackageQuantities).flatMap((quantities) =>
+        Object.keys(quantities)
+      )
+    )
+  );
+
+  for (const productTitle of productTitles) {
+    const slug = getHomeGardenPackageComponentSlug(productTitle);
+    const skuSlug = sanitizeSlug(productTitle).toUpperCase();
+
+    const options = homeGardenPackageFormats.map((format) => {
+      const quantity = format.id === "starter" ? 1000 : 100;
+      const price = homeGardenPackagePrices[format.id][productTitle] ?? 0;
+
+      return {
+        id: sanitizeSlug(format.label),
+        sku: `PKG-HOME-${skuSlug}-${format.optionSuffix}`,
+        label: format.label,
+        description: format.description,
+        price,
+        weight: 0.8,
+        quantityOnHand: quantity,
+        quantityReserved: 0,
+        quantityAvailable: quantity,
+        metadata: {
+          source: "home-garden-package-component",
+          format: format.id,
+          eventQuantityAvailable: quantity,
+        },
+      };
+    });
+    const totalQuantity = options.reduce(
+      (sum, option) => sum + toInt(option.quantityAvailable),
+      0
+    );
+
+    await upsertUnifiedInventoryItem(db, {
+      id: `inventory-${slug}`,
+      sku: `PKG-HOME-${skuSlug}`,
+      slug,
+      title: productTitle,
+      description:
+        "Hidden package component. This item can be included inside packages before it is shown in a storefront.",
+      detailsDescription:
+        "Package component. Hidden from storefronts unless assigned to a shop.",
+      fulfillmentType: "physical",
+      active: true,
+      quantityOnHand: totalQuantity,
+      quantityReserved: 0,
+      quantityAvailable: totalQuantity,
+      shopTags: [TEST_PACKAGE_SHOP_SLUG],
+      categoryTags: ["PackageComponent"],
+      shopListings: [
+        {
+          shopKey: TEST_PACKAGE_SHOP_SLUG,
+          shopLabel: "Test Package Shop",
+          categoryKey: "package-component",
+          categoryLabel: "PackageComponent",
+          categorySortOrder: 999,
+          active: false,
+          sortOrder: 999999,
+        },
+      ],
+      options,
+      metadata: {
+        source: "home-garden-package-component",
+        category: "PackageComponent",
+        hideFromBrowse: true,
+      },
+    });
+  }
+}
+
+function makeHomeGardenPackageContents(
+  size: HomeGardenPackageSize,
+  format: HomeGardenPackageFormat
+) {
+  const quantities = homeGardenPackageQuantities[size];
+  const suffix =
+    homeGardenPackageFormats.find((item) => item.id === format)?.optionSuffix ||
+    "STARTER-SEEDLING";
+
+  return Object.entries(quantities).map(([productTitle, quantity]) => ({
+    productTitle,
+    sku: `PKG-HOME-${sanitizeSlug(productTitle).toUpperCase()}-${suffix}`,
+    quantity,
+  }));
+}
+
+function getHomeGardenPackageComponentSlug(productTitle: string) {
+  return `package-component-home-garden-${sanitizeSlug(productTitle)}`;
 }
 
 function normalizeObject(value: unknown): Record<string, any> {

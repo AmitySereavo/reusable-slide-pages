@@ -1,0 +1,128 @@
+// PARALIFE TREES
+// TEST PACKAGE SHOP
+// Admin-only package testing flow.
+
+@id: test-package-shop
+@type: shop
+@title: Test Package Shop
+@subtitle: Admin package testing
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@reviewgoto: test-package-adjust
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@back: Back
+@next: Adjust selected pack
+---
+[c3] Admin-only test shop for package products.
+BR
+[c3] Select a starting package, then continue to adjust the individual items before review.
+
+===
+
+@id: test-package-adjust
+@type: shop
+@title: Adjust Package Items
+@subtitle: Add, remove, and change plants
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@reviewgoto: test-package-invoice
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@back: Back
+@next: Review package
+---
+[c3] Every item in the selected package starts checked. Uncheck anything you do not want, adjust quantities, or change an item from seedling to garden ready or near harvest ready.
+
+===
+
+@id: test-package-invoice
+@type: shop
+@title: Package Invoice
+@subtitle: Review your adjusted garden pack
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@back: Back
+@next: Continue to contact details
+@goto: test-package-contact
+---
+[c3] Review the package items, quantities, formats, and total before entering contact information.
+
+===
+
+@id: test-package-contact
+@type: form
+@contactmode: order
+@syncurl: true
+@pagebgcolor: #FBF7EF
+---
+# [c2] Contact details
+BR
+[c3] Enter the details we should use for your invoice, order updates, and payment confirmation.
+BR
+@fields:
+- fullName|text|Full name|required|Enter your full name
+- plantShopContactMethod|select|Receipt channel|required|Choose one|whatsapp=WhatsApp,email=Email,phone_call=Phone call / SMS
+- whatsappNumber|tel|WhatsApp number|optional|Include country and area code, example: 1 876 372 7415
+- email|email|Email address|optional|Enter your email address
+- primaryPhone|tel|Phone call / SMS number|optional|Include country and area code
+- plantShopConsent|checkbox|I understand how my name, contact details, and order information will be used.|required
+- legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
+---
+@back: Back
+@next: Continue to payment
+@goto: test-package-payment
+
+===
+
+@id: test-package-payment
+@type: shop
+@title: Confirm Package Order
+@subtitle: Submit this package invoice
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@run: submitPlantShopOrder
+@back: Back
+@next: Pay / submit order
+@goto: test-package-confirmed
+---
+[c3] Submit your order. We will receive the selected package details and contact information.
+
+===
+
+@id: test-package-confirmed
+@type: content
+@title: Package Order Received
+@subtitle: Para-life Trees
+@pagebgcolor: #FBF7EF
+@showback: false
+@shownext: false
+@syncurl: true
+---
+# [c2] Your package order has been received.
+BR
+[c3] We will review your selected items and contact you with payment and fulfillment details.

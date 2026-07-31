@@ -1,0 +1,328 @@
+// PARA-LIFE TREES
+// CABBAGE SEEDLING GROW GUIDE
+// Source: Cabbage_Grow_Guide.pdf
+
+@id: cabbage-guide-cover
+@type: content
+@title: Cabbage Seedling Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Cabbage Seedling
+# [c2] Grow Guide
+![Cabbage seedlings](/media/paralife_trees/png/product_cabbage_seedlings_generated.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: cabbage-guide-about
+
+===
+
+@id: cabbage-guide-about
+@type: content
+@title: About This Guide
+@subtitle: Caribbean Queen cabbage
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+## [c3] For Caribbean Queen cabbage and general headed cabbage seedlings.
+BR
+GUIDEGRID|Best for::Home gardens, kitchen gardens, raised beds, containers, and small farm rows||Main goal::Grow a firm, clean cabbage head with steady moisture, enough spacing, and early pest control||Big warning::Protect young cabbage early from caterpillars, aphids, rot, and heat stress||Guide focus::Quick rescue, quick numbers, care, harvest, problems, transplanting, pests, and diseases
+BR
+[c3] This guide is written for customers buying cabbage seedlings from Para-life Trees. It supports both small farmer planting and home garden planting.
+@back: Cover
+@next: Next
+@goto: cabbage-quick-rescue
+
+===
+
+@id: cabbage-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: If you see this, do this first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+BR
+GUIDETABLE|What you see|Most likely cause|What to do first||Small holes in leaves|Caterpillars, cabbage worms, loopers, diamondback moth larvae|Check leaf undersides. Remove worms and eggs. Use insect netting or safe caterpillar control. Repeat checks every 2 to 3 days.||Leaves full of tiny pale insects|Aphids or whiteflies|Spray undersides of leaves. Remove badly infested leaves. Repeat every 3 to 5 days. Control ants.||Seedling wilts after planting|Transplant shock, sun stress, dry roots|Water gently, shade for 2 to 3 days, avoid fertilizer for 5 to 7 days.||Yellow leaves and wet soil|Overwatering, poor drainage, root stress|Reduce watering, improve drainage, raise containers, avoid standing water.||Black V-shaped marks from leaf edges|Possible black rot|Remove infected leaves or plants. Do not splash water. Avoid touching healthy plants after sick ones.||Plant grows leaves but no firm head|Heat stress, crowding, low nutrition, irregular water|Give 6+ hours sun, steady water, correct spacing, and balanced feeding.||Head cracks open|Irregular watering after dry spell or late harvest|Harvest firm heads on time. Keep water steady. Mulch soil.||Roots swollen or distorted|Possible clubroot|Remove plant. Do not replant brassicas in that spot for 3 to 4 years. Improve drainage and pH.
+@back: About this guide
+@next: Next
+@goto: cabbage-quick-numbers
+
+===
+
+@id: cabbage-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDEGRID|Crop type::Headed cabbage / Brassica oleracea Capitata Group||Seed germination::5 to 10 days in warm, moist seed-starting conditions||Seedling transplant age::4 to 6 weeks after sowing||Best transplant size::4 to 6 true leaves; about 4 to 6 inches / 10 to 15 cm tall||Hardening off::5 to 7 days before planting in full outdoor conditions||Sunlight::At least 6 hours direct sun daily||Best growth temperature::15 to 21 C / 59 to 70 F||Heat stress risk::Above 27 to 30 C / 80 to 86 F, especially with dry soil or crowded plants||Soil pH target::6.0 to 7.0||Water target::1 to 1.5 inches / 25 to 38 mm per week||Harvest after transplanting::60 to 100 days depending on variety, weather, spacing, and nutrition
+BR
+GUIDETABLE|Use|Plant spacing|Row spacing||Small heads|12 to 15 inches apart|24 inches.||Standard heads|18 inches apart|30 inches.||Larger heads / easier airflow|24 inches apart|36 inches.
+BR
+[c3] Cabbage is not a quick leafy green like lettuce. It needs time, room, steady water, and pest protection before the head becomes firm.
+@back: Quick rescue
+@next: Next
+@goto: cabbage-soil-water
+
+===
+
+@id: cabbage-soil-water
+@type: content
+@title: Soil and Water
+@subtitle: Keep growth steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Sunlight
+# [c2] Soil Water
+BR
+GUIDEGRID|Sunlight::Give cabbage at least 6 hours of direct sun each day. In hot Jamaican conditions, morning sun plus good airflow is important.||Shade warning::Avoid deep shade; shaded cabbage makes large loose leaves and poor heads.||Soil texture::Loose, fertile, well-draining soil||Organic matter::Add compost or well-rotted manure before planting||Drainage::Water should soak in and drain; roots should not sit in mud||pH::6.0 to 7.0; closer to neutral helps reduce clubroot risk||Mulch::Use dry grass, straw, dry leaves, or compost mulch kept 1 to 2 inches away from the stem
+BR
+GUIDETABLE|Stage|Watering direction||First 3 days after transplant|Check morning and evening. Keep root ball moist but not flooded.||First 14 days|Water consistently while roots settle. Do not let young plants wilt repeatedly.||Head formation stage|Keep soil evenly moist. Irregular water can lead to small heads or cracking.||Container growing|Check daily in hot weather. Containers dry faster than ground beds.
+@back: Quick numbers
+@next: Next
+@goto: cabbage-feeding
+
+===
+
+@id: cabbage-feeding
+@type: content
+@title: Feeding
+@subtitle: Heavy feeder, steady nutrition
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding Guide
+BR
+[c3] Cabbage is a heavy feeder compared with many herbs. It needs steady nutrition, especially nitrogen early, but overfeeding late can make soft growth and pest problems.
+BR
+GUIDETABLE|Stage|Timing|Feeding direction||At planting|Day 0|Mix compost into the bed or pot. Use a balanced starter feed if available.||After settling|10 to 14 days after transplant|Feed lightly once plants show new growth.||Leaf-building stage|Every 2 to 3 weeks|Use compost, balanced fertilizer, or nitrogen support in moderate amounts.||Head formation|When center starts cupping|Keep nutrition steady. Avoid letting plants become pale.||Final 1 to 2 weeks before harvest|When head is near full size|Avoid heavy feeding. Focus on steady water and clean leaves.
+BR
+GUIDETABLE|Signs cabbage may need feeding|Avoid||Pale green leaves across the whole plant|Fresh manure touching roots.||Slow growth after the first 2 weeks|Heavy fertilizer on newly transplanted stressed seedlings.||Small leaves and weak head formation|Too much nitrogen late if heads are already soft and pests are present.||Older leaves yellowing too early while soil moisture is correct|Strong fertilizer on dry roots.
+@back: Soil and water
+@next: Next
+@goto: cabbage-harvesting
+
+===
+
+@id: cabbage-harvesting
+@type: content
+@title: Harvesting
+@subtitle: Firm heads, clean cutting
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Harvesting Guide
+BR
+GUIDETABLE|Harvest question|Answer||When to harvest|When the head feels firm and tight when pressed gently.||Time after transplant|Usually 60 to 100 days depending on variety and weather.||Best time of day|Early morning, before heat builds up.||How to cut|Use a clean sharp knife. Cut below the head, leaving a few outer wrapper leaves.||Do not wait too long|Overmature heads can split, crack, or become pest-damaged.||Storage after harvest|Keep heads shaded and cool. Do not leave harvested cabbage in sun.
+BR
+GUIDEGRID|Head firmness check::Press the head gently with your palm. A harvest-ready cabbage feels firm and filled out.||Cracking warning::Heads may crack if the plant dries out and then receives heavy water or rain, or if mature heads stay too long in the field. Mulch and regular watering reduce this risk.
+@back: Feeding
+@next: Next
+@goto: cabbage-leaf-guide
+
+===
+
+@id: cabbage-leaf-guide
+@type: content
+@title: Leaf Guide
+@subtitle: Read the plant early
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Leaf Guide
+BR
+GUIDETABLE|Leaf / plant sign|Possible cause|What to do||Medium blue-green to green leaves|Normal for healthy cabbage|Continue steady care.||Pale green leaves|Low nitrogen, poor soil, low sunlight|Feed lightly, improve compost, increase sun.||Yellow lower leaves|Age, low nitrogen, overwatering|Check soil moisture first; feed if soil is not wet.||Purple tint|Cold stress, phosphorus stress, root stress|Improve root conditions, avoid waterlogging, feed balanced nutrients.||Brown leaf edges|Heat, drought, fertilizer burn|Water evenly, mulch, avoid strong fertilizer.||Small holes|Caterpillars or flea beetles|Inspect leaves every 2 to 3 days and protect early.||Black V-shaped lesions|Possible black rot|Remove infected leaves/plants and avoid water splash.||Wilting in wet soil|Root disease, poor drainage|Improve drainage; remove badly collapsed plants.
+@back: Harvesting
+@next: Next
+@goto: cabbage-head-problems
+
+===
+
+@id: cabbage-head-problems
+@type: content
+@title: Head Problems
+@subtitle: When heads do not form well
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Head Problems
+BR
+GUIDETABLE|Problem|Likely cause|Action||Lots of leaves but no head|Plant too young, too hot, too shaded, too crowded, or weak nutrition|Give time, improve spacing, 6+ hours sun, steady feeding and water.||Small head|Crowding, low nutrients, dry periods, root restriction|Space 18 to 24 inches for larger heads; feed and water steadily.||Loose soft head|Heat stress, too much nitrogen, not enough sun|Improve airflow, avoid excess nitrogen, harvest when firm enough.||Head cracking|Irregular watering or late harvest|Keep water even and harvest firm heads on time.||Plant sends flower stalk|Heat, stress, old seedlings, wrong season|Harvest usable leaves/head quickly and replant in cooler timing.
+BR
+[c3] Cabbage forms heads best when growth is steady. Repeated drying, flooding, crowding, severe pest damage, or heat can interrupt head formation.
+@back: Leaf guide
+@next: Next
+@goto: cabbage-home-farm-notes
+
+===
+
+@id: cabbage-home-farm-notes
+@type: content
+@title: Garden Notes
+@subtitle: Home and small farmer use
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Garden Notes
+BR
+GUIDETABLE|Small farmer notes|Home garden notes||Use clean seedlings and rotate away from cabbage, broccoli, cauliflower, kale, and pak choy when possible.|For 2 to 6 plants, choose a sunny space with at least 6 hours of sun.||Use 18 to 24 inches between plants for larger heads and 24 to 36 inches between rows for airflow and hand work.|Plant 18 inches apart if you want decent-sized heads.||Install insect netting or row cover early where caterpillars are a regular problem.|Use a container of at least 5 gallons per plant; 7 to 10 gallons is better for larger heads.||Walk the plot every 2 to 3 days during early growth to catch caterpillars, aphids, and disease signs early.|Do not crowd cabbage in small pots; crowding gives smaller heads and more disease risk.||Plant in batches every 2 to 3 weeks for a more regular harvest.|Check under leaves every 2 to 3 days because caterpillars hide there.||Keep harvested heads shaded, clean, and off the ground.|Mulch the pot or bed to keep soil moisture steady.
+BR
+[c3] Container note: cabbage can grow in containers, but it needs more root room than herbs. A small 6-inch pot is not enough for a full cabbage head.
+@back: Head problems
+@next: Next
+@goto: cabbage-clean-handling
+
+===
+
+@id: cabbage-clean-handling
+@type: content
+@title: Clean Handling
+@subtitle: Reduce disease spread
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Clean Handling
+BR
+GUIDETABLE|Practice|Why it matters||Wash hands before handling seedlings, especially after touching diseased plants, soil, or chemicals.|Helps stop disease moving from plant to plant.||Use clean scissors or knives for harvest.|Reduces infection risk on cut surfaces.||Do not move soil from sick plants to healthy plants.|Diseases can travel through soil.||Do not splash muddy water onto leaves when watering.|Leaf splash spreads several cabbage diseases.||Remove diseased leaves from the growing area.|Do not leave disease material on the bed.||Avoid working plants when leaves are wet if disease is present.|Wet leaves spread infection more easily.||Keep trays and pots off muddy ground where possible.|Keeps seedlings cleaner.
+BR
+[c3] Brassica rotation warning: cabbage is in the brassica family with pak choy, kale, broccoli, cauliflower, collard, and mustard. Do not plant these crops in the same soil again and again without rotation.
+@back: Garden notes
+@next: Next
+@goto: cabbage-hardening-off
+
+===
+
+@id: cabbage-hardening-off
+@type: content
+@title: Hardening Off
+@subtitle: Before transplanting seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Hardening Off
+BR
+GUIDETABLE|Day|Exposure||Day 1 to 2|Bright shade or gentle morning light for 2 to 3 hours.||Day 3 to 4|Morning sun for 3 to 4 hours; shade during hot afternoon.||Day 5 to 6|Longer outdoor exposure with protection from harsh midday sun.||Day 7|Ready to transplant, preferably late afternoon.
+BR
+GUIDEGRID|Keep tray cells moist::Small root balls dry quickly while hardening off.||If seedlings wilt badly::Move them back to shade and water gently.||Fertilizer warning::Do not fertilize hardening-off seedlings heavily while they are stressed.
+@back: Clean handling
+@next: Next
+@goto: cabbage-transplanting
+
+===
+
+@id: cabbage-transplanting
+@type: content
+@title: Transplanting
+@subtitle: From trays or small pots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting
+BR
+GUIDEGRID|Best time::Early morning before 8:30 a.m. or late afternoon after 4:30 p.m.||Avoid::The hottest part of the day||Before planting::Water seedlings 1 to 2 hours before planting||Spacing::12 to 15 inches for small heads, 18 to 24 inches for larger heads, and 24 to 36 inches between rows
+BR
+GUIDETABLE|Step|What to do||1|Prepare the bed or container before removing seedlings from the tray.||2|Dig a hole slightly wider than the root ball.||3|Gently remove seedling without breaking the root ball.||4|Plant at the same depth as the tray soil level, or slightly deeper up to the first leaf base if stem is leggy.||5|Press soil gently around roots; do not compact hard.||6|Water immediately after planting.||7|Shade for 1 to 3 days if sun is intense.||8|Check daily for the first 7 days.
+@back: Hardening off
+@next: Next
+@goto: cabbage-pests
+
+===
+
+@id: cabbage-pests
+@type: content
+@title: Common Pests
+@subtitle: Protect before heads form
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Pests
+BR
+GUIDETABLE|Pest|Signs|First action||Cabbage worms / loopers / diamondback moth larvae|Holes in leaves, green worms, black droppings, damaged center leaves|Inspect every 2 to 3 days. Handpick. Use insect netting. Treat early before head forms.||Aphids|Clusters of tiny insects, sticky leaves, curled leaves|Spray undersides. Remove heavily infested leaves. Repeat every 3 to 5 days.||Whiteflies|Tiny white insects fly up when touched; yellowing or sticky leaves|Spray leaf undersides and use yellow sticky traps.||Flea beetles|Tiny shot-holes in young leaves|Protect seedlings early; use fine netting; keep plants growing strongly.||Slugs and snails|Ragged holes, slime trails, damage worse after rain/night|Remove hiding spots; check early morning; raise containers; use safe barriers.||Cutworms|Seedlings cut near soil line|Check soil around base; use collars around young seedlings.
+BR
+[c3] Cabbage pests often attack before the head forms. Early protection is easier than trying to clean worms out of a formed head.
+@back: Transplanting
+@next: Next
+@goto: cabbage-diseases
+
+===
+
+@id: cabbage-diseases
+@type: content
+@title: Diseases
+@subtitle: Prevention and first action
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Diseases
+BR
+GUIDETABLE|Disease / disorder|Signs|What to do||Black rot|Yellow V-shaped leaf edges, black veins, stunted plants|Remove infected plants/leaves. Use clean seedlings. Avoid splashing water. Rotate crops.||Clubroot|Swollen roots, wilting, poor growth, plant may collapse|Remove plant. Improve drainage and pH. Rotate away from brassicas for 3 to 4 years.||Downy mildew|Yellow patches on upper leaves; gray/purple growth underneath|Improve airflow. Water early. Avoid wet leaves at night. Remove affected leaves.||Alternaria leaf spot|Dark target-like spots on leaves|Remove affected leaves. Improve spacing. Avoid overhead watering.||Bacterial soft rot|Slimy, smelly rot in wet conditions or damaged heads|Remove affected tissue/plants. Avoid injury. Keep heads clean and dry.||Damping off|Young seedling collapses at soil line|Use clean seedling mix, avoid overwatering, improve airflow.
+BR
+GUIDEGRID|Prevention 1::Buy clean seedlings||Prevention 2::Rotate cabbage and other brassicas yearly where possible||Prevention 3::Water at soil level and avoid leaf splash||Prevention 4::Give enough spacing for airflow||Prevention 5::Remove diseased plant material from the growing area
+@back: Common pests
+@next: Next
+@goto: cabbage-support
+
+===
+
+@id: cabbage-support
+@type: content
+@title: Need Help
+@subtitle: Para-life Trees support
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Need Help?
+BR
+Send clear photos by WhatsApp: the full plant, damaged leaves, underside of leaves, soil or container, and any insects, spots, or rotting areas you see.
+BR
+[WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20cabbage%20seedlings.)
+BR
+[Download the full PDF guide](/media/paralife_trees/guides/Cabbage_Grow_Guide.pdf)
+BR
+[Visit shop](/shop)
+BR
+[Guides for other plants](/grow-guides)
+@back: Diseases
+@next: Visit shop
+@goto: /shop

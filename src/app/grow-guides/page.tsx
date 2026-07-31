@@ -9,6 +9,14 @@ const guides: GrowGuideSummary[] = [
     image: "/media/paralife_trees/png/product_lettuce_seedlings_generated.png",
   },
   {
+    href: "/cabbage",
+    title: "Cabbage Seedling Grow Guide",
+    description:
+      "Transplanting, spacing, watering, feeding, pests, diseases, head formation, and harvest.",
+    image: "/media/paralife_trees/png/product_cabbage_seedlings_generated.png",
+    keywords: ["caribbean queen cabbage", "brassica", "seedling"],
+  },
+  {
     href: "/lemon-balm",
     title: "Lemon Balm Seedling Grow Guide",
     description: "Container care, trimming, leaf quality, pests, disease prevention, and harvest.",

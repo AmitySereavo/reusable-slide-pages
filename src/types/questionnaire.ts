@@ -80,6 +80,7 @@ export type ShopBundledCartItem = {
   sizeOptionId: string;
   purchaseModeId?: string;
   quantity?: number;
+  sourceSku?: string;
 };
 
 export type ShopCatalogSizeOption = {
@@ -263,6 +264,7 @@ export type ShopCartLine = {
   isComplimentaryGift?: boolean;
   lockedQuantity?: boolean;
   lockedPurchaseMode?: boolean;
+  metadata?: QuestionnaireVariableMap;
 };
 
 export type ShopCart = Record<string, ShopCartLine>;

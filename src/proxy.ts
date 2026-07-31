@@ -7,6 +7,7 @@ const LITTLE_ORCHARD_SHOP_PATH = "/shop";
 const GROW_GUIDE_HUB_PATH = "/grow-guides";
 const GROW_GUIDE_ROUTES = {
   "/lettuce": "lettuce-grow-guide",
+  "/cabbage": "cabbage-grow-guide",
   "/lemon-balm": "lemon-balm-grow-guide",
   "/black-pepper": "black-pepper-grow-guide",
   "/green-onion": "green-onion-grow-guide",

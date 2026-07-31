@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const shopOptions = [
   { id: "little-orchard-shop", label: "Little Orchard Shop" },
+  { id: "test-package-shop", label: "Test Package Shop" },
   { id: "music-merch-shop", label: "Music + Merch Store" },
   { id: "ticket-add-ons", label: "Ticket Add-ons" },
   { id: "invitation-tickets", label: "Invitation Tickets" },
@@ -194,6 +195,26 @@ export default function InventoryManager() {
     setStatus("Nursery price list added to unified inventory.");
   }
 
+  async function syncHomeGardenPackages() {
+    setIsSaving(true);
+    setStatus("Adding Home Garden Pack packages to unified inventory...");
+    const response = await fetch("/api/dashboard/inventory/unified", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "sync-home-garden-packages" }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Home Garden Pack packages could not be added.");
+      return;
+    }
+
+    setItems(payload.items || []);
+    setStatus("Home Garden Pack packages added to unified inventory.");
+  }
+
   function updateForm(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -315,6 +336,7 @@ export default function InventoryManager() {
       availabilityDate: draft.availabilityDate || "",
       priceIncreaseDate: draft.priceIncreaseDate || "",
       expiryDate: draft.expiryDate || "",
+      packageContents: parsePackageContentsText(draft.packageContentsText),
     };
     const shopListings = shopTags.map((shopId) => {
       const existingListing = getShopListing(item, shopId);
@@ -760,6 +782,14 @@ export default function InventoryManager() {
             onClick={syncNurseryPriceList}
           >
             Add Nursery Price List
+          </button>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            disabled={isSaving}
+            onClick={syncHomeGardenPackages}
+          >
+            Add Home Garden Packs
           </button>
         </div>
       </div>
@@ -1239,6 +1269,43 @@ export default function InventoryManager() {
                           Edit
                         </button>
                       </div>
+
+                      {isPackageItem(item) ? (
+                        <div
+                          style={{
+                            ...styles.recordSection,
+                            ...(isCompactView ? styles.recordSectionCompact : null),
+                          }}
+                        >
+                          <span
+                            style={{
+                              ...styles.recordSectionLabel,
+                              ...(isCompactView
+                                ? styles.recordSectionLabelCompact
+                                : null),
+                            }}
+                          >
+                            Package content:
+                          </span>
+                          <span
+                            style={{
+                              ...styles.recordSectionText,
+                              ...(isCompactView
+                                ? styles.recordSectionTextCompact
+                                : null),
+                            }}
+                          >
+                            {getPackageContentsSummary(item)}
+                          </span>
+                          <button
+                            type="button"
+                            style={styles.editLinkButton}
+                            onClick={() => beginInlineEdit(item, "package")}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      ) : null}
                     </>
                   ) : null}
 
@@ -1716,6 +1783,25 @@ function InlineInventoryEditor({
       </label>
       ) : null}
 
+      {section === "package" ? (
+        <label style={styles.label}>
+          Package content
+          <textarea
+            value={draft.packageContentsText}
+            onChange={(event) =>
+              onUpdate(itemId, "packageContentsText", event.target.value)
+            }
+            rows={7}
+            style={{ ...styles.input, resize: "vertical" }}
+            placeholder={"SKU, quantity\nLO-SCALLION-GREEN-ONION-STARTER-SEEDLING, 10"}
+          />
+          <span style={styles.inlineHelper}>
+            One SKU per line. Use the exact SKU of the inventory option or
+            variant, followed by the quantity in the package.
+          </span>
+        </label>
+      ) : null}
+
       <div style={styles.actions}>
         <button
           type="button"
@@ -1744,6 +1830,7 @@ function getEditorSectionTitle(section) {
     delivery: "Edit delivery info",
     dates: "Edit dates",
     adCopy: "Edit ad copy",
+    package: "Edit package content",
   };
 
   return titles[section] || "Edit inventory item";
@@ -1781,7 +1868,81 @@ function makeItemDraft(item) {
     availabilityDate: normalizeDateInput(metadata.availabilityDate),
     priceIncreaseDate: normalizeDateInput(metadata.priceIncreaseDate),
     expiryDate: normalizeDateInput(metadata.expiryDate),
+    packageContentsText: formatPackageContentsText(metadata.packageContents),
   };
+}
+
+function isPackageItem(item) {
+  return normalizeArray(item.categoryTags).some(
+    (tag) => String(tag).trim().toLowerCase() === "package"
+  );
+}
+
+function parsePackageContentsText(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [skuPart, quantityPart] = line.split(/[,|]/);
+      const sku = String(skuPart || "").trim().toUpperCase();
+      const quantity = Number(quantityPart || 1);
+
+      if (!sku) {
+        return null;
+      }
+
+      return {
+        sku,
+        quantity: Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1,
+      };
+    })
+    .filter(Boolean);
+}
+
+function formatPackageContentsText(value) {
+  return normalizeArray(value)
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return "";
+      }
+
+      return `${String(entry.sku || "").trim()}, ${Number(entry.quantity || 1)}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getPackageContentsSummary(item) {
+  const contents = normalizeArray(getItemMetadata(item).packageContents);
+
+  if (contents.length) {
+    return contents
+      .map((entry) => `${entry.sku || "SKU"} x ${entry.quantity || 1}`)
+      .join("; ");
+  }
+
+  const optionSummaries = normalizeArray(item.options)
+    .map((option) => {
+      const optionMetadata =
+        option?.metadata && typeof option.metadata === "object"
+          ? option.metadata
+          : {};
+      const optionContents = normalizeArray(optionMetadata.packageContents);
+
+      if (!optionContents.length) {
+        return "";
+      }
+
+      return `${option.label || option.id}: ${optionContents.length} SKU lines`;
+    })
+    .filter(Boolean);
+
+  if (!optionSummaries.length) {
+    return "No package content added yet.";
+  }
+
+  return optionSummaries.join("; ");
 }
 
 function normalizeCategoryTags(value) {

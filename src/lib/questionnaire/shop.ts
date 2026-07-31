@@ -326,6 +326,10 @@ export function normalizeShopCart(input: unknown): ShopCart {
           : undefined,
       lockedQuantity: raw.lockedQuantity === true,
       lockedPurchaseMode: raw.lockedPurchaseMode === true,
+      metadata:
+        raw.metadata && typeof raw.metadata === "object" && !Array.isArray(raw.metadata)
+          ? (raw.metadata as Record<string, any>)
+          : undefined,
     };
   }
 
@@ -428,6 +432,7 @@ export function setShopLineQuantity(
       unitPriceOverride: current?.unitPriceOverride,
       compareAtUnitPrice: current?.compareAtUnitPrice,
       purchaseRecipients: current?.purchaseRecipients,
+      metadata: current?.metadata,
     },
   }, key);
 }
@@ -457,6 +462,7 @@ export function setShopLinePurchaseMode(
       unitPriceOverride: current?.unitPriceOverride,
       compareAtUnitPrice: current?.compareAtUnitPrice,
       purchaseRecipients: current?.purchaseRecipients,
+      metadata: current?.metadata,
     },
   }, key);
 }
@@ -604,6 +610,19 @@ function syncBundledCartItemsForLine(
     return nextCart;
   }
 
+  if (purchaseMode.metadata?.packageShell === true) {
+    nextCart[sourceLineKey] = {
+      ...sourceLine,
+      unitPriceOverride: 0,
+      compareAtUnitPrice: sourceSizeOption?.price,
+      lockedPurchaseMode: true,
+      metadata: {
+        ...(sourceLine.metadata ?? {}),
+        packageShell: true,
+      },
+    };
+  }
+
   for (const bundledItem of purchaseMode.bundledCartItems) {
     const targetProduct = findShopProduct(catalog, bundledItem.productId);
     const targetSizeOption = targetProduct?.sizeOptions.find(
@@ -631,8 +650,17 @@ function syncBundledCartItemsForLine(
         bundledItem.purchaseModeId ?? getDefaultPurchaseModeId(targetSizeOption),
       bundledFromLineKey: sourceLineKey,
       bundledByPurchaseModeId: purchaseMode.id,
-      lockedQuantity: true,
-      lockedPurchaseMode: true,
+      lockedQuantity: purchaseMode.metadata?.packageShell === true ? false : true,
+      lockedPurchaseMode:
+        purchaseMode.metadata?.packageShell === true ? false : true,
+      metadata:
+        purchaseMode.metadata?.packageShell === true
+          ? {
+              packageComponent: true,
+              packageBaseQuantity: bundledQuantity,
+              packageSourceSku: bundledItem.sourceSku,
+            }
+          : undefined,
     };
   }
 
@@ -1301,8 +1329,14 @@ function normalizeShopPurchaseMode(
     priceAdjustment,
     requiresPhysicalFulfillment,
     mealSelection,
-    bundledCartItems,
-  };
+      bundledCartItems,
+      metadata:
+        record.metadata &&
+        typeof record.metadata === "object" &&
+        !Array.isArray(record.metadata)
+          ? (record.metadata as QuestionnaireVariableMap)
+          : undefined,
+    };
 }
 
 function normalizeBundledCartItems(
@@ -1329,6 +1363,8 @@ function normalizeBundledCartItems(
         typeof record.purchaseModeId === "string"
           ? record.purchaseModeId
           : undefined;
+      const sourceSku =
+        typeof record.sourceSku === "string" ? record.sourceSku : undefined;
       const quantity =
         typeof record.quantity === "number" && Number.isFinite(record.quantity)
           ? Math.max(1, Math.floor(record.quantity))
@@ -1342,6 +1378,7 @@ function normalizeBundledCartItems(
         productId,
         sizeOptionId,
         purchaseModeId,
+        sourceSku,
         quantity,
       };
     })

@@ -13,7 +13,10 @@ const LITTLE_ORCHARD_SHOP_PUBLIC_URL =
 const PLANT_GIVEAWAY_OG_IMAGE = "/icons/paralife_trees_og.png";
 const LITTLE_ORCHARD_SHOP_OG_IMAGE =
   "/media/paralife_trees/little-orchard-shop-share.png";
-const ADMIN_ONLY_QUESTIONNAIRE_SLUGS = new Set(["project-docs"]);
+const ADMIN_ONLY_QUESTIONNAIRE_SLUGS = new Set([
+  "project-docs",
+  "test-package-shop",
+]);
 
 export async function generateMetadata({
   params,
