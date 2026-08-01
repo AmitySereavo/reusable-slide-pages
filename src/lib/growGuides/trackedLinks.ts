@@ -38,7 +38,63 @@ const PRODUCT_GUIDE_RULES = [
     guidePath: "/cabbage",
     labels: ["cabbage"],
   },
+  {
+    guideSlug: "eggplant-grow-guide",
+    guidePath: "/eggplant",
+    labels: ["eggplant", "aubergine", "garden egg"],
+  },
+  {
+    guideSlug: "sweet-pepper-grow-guide",
+    guidePath: "/sweet-pepper",
+    labels: ["sweet pepper", "bell pepper"],
+  },
+  {
+    guideSlug: "culinary-basil-grow-guide",
+    guidePath: "/culinary-basil",
+    labels: ["culinary basil", "italian sweet basil", "genovese basil", "basil"],
+  },
+  {
+    guideSlug: "dill-grow-guide",
+    guidePath: "/dill",
+    labels: ["dill"],
+  },
+  {
+    guideSlug: "tree-mint-grow-guide",
+    guidePath: "/tree-mint",
+    labels: ["tree mint", "jamaican peppermint", "costa rican peppermint"],
+  },
+  {
+    guideSlug: "mint-grow-guide",
+    guidePath: "/mint",
+    labels: ["mint", "peppermint", "spearmint", "black mint"],
+  },
+  {
+    guideSlug: "cilantro-grow-guide",
+    guidePath: "/cilantro",
+    labels: ["cilantro", "coriander"],
+  },
+  {
+    guideSlug: "parsley-grow-guide",
+    guidePath: "/parsley",
+    labels: ["parsley"],
+  },
+  {
+    guideSlug: "rosemary-grow-guide",
+    guidePath: "/rosemary",
+    labels: ["rosemary"],
+  },
+  {
+    guideSlug: "marigold-grow-guide",
+    guidePath: "/marigold",
+    labels: ["marigold"],
+  },
 ] as const;
+
+export function findGrowGuideBySlug(guideSlug: string) {
+  return (
+    PRODUCT_GUIDE_RULES.find((rule) => rule.guideSlug === guideSlug) || null
+  );
+}
 
 export type GrowGuideMatch = {
   guideSlug: string;

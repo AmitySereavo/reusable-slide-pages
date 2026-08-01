@@ -10,11 +10,21 @@ const GROW_GUIDE_HUB_PATH = "/grow-guides";
 const GROW_GUIDE_ROUTES = {
   "/lettuce": "lettuce-grow-guide",
   "/cabbage": "cabbage-grow-guide",
+  "/cilantro": "cilantro-grow-guide",
+  "/culinary-basil": "culinary-basil-grow-guide",
+  "/dill": "dill-grow-guide",
+  "/eggplant": "eggplant-grow-guide",
   "/lemon-balm": "lemon-balm-grow-guide",
   "/black-pepper": "black-pepper-grow-guide",
   "/green-onion": "green-onion-grow-guide",
+  "/marigold": "marigold-grow-guide",
+  "/mint": "mint-grow-guide",
+  "/parsley": "parsley-grow-guide",
+  "/rosemary": "rosemary-grow-guide",
   "/scotch-bonnet": "scotch-bonnet-grow-guide",
   "/slicing-tomato": "slicing-tomato-grow-guide",
+  "/sweet-pepper": "sweet-pepper-grow-guide",
+  "/tree-mint": "tree-mint-grow-guide",
 } as const;
 const DEFAULT_GROW_GUIDE_HOSTS = ["growguide.paralifetrees.com"];
 

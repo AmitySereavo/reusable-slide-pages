@@ -1,0 +1,345 @@
+// PARA-LIFE TREES
+// EGGPLANT GROW GUIDE
+// Source: Eggplant_Grow_Guide.pdf
+
+@id: eggplant-guide-cover
+@type: content
+@title: Eggplant Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Eggplant
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: eggplant-guide-about
+
+===
+
+@id: eggplant-guide-about
+@type: content
+@title: About This Guide
+@subtitle: Eggplant seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+## [c3] For eggplant seedlings, home gardens, containers, and small farm production.
+BR
+GUIDEGRID|Crop::Eggplant / aubergine / garden egg types||Scientific name::Solanum melongena||Best use::Cooked vegetable fruit for stews, roasting, frying, curry, and grilling||Guide focus::Transplanting seedlings, care, feeding, pests, diseases, and harvesting
+BR
+[c3] Eggplant is a warm-season fruiting crop. It needs steady light, steady water, support, and early pest checks to produce quality fruit.
+@back: Cover
+@next: Next
+@goto: eggplant-quick-rescue
+
+===
+
+@id: eggplant-quick-rescue
+@type: content
+@title: Quick Rescue
+@subtitle: If you see this, do this first
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Rescue
+BR
+GUIDETABLE|What you see|Likely cause|What to do first||Many tiny round holes in young leaves|Flea beetles|Protect young plants, check daily, use netting if possible, and treat early before leaves are badly damaged.||Seedling cut off at soil line|Cutworms|Check soil around the plant base morning or evening. Remove caterpillars and use collars around young stems.||Leaves yellow, curl inward, then dry brown|Verticillium wilt or root stress|Check drainage. Remove badly wilted plants. Rotate away from tomato, pepper, potato, and eggplant areas for 3 to 4 years.||Bronzed dusty leaves with fine webbing|Spider mites|Spray undersides, reduce drought stress, improve watering, and repeat every 3 to 5 days if pests remain.||Sticky leaves and white insects flying|Whiteflies or aphids|Spray undersides, use sticky traps, remove weeds, and repeat treatment every 3 to 5 days.||Many leaves but few flowers|Too much nitrogen or poor light|Give 6 to 8 hours sun, reduce heavy nitrogen, and use balanced fruiting support.||Flowers drop with no fruit|Heat, water stress, or poor pollination|Water evenly, mulch, gently shake flowers in the morning, and reduce stress.||Dull fruit skin or brown seeds|Overmature fruit|Harvest earlier while fruit is glossy, firm, and full-sized.
+@back: About this guide
+@next: Next
+@goto: eggplant-quick-numbers
+
+===
+
+@id: eggplant-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Growing targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDEGRID|Crop family::Solanaceae, related to tomato, pepper, potato, and tobacco||Best temperature::70 to 85 F / 21 to 29 C||Seedling age before transplant::8 to 10 weeks from sowing||Good transplant size::5 to 8 inches tall with 6 to 9 leaves||Hardening off::7 to 14 days||Plant spacing::18 to 24 inches between plants||Row spacing::30 to 36 inches between rows||Container minimum::5-gallon bucket per plant||Soil pH target::6.0 to 7.0||Water target::1 to 2 inches per week, deep watering||Harvest from transplant::70 to 85 days||Harvest from seed::100 to 150 days
+BR
+[c3] Exact size and harvest time change by variety. Long Asian types, round types, white types, and mini types may be harvested smaller or earlier than standard large purple eggplant.
+@back: Quick rescue
+@next: Next
+@goto: eggplant-soil-water
+
+===
+
+@id: eggplant-soil-water
+@type: content
+@title: Soil Water
+@subtitle: Keep growth steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Soil Water
+BR
+GUIDEGRID|Sunlight::6 to 8 hours direct sun daily||Best soil::Rich, loose, well-drained soil with organic matter||Soil pH::6.0 to 7.0 preferred||Water::1 to 2 inches weekly; containers may need water more often||Mulch::Use mulch after soil is warm and keep it slightly away from the stem||Airflow::Space plants enough to reduce leaf wetness and disease pressure
+BR
+GUIDETABLE|Watering rule|Why it matters||Water deeply at the base|Wet leaves can increase disease pressure.||Avoid dry-to-flooded swings|Irregular water can cause tough fruit, poor flowering, root stress, and disease issues.||Check pots daily in hot weather|Containers dry out faster than ground beds.||Do not let roots sit in water|Waterlogged roots invite rot and wilting.
+@back: Quick numbers
+@next: Next
+@goto: eggplant-feeding
+
+===
+
+@id: eggplant-feeding
+@type: content
+@title: Feeding
+@subtitle: Feed steady, not heavy
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding
+BR
+[c3] Eggplant is a heavier feeder than many herbs. Feed enough for steady growth, but avoid excess nitrogen because that can delay flowering and fruiting.
+BR
+GUIDETABLE|Stage|Timing|Feeding direction||Before planting|Before transplant|Mix compost into soil. Use balanced fertilizer if soil is weak.||At transplant|Day 0|Use compost and water well. Avoid strong fertilizer touching roots.||Settling period|First 7 to 10 days|Focus on watering and recovery. Do not overfeed stressed seedlings.||Early growth|2 to 4 weeks after transplant|Use light balanced feeding if plants are pale or slow.||Flowering/fruiting|4 to 8 weeks after transplant|Use fruiting support with potassium and avoid excess nitrogen.||Container plants|Every 2 to 4 weeks|Feed lightly because nutrients wash out faster in pots.
+BR
+[c3] Too much nitrogen may show as very dark lush leaves, weak flowering, soft growth, delayed fruiting, and more pest pressure.
+@back: Soil water
+@next: Next
+@goto: eggplant-harvest
+
+===
+
+@id: eggplant-harvest
+@type: content
+@title: Harvesting
+@subtitle: Pick glossy fruit
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Harvesting
+BR
+GUIDETABLE|Harvest sign|What it means||Glossy firm skin|Good harvest stage.||Fruit close to full variety size|Ready to pick.||Thumbnail press leaves a slight dent|Ripe enough for many standard types.||Dull skin and brown seeds|Overmature; quality has dropped.||Fruit hanging too long|Reduces new production and quality.
+BR
+GUIDEGRID|Tool::Use scissors, a knife, or a pruner. Do not pull fruit from the plant.||Stem::Leave a short stem on the fruit.||Safety::Wear gloves if stems or calyxes are prickly.||Harvest rhythm::Harvest every 3 to 7 days when plants are producing strongly.||Production tip::Pick mature fruit quickly so the plant keeps flowering and setting more fruit.
+@back: Feeding
+@next: Next
+@goto: eggplant-leaf-fruit
+
+===
+
+@id: eggplant-leaf-fruit
+@type: content
+@title: Leaf Fruit
+@subtitle: Problem guide
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Leaf Fruit
+BR
+GUIDETABLE|Plant sign|Possible cause|First response||Pale green leaves|Low nitrogen, poor roots, or low light|Check sun and water. Feed lightly after the plant is established.||Lower leaves yellow and curl inward|Verticillium wilt or root stress|Check drainage and avoid replanting nightshades in the same spot.||Tiny holes all over leaves|Flea beetles|Act early, protect young plants, and monitor daily.||Bleached or bronzed leaves|Spider mites or drought stress|Spray undersides and improve water consistency.||Leaves wilt midday but recover evening|Heat stress|Water deeply, mulch, and provide temporary shade if extreme.||Leaves wilt and do not recover|Root rot or wilt disease|Check roots and soil. Remove collapsed plants if disease is likely.||Sunken spots on fruit|Anthracnose, fruit rot, or injury|Remove affected fruit, improve airflow, and avoid leaving overmature fruit.||Pale burned patches on fruit|Sunscald|Maintain leaf cover, steady water, and avoid over-pruning.
+@back: Harvesting
+@next: Next
+@goto: eggplant-flowering-fruiting
+
+===
+
+@id: eggplant-flowering-fruiting
+@type: content
+@title: Flowers Fruit
+@subtitle: Set and hold fruit
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Flowers Fruit
+BR
+GUIDETABLE|Problem|Likely cause|What to do||Flowers drop|Heat, drought, water swings, or weak pollination|Water evenly, mulch, avoid stress, and shake flowers gently in the morning.||Lots of leaves, few flowers|Too much nitrogen or too little sun|Reduce high-nitrogen feeding and give 6 to 8 hours sun.||Small fruit stops growing|Poor water, root stress, or pests|Check soil moisture, leaf health, and pest pressure.||Fruit tough or leathery|Heat, drought, or overmaturity|Water evenly and harvest earlier.||Fruit touches soil and rots|Plant unsupported or low fruit|Stake or cage the plant, mulch, and harvest lower fruit early.
+BR
+[c3] Eggplant flowers can self-pollinate, but wind, vibration, and insects help. In still conditions, gently shake the plant or tap flower stems in the morning.
+@back: Leaf fruit
+@next: Next
+@goto: eggplant-small-farmer
+
+===
+
+@id: eggplant-small-farmer
+@type: content
+@title: Farmer Notes
+@subtitle: Small farm care
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Farmer Notes
+BR
+GUIDEGRID|Seedling quality::Use sturdy 5 to 8 inch seedlings with 6 to 9 leaves, dark green color, and no active pest pressure.||Spacing::Plant 18 to 24 inches apart in rows 30 to 36 inches apart for airflow and harvest access.||Rotation::Rotate away from tomato, pepper, potato, eggplant, and tobacco family crops for 3 to 4 years where possible.||Support::Stake or cage plants before fruit load becomes heavy.||Scouting::Scout twice weekly for flea beetles, whiteflies, aphids, mites, caterpillars, wilt, and fruit spots.||Harvest::Harvest glossy fruit frequently to keep production moving.||Grading::Remove bruised, dull, overmature, or pest-damaged fruit after harvest.
+BR
+[c3] Field harvest tip: keep picked fruit shaded and cool. Do not leave harvested eggplant in direct sun.
+@back: Flowers fruit
+@next: Next
+@goto: eggplant-containers
+
+===
+
+@id: eggplant-containers
+@type: content
+@title: Container Notes
+@subtitle: Yard, patio, and balcony
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Container Notes
+BR
+GUIDETABLE|Situation|Recommended setup||2 to 6 plants in yard|Plant 18 to 24 inches apart in full sun with support.||Container growing|Use at least one 5-gallon bucket per plant; 7 to 10 gallons is better for larger varieties.||Balcony or patio|Use a heavy pot, drainage holes, stake or cage, and 6 to 8 hours sun.||Small space|Choose smaller-fruited or compact varieties when available.||Hot dry location|Mulch and water deeply; pots may need daily checks.
+BR
+GUIDEGRID|Avoid standing water::Never allow the pot to sit in standing water.||Avoid repeated drying::Do not let containers dry out repeatedly once flowering starts.||Support early::Use support early because fruit can pull branches down or break them.
+@back: Farmer notes
+@next: Next
+@goto: eggplant-sanitation
+
+===
+
+@id: eggplant-sanitation
+@type: content
+@title: Clean Handling
+@subtitle: Reduce disease spread
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Clean Handling
+BR
+[c3] Eggplant is in the same family as tomato, pepper, potato, and tobacco. Clean handling helps reduce disease spread.
+BR
+GUIDEGRID|Wash hands::Wash hands with soap and water before handling seedlings.||Avoid tobacco contamination::Do not smoke and then handle eggplant seedlings without washing hands.||Keep tobacco away::Do not rest cigarettes or tobacco near seedling trays or pots.||Clean tools::Clean scissors and pruners before harvesting or pruning.||After sick plants::If you touch a sick plant, wash hands before touching healthy plants.
+BR
+[c3] Tobacco Mosaic Virus and related tobamoviruses can affect eggplant and other nightshade crops. Prevention is easier than cure.
+@back: Container notes
+@next: Next
+@goto: eggplant-hardening-off
+
+===
+
+@id: eggplant-hardening-off
+@type: content
+@title: Hardening Off
+@subtitle: Prepare seedlings
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Hardening Off
+BR
+[c3] Hardening off gradually prepares seedlings for direct sun, wind, and outdoor conditions before permanent planting.
+BR
+GUIDETABLE|Day|Exposure plan||Day 1 to 2|Bright shade or gentle morning sun for 2 to 3 hours.||Day 3 to 4|Morning sun for 3 to 4 hours; protect from strong afternoon sun.||Day 5 to 7|Longer outdoor time; avoid cold, heavy wind, or dry trays.||Day 8 to 14|Fuller outdoor exposure if seedlings stay firm and green.
+BR
+[c3] Bring seedlings back to protection if night temperature is below 55 F / 13 C, if leaves wilt badly, or if wind is strong.
+@back: Clean handling
+@next: Next
+@goto: eggplant-transplanting
+
+===
+
+@id: eggplant-transplanting
+@type: content
+@title: Transplanting
+@subtitle: From trays or pots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting
+BR
+[c3] Eggplant dislikes cold roots and rough transplanting. Transplant gently and keep the root ball intact.
+BR
+GUIDEGRID|Best time::Early morning before 9:00 a.m. or late evening after 4:30 p.m.||Avoid::Do not transplant during the hottest part of the day.||Water first::Water seedlings 1 to 2 hours before transplanting.||Depth::Plant at the same depth as the pot or tray soil line.||After planting::Water immediately and check daily for the first 7 days.||Support::Stake or cage early if the variety gets heavy.
+BR
+GUIDETABLE|Step|Direction||Prepare holes|Prepare holes before removing seedlings from the tray or pot.||Handle roots|Keep the root ball intact.||Set plant|Plant at the same depth as before.||Close soil|Press soil gently around roots; do not compact hard.||Recovery|Remove early flowers or tiny fruit on weak transplants so roots and branches can strengthen first.
+@back: Hardening off
+@next: Next
+@goto: eggplant-pests
+
+===
+
+@id: eggplant-pests
+@type: content
+@title: Common Pests
+@subtitle: Fast identification
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Pests
+BR
+GUIDETABLE|Pest|Signs|First actions||Flea beetles|Tiny round shot-holes in leaves, worse on young plants|Protect seedlings, use netting, monitor daily, and treat early if damage spreads.||Aphids|Clusters on new growth, sticky leaves, ants|Spray off, use mild soap spray, control ants, and repeat every 3 to 5 days.||Whiteflies|White insects fly up, sticky leaves, yellowing|Spray undersides, use sticky traps, and keep weeds down.||Spider mites|Bronzed leaves, dustiness, fine webbing|Improve moisture, spray undersides, and repeat every 3 to 5 days.||Colorado potato beetle|Yellow/orange larvae or striped adults eating leaves|Handpick early, inspect undersides for eggs, and remove larvae.||Caterpillars or hornworms|Large holes, chewed leaves or fruit, droppings|Check morning/evening, handpick, and use safe biological control if available.||Thrips|Silvery streaks, distorted young growth or flowers|Remove badly damaged parts, monitor flowers, and use sticky traps.
+@back: Transplanting
+@next: Next
+@goto: eggplant-diseases
+
+===
+
+@id: eggplant-diseases
+@type: content
+@title: Diseases
+@subtitle: Common problems
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Diseases
+BR
+GUIDETABLE|Disease/problem|Signs|First actions||Verticillium wilt|Lower leaves yellow, curl inward, wilt, and dry brown|Remove badly affected plants, rotate crops, and avoid replanting nightshades in the same spot.||Leaf blight or leaf spot|Dark spots on leaves, stems, or fruit; defoliation|Remove affected leaves, water at the base, and improve airflow.||Root rot|Wilting, yellowing, wet soil, weak roots|Improve drainage, reduce watering, and avoid standing water.||Damping-off|Young seedling collapses near soil line|Use clean media, avoid overwatering, and improve airflow.||Tobacco Mosaic Virus|Mottled leaves, distorted growth, poor production|Use sanitation, avoid tobacco contamination, and remove severely affected plants.||Phytophthora blight|Dark stem or branch areas, collapse in wet conditions|Improve drainage, avoid waterlogged beds, and remove affected plants.||Anthracnose or fruit rot|Sunken spots on fruit, worse on mature fruit|Harvest on time, remove infected fruit, and improve airflow.
+@back: Common pests
+@next: Next
+@goto: eggplant-support
+
+===
+
+@id: eggplant-support
+@type: content
+@title: Need Help
+@subtitle: Para-life Trees support
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Need Help
+BR
+[c3] Send clear photos by WhatsApp so the problem can be checked properly.
+BR
+GUIDEGRID|Full plant::Show the entire plant and growing space.||Top leaves::Send a close-up of the newest growth.||Leaf undersides::Photograph damaged leaf undersides.||Stem base::Show the stem and soil level.||Fruit or flowers::Include fruit damage, flower drop, or insects if visible.||Soil/container::Show the soil surface, pot, or bed.
+BR
+[c3] [WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20eggplant%20seedlings.)
+BR
+[c3] [Download the full PDF guide](/media/paralife_trees/guides/Eggplant_Grow_Guide.pdf)
+@back: Diseases
+@next: Visit shop
+@goto: /shop

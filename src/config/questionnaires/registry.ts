@@ -478,6 +478,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "eggplant-grow-guide": {
+    slug: "eggplant-grow-guide",
+    name: "Para-life Trees Eggplant Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/eggplantGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "lemon-balm-grow-guide": {
     slug: "lemon-balm-grow-guide",
     name: "Para-life Trees Lemon Balm Seedling Grow Guide",

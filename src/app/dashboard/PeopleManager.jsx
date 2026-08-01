@@ -233,6 +233,37 @@ const growGuideProductRules = [
   { label: "Tomato grow guide", terms: ["tomato"] },
   { label: "Scotch bonnet grow guide", terms: ["scotch bonnet"] },
   { label: "Lettuce grow guide", terms: ["lettuce"] },
+  { label: "Cabbage grow guide", terms: ["cabbage"] },
+  { label: "Eggplant grow guide", terms: ["eggplant", "aubergine", "garden egg"] },
+  { label: "Sweet pepper grow guide", terms: ["sweet pepper", "bell pepper"] },
+  { label: "Culinary basil grow guide", terms: ["culinary basil", "italian sweet basil", "genovese basil", "basil"] },
+  { label: "Dill grow guide", terms: ["dill"] },
+  { label: "Jamaican tree mint grow guide", terms: ["tree mint", "jamaican peppermint", "costa rican peppermint"] },
+  { label: "Mint grow guide", terms: ["mint", "peppermint", "spearmint", "black mint"] },
+  { label: "Cilantro grow guide", terms: ["cilantro", "coriander"] },
+  { label: "Parsley grow guide", terms: ["parsley"] },
+  { label: "Rosemary grow guide", terms: ["rosemary"] },
+  { label: "Marigold grow guide", terms: ["marigold"] },
+];
+
+const growGuideLibraryOptions = [
+  { slug: "black-pepper-grow-guide", path: "/black-pepper", label: "Black pepper grow guide", productTitle: "Black pepper plant" },
+  { slug: "cabbage-grow-guide", path: "/cabbage", label: "Cabbage grow guide", productTitle: "Cabbage seedlings" },
+  { slug: "eggplant-grow-guide", path: "/eggplant", label: "Eggplant grow guide", productTitle: "Eggplant seedlings" },
+  { slug: "green-onion-grow-guide", path: "/green-onion", label: "Green onion / scallion grow guide", productTitle: "Scallion / green onion" },
+  { slug: "lemon-balm-grow-guide", path: "/lemon-balm", label: "Lemon balm grow guide", productTitle: "Lemon balm" },
+  { slug: "lettuce-grow-guide", path: "/lettuce", label: "Lettuce grow guide", productTitle: "Lettuce seedlings" },
+  { slug: "scotch-bonnet-grow-guide", path: "/scotch-bonnet", label: "Scotch bonnet grow guide", productTitle: "Scotch bonnet pepper seedlings" },
+  { slug: "slicing-tomato-grow-guide", path: "/slicing-tomato", label: "Slicing tomato grow guide", productTitle: "Slicing tomato seedlings" },
+  { slug: "sweet-pepper-grow-guide", path: "/sweet-pepper", label: "Sweet pepper grow guide", productTitle: "Sweet pepper seedlings" },
+  { slug: "culinary-basil-grow-guide", path: "/culinary-basil", label: "Culinary basil grow guide", productTitle: "Culinary basil" },
+  { slug: "dill-grow-guide", path: "/dill", label: "Dill grow guide", productTitle: "Dill" },
+  { slug: "tree-mint-grow-guide", path: "/tree-mint", label: "Jamaican tree mint grow guide", productTitle: "Jamaican tree mint" },
+  { slug: "mint-grow-guide", path: "/mint", label: "Mint grow guide", productTitle: "Mint" },
+  { slug: "cilantro-grow-guide", path: "/cilantro", label: "Cilantro grow guide", productTitle: "Cilantro" },
+  { slug: "parsley-grow-guide", path: "/parsley", label: "Parsley grow guide", productTitle: "Parsley" },
+  { slug: "rosemary-grow-guide", path: "/rosemary", label: "Rosemary grow guide", productTitle: "Rosemary" },
+  { slug: "marigold-grow-guide", path: "/marigold", label: "Marigold grow guide", productTitle: "Marigold" },
 ];
 
 function getGrowGuideLabelForOrderItem(item) {
@@ -1039,7 +1070,11 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   const [editingNoteId, setEditingNoteId] = useState("");
   const [editingNote, setEditingNote] = useState(emptyConversationNote);
   const [note, setNote] = useState(emptyConversationNote);
+  const [guideSource, setGuideSource] = useState("purchased");
   const [guideItemId, setGuideItemId] = useState("");
+  const [libraryGuideSlug, setLibraryGuideSlug] = useState(
+    growGuideLibraryOptions[0]?.slug || ""
+  );
   const [generatedGuideLink, setGeneratedGuideLink] = useState(null);
   const [guideActionStatus, setGuideActionStatus] = useState("");
   const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
@@ -1057,11 +1092,28 @@ function PeopleCrmPanel({ record, onProfileAction }) {
     .filter((item) => item.id && getGrowGuideLabelForOrderItem(item));
   const selectedGuideItem =
     growGuideItems.find((item) => item.id === guideItemId) || growGuideItems[0] || null;
+  const selectedLibraryGuide =
+    growGuideLibraryOptions.find((guide) => guide.slug === libraryGuideSlug) ||
+    growGuideLibraryOptions[0] ||
+    null;
+  const effectiveGuideSource =
+    guideSource === "purchased" && !growGuideItems.length ? "library" : guideSource;
+  const activeGuideItem =
+    effectiveGuideSource === "library" && selectedLibraryGuide
+      ? {
+          id: `library:${selectedLibraryGuide.slug}`,
+          productTitle: selectedLibraryGuide.productTitle,
+          sizeLabel: "",
+          orderCode: "",
+          productId: selectedLibraryGuide.slug,
+          productSku: selectedLibraryGuide.slug,
+        }
+      : selectedGuideItem;
   const preparedGuideMessage =
-    generatedGuideLink && selectedGuideItem
+    generatedGuideLink && activeGuideItem
       ? buildPeopleGrowGuideMessage({
           record,
-          item: selectedGuideItem,
+          item: activeGuideItem,
           link: generatedGuideLink,
         })
       : "";
@@ -1134,17 +1186,29 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   }
 
   async function generateGrowGuideLink() {
-    if (!selectedGuideItem?.id || isGeneratingGuide) return;
+    if (isGeneratingGuide) return;
+    if (effectiveGuideSource === "purchased" && !selectedGuideItem?.id) return;
+    if (effectiveGuideSource === "library" && !selectedLibraryGuide?.slug) return;
 
     setIsGeneratingGuide(true);
     setGuideActionStatus("Generating tracked grow guide link...");
 
     try {
+      const requestBody =
+        effectiveGuideSource === "library"
+          ? {
+              guideSlug: selectedLibraryGuide.slug,
+              customerName: record.contact?.name || "",
+              customerEmail: record.contact?.email || "",
+              customerPhone: record.contact?.phone || "",
+              productTitle: selectedLibraryGuide.productTitle,
+            }
+          : { fulfillmentItemId: selectedGuideItem.id };
       const response = await fetch("/api/dashboard/grow-guide-links", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fulfillmentItemId: selectedGuideItem.id }),
+        body: JSON.stringify(requestBody),
       });
       const payload = await response.json().catch(() => ({}));
 
@@ -1161,18 +1225,18 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   }
 
   async function recordGuideConversation(sentBy) {
-    if (!generatedGuideLink?.linkUrl || !selectedGuideItem) return;
+    if (!generatedGuideLink?.linkUrl || !activeGuideItem) return;
 
     await onProfileAction(record, {
       action: "add-conversation-note",
       note: {
         ...emptyConversationNote,
-        summary: `Sent ${getGrowGuideLabelForOrderItem(selectedGuideItem)} for ${getRequestedItemLabel(selectedGuideItem)}.`,
+        summary: `Sent ${getGrowGuideLabelForOrderItem(activeGuideItem)} for ${getRequestedItemLabel(activeGuideItem)}.`,
         immediateNextStep: "Follow up to see whether the customer opened and used the grow guide.",
         nextQuestions: "Ask what happened after they followed the guide and what they need next.",
         additionalNotes: [
           `Message channel: ${sentBy}`,
-          `Order: ${selectedGuideItem.orderCode || "Not recorded"}`,
+          `Order: ${activeGuideItem.orderCode || "Not recorded"}`,
           `Guide link: ${generatedGuideLink.linkUrl}`,
         ].join("\n"),
       },
@@ -1460,32 +1524,71 @@ function PeopleCrmPanel({ record, onProfileAction }) {
             Use this for customer-care guide messages. Receipts and order updates stay under Orders.
           </p>
         </div>
-        {growGuideItems.length ? (
+        {growGuideItems.length || growGuideLibraryOptions.length ? (
           <>
             <label style={styles.inlineLabel}>
-              Purchased item guide
+              Guide source
               <select
-                value={selectedGuideItem?.id || ""}
+                value={effectiveGuideSource}
                 onChange={(event) => {
-                  setGuideItemId(event.target.value);
+                  setGuideSource(event.target.value);
                   setGeneratedGuideLink(null);
                   setGuideActionStatus("");
                 }}
                 style={styles.select}
               >
-                {growGuideItems.map((item) => (
-                  <option key={`${item.orderCode}-${item.id}`} value={item.id}>
-                    {getGrowGuideLabelForOrderItem(item)} -{" "}
-                    {getRequestedItemLabel(item)} - {item.orderCode}
-                  </option>
-                ))}
+                <option value="purchased" disabled={!growGuideItems.length}>
+                  Purchased item guide
+                </option>
+                <option value="library">Any grow guide</option>
               </select>
             </label>
+            {effectiveGuideSource === "purchased" ? (
+              <label style={styles.inlineLabel}>
+                Purchased item guide
+                <select
+                  value={selectedGuideItem?.id || ""}
+                  onChange={(event) => {
+                    setGuideItemId(event.target.value);
+                    setGeneratedGuideLink(null);
+                    setGuideActionStatus("");
+                  }}
+                  style={styles.select}
+                  disabled={!growGuideItems.length}
+                >
+                  {growGuideItems.map((item) => (
+                    <option key={`${item.orderCode}-${item.id}`} value={item.id}>
+                      {getGrowGuideLabelForOrderItem(item)} -{" "}
+                      {getRequestedItemLabel(item)} - {item.orderCode}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label style={styles.inlineLabel}>
+                Any grow guide
+                <select
+                  value={selectedLibraryGuide?.slug || ""}
+                  onChange={(event) => {
+                    setLibraryGuideSlug(event.target.value);
+                    setGeneratedGuideLink(null);
+                    setGuideActionStatus("");
+                  }}
+                  style={styles.select}
+                >
+                  {growGuideLibraryOptions.map((guide) => (
+                    <option key={guide.slug} value={guide.slug}>
+                      {guide.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div style={styles.formButtonRow}>
               <button
                 type="button"
                 style={styles.secondarySmallButton}
-                disabled={isGeneratingGuide || !selectedGuideItem}
+                disabled={isGeneratingGuide || !activeGuideItem}
                 onClick={generateGrowGuideLink}
               >
                 {isGeneratingGuide ? "Generating..." : "Generate tracked link"}
@@ -1541,7 +1644,7 @@ function PeopleCrmPanel({ record, onProfileAction }) {
           </>
         ) : (
           <p style={styles.emptyText}>
-            No purchased items with connected grow guides are bundled to this person yet.
+            No grow guides are available yet.
           </p>
         )}
       </section>

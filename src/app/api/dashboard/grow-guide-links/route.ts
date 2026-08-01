@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import {
   ensureCustomerGrowGuideTables,
+  findGrowGuideBySlug,
   findGrowGuideForProduct,
   makeGrowGuideToken,
   normalizeIdentityKey,
@@ -65,55 +66,53 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const fulfillmentItemId = cleanText(body?.fulfillmentItemId);
     const requestedGuideSlug = cleanText(body?.guideSlug);
-
-    if (!fulfillmentItemId) {
-      return NextResponse.json(
-        { ok: false, error: "Choose the order item for this grow guide link." },
-        { status: 400 }
-      );
-    }
+    const suppliedCustomerName = cleanText(body?.customerName);
+    const suppliedCustomerEmail = cleanText(body?.customerEmail);
+    const suppliedCustomerPhone = cleanText(body?.customerPhone);
+    const suppliedProductTitle = cleanText(body?.productTitle);
 
     await ensureCustomerGrowGuideTables();
 
-    const item = await prisma.orderFulfillmentItem.findUnique({
-      where: { id: fulfillmentItemId },
-      include: { invitationOrder: true },
-    });
+    const item = fulfillmentItemId
+      ? await prisma.orderFulfillmentItem.findUnique({
+          where: { id: fulfillmentItemId },
+          include: { invitationOrder: true },
+        })
+      : null;
 
-    if (!item) {
+    if (fulfillmentItemId && !item) {
       return NextResponse.json(
         { ok: false, error: "Order item was not found." },
         { status: 404 }
       );
     }
 
-    const metadata = readMetadata(item.metadata);
+    const metadata = readMetadata(item?.metadata);
     const customerName =
-      cleanText(item.recipientName) ||
+      cleanText(item?.recipientName) ||
       cleanText(metadata.customerName) ||
-      cleanText(metadata.answers && (metadata.answers as any).fullName);
+      cleanText(metadata.answers && (metadata.answers as any).fullName) ||
+      suppliedCustomerName;
     const customerEmail =
-      cleanText(metadata.customerEmail) || cleanText(item.recipientEmail);
+      cleanText(metadata.customerEmail) ||
+      cleanText(item?.recipientEmail) ||
+      suppliedCustomerEmail;
     const customerPhone = cleanText(
       metadata.customerWhatsappNumber ||
         metadata.customerPhoneNumber ||
-        metadata.customerPhone
+        metadata.customerPhone ||
+        suppliedCustomerPhone
     );
     const guide =
-      findGrowGuideForProduct(item) ||
-      (requestedGuideSlug
-        ? {
-            guideSlug: requestedGuideSlug,
-            guidePath: `/${requestedGuideSlug.replace(/-grow-guide$/, "")}`,
-          }
-        : null);
+      (item ? findGrowGuideForProduct(item) : null) ||
+      (requestedGuideSlug ? findGrowGuideBySlug(requestedGuideSlug) : null);
 
     if (!guide) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "No associated grow guide was found for this product yet. Choose another purchased item.",
+            "Choose a grow guide or a purchased item with an associated grow guide.",
         },
         { status: 400 }
       );
@@ -160,23 +159,24 @@ export async function POST(request: Request) {
         ${token},
         ${ownerUser?.id || null},
         ${guard.session?.user?.id || null},
-        ${item.orderCode || null},
-        ${item.id},
+        ${item?.orderCode || null},
+        ${item?.id || null},
         ${customerName || null},
         ${customerEmail || null},
         ${customerPhone || null},
         ${ownerIdentityKey},
-        ${item.productId || null},
-        ${item.productSku || item.sku || null},
-        ${item.productTitle || null},
-        ${item.sizeLabel || null},
+        ${item?.productId || null},
+        ${item?.productSku || item?.sku || null},
+        ${item?.productTitle || suppliedProductTitle || null},
+        ${item?.sizeLabel || null},
         ${guide.guideSlug},
         ${guide.guidePath},
         ${JSON.stringify({
-          source: "orders-dashboard",
-          orderCode: item.orderCode || null,
+          source: item ? "orders-dashboard" : "people-dashboard",
+          orderCode: item?.orderCode || null,
           receiptCode: metadata.receiptCode || null,
           cashierToken: metadata.cashierToken || null,
+          manualGuideSelection: !item,
         })}::jsonb,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
@@ -184,32 +184,35 @@ export async function POST(request: Request) {
       RETURNING *
     `);
     const link = serializeLink(rows[0], request);
-    const guideLinkHistory = Array.isArray(metadata.growGuideLinks)
-      ? metadata.growGuideLinks
-      : [];
-    const nextMetadata = {
-      ...metadata,
-      lastGrowGuideLink: link,
-      growGuideLinks: [
-        {
-          token: link.token,
-          linkUrl: link.linkUrl,
-          guideSlug: link.guideSlug,
-          guidePath: link.guidePath,
-          productTitle: link.productTitle,
-          sizeLabel: link.sizeLabel,
-          createdAt: new Date().toISOString(),
-        },
-        ...guideLinkHistory.slice(0, 19),
-      ],
-    };
 
-    await prisma.orderFulfillmentItem.update({
-      where: { id: item.id },
-      data: {
-        metadata: nextMetadata as Prisma.InputJsonObject,
-      },
-    });
+    if (item) {
+      const guideLinkHistory = Array.isArray(metadata.growGuideLinks)
+        ? metadata.growGuideLinks
+        : [];
+      const nextMetadata = {
+        ...metadata,
+        lastGrowGuideLink: link,
+        growGuideLinks: [
+          {
+            token: link.token,
+            linkUrl: link.linkUrl,
+            guideSlug: link.guideSlug,
+            guidePath: link.guidePath,
+            productTitle: link.productTitle,
+            sizeLabel: link.sizeLabel,
+            createdAt: new Date().toISOString(),
+          },
+          ...guideLinkHistory.slice(0, 19),
+        ],
+      };
+
+      await prisma.orderFulfillmentItem.update({
+        where: { id: item.id },
+        data: {
+          metadata: nextMetadata as Prisma.InputJsonObject,
+        },
+      });
+    }
 
     return NextResponse.json({
       ok: true,

@@ -17,6 +17,14 @@ const guides: GrowGuideSummary[] = [
     keywords: ["caribbean queen cabbage", "brassica", "seedling"],
   },
   {
+    href: "/eggplant",
+    title: "Eggplant Grow Guide",
+    description:
+      "Transplanting, feeding, watering, pest care, disease prevention, containers, and harvesting.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["aubergine", "garden egg", "seedling", "solanum"],
+  },
+  {
     href: "/lemon-balm",
     title: "Lemon Balm Seedling Grow Guide",
     description: "Container care, trimming, leaf quality, pests, disease prevention, and harvest.",

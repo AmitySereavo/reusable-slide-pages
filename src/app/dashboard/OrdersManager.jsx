@@ -145,6 +145,17 @@ const growGuideProductRules = [
   { label: "Tomato grow guide", terms: ["tomato"] },
   { label: "Scotch bonnet grow guide", terms: ["scotch bonnet"] },
   { label: "Lettuce grow guide", terms: ["lettuce"] },
+  { label: "Cabbage grow guide", terms: ["cabbage"] },
+  { label: "Eggplant grow guide", terms: ["eggplant", "aubergine", "garden egg"] },
+  { label: "Sweet pepper grow guide", terms: ["sweet pepper", "bell pepper"] },
+  { label: "Culinary basil grow guide", terms: ["culinary basil", "italian sweet basil", "genovese basil", "basil"] },
+  { label: "Dill grow guide", terms: ["dill"] },
+  { label: "Jamaican tree mint grow guide", terms: ["tree mint", "jamaican peppermint", "costa rican peppermint"] },
+  { label: "Mint grow guide", terms: ["mint", "peppermint", "spearmint", "black mint"] },
+  { label: "Cilantro grow guide", terms: ["cilantro", "coriander"] },
+  { label: "Parsley grow guide", terms: ["parsley"] },
+  { label: "Rosemary grow guide", terms: ["rosemary"] },
+  { label: "Marigold grow guide", terms: ["marigold"] },
 ];
 
 function getGrowGuideLabelForOrderItem(item) {
