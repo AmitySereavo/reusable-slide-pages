@@ -7,12 +7,18 @@ import type {
   QuestionnaireVariableValue,
   ThemeConfig,
 } from "@/types/questionnaire";
+import { useEffect, useState } from "react";
 import {
   getPasswordRequirementResults,
   getPasswordStrength,
 } from "@/customerAccess/utils/passwordPolicy";
 import { replaceDynamicText } from "@/lib/questionnaire/dynamicText";
 import styles from "../QuestionnaireShell.module.css";
+
+const COPYABLE_INFO_FIELD_NAMES = new Set([
+  "paymentScotiaDetails",
+  "paymentNcbDetails",
+]);
 
 type FormFieldRendererProps = {
   field: FormField;
@@ -22,6 +28,7 @@ type FormFieldRendererProps = {
   setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
   isPasswordVisible?: boolean;
   onTogglePasswordVisibility?: () => void;
+  errorMessage?: string;
 };
 
 function renderInlineLinks(text: string) {
@@ -49,6 +56,33 @@ function renderInlineLinks(text: string) {
   });
 }
 
+function renderInfoText(text: string) {
+  const lines = text
+    .split(/\s*;;\s*/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length <= 1) {
+    return <span>{renderInlineLinks(text)}</span>;
+  }
+
+  return (
+    <span className={styles.fieldInfoLineStack}>
+      {lines.map((line) => (
+        <span key={line}>{renderInlineLinks(line)}</span>
+      ))}
+    </span>
+  );
+}
+
+function getCopyableInfoText(text: string) {
+  return text
+    .split(/\s*;;\s*/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function FormFieldRenderer({
   field,
   theme,
@@ -57,7 +91,9 @@ export default function FormFieldRenderer({
   setAnswer,
   isPasswordVisible,
   onTogglePasswordVisibility,
+  errorMessage,
 }: FormFieldRendererProps) {
+  const [copiedInfoFieldName, setCopiedInfoFieldName] = useState("");
   const resolvedLabel =
     replaceDynamicText(field.label, answers, variables) ?? field.label;
 
@@ -79,25 +115,63 @@ export default function FormFieldRenderer({
     color: theme.colors.text,
   } as const;
 
+  const fieldError = errorMessage ? (
+    <p className={styles.fieldError}>{errorMessage}</p>
+  ) : null;
+
+  useEffect(() => {
+    if (!copiedInfoFieldName) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedInfoFieldName("");
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [copiedInfoFieldName]);
+
   if (field.type === "checkbox") {
     return (
-      <label className={styles.checkboxRow}>
-        <input
-          type="checkbox"
-          checked={Boolean(answers[field.name] ?? false)}
-          onChange={(e) => setAnswer(field.name, e.target.checked)}
-        />
-        {resolvedLabel}
-      </label>
+      <div style={fieldFrameStyle}>
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={Boolean(answers[field.name] ?? false)}
+            onChange={(e) => setAnswer(field.name, e.target.checked)}
+          />
+          {resolvedLabel}
+        </label>
+        {fieldError}
+      </div>
     );
   }
 
   if (field.type === "info") {
+    const canCopyInfo = COPYABLE_INFO_FIELD_NAMES.has(field.name);
+    const isCopied = copiedInfoFieldName === field.name;
+
     return (
       <div className={styles.fieldInfoPanel}>
         <strong>{resolvedLabel}</strong>
         {resolvedPlaceholder ? (
-          <span>{renderInlineLinks(resolvedPlaceholder)}</span>
+          renderInfoText(resolvedPlaceholder)
+        ) : null}
+        {canCopyInfo && resolvedPlaceholder ? (
+          <button
+            type="button"
+            className={`${styles.copyInfoButton} ${
+              isCopied ? styles.copyInfoButtonCopied : ""
+            }`}
+            onClick={async () => {
+              await navigator.clipboard?.writeText(
+                getCopyableInfoText(resolvedPlaceholder)
+              );
+              setCopiedInfoFieldName(field.name);
+            }}
+          >
+            {isCopied ? "Copied" : "Copy bank info"}
+          </button>
         ) : null}
       </div>
     );
@@ -124,6 +198,7 @@ export default function FormFieldRenderer({
             </label>
           ))}
         </div>
+        {fieldError}
       </div>
     );
   }
@@ -143,6 +218,7 @@ export default function FormFieldRenderer({
             resize: "vertical",
           }}
         />
+        {fieldError}
       </div>
     );
   }
@@ -178,6 +254,7 @@ export default function FormFieldRenderer({
             Use today
           </button>
         </div>
+        {fieldError}
       </div>
     );
   }
@@ -205,6 +282,7 @@ export default function FormFieldRenderer({
             </option>
           ))}
         </select>
+        {fieldError}
       </div>
     );
   }
@@ -238,6 +316,7 @@ export default function FormFieldRenderer({
           }}
           style={{ borderColor: theme.colors.border }}
         />
+        {fieldError}
       </div>
     );
   }
@@ -352,6 +431,7 @@ export default function FormFieldRenderer({
             ) : null}
           </div>
         ) : null}
+        {fieldError}
       </div>
     );
   }
@@ -364,9 +444,10 @@ export default function FormFieldRenderer({
         type={field.type}
         placeholder={resolvedPlaceholder}
         value={String(answers[field.name] ?? "")}
-        onChange={(e) => setAnswer(field.name, e.target.value)}
-        style={{ borderColor: theme.colors.border }}
-      />
-    </div>
-  );
+      onChange={(e) => setAnswer(field.name, e.target.value)}
+      style={{ borderColor: theme.colors.border }}
+    />
+    {fieldError}
+  </div>
+);
 }

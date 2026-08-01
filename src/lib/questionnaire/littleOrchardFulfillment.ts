@@ -1,12 +1,6 @@
 import type { QuestionnaireAnswers } from "@/types/questionnaire";
 
 export const LITTLE_ORCHARD_FULFILLMENT_OPTIONS = {
-  event_pickup: {
-    label: "Jamaica Horticultural Society Plant Market",
-    detail:
-      "Little Orchard Nursery tent. Jamaica Horticultural Society Showgrounds, Cnr. Gibson Dr & Gibson Close, Hope Pastures. Sunday, July 26, 9:00 AM - 4:00 PM.",
-    shippingMethod: "event_pickup",
-  },
   earth_sovereign: {
     label: "Earth (Sovereign Center Liguanea)",
     detail:
@@ -26,9 +20,15 @@ export const LITTLE_ORCHARD_FULFILLMENT_OPTIONS = {
     shippingMethod: "pickup_linstead",
   },
   paid_delivery: {
-    label: "Paid delivery",
+    label: "Delivery to an address",
     detail: "You will receive updates about your delivery progress.",
-    shippingMethod: "paid_delivery",
+    shippingMethod: "delivery",
+  },
+  package_delivery: {
+    label: "Delivery to an address",
+    detail:
+      "Package delivery details will be confirmed by a Little Orchard representative.",
+    shippingMethod: "package_delivery",
   },
 } as const;
 
@@ -42,7 +42,7 @@ export function getLittleOrchardFulfillmentKey(
 
   return raw in LITTLE_ORCHARD_FULFILLMENT_OPTIONS
     ? (raw as LittleOrchardFulfillmentKey)
-    : "event_pickup";
+    : "earth_sovereign";
 }
 
 export function getLittleOrchardFulfillmentOption(

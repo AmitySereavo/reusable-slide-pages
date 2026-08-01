@@ -1616,6 +1616,8 @@ export default function OrdersManager() {
           const socialContacts = getLittleOrchardSocialContacts(item);
           const cashierLink = getCashierLink(item);
           const receiptLink = getReceiptLink(item);
+          const canOpenReceipt =
+            item.metadata?.paymentStatus === "PAYMENT_CONFIRMED";
           const order = item.invitationOrder;
           const customerName =
             item.recipientName || order?.purchaserName || "No customer name";
@@ -2454,6 +2456,20 @@ export default function OrdersManager() {
 
                   {expandedSection === "payment" ? (
                     <div style={styles.accordionPanel}>
+                      {item.sourceType === "little-orchard-shop" &&
+                      item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
+                        <div style={styles.notePanel}>
+                          <strong>
+                            Selected payment option:{" "}
+                            {item.metadata?.paymentPreferenceLabel ||
+                              "Not selected"}
+                          </strong>
+                          <span>
+                            Customer may request a payment option change through
+                            their selected receipt / communication channel.
+                          </span>
+                        </div>
+                      ) : null}
                       <div style={styles.paymentAllocationList}>
                         {paymentAllocationOptions.map((option) => (
                           <label key={option.value} style={styles.paymentAllocationRow}>
@@ -2649,7 +2665,7 @@ export default function OrdersManager() {
                             CASHIER ORDER LINK
                           </a>
                         ) : null}
-                        {receiptLink ? (
+                        {receiptLink && canOpenReceipt ? (
                           <a
                             href={receiptLink}
                             target="_blank"
@@ -2658,6 +2674,16 @@ export default function OrdersManager() {
                           >
                             RECEIPT LINK
                           </a>
+                        ) : receiptLink ? (
+                          <span
+                            title="Receipt unlocks after payment is confirmed."
+                            style={{
+                              ...styles.orderTabLink,
+                              ...styles.disabledLink,
+                            }}
+                          >
+                            RECEIPT LINK
+                          </span>
                         ) : null}
                         <button
                           type="button"
@@ -3055,7 +3081,7 @@ export default function OrdersManager() {
                           CASHIER ORDER LINK
                         </a>
                       ) : null}
-                      {receiptLink ? (
+                      {receiptLink && canOpenReceipt ? (
                         <a
                           href={receiptLink}
                           target="_blank"
@@ -3064,6 +3090,16 @@ export default function OrdersManager() {
                         >
                           RECEIPT LINK
                         </a>
+                      ) : receiptLink ? (
+                        <span
+                          title="Receipt unlocks after payment is confirmed."
+                          style={{
+                            ...styles.orderTabLink,
+                            ...styles.disabledLink,
+                          }}
+                        >
+                          RECEIPT LINK
+                        </span>
                       ) : null}
                       <button
                         type="button"
@@ -3227,6 +3263,16 @@ export default function OrdersManager() {
                       Payment: {item.metadata?.paymentStatus || "AWAITING_PAYMENT"}
                     </span>
                     <span>
+                      Preferred payment option:{" "}
+                      {item.metadata?.paymentPreferenceLabel || "Not selected"}
+                    </span>
+                    {item.metadata?.paymentStatus !== "PAYMENT_CONFIRMED" ? (
+                      <span>
+                        Payment option changes: customer may request a change
+                        through their selected receipt / communication channel.
+                      </span>
+                    ) : null}
+                    <span>
                       Inventory applied:{" "}
                       {item.metadata?.inventoryApplied ? "Yes" : "No"}
                     </span>
@@ -3239,7 +3285,7 @@ export default function OrdersManager() {
                         Cashier order link
                       </a>
                     ) : null}
-                    {receiptLink ? (
+                    {receiptLink && canOpenReceipt ? (
                       <a
                         href={receiptLink}
                         target="_blank"
@@ -3247,6 +3293,13 @@ export default function OrdersManager() {
                       >
                         Receipt link
                       </a>
+                    ) : receiptLink ? (
+                      <span
+                        title="Receipt unlocks after payment is confirmed."
+                        style={styles.disabledInlineLink}
+                      >
+                        Receipt link
+                      </span>
                     ) : null}
                   </div>
                   {item.purchaseModeId === "nursery-stock-request" ? (
@@ -3634,7 +3687,7 @@ export default function OrdersManager() {
                             ? "Opening Gmail..."
                             : "Open Gmail compose fallback"}
                         </button>
-                        {receiptLink ? (
+                        {receiptLink && canOpenReceipt ? (
                           <a
                             href={receiptLink}
                             target="_blank"
@@ -3662,6 +3715,16 @@ export default function OrdersManager() {
                           >
                             {receiptBusy ? "Opening receipt..." : "Open receipt"}
                           </a>
+                        ) : receiptLink ? (
+                          <span
+                            title="Receipt unlocks after payment is confirmed."
+                            style={{
+                              ...styles.linkButton,
+                              ...styles.disabledLink,
+                            }}
+                          >
+                            Open receipt
+                          </span>
                         ) : null}
                       </>
                     ) : null}
@@ -4398,6 +4461,17 @@ const styles = {
   orderTabLink: {
     color: "#241f1a",
     font: "inherit",
+    textDecoration: "none",
+  },
+  disabledLink: {
+    color: "rgba(32, 28, 29, 0.46)",
+    cursor: "not-allowed",
+    opacity: 0.62,
+    pointerEvents: "none",
+  },
+  disabledInlineLink: {
+    color: "rgba(32, 28, 29, 0.46)",
+    cursor: "not-allowed",
     textDecoration: "none",
   },
   orderDeleteButton: {

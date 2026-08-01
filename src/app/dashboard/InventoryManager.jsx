@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 const shopOptions = [
   { id: "little-orchard-shop", label: "Little Orchard Shop" },
-  { id: "test-package-shop", label: "Test Package Shop" },
+  { id: "garden-package", label: "Garden Package" },
   { id: "music-merch-shop", label: "Music + Merch Store" },
   { id: "ticket-add-ons", label: "Ticket Add-ons" },
   { id: "invitation-tickets", label: "Invitation Tickets" },
@@ -88,10 +88,14 @@ export default function InventoryManager() {
         : items.filter((item) =>
             normalizeArray(item.shopTags).includes(filterShop)
           );
+    const displayableShopItems =
+      filterShop === "all" || visibilityView === "hidden"
+        ? shopFilteredItems
+        : shopFilteredItems.filter((item) => !isPackageComponentItem(item));
     const visibleItems =
       filterShop === "all" || visibilityView === "all"
-        ? shopFilteredItems
-        : shopFilteredItems.filter((item) => {
+        ? displayableShopItems
+        : displayableShopItems.filter((item) => {
             const listing = getShopListing(item, filterShop);
             const isHidden = listing?.active === false;
 
@@ -1875,6 +1879,20 @@ function makeItemDraft(item) {
 function isPackageItem(item) {
   return normalizeArray(item.categoryTags).some(
     (tag) => String(tag).trim().toLowerCase() === "package"
+  );
+}
+
+function isPackageComponentItem(item) {
+  const metadata = getItemMetadata(item);
+
+  return (
+    metadata.packageComponentOnly === true ||
+    metadata.hideFromBrowse === true ||
+    String(metadata.source || "").trim().toLowerCase() ===
+      "home-garden-package-component" ||
+    normalizeArray(item.categoryTags).some(
+      (tag) => String(tag).trim().toLowerCase() === "packagecomponent"
+    )
   );
 }
 

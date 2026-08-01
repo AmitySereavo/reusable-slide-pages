@@ -13,6 +13,8 @@ const adminLinks = [
   { href: "/dashboard/currencies", label: "Currencies" },
   { href: "/dashboard/identity-verifications", label: "ID Verifications" },
   { href: "/dashboard/email-sequences", label: "Email Sequences" },
+  { href: "/shop", label: "Little Orchard Shop" },
+  { href: "/gardenpackage", label: "Garden Package" },
   { href: "/questionnaire/invitation", label: "Invitation" },
   { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
   { href: "/questionnaire/escape-album", label: "Escape Album" },

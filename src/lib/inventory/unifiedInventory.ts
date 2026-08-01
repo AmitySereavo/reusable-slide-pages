@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
-  TEST_PACKAGE_SHOP_SLUG,
+  GARDEN_PACKAGE_SHOP_SLUG,
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
 
@@ -354,10 +354,10 @@ const nurseryPriceListItems = [
       ["Carrot", 50, 250, 500],
       ["Beetroot", 50, 250, 500],
       ["Passion Fruit", 150, 700, 1500],
-      ["Mulberry Tree", 150, 700, 1500],
-      ["Key Lime Tree", 150, 700, 1500],
-      ["Star Fruit Tree", 150, 700, 1500],
-      ["Cherry Tree", 150, 700, 1500],
+      ["Mulberry Tree", null, null, 2500],
+      ["Key Lime Tree", null, 700, 3500],
+      ["Star Fruit Tree", null, 700, 2500],
+      ["Cherry Tree", null, null, 2500],
       ["Pepper - Black Pepper", 500, 500, 900],
       ["Banana Sucker", 600, 600, 1200],
       ["Plantain Sucker", 600, 600, 1200],
@@ -382,13 +382,14 @@ export async function syncNurseryPriceListToUnifiedInventory(db: Database) {
           }
 
           const label = categoryGroup.headers[index];
+          const optionLabel = getProductFormatLabel(title, label);
           const isStarterSeedling = label === "Starter Seedling";
           const quantity = isStarterSeedling ? 1000 : 100;
 
           return {
-            id: sanitizeSlug(label),
-            sku: `LO-${productSlug}-${sanitizeSlug(label)}`.toUpperCase(),
-            label,
+            id: sanitizeSlug(optionLabel),
+            sku: `LO-${productSlug}-${sanitizeSlug(optionLabel)}`.toUpperCase(),
+            label: optionLabel,
             description:
               label === "Starter Seedling"
                 ? "Young and ready to transplant."
@@ -401,7 +402,8 @@ export async function syncNurseryPriceListToUnifiedInventory(db: Database) {
             quantityReserved: 0,
             quantityAvailable: quantity,
             metadata: {
-              stage: label,
+              stage: optionLabel,
+              baseStage: label,
               source: "nursery-price-list",
             },
           };
@@ -504,7 +506,6 @@ const homeGardenPackageQuantities: Record<
     "Yam Slips": 2,
     "Irish Potato Slips": 4,
     Carrot: 12,
-    Beetroot: 12,
     "Banana Sucker": 1,
     "Plantain Sucker": 1,
   },
@@ -551,7 +552,6 @@ const homeGardenPackageQuantities: Record<
     "Yam Slips": 4,
     "Irish Potato Slips": 8,
     Carrot: 24,
-    Beetroot: 24,
     "Banana Sucker": 2,
     "Plantain Sucker": 2,
   },
@@ -598,7 +598,6 @@ const homeGardenPackageQuantities: Record<
     "Yam Slips": 6,
     "Irish Potato Slips": 12,
     Carrot: 36,
-    Beetroot: 36,
     "Banana Sucker": 3,
     "Plantain Sucker": 3,
   },
@@ -697,10 +696,10 @@ const homeGardenPackagePrices: Record<
     Callaloo: 50,
     "Malabar Spinach": 50,
     Cabbage: 50,
-    "Mulberry Tree": 150,
-    "Key Lime Tree": 150,
-    "Star Fruit Tree": 150,
-    "Cherry Tree": 150,
+    "Mulberry Tree": 2500,
+    "Key Lime Tree": 700,
+    "Star Fruit Tree": 700,
+    "Cherry Tree": 2500,
     "Pepper - Black Pepper": 500,
     "Sweet Potato Slips": 30,
     "Coco Root": 100,
@@ -744,10 +743,10 @@ const homeGardenPackagePrices: Record<
     Callaloo: 250,
     "Malabar Spinach": 250,
     Cabbage: 250,
-    "Mulberry Tree": 700,
+    "Mulberry Tree": 2500,
     "Key Lime Tree": 700,
     "Star Fruit Tree": 700,
-    "Cherry Tree": 700,
+    "Cherry Tree": 2500,
     "Pepper - Black Pepper": 500,
     "Sweet Potato Slips": 250,
     "Coco Root": 500,
@@ -791,10 +790,10 @@ const homeGardenPackagePrices: Record<
     Callaloo: 500,
     "Malabar Spinach": 500,
     Cabbage: 500,
-    "Mulberry Tree": 1500,
-    "Key Lime Tree": 1500,
-    "Star Fruit Tree": 1500,
-    "Cherry Tree": 1500,
+    "Mulberry Tree": 2500,
+    "Key Lime Tree": 3500,
+    "Star Fruit Tree": 2500,
+    "Cherry Tree": 2500,
     "Pepper - Black Pepper": 900,
     "Sweet Potato Slips": 500,
     "Coco Root": 900,
@@ -806,6 +805,59 @@ const homeGardenPackagePrices: Record<
     "Plantain Sucker": 1200,
   },
 };
+
+const homeGardenPackageFormatOverrides: Record<
+  string,
+  Partial<Record<HomeGardenPackageFormat, HomeGardenPackageFormat>>
+> = {
+  "Star Fruit Tree": {
+    starter: "garden",
+  },
+  "Mulberry Tree": {
+    starter: "premium",
+    garden: "premium",
+  },
+  "Key Lime Tree": {
+    starter: "garden",
+  },
+  "Cherry Tree": {
+    starter: "premium",
+    garden: "premium",
+  },
+};
+
+function getEffectiveHomeGardenPackageFormat(
+  productTitle: string,
+  requestedFormat: HomeGardenPackageFormat
+): HomeGardenPackageFormat {
+  return (
+    homeGardenPackageFormatOverrides[productTitle]?.[requestedFormat] ||
+    requestedFormat
+  );
+}
+
+function getProductFormatLabel(productTitle: string, fallbackLabel: string) {
+  const labelOverrides: Record<string, Record<string, string>> = {
+    "Star Fruit Tree": {
+      "Harvest-Ready": "Grafted (Near Harvest Ready)",
+      "16-inch Premium Pack": "Grafted (Near Harvest Ready)",
+    },
+    "Mulberry Tree": {
+      "Harvest-Ready": "Grafted (Near Harvest Ready)",
+      "16-inch Premium Pack": "Grafted (Near Harvest Ready)",
+    },
+    "Key Lime Tree": {
+      "Harvest-Ready": "Grafted (Near Harvest Ready)",
+      "16-inch Premium Pack": "Grafted (Near Harvest Ready)",
+    },
+    "Cherry Tree": {
+      "Harvest-Ready": "Grafted (Near Harvest Ready)",
+      "16-inch Premium Pack": "Grafted (Near Harvest Ready)",
+    },
+  };
+
+  return labelOverrides[productTitle]?.[fallbackLabel] || fallbackLabel;
+}
 
 export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
   await ensureUnifiedInventoryTable(db);
@@ -820,7 +872,11 @@ export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
       );
       const price = packageContents.reduce((sum, content) => {
         const title = content.productTitle;
-        const unitPrice = homeGardenPackagePrices[format.id][title] ?? 0;
+        const effectiveFormat = getEffectiveHomeGardenPackageFormat(
+          title,
+          format.id
+        );
+        const unitPrice = homeGardenPackagePrices[effectiveFormat][title] ?? 0;
 
         return sum + unitPrice * content.quantity;
       }, 0);
@@ -857,12 +913,12 @@ export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
       quantityOnHand: 100,
       quantityReserved: 0,
       quantityAvailable: 100,
-      shopTags: [TEST_PACKAGE_SHOP_SLUG],
+      shopTags: [GARDEN_PACKAGE_SHOP_SLUG],
       categoryTags: ["Package", "Garden"],
       shopListings: [
         {
-          shopKey: TEST_PACKAGE_SHOP_SLUG,
-          shopLabel: "Test Package Shop",
+          shopKey: GARDEN_PACKAGE_SHOP_SLUG,
+          shopLabel: "Garden Package",
           categoryKey: "package",
           categoryLabel: "Package",
           categorySortOrder: 5,
@@ -893,14 +949,20 @@ async function ensureHomeGardenPackageComponentItems(db: Database) {
     const slug = getHomeGardenPackageComponentSlug(productTitle);
     const skuSlug = sanitizeSlug(productTitle).toUpperCase();
 
-    const options = homeGardenPackageFormats.map((format) => {
+    const allowedFormats = homeGardenPackageFormats.filter(
+      (format) =>
+        getEffectiveHomeGardenPackageFormat(productTitle, format.id) ===
+        format.id
+    );
+    const options = allowedFormats.map((format) => {
       const quantity = format.id === "starter" ? 1000 : 100;
       const price = homeGardenPackagePrices[format.id][productTitle] ?? 0;
+      const optionLabel = getProductFormatLabel(productTitle, format.label);
 
       return {
-        id: sanitizeSlug(format.label),
+        id: sanitizeSlug(optionLabel),
         sku: `PKG-HOME-${skuSlug}-${format.optionSuffix}`,
-        label: format.label,
+        label: optionLabel,
         description: format.description,
         price,
         weight: 0.8,
@@ -933,12 +995,12 @@ async function ensureHomeGardenPackageComponentItems(db: Database) {
       quantityOnHand: totalQuantity,
       quantityReserved: 0,
       quantityAvailable: totalQuantity,
-      shopTags: [TEST_PACKAGE_SHOP_SLUG],
+      shopTags: [GARDEN_PACKAGE_SHOP_SLUG],
       categoryTags: ["PackageComponent"],
       shopListings: [
         {
-          shopKey: TEST_PACKAGE_SHOP_SLUG,
-          shopLabel: "Test Package Shop",
+          shopKey: GARDEN_PACKAGE_SHOP_SLUG,
+          shopLabel: "Garden Package",
           categoryKey: "package-component",
           categoryLabel: "PackageComponent",
           categorySortOrder: 999,
@@ -967,7 +1029,12 @@ function makeHomeGardenPackageContents(
 
   return Object.entries(quantities).map(([productTitle, quantity]) => ({
     productTitle,
-    sku: `PKG-HOME-${sanitizeSlug(productTitle).toUpperCase()}-${suffix}`,
+    sku: `PKG-HOME-${sanitizeSlug(productTitle).toUpperCase()}-${
+      homeGardenPackageFormats.find(
+        (item) =>
+          item.id === getEffectiveHomeGardenPackageFormat(productTitle, format)
+      )?.optionSuffix || suffix
+    }`,
     quantity,
   }));
 }

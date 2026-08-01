@@ -13,6 +13,12 @@ function readMetadata(value: unknown) {
     : {};
 }
 
+function readObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function readDeviceRecords(value: unknown) {
   return Array.isArray(value)
     ? value.filter(
@@ -93,6 +99,7 @@ export async function POST(request: Request) {
     const token = cleanText(body?.token, 140).replace(/[^a-zA-Z0-9_-]/g, "");
     const deviceKey = cleanText(body?.deviceKey, 220);
     const source = cleanText(body?.source || "customer-link", 80);
+    const deviceProfile = readObject(body?.deviceProfile);
 
     if (!token || !deviceKey) {
       return NextResponse.json(
@@ -137,6 +144,11 @@ export async function POST(request: Request) {
           userId: session?.user?.id || null,
           userName: session?.user?.name || null,
           userEmail: session?.user?.email || null,
+          deviceProfile,
+          deviceType: deviceProfile?.deviceType || null,
+          softwareType: deviceProfile?.softwareType || null,
+          browser: deviceProfile?.browser || null,
+          os: deviceProfile?.os || null,
           note:
             "Staff/admin device. Do not attribute customer browsing activity from this device to the customer.",
         }
@@ -144,6 +156,11 @@ export async function POST(request: Request) {
           role: "customer",
           source,
           orderCode,
+          deviceProfile,
+          deviceType: deviceProfile?.deviceType || null,
+          softwareType: deviceProfile?.softwareType || null,
+          browser: deviceProfile?.browser || null,
+          os: deviceProfile?.os || null,
           note:
             "Customer opened the receipt/order-status link from this browser.",
         };

@@ -14,6 +14,12 @@ function cleanToken(value: unknown) {
   return cleanText(value, 180).replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
+function readObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -21,6 +27,7 @@ export async function POST(request: Request) {
     const questionnaireSlug = cleanText(body?.questionnaireSlug, 160);
     const slideId = cleanText(body?.slideId, 180);
     const eventType = cleanText(body?.eventType || "slide_view", 80);
+    const deviceProfile = readObject(body?.deviceProfile);
 
     if (!token) {
       return NextResponse.json(
@@ -82,6 +89,11 @@ export async function POST(request: Request) {
           orderCode: link.orderCode || null,
           productTitle: link.productTitle || null,
           ownerIdentityKey: link.ownerIdentityKey || null,
+          deviceProfile,
+          deviceType: deviceProfile?.deviceType || null,
+          softwareType: deviceProfile?.softwareType || null,
+          browser: deviceProfile?.browser || null,
+          os: deviceProfile?.os || null,
         })}::jsonb,
         CURRENT_TIMESTAMP
       )

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import {
   littleOrchardPlantShowEvent,
   LITTLE_ORCHARD_SHOP_SLUG,
-  TEST_PACKAGE_SHOP_SLUG,
+  GARDEN_PACKAGE_SHOP_SLUG,
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
 import {
@@ -24,7 +24,11 @@ import { resolveShopSelectedLines } from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
-import type { ShopCart, ShopResolvedCartLine } from "@/types/questionnaire";
+import type {
+  ShopCart,
+  ShopCatalog,
+  ShopResolvedCartLine,
+} from "@/types/questionnaire";
 
 type PlantShopOrderBody = {
   questionnaireSlug?: string;
@@ -74,6 +78,22 @@ function normalizeContactMethod(value: unknown) {
     : "whatsapp";
 }
 
+const paymentPreferenceLabels = {
+  bank_transfer_scotia: "Bank transfer - Scotiabank",
+  bank_transfer_ncb: "Bank transfer - NCB",
+  cash_on_delivery: "Cash on delivery",
+  remittance: "Western Union / remittance request",
+  card_payment: "Card payment (coming soon)",
+} as const;
+
+function normalizePaymentPreference(value: unknown) {
+  const normalized = cleanText(value);
+
+  return normalized in paymentPreferenceLabels
+    ? (normalized as keyof typeof paymentPreferenceLabels)
+    : "";
+}
+
 function normalizeOrderCart(value: unknown): ShopCart {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -82,11 +102,38 @@ function normalizeOrderCart(value: unknown): ShopCart {
   return value as ShopCart;
 }
 
+function normalizeMetadata(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function isPackageShellOrderLine(
+  line: ShopResolvedCartLine,
+  catalog: ShopCatalog
+) {
+  const product = catalog.products.find((item) => item.id === line.productId);
+  const productMetadata = normalizeMetadata(product?.metadata);
+  const sizeOption = product?.sizeOptions.find(
+    (item) => item.id === line.sizeOptionId
+  );
+  const sizeMetadata = normalizeMetadata(sizeOption?.metadata);
+
+  return (
+    productMetadata.isPackage === true ||
+    String(productMetadata.source ?? "").trim() === "home-garden-package" ||
+    Number(sizeMetadata.packageContentCount ?? 0) > 0 ||
+    String(line.purchaseModeId ?? "").trim() === "package-content" ||
+    String(line.purchaseModeLabel ?? "").trim().toLowerCase() ===
+      "package contents"
+  );
+}
+
 async function getOrderShopCatalog(questionnaireSlug: string) {
-  if (questionnaireSlug === TEST_PACKAGE_SHOP_SLUG) {
+  if (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG) {
     await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
 
-    return getUnifiedShopCatalog(prisma as any, TEST_PACKAGE_SHOP_SLUG, {
+    return getUnifiedShopCatalog(prisma as any, GARDEN_PACKAGE_SHOP_SLUG, {
       ...littleOrchardShopCatalog,
       products: [],
     });
@@ -185,6 +232,8 @@ function buildOrderText({
   instagramHandle,
   tiktokHandle,
   facebookMessengerHandle,
+  paymentPreference,
+  paymentPreferenceLabel,
 }: {
   orderCode: string;
   fullName: string;
@@ -200,6 +249,8 @@ function buildOrderText({
   instagramHandle: string;
   tiktokHandle: string;
   facebookMessengerHandle: string;
+  paymentPreference: keyof typeof paymentPreferenceLabels | "";
+  paymentPreferenceLabel: string;
 }) {
   const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
   const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -258,7 +309,9 @@ function buildOrderText({
   if (facebookMessengerHandle) {
     parts.push(`Facebook Messenger: ${facebookMessengerHandle}`);
   }
-
+  if (paymentPreferenceLabel) {
+    parts.push(`Preferred payment option: ${paymentPreferenceLabel}`);
+  }
   parts.push(
     "",
     "Selected Items",
@@ -272,13 +325,13 @@ function buildOrderText({
     `Pickup / delivery: ${fulfillmentLabel}`,
     fulfillmentDetail,
     ...deliveryAddressLines,
-    `Event: ${littleOrchardPlantShowEvent.eventName}`,
+    `Shop: ${littleOrchardPlantShowEvent.eventName}`,
     "",
     "Order Status Link",
     "",
     orderStatusLink,
     "",
-    "Open this link to check payment and fulfillment status. Please show your order message to the cashier when you are ready to pay and collect your items."
+    "Open this link to check payment and fulfillment status. We will use your selected update channel to confirm payment and fulfillment details."
   );
 
   return parts.join("\n");
@@ -372,11 +425,21 @@ export async function POST(request: Request) {
     const questionnaireSlug = cleanText(body.questionnaireSlug);
     const deviceType = normalizeDeviceType(body.deviceType);
     const contactMethod = normalizeContactMethod(body.contactMethod);
+    const paymentPreference = normalizePaymentPreference(
+      body.answers?.plantShopPaymentPreference
+    );
+    const paymentPreferenceLabel = paymentPreference
+      ? paymentPreferenceLabels[paymentPreference]
+      : "";
     const orderEmail = email && isValidEmail(email) ? email : "";
     const cart = normalizeOrderCart(body.orderCart);
     const shopCatalog = await getOrderShopCatalog(questionnaireSlug);
-    const lines = resolveShopSelectedLines(shopCatalog, cart).filter(
-      (line) => line.selected !== false && line.availabilityStatus !== "unavailable"
+    const resolvedLines = resolveShopSelectedLines(shopCatalog, cart).filter(
+      (line) =>
+        line.selected !== false && line.availabilityStatus !== "unavailable"
+    );
+    const lines = resolvedLines.filter(
+      (line) => !isPackageShellOrderLine(line, shopCatalog)
     );
 
     if (!orderRequestKey) {
@@ -470,6 +533,40 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!paymentPreference) {
+      return NextResponse.json(
+        { ok: false, error: "Choose a payment option." },
+        { status: 400 }
+      );
+    }
+
+    if (paymentPreference === "card_payment") {
+      return NextResponse.json(
+        { ok: false, error: "Card payment is not available yet." },
+        { status: 400 }
+      );
+    }
+
+    if (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG) {
+      const requiredAddressFields = [
+        body.answers?.plantDeliveryCountry,
+        body.answers?.plantDeliveryRegion,
+        body.answers?.plantDeliveryCityTown,
+        body.answers?.plantDeliveryStreetAddress,
+      ];
+
+      if (requiredAddressFields.some((value) => !cleanText(value))) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Enter the country, parish or region, city or town, and street address for package delivery.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const overLimitConflicts = [];
     const quantityOverrides = await getPlantShopEventQuantityOverrideMap(
       prisma as any,
@@ -556,11 +653,20 @@ export async function POST(request: Request) {
     const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
     const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
     const submittedAt = new Date();
-    const fulfillmentOption = getLittleOrchardFulfillmentOption(body.answers);
-    const fulfillmentKey = getLittleOrchardFulfillmentKey(body.answers);
+    const fulfillmentAnswers =
+      questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG &&
+      !cleanText(body.answers?.plantShopFulfillmentMethod)
+        ? {
+            ...(body.answers || {}),
+            plantShopFulfillmentMethod: "package_delivery",
+          }
+        : body.answers;
+    const fulfillmentOption =
+      getLittleOrchardFulfillmentOption(fulfillmentAnswers);
+    const fulfillmentKey = getLittleOrchardFulfillmentKey(fulfillmentAnswers);
 
     const deliveryAddressLines = getLittleOrchardDeliveryAddressLines(
-      body.answers
+      fulfillmentAnswers
     );
     const shippingMethod = fulfillmentOption.shippingMethod;
     const metadata = toJsonValue({
@@ -576,6 +682,8 @@ export async function POST(request: Request) {
       customerInstagramHandle: instagramHandle || null,
       customerTiktokHandle: tiktokHandle || null,
       customerFacebookMessengerHandle: facebookMessengerHandle || null,
+      paymentPreference: paymentPreference || null,
+      paymentPreferenceLabel: paymentPreferenceLabel || null,
       fulfillmentPreference: fulfillmentOption.label,
       fulfillmentDetail: fulfillmentOption.detail,
       deliveryAddressLines,
@@ -639,6 +747,9 @@ export async function POST(request: Request) {
             : "",
           `Device type: ${deviceType}`,
           `Contact method: ${contactMethod}`,
+          paymentPreferenceLabel
+            ? `Preferred payment option: ${paymentPreferenceLabel}`
+            : "",
           phoneNumber ? `Customer phone: ${phoneNumber}` : "",
           whatsappNumber ? `Customer WhatsApp: ${whatsappNumber}` : "",
           instagramHandle ? `Customer Instagram: ${instagramHandle}` : "",
@@ -699,9 +810,19 @@ export async function POST(request: Request) {
           source: "Little Orchard Shop",
           previousStatus: "PENDING",
           nextStatus: "PENDING",
-          notes: "Order is awaiting customer payment.",
+          notes: [
+            "Order is awaiting customer payment.",
+            paymentPreferenceLabel
+              ? `Selected payment option: ${paymentPreferenceLabel}.`
+              : "",
+            "Customer may request a payment option change through their selected receipt / communication channel.",
+          ]
+            .filter(Boolean)
+            .join(" "),
           metadata: {
             orderActivityKey: `${orderCode}:awaiting-payment`,
+            paymentPreference: paymentPreference || null,
+            paymentPreferenceLabel: paymentPreferenceLabel || null,
             paymentWindowMinutes:
               littleOrchardPlantShowEvent.reservationDurationMinutes,
           },
@@ -724,6 +845,8 @@ export async function POST(request: Request) {
       instagramHandle,
       tiktokHandle,
       facebookMessengerHandle,
+      paymentPreference,
+      paymentPreferenceLabel,
     });
 
     let emailDeliveryStatus = "not_requested";

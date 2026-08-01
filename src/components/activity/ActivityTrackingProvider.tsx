@@ -15,6 +15,7 @@ import {
   trackActivity as dispatchActivity,
 } from "@/lib/activity/trackActivity";
 import type { ActivityEvent, ActivityIdentity } from "@/lib/activity/types";
+import { getClientDeviceProfile } from "@/lib/device/clientDeviceProfile";
 
 type StoredActivityState = ActivityIdentity & {
   sessionCount: number;
@@ -214,6 +215,7 @@ async function persistActivity(state: StoredActivityState, event: ActivityEvent)
         visitorFirstSeenAt: state.firstSeenAt,
         visitorSessionStartedAt: state.sessionStartedAt,
         anonymousInterestScore: state.anonymousInterestScore,
+        deviceProfile: getClientDeviceProfile(),
         ...properties,
       },
     }),

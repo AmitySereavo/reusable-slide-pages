@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { getClientDeviceProfile } from "@/lib/device/clientDeviceProfile";
 
 const DEVICE_KEY_STORAGE_KEY = "reusable-slide-pages:browser-device-key";
 
@@ -45,6 +46,7 @@ export default function CustomerDeviceTracker({
         token,
         deviceKey,
         source,
+        deviceProfile: getClientDeviceProfile(),
       }),
     }).catch(() => {});
   }, [source, token]);

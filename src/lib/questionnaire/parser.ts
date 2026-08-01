@@ -1129,7 +1129,9 @@ function parseFieldOptions(rawOptions?: string): SelectOption[] | undefined {
     .map((part) => part.trim())
     .filter(Boolean)
     .map((item) => {
-      const [rawValue, rawLabel] = item.split("=").map((part) => part.trim());
+      const disabled = item.startsWith("[") && item.endsWith("]");
+      const clean = item.replace(/^\[/, "").replace(/\]$/, "");
+      const [rawValue, rawLabel] = clean.split("=").map((part) => part.trim());
 
       if (!rawValue) {
         return null;
@@ -1138,6 +1140,7 @@ function parseFieldOptions(rawOptions?: string): SelectOption[] | undefined {
       return {
         value: rawValue,
         label: rawLabel || rawValue,
+        disabled,
       };
     })
     .filter(Boolean) as SelectOption[];

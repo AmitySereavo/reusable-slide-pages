@@ -1,7 +1,7 @@
 import type { ShopCatalog } from "@/types/questionnaire";
 
 export const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
-export const TEST_PACKAGE_SHOP_SLUG = "test-package-shop";
+export const GARDEN_PACKAGE_SHOP_SLUG = "garden-package";
 export const LITTLE_ORCHARD_SHOP_SOURCE = "little_orchard_shop";
 
 export const littleOrchardPlantShowEvent = {

@@ -435,12 +435,12 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",
   },
 
-  "test-package-shop": {
-    slug: "test-package-shop",
-    name: "Test Package Shop",
+  "garden-package": {
+    slug: "garden-package",
+    name: "Garden Package",
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
-    dslPath: "src/config/questionnaires/testPackageShopDsl.txt",
+    dslPath: "src/config/questionnaires/gardenPackageDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
     variables: {
@@ -451,7 +451,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
       },
       littleOrchardPlantShowEvent,
     },
-    dynamicVariablesEndpoint: "/api/questionnaires/test-package-shop/catalog",
+    dynamicVariablesEndpoint: "/api/questionnaires/garden-package/catalog",
   },
 
   "lettuce-grow-guide": {

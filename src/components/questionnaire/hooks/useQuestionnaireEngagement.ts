@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { getClientDeviceProfile } from "@/lib/device/clientDeviceProfile";
 import { readLocalEngagementSnapshot } from "@/lib/questionnaire/engagementTracking";
 
 type UseQuestionnaireEngagementParams = {
@@ -49,6 +50,7 @@ export function useQuestionnaireEngagement({
         questionnaireSlug,
         slideId: currentSlideId,
         eventType: "slide_view",
+        deviceProfile: getClientDeviceProfile(),
       }),
     }).catch(() => null);
   }, [currentSlideId, guideLinkToken, questionnaireSlug]);

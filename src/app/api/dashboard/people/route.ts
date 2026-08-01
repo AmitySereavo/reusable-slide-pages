@@ -487,6 +487,11 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
           slideId: visit.slideId,
           slideLabel: makeSlideLabel(visit.slideId, visit.questionnaireSlug),
           deviceKey: visit.deviceKey,
+          userAgent: visit.userAgent || null,
+          metadata:
+            visit.metadata && typeof visit.metadata === "object"
+              ? visit.metadata
+              : {},
           createdAt: toIso(visit.createdAt),
         })),
       };
@@ -502,6 +507,14 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
         if (!deviceKey) continue;
 
         const previous = growGuideDeviceMap.get(deviceKey);
+        const metadata =
+          visit.metadata && typeof visit.metadata === "object"
+            ? visit.metadata
+            : {};
+        const deviceProfile =
+          metadata.deviceProfile && typeof metadata.deviceProfile === "object"
+            ? metadata.deviceProfile
+            : null;
         const visitAt = visit.createdAt;
         const previousFirstMs = new Date(previous?.firstSeenAt || visitAt || 0).getTime();
         const previousLastMs = new Date(previous?.lastSeenAt || visitAt || 0).getTime();
@@ -515,6 +528,18 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
           orderCode: guideLink.orderCode || previous?.orderCode || null,
           guideSlug: guideLink.guideSlug || previous?.guideSlug || null,
           productTitle: guideLink.productTitle || previous?.productTitle || null,
+          userAgent: visit.userAgent || previous?.userAgent || null,
+          deviceProfile: deviceProfile || previous?.deviceProfile || null,
+          deviceType:
+            metadata.deviceType || previous?.deviceType || deviceProfile?.deviceType || null,
+          softwareType:
+            metadata.softwareType ||
+            previous?.softwareType ||
+            deviceProfile?.softwareType ||
+            null,
+          browser:
+            metadata.browser || previous?.browser || deviceProfile?.browser || null,
+          os: metadata.os || previous?.os || deviceProfile?.os || null,
           note: `Opened ${guideLink.productTitle || guideLink.guideSlug || "grow guide"}`,
           firstSeenAt:
             previous && previousFirstMs <= visitMs ? previous.firstSeenAt : visitAt,
@@ -706,6 +731,27 @@ function serializeUnregisteredVisitorActivities(activities: any[]) {
             role: "unregistered-visitor",
             source: "Interest threshold activity",
             deviceKey,
+            deviceProfile:
+              activity.metadata &&
+              typeof activity.metadata === "object" &&
+              activity.metadata.deviceProfile &&
+              typeof activity.metadata.deviceProfile === "object"
+                ? activity.metadata.deviceProfile
+                : null,
+            deviceType:
+              activity.metadata &&
+              typeof activity.metadata === "object" &&
+              activity.metadata.deviceProfile &&
+              typeof activity.metadata.deviceProfile === "object"
+                ? activity.metadata.deviceProfile.deviceType
+                : null,
+            softwareType:
+              activity.metadata &&
+              typeof activity.metadata === "object" &&
+              activity.metadata.deviceProfile &&
+              typeof activity.metadata.deviceProfile === "object"
+                ? activity.metadata.deviceProfile.softwareType
+                : null,
             firstSeenAt: createdAt,
             lastSeenAt: createdAt,
           },
@@ -1312,6 +1358,7 @@ export async function GET(request: Request) {
               'userAgent', v."userAgent",
               'location', v."location",
               'referrer', v."referrer",
+              'metadata', v."metadata",
               'createdAt', v."createdAt"
             )
             ORDER BY v."createdAt" ASC

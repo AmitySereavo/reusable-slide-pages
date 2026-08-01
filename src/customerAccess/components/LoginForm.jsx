@@ -8,6 +8,7 @@ import { siteConfig } from "../config/siteConfig";
 
 export default function LoginForm({
   businessName = siteConfig.businessName,
+  successRedirect,
   routes = {
     signup: siteConfig.routes.signup,
     dashboard: siteConfig.routes.dashboard,
@@ -38,7 +39,7 @@ export default function LoginForm({
           setPendingVerificationContext({
           identifier,
           target: "account",
-          successRedirect: routes.dashboard || "/dashboard",
+          successRedirect: successRedirect || routes.dashboard || "/dashboard",
         });
       setMessage("Your account needs verification before login.");
       setMessageType("info");
@@ -54,7 +55,7 @@ export default function LoginForm({
       setMessageType("success");
 
       setTimeout(() => {
-        window.location.replace(routes.dashboard || "/dashboard");
+        window.location.replace(successRedirect || routes.dashboard || "/dashboard");
       }, 1000);
       return;
     }

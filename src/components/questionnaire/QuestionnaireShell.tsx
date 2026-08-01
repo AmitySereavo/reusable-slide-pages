@@ -29,7 +29,6 @@ import MediaRenderer, {
 } from "./renderers/MediaRenderer";
 import {
   CartBundledAddOnsSummary,
-  CartItemCountdown,
   CartReviewSectionHeading,
   CartTicketMealSummary,
   ReviewTotalsRenderer,
@@ -2603,7 +2602,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       { href: "/dashboard/identity-verifications", label: "ID Verifications" },
       { href: "/dashboard/email-sequences", label: "Email Sequences" },
       { href: "/shop", label: "Little Orchard Shop" },
-      { href: "/test-package-shop", label: "Test Package Shop" },
+      { href: "/gardenpackage", label: "Garden Package" },
       { href: "/questionnaire/project-docs", label: "Project Docs" },
       { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
       { href: "/questionnaire/escape-album", label: "Escape Album" },
@@ -3834,6 +3833,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         });
 
         const data = await response.json().catch(() => null);
+
+        if (
+          (response.status === 401 || response.status === 403) &&
+          data?.loginUrl &&
+          typeof window !== "undefined"
+        ) {
+          window.location.href = String(data.loginUrl);
+          return;
+        }
 
         if (!response.ok || !data) {
           return;
@@ -5827,6 +5835,67 @@ async function next() {
     return "";
   }
 
+  function getCurrentSlideFieldErrors() {
+    const fieldErrors: Record<string, string> = {};
+
+    if (!currentSlide || !submitError) {
+      return fieldErrors;
+    }
+
+    if (currentSlide.id === "give-contact-info-video") {
+      if (!String(answers.fullName ?? "").trim()) {
+        fieldErrors.fullName = "Enter your full name.";
+      }
+
+      const email = String(answers.email ?? "").trim();
+      if (!email) {
+        fieldErrors.email = "Enter your email address.";
+      } else if (!isValidTicketOwnerEmail(email)) {
+        fieldErrors.email = "Enter a valid email address.";
+      }
+
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      if (phoneDigits.length < 10) {
+        fieldErrors.primaryPhone = "Enter a phone number with at least 10 digits.";
+        fieldErrors.phone = "Enter a phone number with at least 10 digits.";
+      }
+    }
+
+    if (currentSlide.id === "contact-whatsapp") {
+      const whatsappNumber = String(answers.whatsappNumber ?? "").trim();
+      const whatsappDigits = whatsappNumber.replace(/\D/g, "");
+
+      if (whatsappNumber && whatsappDigits.length < 11) {
+        fieldErrors.whatsappNumber =
+          "Enter your WhatsApp number with country and area code.";
+      }
+    }
+
+    if (currentSlide.fields?.length) {
+      const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
+
+      for (const field of visibleFields) {
+        if (!field.required) {
+          continue;
+        }
+
+        const value = answers[field.name];
+        const isMissing =
+          field.type === "checkbox"
+            ? value !== true
+            : String(value ?? "").trim().length === 0;
+
+        if (isMissing) {
+          fieldErrors[field.name] = `${field.label} is required.`;
+        }
+      }
+    }
+
+    return fieldErrors;
+  }
+
   function getPlantGiveawayRequiredSlideError(slideId: string) {
     if (slideId === "gardening-journey-video") {
       return String(answers.gardenerLevel ?? "").trim()
@@ -7384,6 +7453,10 @@ async function handleNext() {
     const sharedOrderHasDiscount =
       sharedOrderSummary.discountTotal > 0;
 
+    const currentSlideFieldErrors = getCurrentSlideFieldErrors();
+    const hasCurrentSlideFieldErrors =
+      Object.keys(currentSlideFieldErrors).length > 0;
+
   return (
     <main
       className={styles.page}
@@ -8735,6 +8808,9 @@ async function handleNext() {
                               const targetShop =
                                 targetLine?.fulfillmentType === "ticket"
                                   ? "invitation-shop"
+                                  : currentSlide.id === "test-package-invoice" ||
+                                      currentSlide.id === "test-package-payment"
+                                    ? "test-package-adjust"
                                   : currentSlide.id === "plant-order-review"
                                     ? "plant-starter-shop"
                                     : currentSlide.id === "review-selected-items"
@@ -8880,6 +8956,9 @@ async function handleNext() {
                               "cartReturnTarget",
                               currentSlide.id === "review-selected-items"
                                 ? "review-selected-items"
+                                : currentSlide.id === "test-package-invoice" ||
+                                    currentSlide.id === "test-package-payment"
+                                  ? currentSlide.id
                                 : "review-order"
                             );
                             goToTarget(
@@ -8887,6 +8966,9 @@ async function handleNext() {
                                 ? "receiving-plants"
                                 : currentSlide.id === "review-selected-items"
                                   ? "pickup-information"
+                                  : currentSlide.id === "test-package-invoice" ||
+                                      currentSlide.id === "test-package-payment"
+                                    ? "test-package-delivery"
                                 : "delivery-options"
                             );
                           }}
@@ -8895,6 +8977,9 @@ async function handleNext() {
                               "cartReturnTarget",
                               currentSlide.id === "review-selected-items"
                                 ? "review-selected-items"
+                                : currentSlide.id === "test-package-invoice" ||
+                                    currentSlide.id === "test-package-payment"
+                                  ? currentSlide.id
                                 : "review-order"
                             );
                             goToTarget(
@@ -8902,6 +8987,9 @@ async function handleNext() {
                                 ? "give-contact-info-video"
                                 : currentSlide.id === "review-selected-items"
                                   ? "contact-details-adjust"
+                                  : currentSlide.id === "test-package-invoice" ||
+                                      currentSlide.id === "test-package-payment"
+                                    ? "test-package-contact"
                                 : "contact-details"
                             );
                           }}
@@ -9079,6 +9167,9 @@ async function handleNext() {
                             const targetShop =
                               targetLine?.fulfillmentType === "ticket"
                                 ? "invitation-shop"
+                                : currentSlide.id === "test-package-invoice" ||
+                                    currentSlide.id === "test-package-payment"
+                                  ? "test-package-adjust"
                                 : currentSlide.id === "plant-order-review"
                                   ? "plant-starter-shop"
                                   : currentSlide.id === "review-selected-items"
@@ -9283,6 +9374,7 @@ async function handleNext() {
                               answers={answers}
                               variables={mergedVariables}
                               setAnswer={setAnswer}
+                              errorMessage={currentSlideFieldErrors[field.name]}
                               isPasswordVisible={
                                 visiblePasswordFields[field.name] === true
                               }
@@ -9295,6 +9387,7 @@ async function handleNext() {
                       ) : null}
 
                       {submitError &&
+                      !hasCurrentSlideFieldErrors &&
                       currentSlide.id !== "delete-account-confirmed" ? (
                         <p className={styles.formError}>{submitError}</p>
                       ) : null}
@@ -9429,6 +9522,7 @@ async function handleNext() {
                               answers={answers}
                               variables={mergedVariables}
                               setAnswer={setAnswer}
+                              errorMessage={currentSlideFieldErrors[field.name]}
                               isPasswordVisible={
                                 visiblePasswordFields[field.name] === true
                               }
@@ -9456,6 +9550,7 @@ async function handleNext() {
                         ) : null}
 
                         {submitError &&
+                        !hasCurrentSlideFieldErrors &&
                         currentSlide.id !== "delete-account-confirmed" ? (
                           <p className={styles.formError}>{submitError}</p>
                         ) : null}
@@ -9667,21 +9762,6 @@ async function handleNext() {
                   {downloadNotice ? (
                     <div className={styles.downloadNotice}>
                       {downloadNotice}
-                    </div>
-                  ) : null}
-
-                  {currentSlide.type === "shop" &&
-                  currentSlide.shopMode === "review" &&
-                  sharedOrderHasWeight ? (
-                    <div className={styles.orderWeightSummary}>
-                      Total order weight:{" "}
-                      {formatWeight(
-                        sharedOrderLines.reduce(
-                          (sum, line) => sum + (line.lineWeight ?? 0),
-                          0
-                        ),
-                        sharedShopCatalog?.weightUnit
-                      )}
                     </div>
                   ) : null}
 
@@ -11616,15 +11696,17 @@ function ReviewSummaryRenderer({
         (item) => item.code === deliverySelection.countryCode
       )
     : undefined;
-  const isLittleOrchardOrder =
-    String(answers.plantShopFulfillmentMethod ?? "").trim().length > 0;
-  const littleOrchardFulfillment =
-    isLittleOrchardOrder ? getLittleOrchardFulfillmentOption(answers) : null;
-  const littleOrchardFulfillmentKey = getLittleOrchardFulfillmentKey(answers);
   const littleOrchardDeliveryAddressLines =
-    littleOrchardFulfillmentKey === "paid_delivery"
-      ? getLittleOrchardDeliveryAddressLines(answers)
-      : [];
+    getLittleOrchardDeliveryAddressLines(answers);
+  const hasLittleOrchardDeliveryAddress =
+    littleOrchardDeliveryAddressLines.length > 0;
+  const isLittleOrchardOrder =
+    String(answers.plantShopFulfillmentMethod ?? "").trim().length > 0 ||
+    hasLittleOrchardDeliveryAddress;
+  const littleOrchardFulfillment =
+    isLittleOrchardOrder && !hasLittleOrchardDeliveryAddress
+      ? getLittleOrchardFulfillmentOption(answers)
+      : null;
   const contactPhone = String(
     answers.whatsappNumber ?? answers.primaryPhone ?? answers.phone ?? ""
   ).trim();
@@ -11725,6 +11807,12 @@ function ReviewSummaryRenderer({
               <>
                 <div>{littleOrchardFulfillment.label}</div>
                 <div>{littleOrchardFulfillment.detail}</div>
+              </>
+            ) : null}
+
+            {hasLittleOrchardDeliveryAddress ? (
+              <>
+                <div>Delivery to an address</div>
                 {littleOrchardDeliveryAddressLines.map((line) => (
                   <div key={line}>{line}</div>
                 ))}
@@ -12458,8 +12546,8 @@ function ShopSlideRenderer({
   if (!catalog?.products.length) {
     return (
       <div className={styles.body}>
-        <p>No shop items are showing right now.</p>
-        <p>Try refreshing the page.</p>
+        <p>If shop items take too long to load,</p>
+        <p>try refreshing the page.</p>
       </div>
     );
   }
@@ -12506,7 +12594,7 @@ function ShopSlideRenderer({
       : displayProducts;
   const renderedReviewSections = new Set<number>();
   const isPackageComparisonShop =
-    slideId === "test-package-shop" && slideMode === "browse";
+    slideId === "garden-package" && slideMode === "browse";
 
   const getPackageFormatLabel = (label: string) => {
     const normalized = label.toLowerCase();
@@ -13900,6 +13988,10 @@ function ShopSlideRenderer({
                       getPackageComponentSection(line.productTitle) === section
                   ),
                 }));
+                const isPackageShellReviewLine =
+                  slideMode === "review" &&
+                  (cartLine?.metadata?.packageShell === true ||
+                    packageProductIdSet.has(product.id));
                 const handleAddToCart = () => {
                   if (!canAddToCart) {
                     return;
@@ -13984,13 +14076,7 @@ function ShopSlideRenderer({
                             )
                           }
                         />
-                        {showReservationCountdown ? (
-                          <CartItemCountdown
-                            secondsRemaining={reservationSecondsRemaining}
-                          />
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
+                        <span aria-hidden="true" />
                         <button
                           type="button"
                           className={styles.cartIconButton}
@@ -14090,13 +14176,7 @@ function ShopSlideRenderer({
                             )
                           }
                         />
-                        {showReservationCountdown ? (
-                          <CartItemCountdown
-                            secondsRemaining={reservationSecondsRemaining}
-                          />
-                        ) : (
-                          <span aria-hidden="true" />
-                        )}
+                        <span aria-hidden="true" />
                         <button
                           type="button"
                           className={styles.cartIconButton}
@@ -14348,6 +14428,19 @@ function ShopSlideRenderer({
                             </div>
                           </section>
                         ))}
+                        {onAdjustLine ? (
+                          <button
+                            type="button"
+                            className={styles.secondaryButton}
+                            onClick={() => onAdjustLine(product.id, sizeOption.id)}
+                            style={{
+                              borderColor: theme.colors.border,
+                              color: theme.colors.text,
+                            }}
+                          >
+                            Adjust package items
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -14704,7 +14797,7 @@ function ShopSlideRenderer({
                     </div>
                   ) : null}
 
-                  {slideMode === "review" ? (
+                  {slideMode === "review" && !isPackageShellReviewLine ? (
                     <div className={styles.reviewMetaRow}>
                       {sizeOption.description ? (
                         <span>{sizeOption.description}</span>
@@ -14735,6 +14828,7 @@ function ShopSlideRenderer({
                   ) : null}
 
                   {slideMode === "review" &&
+                  !isPackageShellReviewLine &&
                   purchaseRecipients.length > 0 ? (
                     <div className={styles.purchaseForOthersReview}>
                       <strong>Purchased for</strong>
@@ -14749,7 +14843,7 @@ function ShopSlideRenderer({
                     </div>
                   ) : null}
 
-                  {slideMode === "review" ? (
+                  {slideMode === "review" && !isPackageShellReviewLine ? (
                     <div className={styles.cartItemPriceRow}>
                       <div className={styles.sizePrice}>
                         {resolvedLine?.baseUnitPrice !== undefined &&

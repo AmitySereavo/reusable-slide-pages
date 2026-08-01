@@ -604,6 +604,7 @@ function DeviceLeadDetails({ record }) {
               {formatDate(device.lastSeenAt)}
             </span>
             {device.referrer ? <span>Referrer: {device.referrer}</span> : null}
+            <DeviceProfileLines device={device} />
             <DeviceActivityEvents device={device} />
           </>
         )}
@@ -892,6 +893,7 @@ function PersonDetails({ record, onProfileAction }) {
               First seen {formatDate(device.firstSeenAt)} Â· Last seen{" "}
               {formatDate(device.lastSeenAt)}
             </span>
+            <DeviceProfileLines device={device} />
             <DeviceActivityEvents device={device} />
           </>
         )}
@@ -952,6 +954,7 @@ function CustomerDetails({ record, onProfileAction }) {
               </span>
             ) : null}
             {device.note ? <span>{device.note}</span> : null}
+            <DeviceProfileLines device={device} />
             <DeviceActivityEvents device={device} />
           </>
         )}
@@ -1926,6 +1929,50 @@ function getDeviceActivityLabel(source) {
       receipt: "Opened receipt link",
       "receipt-download-print": "Downloaded / printed receipt",
     }[source] || String(source || "Device activity").replace(/-/g, " ")
+  );
+}
+
+function DeviceProfileLines({ device }) {
+  const profile =
+    device?.deviceProfile &&
+    typeof device.deviceProfile === "object" &&
+    !Array.isArray(device.deviceProfile)
+      ? device.deviceProfile
+      : {};
+  const deviceType = device?.deviceType || profile.deviceType;
+  const softwareType = device?.softwareType || profile.softwareType;
+  const browser = device?.browser || profile.browser;
+  const os = device?.os || profile.os;
+  const viewport =
+    profile.viewport && typeof profile.viewport === "object"
+      ? profile.viewport
+      : null;
+  const screen =
+    profile.screen && typeof profile.screen === "object" ? profile.screen : null;
+  const softwareLine =
+    softwareType || [browser, os].filter(Boolean).join(" on ");
+  const sizeLine = [
+    viewport?.width && viewport?.height
+      ? `Viewport ${viewport.width} x ${viewport.height}`
+      : "",
+    screen?.width && screen?.height
+      ? `Screen ${screen.width} x ${screen.height}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" - ");
+
+  if (!deviceType && !softwareLine && !sizeLine) {
+    return null;
+  }
+
+  return (
+    <>
+      {[deviceType, softwareLine].filter(Boolean).length ? (
+        <span>{[deviceType, softwareLine].filter(Boolean).join(" - ")}</span>
+      ) : null}
+      {sizeLine ? <span>{sizeLine}</span> : null}
+    </>
   );
 }
 

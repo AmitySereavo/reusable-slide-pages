@@ -8,6 +8,7 @@ import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import { getAdminSession } from "@/lib/auth/adminGuard";
 import CustomerDeviceTracker from "@/components/plantShop/CustomerDeviceTracker";
 import CountdownTimer from "./CountdownTimer";
+import BankDetailsCopyPanel from "./BankDetailsCopyPanel";
 
 function normalizeToken(value: string) {
   return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 120);
@@ -54,6 +55,34 @@ function getStatusItemTitle(item: any) {
 
 function getRequestedItemLabel(item: any) {
   return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
+}
+
+function getSelectedBankDetails(paymentPreference: unknown) {
+  const preference = String(paymentPreference || "").trim();
+
+  if (preference === "bank_transfer_scotia") {
+    return {
+      title: "Scotiabank",
+      lines: [
+        "YVONNE DOWNER",
+        "Savings / Transit: 60145",
+        "Account: 60145 000804485",
+      ],
+    };
+  }
+
+  if (preference === "bank_transfer_ncb") {
+    return {
+      title: "NCB",
+      lines: [
+        "Yvonne Downer",
+        "Branch: Half-Way Tree",
+        "Account: 104004032",
+      ],
+    };
+  }
+
+  return null;
 }
 
 async function getOrderItems(token: string) {
@@ -137,6 +166,10 @@ export default async function OrderStatusPage({
   const receiptCode = String(metadata.receiptCode || "") || makeReceiptCode(orderCode);
   const paymentStatus = String(metadata.paymentStatus || "AWAITING_PAYMENT");
   const isPaymentConfirmed = paymentStatus === "PAYMENT_CONFIRMED";
+  const paymentPreferenceLabel = String(
+    metadata.paymentPreferenceLabel || "Not selected"
+  );
+  const selectedBankDetails = getSelectedBankDetails(metadata.paymentPreference);
   const customerName = String(firstItem.recipientName || "Customer");
   const createdAtMs = new Date(firstItem.createdAt).getTime();
   const paymentWindowExpiresAt = Number.isFinite(createdAtMs)
@@ -231,6 +264,25 @@ export default async function OrderStatusPage({
                 Your items might be made publicly available again, then sold to
                 someone else.
               </span>
+              <span>
+                Selected payment option: <strong>{paymentPreferenceLabel}</strong>
+              </span>
+              <span>
+                You may request a payment option change through your selected
+                receipt / communication channel.
+              </span>
+              {selectedBankDetails ? (
+                <>
+                  <BankDetailsCopyPanel
+                    title={selectedBankDetails.title}
+                    lines={selectedBankDetails.lines}
+                  />
+                  <span>
+                    Please send a screenshot or copy of the payment receipt
+                    after payment.
+                  </span>
+                </>
+              ) : null}
             </>
           )}
         </div>
@@ -247,8 +299,12 @@ export default async function OrderStatusPage({
           />
           <Info label="Customer" value={customerName} />
           <Info
-            label="Payment method"
-            value={String(metadata.paymentMethodLabel || "Not confirmed yet")}
+            label={isPaymentConfirmed ? "Payment method" : "Selected payment option"}
+            value={String(
+              isPaymentConfirmed
+                ? metadata.paymentMethodLabel || "Not confirmed yet"
+                : paymentPreferenceLabel
+            )}
           />
           <Info label="Order total" value={formatMoney(currencyCode, total)} />
           <Info
@@ -358,12 +414,22 @@ export default async function OrderStatusPage({
           >
             Claim a free plant
           </a>
-          <a
-            href={`/receipt/${encodeURIComponent(token)}`}
-            style={giveawayLinkStyle}
-          >
-            View receipt
-          </a>
+          {isPaymentConfirmed ? (
+            <a
+              href={`/receipt/${encodeURIComponent(token)}`}
+              style={giveawayLinkStyle}
+            >
+              View receipt
+            </a>
+          ) : (
+            <span
+              aria-disabled="true"
+              title="Receipt unlocks after payment is confirmed."
+              style={disabledGiveawayLinkStyle}
+            >
+              View receipt
+            </span>
+          )}
           {adminSession ? (
             <a
               href={`/dashboard/orders?query=${encodeURIComponent(orderCode)}`}
@@ -544,6 +610,13 @@ const giveawayLinkStyle = {
 const adminLinkStyle = {
   ...giveawayLinkStyle,
   background: "#7B3F2A",
+};
+
+const disabledGiveawayLinkStyle = {
+  ...giveawayLinkStyle,
+  background: "#D7D0C5",
+  color: "rgba(40, 35, 31, 0.58)",
+  cursor: "not-allowed",
 };
 
 const orderStatusLinkRowStyle = {

@@ -50,7 +50,7 @@
 ```txt
 - /shop redirects or rewrites to /questionnaire/little-orchard-shop.
 - The shop intro shows ParaLife Trees, Little Orchard Shop, and the plant-market flyer.
-- Product browse shows the initial Jamaica Horticultural Society plant inventory in JMD.
+- Product browse shows the current Little Orchard nursery inventory in JMD.
 - Size-only duplicates are consolidated: Scallion and Lemon Balm each appear once with multiple pot-size options.
 - Lychee Tree appears once with Small Lychee Tree and Large Lychee Tree options.
 - Different variations retain separate SKUs, prices, and event quantity limits.

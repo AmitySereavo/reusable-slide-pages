@@ -4,6 +4,8 @@ const DEFAULT_FUNNEL_SLUG = "home-gardener-plant-giveaway";
 const DEFAULT_FUNNEL_PATH = "/gift";
 const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
 const LITTLE_ORCHARD_SHOP_PATH = "/shop";
+const GARDEN_PACKAGE_SHOP_SLUG = "garden-package";
+const GARDEN_PACKAGE_SHOP_PATH = "/gardenpackage";
 const GROW_GUIDE_HUB_PATH = "/grow-guides";
 const GROW_GUIDE_ROUTES = {
   "/lettuce": "lettuce-grow-guide",
@@ -98,9 +100,12 @@ function isAllowedGiveawayPath(
     "/",
     publicPath,
     LITTLE_ORCHARD_SHOP_PATH,
+    GARDEN_PACKAGE_SHOP_PATH,
     `/questionnaire/${slug}`,
     `/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}`,
+    `/questionnaire/${GARDEN_PACKAGE_SHOP_SLUG}`,
     "/api/questionnaires/submit",
+    "/api/questionnaires/garden-package/catalog",
     "/api/plant-shop/orders",
     "/api/session",
     "/api/login",
@@ -127,9 +132,11 @@ function isAllowedGiveawayPath(
     allowedExactPaths.has(pathname) ||
     pathname.startsWith(`/questionnaire/${slug}/`) ||
     pathname.startsWith(`/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}/`) ||
+    pathname.startsWith(`/questionnaire/${GARDEN_PACKAGE_SHOP_SLUG}/`) ||
     pathname.startsWith("/questionnaire/auth-") ||
     pathname.startsWith(`${publicPath}/`) ||
     pathname.startsWith(`${LITTLE_ORCHARD_SHOP_PATH}/`) ||
+    pathname.startsWith(`${GARDEN_PACKAGE_SHOP_PATH}/`) ||
     pathname.startsWith("/order-status/") ||
     pathname.startsWith("/receipt/") ||
     pathname.startsWith("/api/plant-shop/orders/") ||
@@ -229,6 +236,15 @@ export function proxy(request: NextRequest) {
   ) {
     const url = request.nextUrl.clone();
     url.pathname = `/questionnaire/${LITTLE_ORCHARD_SHOP_SLUG}`;
+    return NextResponse.rewrite(url);
+  }
+
+  if (
+    pathname === GARDEN_PACKAGE_SHOP_PATH ||
+    pathname.startsWith(`${GARDEN_PACKAGE_SHOP_PATH}/`)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/questionnaire/${GARDEN_PACKAGE_SHOP_SLUG}`;
     return NextResponse.rewrite(url);
   }
 
