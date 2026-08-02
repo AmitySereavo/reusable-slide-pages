@@ -490,6 +490,42 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "orange-ortanique-grow-guide": {
+    slug: "orange-ortanique-grow-guide",
+    name: "Para-life Trees Orange / Ortanique Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/orangeOrtaniqueGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "lychee-grow-guide": {
+    slug: "lychee-grow-guide",
+    name: "Para-life Trees Lychee Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/lycheeGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "wax-apple-grow-guide": {
+    slug: "wax-apple-grow-guide",
+    name: "Para-life Trees Wax Apple Grow Guide",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/waxAppleGrowGuideDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "lemon-balm-grow-guide": {
     slug: "lemon-balm-grow-guide",
     name: "Para-life Trees Lemon Balm Seedling Grow Guide",

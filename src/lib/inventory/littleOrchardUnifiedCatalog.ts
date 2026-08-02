@@ -114,6 +114,48 @@ function isVisibleInventoryItem(item: any, shopSlug: string) {
   return item.active !== false && listing?.active !== false;
 }
 
+const productGrowGuideLinks = [
+  { path: "/black-pepper", terms: ["black pepper"] },
+  { path: "/green-onion", terms: ["scallion", "green onion"] },
+  { path: "/lemon-balm", terms: ["lemon balm"] },
+  { path: "/slicing-tomato", terms: ["slicing tomato", "tomato - slicing", "tomato"] },
+  { path: "/scotch-bonnet", terms: ["scotch bonnet"] },
+  { path: "/lettuce", terms: ["lettuce"] },
+  { path: "/cabbage", terms: ["cabbage"] },
+  { path: "/eggplant", terms: ["eggplant", "aubergine", "garden egg"] },
+  { path: "/orange-ortanique", terms: ["orange", "ortanique", "citrus"] },
+  { path: "/lychee", terms: ["lychee"] },
+  { path: "/wax-apple", terms: ["wax apple", "wax jambu", "red wax apple"] },
+  { path: "/sweet-pepper", terms: ["sweet pepper", "bell pepper", "pepper - sweet"] },
+  { path: "/culinary-basil", terms: ["culinary basil", "italian sweet basil", "genovese basil", "basil"] },
+  { path: "/dill", terms: ["dill"] },
+  { path: "/tree-mint", terms: ["tree mint", "jamaican peppermint", "costa rican peppermint"] },
+  { path: "/mint", terms: ["spearmint", "peppermint", "black mint", "common mint"] },
+  { path: "/cilantro", terms: ["cilantro", "coriander"] },
+  { path: "/parsley", terms: ["parsley"] },
+  { path: "/rosemary", terms: ["rosemary"] },
+  { path: "/marigold", terms: ["marigold"] },
+] as const;
+
+function withGrowGuideLink(title: unknown, description: unknown) {
+  const text = String(description || "").trim();
+
+  if (/\[Grow guide\]\(/i.test(text)) {
+    return text;
+  }
+
+  const haystack = String(title || "").toLowerCase();
+  const match = productGrowGuideLinks.find((guide) =>
+    guide.terms.some((term) => haystack.includes(term))
+  );
+
+  if (!match) {
+    return text;
+  }
+
+  return [text, `[Grow guide](${match.path})`].filter(Boolean).join(" ");
+}
+
 function inventoryItemToShopProduct(
   item: any,
   shopSlug: string,
@@ -196,10 +238,10 @@ function inventoryItemToShopProduct(
     title: item.title,
     imageUrl: item.imageUrl || undefined,
     previewImageUrl: item.previewImageUrl || item.imageUrl || undefined,
-    description: item.description || "",
+    description: withGrowGuideLink(item.title, item.description),
     detailsDescription:
       item.detailsDescription ||
-      `${category}. ${item.description || ""} Inventory available: ${
+      `${category}. ${withGrowGuideLink(item.title, item.description)} Inventory available: ${
         item.quantityAvailable ?? 0
       }.`,
     fulfillmentType: item.fulfillmentType || "physical",

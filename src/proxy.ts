@@ -17,14 +17,17 @@ const GROW_GUIDE_ROUTES = {
   "/lemon-balm": "lemon-balm-grow-guide",
   "/black-pepper": "black-pepper-grow-guide",
   "/green-onion": "green-onion-grow-guide",
+  "/lychee": "lychee-grow-guide",
   "/marigold": "marigold-grow-guide",
   "/mint": "mint-grow-guide",
+  "/orange-ortanique": "orange-ortanique-grow-guide",
   "/parsley": "parsley-grow-guide",
   "/rosemary": "rosemary-grow-guide",
   "/scotch-bonnet": "scotch-bonnet-grow-guide",
   "/slicing-tomato": "slicing-tomato-grow-guide",
   "/sweet-pepper": "sweet-pepper-grow-guide",
   "/tree-mint": "tree-mint-grow-guide",
+  "/wax-apple": "wax-apple-grow-guide",
 } as const;
 const DEFAULT_GROW_GUIDE_HOSTS = ["growguide.paralifetrees.com"];
 

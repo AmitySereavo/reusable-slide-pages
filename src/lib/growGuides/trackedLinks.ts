@@ -44,6 +44,21 @@ const PRODUCT_GUIDE_RULES = [
     labels: ["eggplant", "aubergine", "garden egg"],
   },
   {
+    guideSlug: "orange-ortanique-grow-guide",
+    guidePath: "/orange-ortanique",
+    labels: ["orange", "ortanique", "citrus", "fruit tree"],
+  },
+  {
+    guideSlug: "lychee-grow-guide",
+    guidePath: "/lychee",
+    labels: ["lychee"],
+  },
+  {
+    guideSlug: "wax-apple-grow-guide",
+    guidePath: "/wax-apple",
+    labels: ["wax apple", "wax jambu", "red wax apple"],
+  },
+  {
     guideSlug: "sweet-pepper-grow-guide",
     guidePath: "/sweet-pepper",
     labels: ["sweet pepper", "bell pepper"],

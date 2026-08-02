@@ -226,7 +226,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-ITALIAN-SWEET-BASIL",
       title: "Italian Sweet Basil",
       category: "Herbs and Seasoning Plants",
-      description: "Culinary basil for sauces, salads, and fresh garden fragrance.",
+      description: "Culinary basil for sauces, salads, and fresh garden fragrance. [Grow guide](/culinary-basil)",
       media: productMedia.basilItalianSweet,
       variations: [
         {
@@ -254,7 +254,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-GENOVESE-BASIL",
       title: "Genovese Basil",
       category: "Herbs and Seasoning Plants",
-      description: "Classic culinary basil for pesto, sauces, and fresh garden use.",
+      description: "Classic culinary basil for pesto, sauces, and fresh garden use. [Grow guide](/culinary-basil)",
       media: productMedia.basilItalianSweet,
       variations: [
         {
@@ -273,7 +273,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-DILL",
       title: "Dill",
       category: "Herbs and Seasoning Plants",
-      description: "Aromatic herb for cooking and beneficial garden insects.",
+      description: "Aromatic herb for cooking and beneficial garden insects. [Grow guide](/dill)",
       media: productMedia.dill,
       variations: [
         {
@@ -292,7 +292,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-TREE-MINT",
       title: "Tree Mint - Jamaican Peppermint",
       category: "Herbs and Seasoning Plants",
-      description: "Jamaican peppermint for home gardens and tea lovers.",
+      description: "Jamaican peppermint for home gardens and tea lovers. [Grow guide](/tree-mint)",
       media: productMedia.treeMint,
       variations: [
         {
@@ -311,7 +311,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-SPEARMINT",
       title: "Spearmint",
       category: "Herbs and Seasoning Plants",
-      description: "Fresh mint for teas, drinks, kitchen gardens, and pollinator interest.",
+      description: "Fresh mint for teas, drinks, kitchen gardens, and pollinator interest. [Grow guide](/mint)",
       media: productMedia.spearmint,
       variations: [
         {
@@ -330,7 +330,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-BLACK-MINT",
       title: "Black Mint",
       category: "Herbs and Seasoning Plants",
-      description: "Aromatic mint for tea, kitchen use, and home garden fragrance.",
+      description: "Aromatic mint for tea, kitchen use, and home garden fragrance. [Grow guide](/mint)",
       media: productMedia.blackMint,
       variations: [
         {
@@ -388,7 +388,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-SWEET-BELL-PEPPER",
       title: "Sweet Bell Pepper",
       category: "Vegetable Plants",
-      description: "Sweet pepper plant for a productive kitchen garden.",
+      description: "Sweet pepper plant for a productive kitchen garden. [Grow guide](/sweet-pepper)",
       media: productMedia.bellPepperPlant,
       variations: [
         {
@@ -483,7 +483,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-RED-WAX-APPLE-TREE",
       title: "Red Wax Apple - Wax Jambu",
       category: "Fruit Trees",
-      description: "Wax jambu fruit tree for tropical home gardens.",
+      description: "Wax jambu fruit tree for tropical home gardens. [Grow guide](/wax-apple)",
       media: productMedia.redWaxApple,
       variations: [
         {
@@ -502,7 +502,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-LYCHEE",
       title: "Lychee Tree",
       category: "Fruit Trees",
-      description: "Lychee trees with separate small and large size options.",
+      description: "Lychee trees with separate small and large size options. [Grow guide](/lychee)",
       media: productMedia.lycheeTree,
       variations: [
         {
@@ -548,7 +548,7 @@ export const littleOrchardShopCatalog: ShopCatalog = {
       sku: "LO-JHS-CARIBBEAN-QUEEN-CABBAGE-SEEDLINGS",
       title: "Caribbean Queen Cabbage Seedlings",
       category: "Seedlings",
-      description: "Individual cabbage seedlings. Choose the number of seedlings you wish to purchase.",
+      description: "Individual cabbage seedlings. Choose the number of seedlings you wish to purchase. [Grow guide](/cabbage)",
       media: productMedia.cabbageSeedlings,
       variations: [
         {

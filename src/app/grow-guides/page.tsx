@@ -25,6 +25,30 @@ const guides: GrowGuideSummary[] = [
     keywords: ["aubergine", "garden egg", "seedling", "solanum"],
   },
   {
+    href: "/orange-ortanique",
+    title: "Orange / Ortanique Grow Guide",
+    description:
+      "Planting, watering, feeding, pruning, pest care, and fruiting citrus trees.",
+    image: "/icons/paralife_trees_logo.png",
+    keywords: ["orange", "ortanique", "citrus", "fruit tree", "grafted tree"],
+  },
+  {
+    href: "/lychee",
+    title: "Lychee Grow Guide",
+    description:
+      "Transplanting, watering, feeding, pruning, and fruiting air-layered lychee trees.",
+    image: "/media/paralife_trees/jpg/product_lychee_tree_still.jpg",
+    keywords: ["lychee", "air layered", "circumposed", "fruit tree"],
+  },
+  {
+    href: "/wax-apple",
+    title: "Wax Apple Grow Guide",
+    description:
+      "Planting, watering, feeding, pruning, and fruiting wax apple / wax jambu trees.",
+    image: "/media/paralife_trees/gif/product_wax_apple_red_320p.gif",
+    keywords: ["wax apple", "wax jambu", "red wax apple", "fruit tree"],
+  },
+  {
     href: "/lemon-balm",
     title: "Lemon Balm Seedling Grow Guide",
     description: "Container care, trimming, leaf quality, pests, disease prevention, and harvest.",

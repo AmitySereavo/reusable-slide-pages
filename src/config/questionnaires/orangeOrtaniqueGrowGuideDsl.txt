@@ -1,0 +1,326 @@
+// PARA-LIFE TREES
+// ORANGE / ORTANIQUE GROW GUIDE
+// Source: Orange_Ortanique_Grow_Guide.pdf
+
+@id: orange-ortanique-guide-cover
+@type: content
+@title: Orange Ortanique Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Orange Ortanique
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: orange-ortanique-about
+
+===
+
+@id: orange-ortanique-about
+@type: content
+@title: About Guide
+@subtitle: Citrus trees
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+## [c3] Practical care for orange and ortanique citrus trees in Jamaica.
+BR
+GUIDEGRID|Tree type::Citrus tree - orange / ortanique||Best location::Full sun, open airflow, and well-drained soil||Sunlight::6 to 8+ hours of direct sun daily||First fruiting::About 2 to 4 years for grafted trees under good care||Managed height::Keep around 8 to 12 feet tall for easier harvesting||Spacing::Plant about 12 to 20 feet apart for home gardens
+BR
+[c3] Ortanique is commonly treated as a mandarin-orange type citrus. This guide is written for practical home and small-grower care.
+@back: Cover
+@next: Next
+@goto: orange-ortanique-quick-numbers
+
+===
+
+@id: orange-ortanique-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Planning targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDETABLE|What to plan|Target||Unpruned height|Many orange or ortanique trees can reach 15 to 25+ feet depending on variety, rootstock, and conditions.||Canopy spread|Often 10 to 20+ feet wide if allowed to develop.||Soil pH|Best around pH 6.0 to 6.5. Slightly acidic soil is ideal.||Water need|Deep watering during establishment and dry weather. Avoid roots sitting in water.||Main warning|Do not plant too deep, bury the graft union, or pile mulch against the trunk.
+BR
+[c3] Results depend on soil, sun, watering, feeding, pests, variety, and weather.
+@back: About guide
+@next: Next
+@goto: orange-ortanique-where-plant
+
+===
+
+@id: orange-ortanique-where-plant
+@type: content
+@title: Where Plant
+@subtitle: Choose the right spot
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Where Plant
+BR
+GUIDEGRID|Sun::Choose a place with 6 to 8+ hours of direct sun per day.||Drainage::Use soil that drains well. Citrus roots suffer if soil stays waterlogged.||Avoid low spots::Do not plant where rainwater settles for long periods.||Space::Leave room for a canopy about 10 to 20 feet wide.||Keep clear::Avoid walls, drains, septic lines, paved areas, and large shade trees.||Reduce competition::Keep young citrus trees free from lawn grass and weeds.
+@back: Quick numbers
+@next: Next
+@goto: orange-ortanique-planting-hole
+
+===
+
+@id: orange-ortanique-planting-hole
+@type: content
+@title: Planting Hole
+@subtitle: Prepare before transplant
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Planting Hole
+BR
+GUIDETABLE|Step|Direction||Clear area|Clear grass and weeds from a circle about 2 to 3 feet wide.||Dig wide|Dig wider than the root ball, but not much deeper than the pot or bag.||Loosen soil|Loosen surrounding soil so new roots can spread outward.||Refill|Use mostly native soil. If soil is poor, mix compost into the wider planting area.||Avoid burn|Do not put fresh manure or strong fertilizer directly on roots.||Wet areas|If the area gets very wet, plant on a raised mound or raised row.||Dry soil|Water the hole before planting if the soil is dry.
+@back: Where plant
+@next: Next
+@goto: orange-ortanique-transplanting
+
+===
+
+@id: orange-ortanique-transplanting
+@type: content
+@title: Transplanting
+@subtitle: Set the tree correctly
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Transplanting
+BR
+GUIDETABLE|Step|Direction||Timing|Plant late afternoon, early evening, or on a cloudy day.||Remove container|Remove the bag or pot carefully and keep the root ball together.||Depth|Plant at the same depth the tree was growing in the bag or pot.||Graft union|If grafted, keep the graft union above the soil line. Do not bury it.||Water|Press soil gently and water deeply immediately after planting.||Mulch|Add mulch around the tree, but keep it about 6 inches away from the trunk.||Stake|Stake only if the tree is loose or in a windy spot.
+@back: Planting hole
+@next: Next
+@goto: orange-ortanique-watering
+
+===
+
+@id: orange-ortanique-watering
+@type: content
+@title: Watering
+@subtitle: Establish strong roots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Watering
+BR
+GUIDETABLE|Stage|Watering guide||Day of transplanting|Water deeply immediately after planting.||First 7 days|Water daily unless rain keeps the soil moist.||Weeks 2 to 4|Water every 1 to 2 days in hot dry weather. Do not let the root zone dry out completely.||After 1 month|Water 2 to 3 times weekly in dry weather, or more if soil dries quickly.||Established tree|Water deeply when the top few inches of soil become dry. Skip watering after good rain.||Flowering fruiting|Avoid drought stress. Steady moisture helps fruit hold, size, and tree health.||Best method|Water at the base so the root zone is soaked well. Avoid only light sprinkling.
+@back: Transplanting
+@next: Next
+@goto: orange-ortanique-soil
+
+===
+
+@id: orange-ortanique-soil
+@type: content
+@title: Soil Drainage
+@subtitle: Protect citrus roots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Soil Drainage
+BR
+GUIDEGRID|Best soil::Fertile, well-drained soil. Sandy loam, loam, and clay loam can work if drainage is good.||Soil pH::Best around 6.0 to 6.5.||Water pH::A practical irrigation water pH target is about 6.0 to 7.0.||Heavy clay::Use a raised mound or raised bed.||Very sandy soil::Use compost and mulch to help hold moisture.||Avoid::Compacted soil, salty soil, standing water, and planting too deep.
+@back: Watering
+@next: Next
+@goto: orange-ortanique-feeding
+
+===
+
+@id: orange-ortanique-feeding
+@type: content
+@title: Feeding
+@subtitle: Feed light and steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Feeding
+BR
+[c3] Do not over-fertilize immediately after transplanting. Let the tree settle for about 7 to 14 days.
+BR
+GUIDETABLE|Stage|Feeding direction||After new growth|Feed lightly with citrus fertilizer or balanced fruit-tree fertilizer according to the label.||Young trees|Feed lightly every 6 to 8 weeks during active growth.||Bearing trees|Feed before strong growth flushes and fruit development, then support again after harvest.||Flowering fruiting|Do not push too much nitrogen when the tree is flowering or setting fruit.||Yellow leaves|Check for high pH, poor drainage, or micronutrient deficiency.
+BR
+GUIDEGRID|Common needs::Nitrogen, potassium, magnesium, iron, zinc, manganese, and other micronutrients.||Too much nitrogen::Can cause leafy growth and reduce fruiting.
+@back: Soil drainage
+@next: Next
+@goto: orange-ortanique-roots-mulch
+
+===
+
+@id: orange-ortanique-roots-mulch
+@type: content
+@title: Roots Mulch
+@subtitle: Keep crown clear
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Roots Mulch
+BR
+GUIDEGRID|Feeder roots::Citrus feeder roots are often close to the upper soil where oxygen, water, and nutrients are available.||Root crown::Do not bury the trunk or root crown.||Grafted trees::Do not bury the graft union.||Mulch shape::Keep mulch wide, not high. Never pile it like a volcano against the trunk.||Weeds::Keep grass and weeds away from the root zone while the tree is young.||Avoid damage::Avoid chopping, digging, burning, or compacting soil close to the tree.
+@back: Feeding
+@next: Next
+@goto: orange-ortanique-pruning
+
+===
+
+@id: orange-ortanique-pruning
+@type: content
+@title: Pruning
+@subtitle: Light shaping only
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pruning
+BR
+GUIDETABLE|Pruning need|Direction||Heavy pruning|Citrus does not need heavy pruning to fruit. Heavy pruning can reduce production.||Remove|Dead, diseased, weak, crossing, broken, or ground-touching branches.||Airflow|Remove branches growing into the center if they block airflow.||Rootstock suckers|Remove shoots growing from below the graft union early.||Best time|Usually after harvest or when the tree is not carrying heavy flowering or fruiting.||Managed height|Keep around 8 to 12 feet tall if you want easier harvest and spraying.
+@back: Roots mulch
+@next: Next
+@goto: orange-ortanique-fruiting
+
+===
+
+@id: orange-ortanique-fruiting
+@type: content
+@title: Fruiting
+@subtitle: Flowers and harvests
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Fruiting
+BR
+GUIDETABLE|Expectation|What it means||First fruiting|Grafted orange and ortanique trees often start fruiting in about 2 to 4 years under good care.||Young trees|Young trees may flower early, but may drop many flowers or small fruits.||Early harvests|Light fruiting in the first few years is normal.||Tree strength|Do not let a very small young tree carry too many fruits.||Fruit quality|Full sun, steady water, balanced feeding, and healthy leaves improve fruit quality.
+@back: Pruning
+@next: Next
+@goto: orange-ortanique-flowering
+
+===
+
+@id: orange-ortanique-flowering
+@type: content
+@title: Flowering Fruit
+@subtitle: Help fruit hold
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Flowering Fruit
+BR
+GUIDEGRID|Full sun::One of the biggest helpers for flowering and sweet fruit.||Strong tree::A mature healthy tree with strong leaves and roots holds fruit better.||Steady water::Deep watering during flowering and fruit swelling helps reduce fruit drop.||Balanced feeding::Supports flowers, fruit set, fruit size, and leaf health.||Potassium micronutrients::Good potassium and micronutrients help fruit development.||Airflow::Good airflow and light pruning reduce disease pressure.||Pollinators::Avoid spraying insecticide directly on open flowers.||Avoid stress::Prevent waterlogging, trunk damage, heavy weed competition, and severe pest pressure.
+@back: Fruiting
+@next: Next
+@goto: orange-ortanique-pests
+
+===
+
+@id: orange-ortanique-pests
+@type: content
+@title: Pest Watch
+@subtitle: Check new leaves
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pest Watch
+BR
+GUIDEGRID|Check for::Aphids, mites, citrus leafminer, scale insects, and mealybugs.||Ant control::Control ants because they often protect scale, aphids, and mealybugs.||Black coating::Often sooty mold from sticky honeydew left by sucking insects.||Watering::Water the root zone instead of keeping the trunk constantly wet.||Clean area::Remove dead, diseased, or badly damaged material.||Declining tree::Check for root rot, waterlogging, trunk injury, or serious disease.
+@back: Flowering fruit
+@next: Next
+@goto: orange-ortanique-problems
+
+===
+
+@id: orange-ortanique-problems
+@type: content
+@title: Common Problems
+@subtitle: Read the signs
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Problems
+BR
+GUIDETABLE|Problem|Likely cause||Yellow leaves|Nutrient deficiency, high pH, overwatering, poor drainage, or root stress.||Leaves curling|Pests, heat stress, drought, or citrus leafminer.||Flowers but drops fruit|Young tree, drought stress, weak nutrition, poor pollination, or weather stress.||Fruit splitting|Irregular watering or heavy rain after a dry spell.||Grows but no fruit|Tree too young, too much shade, too much nitrogen, or poor overall care.||Black coating on leaves|Sooty mold from scale, aphids, whiteflies, or mealybugs.||Dieback|Root rot, disease, drought stress, trunk injury, or poor drainage.||Shoots below graft|Rootstock suckers. Remove them early.
+@back: Pest watch
+@next: Next
+@goto: orange-ortanique-routine
+
+===
+
+@id: orange-ortanique-routine
+@type: content
+@title: Care Routine
+@subtitle: Month by month
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Routine
+BR
+GUIDETABLE|Stage|Routine||First month|Water regularly, mulch away from trunk, keep weeds away, avoid heavy fertilizer, and protect from animals, wind, and equipment damage.||Months 2 to 6|Feed lightly during active growth, water during dry weather, watch new leaves for pests, remove rootstock suckers, and keep the area clean.||Mature tree|Feed with citrus fertilizer during active growth, water deeply during dry spells, prune lightly after harvest, keep canopy sunny, and harvest mature fruit.
+BR
+# [c2] Simple Formula
+BR
+[c3] Full sun + good drainage + steady deep watering + citrus feeding + mulch away from trunk + light pruning = healthier orange and ortanique trees.
+@back: Common problems
+@next: Next
+@goto: orange-ortanique-help
+
+===
+
+@id: orange-ortanique-help
+@type: content
+@title: Need Help
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Need Help
+BR
+[c3] Send clear photos by WhatsApp: full tree, leaf closeups, underside of leaves, trunk base, graft area, soil, and any insects you see.
+BR
+[c3] [WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20orange%20or%20ortanique%20tree.)
+BR
+[c3] [Download the full PDF guide](/media/paralife_trees/guides/Orange_Ortanique_Grow_Guide.pdf)
+@back: Care routine
+@next: Visit shop
+@goto: /shop
+

@@ -1,0 +1,230 @@
+// PARA-LIFE TREES
+// LYCHEE GROW GUIDE
+// Source: Lychee_Grow_Guide.pdf
+
+@id: lychee-guide-cover
+@type: content
+@title: Lychee Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Lychee
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: lychee-about
+
+===
+
+@id: lychee-about
+@type: content
+@title: About Guide
+@subtitle: Air-layered lychee
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+## [c3] For customers transplanting Para-life Trees air-layered / circumposed lychee trees in Jamaica.
+BR
+GUIDEGRID|Tree type::Air-layered / circumposed lychee trees, not seedlings||Best location::Full sun, good airflow, and a spot that does not flood||Best fruiting areas::Cooler hillsides or places with a noticeable cool/dry season||First fruiting::About 2 to 5 years after planting under good care||Soil pH::About pH 5.5 to 6.5||Water pH::Best around pH 6.0 to 7.0
+BR
+[c3] Lychee can grow into a beautiful green tree but still fruit poorly without the right flowering trigger. Cool, dry rest before flowering is one of the most important conditions.
+@back: Cover
+@next: Next
+@goto: lychee-location
+
+===
+
+@id: lychee-location
+@type: content
+@title: Location
+@subtitle: Choose before planting
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Location
+BR
+GUIDETABLE|Need|Direction||Sunlight|Choose a sunny spot with at least 6 to 8 hours of direct sun daily.||Drainage|Avoid low spots where rainwater settles. Lychee roots need oxygen.||Wind|Use good airflow but protect young trees from strong drying wind.||Spacing|Give about 25 to 30 feet from buildings, walls, large trees, and other fruit trees for a full canopy.||Managed height|Keep home-garden trees around 10 to 15 feet or orchard trees around 12 to 18 feet.||Mature size|Unpruned lychee can reach about 30 to 50 feet tall and wide.
+@back: About guide
+@next: Next
+@goto: lychee-planting
+
+===
+
+@id: lychee-planting
+@type: content
+@title: Planting
+@subtitle: Prepare and transplant
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Planting
+BR
+GUIDETABLE|Step|Direction||Clear area|Clear grass and weeds from a circle about 3 to 4 feet wide.||Dig wide|Dig about 2 to 3 times wider than the root ball, but not much deeper than the bag or pot.||Loosen soil|Loosen soil around the hole so new roots spread outward.||Wet areas|Use a raised mound or raised bed if soil is heavy clay or the area gets wet.||Compost|Mix a small amount into poor backfill, but do not put fresh manure on roots.||Timing|Plant late afternoon or early evening.||Root ball|Keep the root ball together and plant at the same depth as the bag or pot.||Water stake|Water deeply and stake if wind can rock the tree.
+@back: Location
+@next: Next
+@goto: lychee-roots-mulch
+
+===
+
+@id: lychee-roots-mulch
+@type: content
+@title: Roots Mulch
+@subtitle: Protect feeder roots
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Roots Mulch
+BR
+GUIDEGRID|Feeder roots::Many important lychee roots stay close to the soil surface.||Drip line::Feeder roots spread outward toward and beyond the canopy drip line.||Mulch depth::Use mulch 3 to 6 inches deep over the root zone.||Trunk gap::Keep mulch 6 to 8 inches away from the trunk.||Do not bury::Do not heap soil or mulch against the stem or root crown.||Protect zone::Do not dig, burn, trench, spray herbicide, or damage the trunk under the canopy.
+@back: Planting
+@next: Next
+@goto: lychee-watering
+
+===
+
+@id: lychee-watering
+@type: content
+@title: Watering
+@subtitle: Establish without drowning
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Watering
+BR
+GUIDETABLE|Stage|Watering guide||Day of transplanting|Water deeply immediately after planting.||First 7 days|Water every day unless rain keeps the soil moist.||Weeks 2 to 4|In hot dry weather, water 3 to 5 times weekly. Do not let the root ball dry out completely.||Months 2 to 6|Water 2 to 3 times weekly in dry weather. Skip after good rain and keep mulch in place.||Established tree|Water during flowering, fruit set, and fruit swelling.||Cool dry rest|Avoid pushing constant soft new leaf growth before flowering.||Soil check|Push a finger 2 to 3 inches into soil. Water if dry; wait if wet or sticky.
+@back: Roots mulch
+@next: Next
+@goto: lychee-soil-feeding
+
+===
+
+@id: lychee-soil-feeding
+@type: content
+@title: Soil Feeding
+@subtitle: Slightly acidic and balanced
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Soil Feeding
+BR
+GUIDEGRID|Best soil::Well-drained loam, sandy loam, or light clay loam with organic matter||Avoid::Swampy, compacted, or constantly wet soil||pH target::About 5.5 to 6.5||Yellow leaves::Check drainage, soil pH, water pH, and micronutrients such as iron, zinc, manganese, magnesium, and boron
+BR
+GUIDETABLE|Stage|Feeding guide||First 4 to 6 weeks|Do not over-fertilize. Use water, mulch, and light compost support.||Active growth|Feed lightly with balanced fruit-tree fertilizer or compost-based feeding.||Before flowering|Reduce nitrogen. Too much nitrogen pushes leaves instead of flowers.||Flowering fruit set|Keep moisture steady and support with potassium, calcium, magnesium, and trace elements.||After harvest|Prune lightly, water, and feed for the next healthy flush.
+@back: Watering
+@next: Next
+@goto: lychee-pruning
+
+===
+
+@id: lychee-pruning
+@type: content
+@title: Pruning
+@subtitle: Keep mature tips
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pruning
+BR
+GUIDETABLE|Rule|Why it matters||Prune lightly|Lychee does not need heavy cutting every few months.||Best time|Prune after harvest or after the expected fruiting season, not right before flowering.||Remove|Dead, diseased, crossing, or crowded branches.||Open center|Let light and air enter the canopy.||Lower skirt|Keep lower branches from touching the ground.||Avoid timing mistake|Heavy pruning before flowering may remove mature tips that would have flowered.
+@back: Soil feeding
+@next: Next
+@goto: lychee-fruiting
+
+===
+
+@id: lychee-fruiting
+@type: content
+@title: Fruiting
+@subtitle: Triggers and expectations
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Fruiting
+BR
+GUIDEGRID|Cool dry rest::One of the biggest triggers for flowering.||Mature branch tips::Flowers come from mature terminal shoots.||Low nitrogen::Too much nitrogen before flowering encourages leaves instead of flowers.||Full sun::A shaded tree usually flowers and fruits less.||Pollinators::Bees and insects help fruit set. Avoid insecticides during flowering.||Steady fruiting water::Do not let the tree dry out badly after flowers and young fruit appear.||Ripening time::After flowering, fruit usually takes about 3 to 4 months to size up and ripen.
+BR
+[c3] Air-layered / circumposed trees generally fruit sooner than seed-grown trees because they come from mature fruiting wood.
+@back: Pruning
+@next: Next
+@goto: lychee-routine
+
+===
+
+@id: lychee-routine
+@type: content
+@title: Care Routine
+@subtitle: Monthly rhythm
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Routine
+BR
+GUIDETABLE|Timing|What to do||Every week in dry weather|Check soil moisture under mulch and water deeply when the root zone is drying.||Every month|Check mulch, weeds, pests, yellow leaves, and trunk damage.||Active growth|Feed lightly and watch for healthy green flushes.||Before flowering|Reduce nitrogen and avoid heavy pruning. Let branch tips mature.||Flowering|Protect pollinators, avoid strong sprays, and keep moisture steady.||After harvest|Prune lightly, feed, mulch, and water for the next cycle.
+@back: Fruiting
+@next: Next
+@goto: lychee-problems
+
+===
+
+@id: lychee-problems
+@type: content
+@title: Common Problems
+@subtitle: Quick checks
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Problems
+BR
+GUIDETABLE|Problem|Possible cause||Tree grows but does not fruit|Too warm all year, no cool/dry rest, too much nitrogen, too much shade, tree too young, or branch tips not mature.||Yellow leaves|Poor drainage, high soil or water pH, root stress, or micronutrient shortage.||Leaf burn after feeding|Fertilizer too strong or too close to roots. Water well and reduce strength.||Fruit drop|Drought stress, poor pollination, heavy rain, nutrient imbalance, or weak tree health.||Fruit splitting|Irregular watering, dry spell followed by heavy rain, or variety/weather sensitivity.
+@back: Care routine
+@next: Next
+@goto: lychee-help
+
+===
+
+@id: lychee-help
+@type: content
+@title: Need Help
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Need Help
+BR
+[c3] Send clear photos by WhatsApp: full tree, leaves, trunk base, soil, mulch, roots if exposed, and any pest or yellowing signs.
+BR
+[c3] [WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20lychee%20tree.)
+BR
+[c3] [Download the full PDF guide](/media/paralife_trees/guides/Lychee_Grow_Guide.pdf)
+@back: Common problems
+@next: Visit shop
+@goto: /shop
+

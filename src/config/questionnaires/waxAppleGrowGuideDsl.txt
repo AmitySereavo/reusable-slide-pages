@@ -1,0 +1,268 @@
+// PARA-LIFE TREES
+// WAX APPLE GROW GUIDE
+// Source: Wax_Apple_Grow_Guide.pdf
+
+@id: wax-apple-guide-cover
+@type: content
+@title: Wax Apple Grow Guide
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Wax Apple
+# [c2] Grow Guide
+![Para-life Trees](/icons/paralife_trees_logo.png)
+@back: Guides for other plants
+@backgoto: /grow-guides
+@next: Next
+@goto: wax-apple-about
+
+===
+
+@id: wax-apple-about
+@type: content
+@title: About Guide
+@subtitle: Wax jambu
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+## [c3] Practical guide for growing wax apple / wax jambu in Jamaica.
+BR
+GUIDEGRID|Tree type::Wax apple / wax jambu, a tropical evergreen fruit tree||Best location::Full sun with protection from harsh dry wind||First fruiting::About 2 to 4 years for air-layered or grafted trees under good care||Managed height::Keep around 10 to 15 feet tall for easier harvesting||Spacing::Plant about 15 to 25 feet apart||Sunlight::6 to 8 hours of direct sun daily
+BR
+[c3] Wax apple fruits may be white, pale green, pink, red, dark red, or almost purple depending on variety. Care is generally similar across common types.
+@back: Cover
+@next: Next
+@goto: wax-apple-quick-numbers
+
+===
+
+@id: wax-apple-quick-numbers
+@type: content
+@title: Quick Numbers
+@subtitle: Planning targets
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Quick Numbers
+BR
+GUIDETABLE|What to plan|Target||Unpruned height|About 20 to 40 feet tall if allowed to grow freely.||Canopy spread|Usually about 15 to 30 feet depending on age, pruning, and growing conditions.||Soil pH|Best around pH 5.5 to 6.5.||Water need|Keep soil evenly moist, especially while young and while fruit is developing.||Main warning|Do not plant too deep, pile mulch against the trunk, or let the tree dry out repeatedly.
+@back: About guide
+@next: Next
+@goto: wax-apple-location
+
+===
+
+@id: wax-apple-location
+@type: content
+@title: Location
+@subtitle: Warm and well drained
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Location
+BR
+GUIDEGRID|Sun::Choose a place with 6 to 8 hours of direct sun per day.||Drainage::Use soil that drains well but still holds some moisture.||Avoid low spots::Do not plant where rainwater settles for long periods.||Space::Give the tree room for canopy and roots.||Keep clear::Avoid planting too close to walls, septic lines, or large trees.||Wind protection::Choose a spot with some protection from strong dry wind, especially for young trees.||Sandy soil::Add compost and mulch to help the soil hold moisture.
+@back: Quick numbers
+@next: Next
+@goto: wax-apple-planting
+
+===
+
+@id: wax-apple-planting
+@type: content
+@title: Planting
+@subtitle: Prepare the root zone
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Planting
+BR
+GUIDETABLE|Step|Direction||Clear area|Clear grass and weeds from a circle about 2 to 3 feet wide.||Loosen soil|Loosen soil 12 to 18 inches deep and wider than the root ball.||Organic matter|Mix aged compost or rich organic matter. Do not put fresh manure directly on roots.||Wet areas|Use a raised mound or raised row if water stays after rain.||Dry soil|Water the planting area before transplanting.||Timing|Plant late afternoon, early evening, or on a cloudy day.||Depth|Plant at the same depth as the bag or pot. Do not bury the trunk.||Mulch stake|Mulch around the tree, keep mulch 6 inches from the trunk, and stake if windy.
+@back: Location
+@next: Next
+@goto: wax-apple-watering
+
+===
+
+@id: wax-apple-watering
+@type: content
+@title: Watering
+@subtitle: Keep moisture steady
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Watering
+BR
+GUIDETABLE|Stage|Watering guide||Day of transplanting|Water deeply immediately after planting.||First 7 days|Water every day unless rain keeps the soil moist.||Weeks 2 to 4|In hot dry weather, water every 1 to 2 days. Do not let roots dry completely.||After 1 month|Water 2 to 3 times weekly in dry weather, or more if soil dries quickly.||Mature tree|Water during dry spells and keep moisture steady during flowering and fruit swelling.||Best method|Water at the base so the root zone is soaked well. Avoid only light surface sprinkling.
+@back: Planting
+@next: Next
+@goto: wax-apple-soil-feeding
+
+===
+
+@id: wax-apple-soil-feeding
+@type: content
+@title: Soil Feeding
+@subtitle: Moist and fertile
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Soil Feeding
+BR
+GUIDEGRID|Best soil::Fertile, moist, well-drained soil||Good textures::Loam, sandy loam with organic matter, or clay loam with drainage||Soil pH::About 5.5 to 6.5||Water pH::About 6.0 to 7.5||Heavy clay::Plant on a mound or raised bed||Sandy soil::Use compost and mulch to improve moisture-holding||Avoid::Compacted soil, salty soil, or waterlogged roots
+BR
+GUIDETABLE|Stage|Feeding direction||After transplant|Let the tree settle for 7 to 14 days.||After new growth|Feed lightly with balanced fruit-tree fertilizer according to the label.||Soil health|Use compost, aged manure, and mulch to improve soil.||Young trees|Feed lightly every 6 to 8 weeks during active growth.||Mature trees|Feed after pruning or harvest and before strong fruit development.||Approaching flowering|Avoid excess nitrogen because it can cause leaves but lighter fruiting.
+@back: Watering
+@next: Next
+@goto: wax-apple-roots-mulch
+
+===
+
+@id: wax-apple-roots-mulch
+@type: content
+@title: Roots Mulch
+@subtitle: Keep trunk clear
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Roots Mulch
+BR
+GUIDEGRID|Root system::Wax apple has a spreading root system with feeder roots in the upper soil.||Root crown::Do not pile soil or mulch against the trunk.||Mulch shape::Keep mulch like a wide blanket, not a volcano.||Weeds::Keep grass and weeds away from the root zone.||Avoid damage::Do not dig deeply, chop roots, or compact soil close to the tree.
+@back: Soil feeding
+@next: Next
+@goto: wax-apple-pruning
+
+===
+
+@id: wax-apple-pruning
+@type: content
+@title: Pruning
+@subtitle: Manage the canopy
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Pruning
+BR
+GUIDETABLE|Pruning goal|Direction||Manage size|Wax apple can become tall and bushy; pruning keeps it manageable.||Young trees|Shape gradually to build strong main branches.||Remove|Dead, damaged, weak, or crossing branches.||Airflow|Open the canopy enough for light and airflow.||Best timing|Prune after harvest or after a strong flush has matured.||Avoid|Very hard pruning right before a major flowering period.||Harvest height|Many growers keep trees around 10 to 15 feet tall.
+@back: Roots mulch
+@next: Next
+@goto: wax-apple-fruiting
+
+===
+
+@id: wax-apple-fruiting
+@type: content
+@title: Fruiting
+@subtitle: Flowers and color
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Fruiting
+BR
+GUIDETABLE|Expectation|What it means||First fruiting|Air-layered or grafted trees often begin fruiting in about 2 to 4 years. Seed-grown trees usually take longer.||Fruit quality|Improves with full sun, steady moisture, balanced feeding, and a healthy open canopy.||Drop|Some flower and fruit drop can be normal. Better watering, pollination, and tree health improve fruit hold.||Harvest|Pick when fruit is well developed and fully colored for the variety.||Fruit colors|White, greenish-white, pink, red, dark red, or purplish depending on variety.
+@back: Pruning
+@next: Next
+@goto: wax-apple-flowering
+
+===
+
+@id: wax-apple-flowering
+@type: content
+@title: Flowering Fruit
+@subtitle: Improve fruit hold
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Flowering Fruit
+BR
+GUIDEGRID|Full sun::One of the biggest helpers for flowering and fruit quality.||Mature healthy tree::More likely to flower and hold fruit well.||Regular watering::Repeated drought stress may cause poor flowering or fruit drop.||Balanced feeding::Avoid pushing only soft leafy growth with too much nitrogen.||Potassium::Supports flowering and fruit development.||Pollinators::Avoid spraying insecticide directly on open flowers.||Pruning airflow::Good pruning helps sunlight reach the canopy and reduces disease pressure.
+@back: Fruiting
+@next: Next
+@goto: wax-apple-problems
+
+===
+
+@id: wax-apple-problems
+@type: content
+@title: Common Problems
+@subtitle: Quick checks
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Common Problems
+BR
+GUIDETABLE|Problem|Likely cause||Leaves yellowing|Poor drainage, high pH, nutrient deficiency, or root stress.||Tree growing but not fruiting|Tree too young, too much shade, too much nitrogen, or poor vigor.||Fruit dropping|Water stress, poor pollination, weak tree health, or unfavorable weather.||Small fruit|Dry stress, weak feeding, too many fruits, or insufficient sunlight.||Fruit splitting|Irregular watering or heavy rain after a dry period.||Trunk/root problems|Planting too deep, waterlogging, or mulch piled against the trunk.||Pest damage|Birds, fruit flies, scale, mealybugs, mites, or other local pests.
+@back: Flowering fruit
+@next: Next
+@goto: wax-apple-routine
+
+===
+
+@id: wax-apple-routine
+@type: content
+@title: Care Routine
+@subtitle: Simple rhythm
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Care Routine
+BR
+GUIDETABLE|Stage|Routine||First month|Water regularly, keep mulch away from trunk, protect from wind and animals, and avoid heavy fertilizer.||Months 2 to 6|Feed lightly during active growth, water during dry spells, shape gradually, keep weeds away, and watch for pests.||Mature tree|Prune after harvest or when reshaping is needed, feed for healthy growth and fruiting, keep moisture steady, and harvest carefully.
+BR
+# [c2] Simple Formula
+BR
+[c3] Full sun + moist fertile soil + good mulch + steady watering + light pruning + balanced feeding = better wax apple growth and fruiting.
+@back: Common problems
+@next: Next
+@goto: wax-apple-help
+
+===
+
+@id: wax-apple-help
+@type: content
+@title: Need Help
+@subtitle: Para-life Trees
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Need Help
+BR
+[c3] Send clear photos by WhatsApp: full tree, leaves, trunk base, soil, fruit, flowers, and any pest or yellowing signs.
+BR
+[c3] [WhatsApp Para-life Trees](https://wa.me/18763727415?text=I%20need%20help%20with%20my%20wax%20apple%20tree.)
+BR
+[c3] [Download the full PDF guide](/media/paralife_trees/guides/Wax_Apple_Grow_Guide.pdf)
+@back: Care routine
+@next: Visit shop
+@goto: /shop
+
