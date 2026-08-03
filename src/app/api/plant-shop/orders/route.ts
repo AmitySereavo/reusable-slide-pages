@@ -24,6 +24,10 @@ import { resolveShopSelectedLines } from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
+import {
+  evaluateDiscountCode,
+  recordDiscountRedemption,
+} from "@/lib/discountCodes";
 import type {
   ShopCart,
   ShopCatalog,
@@ -45,6 +49,7 @@ type PlantShopOrderBody = {
   contactMethod?: string;
   orderCart?: ShopCart;
   answers?: Record<string, unknown>;
+  discountCode?: string;
 };
 
 function cleanText(value: unknown) {
@@ -126,6 +131,15 @@ function isPackageShellOrderLine(
     String(line.purchaseModeId ?? "").trim() === "package-content" ||
     String(line.purchaseModeLabel ?? "").trim().toLowerCase() ===
       "package contents"
+  );
+}
+
+function isDiscountCodeLine(
+  line: Pick<ShopResolvedCartLine, "purchaseModeId" | "productId">
+) {
+  return (
+    line.purchaseModeId === "discount-code" ||
+    line.productId === "discount-code"
   );
 }
 
@@ -253,10 +267,19 @@ function buildOrderText({
   paymentPreferenceLabel: string;
 }) {
   const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-  const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const plantCount = lines.reduce(
+    (sum, line) => sum + (isDiscountCodeLine(line) ? 0 : line.quantity),
+    0
+  );
   const items = lines
     .map(
       (line, index) => {
+        if (isDiscountCodeLine(line)) {
+          return `${index + 1}. ${line.productTitle}\n   Discount: ${formatMoney(
+            Math.abs(line.lineTotal)
+          )}`;
+        }
+
         const isNurseryStockRequest =
           line.purchaseModeId === "nursery-stock-request";
         const title = isNurseryStockRequest
@@ -431,6 +454,11 @@ export async function POST(request: Request) {
     const paymentPreferenceLabel = paymentPreference
       ? paymentPreferenceLabels[paymentPreference]
       : "";
+    const discountCode = cleanText(
+      body.discountCode ||
+        body.answers?.plantShopDiscountCode ||
+        body.answers?.discountCode
+    );
     const orderEmail = email && isValidEmail(email) ? email : "";
     const cart = normalizeOrderCart(body.orderCart);
     const shopCatalog = await getOrderShopCatalog(questionnaireSlug);
@@ -644,13 +672,76 @@ export async function POST(request: Request) {
       });
     }
 
+    const shopKey =
+      questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG
+        ? GARDEN_PACKAGE_SHOP_SLUG
+        : LITTLE_ORCHARD_SHOP_SLUG;
+    const discount = await evaluateDiscountCode({
+      db: prisma as any,
+      code: discountCode,
+      shopKey,
+      lines,
+      customerEmail: orderEmail,
+      customerPhone: whatsappNumber || phoneNumber,
+      currencyCode: shopCatalog.currencyCode || "JMD",
+    });
+
+    if (!discount.ok) {
+      const discountError =
+        "error" in discount && discount.error
+          ? discount.error
+          : "Discount code is not valid.";
+
+      return NextResponse.json(
+        { ok: false, error: discountError },
+        { status: 400 }
+      );
+    }
+    const appliedDiscount =
+      discount.applied && "code" in discount && discount.id
+        ? (discount as {
+            id: string;
+            code: string;
+            label: string;
+            discountType: string;
+            discountValue: number;
+            currencyCode?: string;
+            minimumSpend?: number;
+            discountAmount: number;
+            eligibleSubtotal: number;
+          })
+        : null;
+
     const orderCode = makeOrderCode();
     const cashierToken = makeCashierToken();
     const cashierLink = `${getBaseUrl(request)}/admin/event-orders/order/${cashierToken}`;
     const orderStatusLink = `${getBaseUrl(request)}/order-status/${cashierToken}`;
     const receiptCode = makeReceiptCode(orderCode);
     const receiptLink = `${getBaseUrl(request)}/receipt/${cashierToken}`;
-    const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    const discountLine =
+      appliedDiscount && appliedDiscount.discountAmount > 0
+        ? ({
+            lineKey: `discount-${appliedDiscount.code}`,
+            productId: "discount-code",
+            productSku: appliedDiscount.code,
+            productTitle: `Discount code ${appliedDiscount.code}`,
+            sizeOptionId: "discount-code",
+            sizeOptionSku: appliedDiscount.code,
+            sizeLabel: appliedDiscount.label || appliedDiscount.code,
+            purchaseModeId: "discount-code",
+            purchaseModeSku: appliedDiscount.code,
+            purchaseModeLabel: "Discount",
+            sku: `DISCOUNT-${appliedDiscount.code}`,
+            selected: true,
+            availabilityStatus: "available",
+            quantity: 1,
+            unitPrice: -appliedDiscount.discountAmount,
+            lineTotal: -appliedDiscount.discountAmount,
+          } as unknown as ShopResolvedCartLine)
+        : null;
+    const orderLines = discountLine ? [...lines, discountLine] : lines;
+    const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    const total = orderLines.reduce((sum, line) => sum + line.lineTotal, 0);
     const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
     const submittedAt = new Date();
     const fulfillmentAnswers =
@@ -690,12 +781,22 @@ export async function POST(request: Request) {
       totalPlants: plantCount,
       orderTotal: total,
       baseCurrency: "JMD",
-      baseSubtotal: total,
-      baseDiscount: 0,
+      baseSubtotal: subtotal,
+      baseDiscount: appliedDiscount ? appliedDiscount.discountAmount : 0,
       baseTotal: total,
       displayCurrency: shopCatalog.currencyCode || "JMD",
       displayExchangeRate: 1,
       displayConvertedTotal: total,
+      discountCode: appliedDiscount ? appliedDiscount.code : null,
+      discountLabel: appliedDiscount ? appliedDiscount.label : null,
+      discountType: appliedDiscount ? appliedDiscount.discountType : null,
+      discountValue: appliedDiscount ? appliedDiscount.discountValue : null,
+      discountCurrencyCode: appliedDiscount ? appliedDiscount.currencyCode : null,
+      discountMinimumSpend: appliedDiscount ? appliedDiscount.minimumSpend : null,
+      discountEligibleSubtotal: appliedDiscount
+        ? appliedDiscount.eligibleSubtotal
+        : null,
+      discountAmount: appliedDiscount ? appliedDiscount.discountAmount : 0,
       paymentStatus: "AWAITING_PAYMENT",
       inventoryApplied: false,
       inventoryAppliedAt: null,
@@ -713,7 +814,7 @@ export async function POST(request: Request) {
 
     await prisma.$transaction(async (tx) => {
       await tx.orderFulfillmentItem.createMany({
-        data: lines.map((line) => ({
+        data: orderLines.map((line) => ({
         sourceType: "little-orchard-shop",
         sourceId: orderRequestKey,
         orderCode,
@@ -728,7 +829,7 @@ export async function POST(request: Request) {
         purchaseModeSku: line.purchaseModeSku,
         purchaseModeLabel: line.purchaseModeLabel,
         sku: line.sku,
-        fulfillmentType: "physical",
+        fulfillmentType: isDiscountCodeLine(line) ? "discount" : "physical",
         quantity: line.quantity,
         currencyCode: shopCatalog.currencyCode || "JMD",
         unitPrice: line.unitPrice,
@@ -737,8 +838,11 @@ export async function POST(request: Request) {
         recipientEmail: orderEmail || null,
         recipientRole: "customer",
         status: "PENDING",
-        fulfillmentStatus: "PENDING",
+        fulfillmentStatus: isDiscountCodeLine(line) ? "FULFILLED" : "PENDING",
         fulfillmentNotes: [
+          isDiscountCodeLine(line)
+            ? "Discount code line. No fulfillment action required."
+            : "",
           `Fulfillment method: ${shippingMethod}`,
           `Pickup / delivery: ${fulfillmentOption.label}`,
           fulfillmentOption.detail,
@@ -828,13 +932,32 @@ export async function POST(request: Request) {
           },
         });
       }
+
+      if (appliedDiscount) {
+        await recordDiscountRedemption({
+          db: tx as any,
+          discountCodeId: appliedDiscount.id,
+          code: appliedDiscount.code,
+          orderCode,
+          shopKey,
+          customerEmail: orderEmail,
+          customerPhone: whatsappNumber || phoneNumber,
+          discountAmount: appliedDiscount.discountAmount,
+          cartSubtotal: subtotal,
+          metadata: {
+            orderRequestKey,
+            customerName: fullName,
+            questionnaireSlug,
+          },
+        });
+      }
     });
 
     const text = buildOrderText({
       orderCode,
       fullName,
       email: orderEmail,
-      lines,
+      lines: orderLines,
       orderStatusLink,
       fulfillmentLabel: fulfillmentOption.label,
       fulfillmentDetail: fulfillmentOption.detail,

@@ -468,6 +468,7 @@ function attachGrowGuideLinksToCustomers(customers: any[], links: any[]) {
       return {
         id: link.id,
         token: link.token,
+        fulfillmentItemId: link.fulfillmentItemId,
         orderCode: link.orderCode,
         productTitle: link.productTitle,
         sizeLabel: link.sizeLabel,

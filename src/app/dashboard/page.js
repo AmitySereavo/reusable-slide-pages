@@ -29,6 +29,11 @@ const dashboardSections = [
     description: "Manage music, merch, gift cards, store credit, and reusable shop products.",
   },
   {
+    href: "/dashboard/discount-codes",
+    label: "Discount Codes",
+    description: "Create product, cart, shop, customer, date-limited, and usage-limited discounts.",
+  },
+  {
     href: "/dashboard/currencies",
     label: "Currencies",
     description: "Manage account/shop currencies and exchange-rate settings.",

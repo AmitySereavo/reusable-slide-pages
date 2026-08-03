@@ -10,6 +10,7 @@ const adminLinks = [
   { href: "/dashboard/orders", label: "Orders" },
   { href: "/dashboard/tickets", label: "Tickets" },
   { href: "/dashboard/inventory", label: "Inventory" },
+  { href: "/dashboard/discount-codes", label: "Discount Codes" },
   { href: "/dashboard/currencies", label: "Currencies" },
   { href: "/dashboard/identity-verifications", label: "ID Verifications" },
   { href: "/dashboard/email-sequences", label: "Email Sequences" },

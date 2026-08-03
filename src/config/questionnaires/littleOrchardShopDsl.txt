@@ -220,6 +220,7 @@ BR
 BR
 @fields:
 - plantShopPaymentPreference|select|Payment option|required|Choose payment option|bank_transfer_scotia=Bank transfer - Scotiabank,bank_transfer_ncb=Bank transfer - NCB,cash_on_delivery=Cash on delivery,remittance=Western Union / remittance request,[card_payment=Card payment (coming soon)]
+- plantShopDiscountCode|text|Discount code|optional|Enter discount code if you have one
 - paymentScotiaDetails|info|Scotiabank|optional|YVONNE DOWNER;;Savings / Transit: 60145;;Account: 60145 000804485||showif:plantShopPaymentPreference=bank_transfer_scotia
 - paymentScotiaConfirmationDetails|info|Payment confirmation|optional|Please send a screenshot or copy of the payment receipt after payment.||showif:plantShopPaymentPreference=bank_transfer_scotia
 - paymentNcbDetails|info|NCB|optional|Yvonne Downer;;Branch: Half-Way Tree;;Account: 104004032||showif:plantShopPaymentPreference=bank_transfer_ncb

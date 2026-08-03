@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -306,6 +306,14 @@ function buildPeopleGrowGuideMessage({ record, item, link }) {
   ].join("\n");
 }
 
+function makeGrowGuideLinkUrl(link) {
+  if (!link?.linkUrl && !link?.token) return "";
+  if (link?.linkUrl) return link.linkUrl;
+  const path = `/guide-link/${encodeURIComponent(link.token)}`;
+  if (typeof window === "undefined") return path;
+  return `${window.location.origin}${path}`;
+}
+
 function openWhatsAppMessage(phone, message) {
   if (!phone) return;
   window.open(
@@ -490,24 +498,6 @@ export default function PeopleManager() {
 
   return (
     <section id="dashboard-people" style={styles.section}>
-      <div style={styles.headerRow}>
-        <div>
-          <h2 style={styles.heading}>People</h2>
-          <p style={styles.subtext}>
-            View leads, accounts, purchase history, content activity, answers, and email engagement.
-          </p>
-        </div>
-        <div style={styles.countGrid}>
-          <span style={styles.countPill}>
-            {data.summary?.unregisteredVisitorCount || data.summary?.unnamedLeadCount || 0} unregistered visitors
-          </span>
-          <span style={styles.countPill}>{data.summary?.accountCount || 0} accounts</span>
-          <span style={styles.countPill}>{data.summary?.leadCount || 0} leads</span>
-          <span style={styles.countPill}>{data.summary?.customerCount || 0} customers</span>
-          <span style={styles.countPill}>{data.summary?.personCount || 0} people</span>
-        </div>
-      </div>
-
       <label style={styles.searchLabel}>
         Search people
         <input
@@ -582,12 +572,12 @@ export default function PeopleManager() {
                     {record.contact?.name || record.contact?.email || "Unnamed person"}
                   </strong>
                   <span style={styles.metaLine}>
-                    {getPeopleKindLabel(record)} ·{" "}
+                    {getPeopleKindLabel(record)} Â·{" "}
                     {record.contact?.email || record.contact?.phone || "No contact saved"}
                   </span>
                   <span style={styles.metaLine}>
                     Created {formatDate(record.createdAt)}
-                    {record.verifiedAt ? ` · Verified ${formatDate(record.verifiedAt)}` : ""}
+                    {record.verifiedAt ? ` Â· Verified ${formatDate(record.verifiedAt)}` : ""}
                   </span>
                 </span>
                 <span style={styles.expandText}>{isExpanded ? "Hide details" : "See details"}</span>
@@ -652,7 +642,7 @@ function DeviceLeadDetails({ record }) {
 
 function AccountDetails({ record, onProfileAction }) {
   const spent = record.summary?.amountSpent?.length
-    ? record.summary.amountSpent.map(formatMoney).join(" · ")
+    ? record.summary.amountSpent.map(formatMoney).join(" Â· ")
     : "No recorded spend yet";
 
   return (
@@ -715,7 +705,7 @@ function AccountDetails({ record, onProfileAction }) {
         renderItem={(item) => (
           <>
             <strong>{item.itemKey}</strong>
-            <span>{item.status} · {formatDate(item.purchasedAt)}</span>
+            <span>{item.status} Â· {formatDate(item.purchasedAt)}</span>
           </>
         )}
       />
@@ -728,12 +718,12 @@ function AccountDetails({ record, onProfileAction }) {
           <>
             <strong>{order.orderCode}</strong>
             <span>
-              {order.status} · {order.currencyCode} {order.grandTotal.toLocaleString()} ·{" "}
+              {order.status} Â· {order.currencyCode} {order.grandTotal.toLocaleString()} Â·{" "}
               {formatDate(order.createdAt)}
             </span>
             {(order.tickets || []).map((ticket) => (
               <span key={ticket.ticketCode}>
-                {ticket.ticketCode} · {ticket.productTitle} · {ticket.ownerName || ticket.ownerEmail}
+                {ticket.ticketCode} Â· {ticket.productTitle} Â· {ticket.ownerName || ticket.ownerEmail}
               </span>
             ))}
           </>
@@ -746,10 +736,10 @@ function AccountDetails({ record, onProfileAction }) {
         empty="No video progress saved."
         renderItem={(video) => (
           <>
-            <strong>{video.questionnaireSlug} · {video.slideId}</strong>
+            <strong>{video.questionnaireSlug} Â· {video.slideId}</strong>
             <span>
               {formatDuration(video.lastPositionSeconds)}
-              {video.durationSeconds ? ` of ${formatDuration(video.durationSeconds)}` : ""} ·{" "}
+              {video.durationSeconds ? ` of ${formatDuration(video.durationSeconds)}` : ""} Â·{" "}
               {formatDate(video.updatedAt)}
             </span>
             <span>
@@ -770,7 +760,7 @@ function AccountDetails({ record, onProfileAction }) {
         empty="No marketing/questionnaire answers saved."
         renderItem={(answer) => (
           <>
-            <strong>{answer.questionnaireSlug} · {answer.questionKey}</strong>
+            <strong>{answer.questionnaireSlug} Â· {answer.questionKey}</strong>
             <span>{compactAnswer(answer.answer)}</span>
             <span>{formatDate(answer.answeredAt)}</span>
           </>
@@ -784,7 +774,7 @@ function AccountDetails({ record, onProfileAction }) {
         renderItem={(event) => (
           <>
             <strong>{event.eventType}</strong>
-            <span>{event.eventKey || event.recipientEmail || "No key"} · {formatDate(event.createdAt)}</span>
+            <span>{event.eventKey || event.recipientEmail || "No key"} Â· {formatDate(event.createdAt)}</span>
             {getDeviceActivityLine(event.metadata) ? (
               <span>{getDeviceActivityLine(event.metadata)}</span>
             ) : null}
@@ -822,32 +812,16 @@ function LeadDetails({ record, onProfileAction }) {
 
 function PersonDetails({ record, onProfileAction }) {
   const spent = record.summary?.amountSpent?.length
-    ? record.summary.amountSpent.map(formatMoney).join(" Â· ")
+    ? record.summary.amountSpent.map(formatMoney).join(" Ã‚Â· ")
     : "No recorded spend yet";
 
   return (
     <div style={styles.detailGrid}>
-      <PeopleCrmPanel record={record} onProfileAction={onProfileAction} />
-
-      <CollapsibleDetailGroup title="Summary" defaultOpen>
-        <InfoLine label="Amount spent/requested" value={spent} />
-        <InfoLine
-          label="Orders"
-          value={record.summary?.orderCount}
-          href={makeOrdersDashboardHref(record)}
-        />
-        <InfoLine label="Items" value={record.summary?.itemCount} />
-        <InfoLine label="Tickets" value={record.summary?.ticketCount} />
-        <InfoLine label="Videos watched" value={record.summary?.videoCount} />
-        <InfoLine
-          label="Total watched"
-          value={formatDuration(record.summary?.totalWatchedSeconds)}
-        />
-        <InfoLine label="Questions answered" value={record.summary?.questionAnswerCount} />
-        <InfoLine label="Email events" value={record.summary?.emailEventCount} />
-        <InfoLine label="Bundled records" value={record.sourceRecords?.length || 0} />
-        <SourceRecordsSummary items={record.sourceRecords} />
-      </CollapsibleDetailGroup>
+      <PeopleCrmPanel
+        record={record}
+        onProfileAction={onProfileAction}
+        summarySlot={<PeopleSummarySection record={record} spent={spent} />}
+      />
 
       <ActivityLogList items={record.activityLog} />
 
@@ -863,16 +837,16 @@ function PersonDetails({ record, onProfileAction }) {
               {guideLink.productTitle || guideLink.guideSlug || "Grow guide"}
             </strong>
             <span>
-              {guideLink.orderCode ? `Order ${guideLink.orderCode} · ` : ""}
-              {guideLink.deviceCount || 0} device(s) ·{" "}
+              {guideLink.orderCode ? `Order ${guideLink.orderCode} Â· ` : ""}
+              {guideLink.deviceCount || 0} device(s) Â·{" "}
               {guideLink.slideViewCount || 0} guide page visit(s)
             </span>
             {(guideLink.visits || []).map((visit, index) => (
               <span key={visit.id || `${guideLink.id}-${index}`}>
-                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} ·{" "}
+                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} Â·{" "}
                 {formatDate(visit.createdAt)}
                 {visit.deviceKey
-                  ? ` · device ${String(visit.deviceKey).slice(0, 12)}`
+                  ? ` Â· device ${String(visit.deviceKey).slice(0, 12)}`
                   : ""}
               </span>
             ))}
@@ -887,7 +861,7 @@ function PersonDetails({ record, onProfileAction }) {
         renderItem={(source) => (
           <>
             <strong>{source.label}</strong>
-            <span>{source.kind} Â· {source.id}</span>
+            <span>{source.kind} Ã‚Â· {source.id}</span>
             <span>{formatDate(source.createdAt)}</span>
           </>
         )}
@@ -901,14 +875,14 @@ function PersonDetails({ record, onProfileAction }) {
           <>
             <strong>{order.orderCode}</strong>
             <span>
-              {order.status || "Status not recorded"} Â·{" "}
-              {order.paymentStatus || "Payment status not recorded"} Â·{" "}
-              {order.currencyCode} {Number(order.total || 0).toLocaleString()} Â·{" "}
+              {order.status || "Status not recorded"} Ã‚Â·{" "}
+              {order.paymentStatus || "Payment status not recorded"} Ã‚Â·{" "}
+              {order.currencyCode} {Number(order.total || 0).toLocaleString()} Ã‚Â·{" "}
               {formatDate(order.createdAt)}
             </span>
             {(order.items || []).map((item, index) => (
               <span key={`${order.orderCode}-${index}`}>
-                {item.quantity} Ã— {item.productTitle}
+                {item.quantity} Ãƒâ€” {item.productTitle}
                 {item.sizeLabel ? ` - ${item.sizeLabel}` : ""}
               </span>
             ))}
@@ -927,7 +901,7 @@ function PersonDetails({ record, onProfileAction }) {
             </strong>
             <span>{String(device.deviceKey || "").slice(0, 18)}</span>
             <span>
-              First seen {formatDate(device.firstSeenAt)} Â· Last seen{" "}
+              First seen {formatDate(device.firstSeenAt)} Ã‚Â· Last seen{" "}
               {formatDate(device.lastSeenAt)}
             </span>
             <DeviceProfileLines device={device} />
@@ -941,7 +915,7 @@ function PersonDetails({ record, onProfileAction }) {
 
 function CustomerDetails({ record, onProfileAction }) {
   const spent = record.summary?.amountSpent?.length
-    ? record.summary.amountSpent.map(formatMoney).join(" · ")
+    ? record.summary.amountSpent.map(formatMoney).join(" Â· ")
     : "No recorded spend yet";
 
   return (
@@ -977,17 +951,17 @@ function CustomerDetails({ record, onProfileAction }) {
             </strong>
             <span>
               {String(device.deviceKey || "").slice(0, 18)}
-              {device.orderCode ? ` · ${device.orderCode}` : ""}
+              {device.orderCode ? ` Â· ${device.orderCode}` : ""}
             </span>
             <span>
-              First seen {formatDate(device.firstSeenAt)} · Last seen{" "}
+              First seen {formatDate(device.firstSeenAt)} Â· Last seen{" "}
               {formatDate(device.lastSeenAt)}
             </span>
             {device.userName || device.userEmail ? (
               <span>
                 Logged in as {[device.userName, device.userEmail]
                   .filter(Boolean)
-                  .join(" · ")}
+                  .join(" Â· ")}
               </span>
             ) : null}
             {device.note ? <span>{device.note}</span> : null}
@@ -1005,9 +979,9 @@ function CustomerDetails({ record, onProfileAction }) {
           <>
             <strong>{order.orderCode}</strong>
             <span>
-              {order.status || "Status not recorded"} ·{" "}
-              {order.paymentStatus || "Payment status not recorded"} ·{" "}
-              {order.currencyCode} {Number(order.total || 0).toLocaleString()} ·{" "}
+              {order.status || "Status not recorded"} Â·{" "}
+              {order.paymentStatus || "Payment status not recorded"} Â·{" "}
+              {order.currencyCode} {Number(order.total || 0).toLocaleString()} Â·{" "}
               {formatDate(order.createdAt)}
             </span>
             {order.fulfillmentPreference ? (
@@ -1015,8 +989,8 @@ function CustomerDetails({ record, onProfileAction }) {
             ) : null}
             {(order.items || []).map((item, index) => (
               <span key={`${order.orderCode}-${index}`}>
-                {item.quantity} × {item.productTitle}
-                {item.sizeLabel ? ` - ${item.sizeLabel}` : ""} ·{" "}
+                {item.quantity} Ã— {item.productTitle}
+                {item.sizeLabel ? ` - ${item.sizeLabel}` : ""} Â·{" "}
                 {item.currencyCode || order.currencyCode}{" "}
                 {Number(item.lineTotal || 0).toLocaleString()}
               </span>
@@ -1031,7 +1005,7 @@ function CustomerDetails({ record, onProfileAction }) {
         empty="No notes saved yet."
         renderItem={(note) => (
           <>
-            <strong>{note.source || "Note"} · {note.orderCode}</strong>
+            <strong>{note.source || "Note"} Â· {note.orderCode}</strong>
             <span>{note.text}</span>
             <span>{formatDate(note.createdAt)}</span>
           </>
@@ -1048,16 +1022,16 @@ function CustomerDetails({ record, onProfileAction }) {
               {guideLink.productTitle || guideLink.guideSlug || "Grow guide"}
             </strong>
             <span>
-              {guideLink.orderCode ? `Order ${guideLink.orderCode} · ` : ""}
-              {guideLink.deviceCount || 0} device(s) ·{" "}
+              {guideLink.orderCode ? `Order ${guideLink.orderCode} Â· ` : ""}
+              {guideLink.deviceCount || 0} device(s) Â·{" "}
               {guideLink.slideViewCount || 0} guide page visit(s)
             </span>
             {(guideLink.visits || []).map((visit, index) => (
               <span key={visit.id || `${guideLink.id}-${index}`}>
-                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} ·{" "}
+                {index + 1}. {visit.slideLabel || visit.slideId || "Guide page"} Â·{" "}
                 {formatDate(visit.createdAt)}
                 {visit.deviceKey
-                  ? ` · device ${String(visit.deviceKey).slice(0, 12)}`
+                  ? ` Â· device ${String(visit.deviceKey).slice(0, 12)}`
                   : ""}
               </span>
             ))}
@@ -1068,7 +1042,31 @@ function CustomerDetails({ record, onProfileAction }) {
   );
 }
 
-function PeopleCrmPanel({ record, onProfileAction }) {
+function PeopleSummarySection({ record, spent }) {
+  return (
+    <CollapsibleDetailGroup title="Summary" defaultOpen>
+      <InfoLine label="Amount spent/requested" value={spent} />
+      <InfoLine
+        label="Orders"
+        value={record.summary?.orderCount}
+        href={makeOrdersDashboardHref(record)}
+      />
+      <InfoLine label="Items" value={record.summary?.itemCount} />
+      <InfoLine label="Tickets" value={record.summary?.ticketCount} />
+      <InfoLine label="Videos watched" value={record.summary?.videoCount} />
+      <InfoLine
+        label="Total watched"
+        value={formatDuration(record.summary?.totalWatchedSeconds)}
+      />
+      <InfoLine label="Questions answered" value={record.summary?.questionAnswerCount} />
+      <InfoLine label="Email events" value={record.summary?.emailEventCount} />
+      <InfoLine label="Bundled records" value={record.sourceRecords?.length || 0} />
+      <SourceRecordsSummary items={record.sourceRecords} />
+    </CollapsibleDetailGroup>
+  );
+}
+
+function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState(() => makeProfileDraft(record));
@@ -1084,6 +1082,8 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   const [generatedGuideLink, setGeneratedGuideLink] = useState(null);
   const [guideActionStatus, setGuideActionStatus] = useState("");
   const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
+  const [messageType, setMessageType] = useState("grow-guide");
+  const [messageDraft, setMessageDraft] = useState("");
   const profile = record.peopleProfile || {};
   const followUpStatus = profile.followUpStatus || {};
   const dotStyle = getFollowUpDotStyle(followUpStatus);
@@ -1115,14 +1115,39 @@ function PeopleCrmPanel({ record, onProfileAction }) {
           productSku: selectedLibraryGuide.slug,
         }
       : selectedGuideItem;
+  const existingGuideLink = (record.growGuideLinks || []).find((link) => {
+    if (!activeGuideItem) return false;
+    if (
+      effectiveGuideSource === "purchased" &&
+      selectedGuideItem?.id &&
+      link.fulfillmentItemId === selectedGuideItem.id
+    ) {
+      return true;
+    }
+    if (effectiveGuideSource === "library" && selectedLibraryGuide?.slug) {
+      return link.guideSlug === selectedLibraryGuide.slug;
+    }
+    return false;
+  });
+  const activeTrackedGuideLink = generatedGuideLink || existingGuideLink || null;
+  const activeTrackedGuideLinkUrl = makeGrowGuideLinkUrl(activeTrackedGuideLink);
   const preparedGuideMessage =
-    generatedGuideLink && activeGuideItem
+    activeTrackedGuideLinkUrl && activeGuideItem
       ? buildPeopleGrowGuideMessage({
           record,
           item: activeGuideItem,
-          link: generatedGuideLink,
+          link: {
+            ...activeTrackedGuideLink,
+            linkUrl: activeTrackedGuideLinkUrl,
+          },
         })
       : "";
+
+  useEffect(() => {
+    if (messageType === "grow-guide" && preparedGuideMessage) {
+      setMessageDraft(preparedGuideMessage);
+    }
+  }, [messageType, preparedGuideMessage]);
 
   function updateNoteField(key, value) {
     setNote((current) => ({ ...current, [key]: value }));
@@ -1231,7 +1256,7 @@ function PeopleCrmPanel({ record, onProfileAction }) {
   }
 
   async function recordGuideConversation(sentBy) {
-    if (!generatedGuideLink?.linkUrl || !activeGuideItem) return;
+    if (!activeTrackedGuideLinkUrl || !activeGuideItem) return;
 
     await onProfileAction(record, {
       action: "add-conversation-note",
@@ -1243,84 +1268,68 @@ function PeopleCrmPanel({ record, onProfileAction }) {
         additionalNotes: [
           `Message channel: ${sentBy}`,
           `Order: ${activeGuideItem.orderCode || "Not recorded"}`,
-          `Guide link: ${generatedGuideLink.linkUrl}`,
+          `Guide link: ${activeTrackedGuideLinkUrl}`,
         ].join("\n"),
       },
     });
   }
 
-  return (
-    <section style={styles.crmPanel}>
-      <div style={styles.crmHeader}>
-        <div>
-          <h3 style={styles.detailHeading}>Conversation Notes</h3>
-          <p style={styles.crmSubtext}>
-            Latest conversation, next steps, relationships affected, and follow-up reminders.
-          </p>
-        </div>
-        <button
-          type="button"
-          style={styles.deleteProfileButton}
-          onClick={() => {
-            const profileName =
-              record.contact?.name ||
-              record.contact?.email ||
-              record.contact?.phone ||
-              "this unnamed person";
-            if (
-              confirmTypedDelete(
-                `Delete ${profileName}'s people profile from the People tab? Orders and account records stay stored.`
-              )
-            ) {
-              const exported = exportBeforeDelete({
-                title: `People profile deletion export - ${profileName}`,
-                filename: makeDeletionExportFilename([
-                  "People Profile",
-                  profileName,
-                  record.contact?.email,
-                  record.contact?.phone,
-                ]),
-                record,
-              });
-              if (!exported) return;
-              onProfileAction(record, {
-                action: "delete-profile",
-                confirmation: "delete",
-              });
-            }
-          }}
-        >
-          Delete profile
-        </button>
-      </div>
+  async function recordPreparedMessageConversation(sentBy) {
+    if (!messageDraft.trim()) return;
 
-      <div style={styles.followUpRow}>
-        <label style={styles.inlineLabel}>
-          Follow-up frequency
-          <select
-            value={profile.followUpFrequency || "none"}
-            onChange={(event) =>
-              onProfileAction(record, {
-                action: "set-follow-up",
-                followUpFrequency: event.target.value,
-              })
-            }
-            style={styles.select}
-          >
-            <option value="none">No follow-up</option>
-            <option value="hourly">Hourly</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="every_3_months">Every 3 months</option>
-          </select>
-        </label>
-        <span style={styles.followUpStatus}>
-          {dotStyle ? <span style={dotStyle} /> : null}
-          {followUpStatus.label || "No follow-up frequency set"}
-          {followUpStatus.dueAt ? ` · ${formatDate(followUpStatus.dueAt)}` : ""}
-        </span>
-      </div>
+    if (messageType === "grow-guide" && activeTrackedGuideLinkUrl && activeGuideItem) {
+      await recordGuideConversation(sentBy);
+      return;
+    }
+
+    await onProfileAction(record, {
+      action: "add-conversation-note",
+      note: {
+        ...emptyConversationNote,
+        summary: `Prepared ${messageType === "custom" ? "custom" : "customer-care"} message for this person.`,
+        immediateNextStep: "Review whether the person responds and record the outcome.",
+        nextQuestions: "Ask what they need next and whether the message was helpful.",
+        additionalNotes: [
+          `Message channel: ${sentBy}`,
+          "Message:",
+          messageDraft.trim(),
+        ].join("\n"),
+      },
+    });
+  }
+
+  function deletePeopleProfile() {
+    const profileName =
+      record.contact?.name ||
+      record.contact?.email ||
+      record.contact?.phone ||
+      "this unnamed person";
+    if (
+      confirmTypedDelete(
+        `Delete ${profileName}'s people profile from the People tab? Orders and account records stay stored.`
+      )
+    ) {
+      const exported = exportBeforeDelete({
+        title: `People profile deletion export - ${profileName}`,
+        filename: makeDeletionExportFilename([
+          "People Profile",
+          profileName,
+          record.contact?.email,
+          record.contact?.phone,
+        ]),
+        record,
+      });
+      if (!exported) return;
+      onProfileAction(record, {
+        action: "delete-profile",
+        confirmation: "delete",
+      });
+    }
+  }
+
+  return (
+    <>
+      <section style={styles.crmPanel}>
 
       <section style={styles.profileEditPanel}>
         <div style={styles.profileEditHeader}>
@@ -1413,6 +1422,13 @@ function PeopleCrmPanel({ record, onProfileAction }) {
               }
             />
             <div style={styles.formButtonRow}>
+              <button
+                type="button"
+                style={styles.deleteProfileButton}
+                onClick={deletePeopleProfile}
+              >
+                Delete profile
+              </button>
               <button type="submit" style={styles.primarySmallButton}>
                 Save profile
               </button>
@@ -1436,6 +1452,268 @@ function PeopleCrmPanel({ record, onProfileAction }) {
           </div>
         )}
       </section>
+
+      {summarySlot}
+
+      <CollapsibleDetailGroup title="Follow-up Frequency" defaultOpen>
+        <div style={styles.followUpRow}>
+          <div style={styles.followUpStatusCard}>
+            <span style={styles.followUpStatusLabel}>Reminder status</span>
+            <span style={styles.followUpStatus}>
+              {dotStyle ? <span style={dotStyle} /> : null}
+              <span>
+                {followUpStatus.label || "No follow-up frequency set"}
+                {followUpStatus.dueAt ? (
+                  <span style={styles.followUpDueDate}>
+                    {formatDate(followUpStatus.dueAt)}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+          </div>
+          <label style={styles.followUpControlLabel}>
+            <span>Reminder cadence</span>
+            <select
+              value={profile.followUpFrequency || "none"}
+              onChange={(event) =>
+                onProfileAction(record, {
+                  action: "set-follow-up",
+                  followUpFrequency: event.target.value,
+                })
+              }
+              style={styles.followUpSelect}
+            >
+              <option value="none">No follow-up</option>
+              <option value="hourly">Hourly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="every_3_months">Every 3 months</option>
+            </select>
+          </label>
+        </div>
+      </CollapsibleDetailGroup>
+
+      <CollapsibleDetailGroup title="Send Message">
+        <section style={styles.growGuideConversationPanel}>
+          <div>
+            <strong>Message details</strong>
+            <p style={styles.crmSubtext}>
+              Choose, review, and edit the message before copying or sending it.
+            </p>
+          </div>
+          <div style={styles.messageTypeTabs} role="tablist" aria-label="Message type">
+            {[
+              ["grow-guide", "Grow guide link"],
+              ["custom", "Custom message"],
+            ].map(([type, label]) => (
+              <button
+                key={type}
+                type="button"
+                role="tab"
+                aria-selected={messageType === type}
+                style={
+                  messageType === type
+                    ? styles.messageTypeTabActive
+                    : styles.messageTypeTab
+                }
+                onClick={() => {
+                  setMessageType(type);
+                  setMessageDraft(type === "custom" ? "" : preparedGuideMessage);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {messageType === "grow-guide" ? (
+            growGuideItems.length || growGuideLibraryOptions.length ? (
+              <>
+                <fieldset style={styles.radioGroup}>
+                  <legend style={styles.inlineLegend}>Guide source</legend>
+                  <label style={styles.radioOption}>
+                    <input
+                      type="radio"
+                      name={`guide-source-${record.id}`}
+                      value="purchased"
+                      checked={effectiveGuideSource === "purchased"}
+                      disabled={!growGuideItems.length}
+                      onChange={() => {
+                        setGuideSource("purchased");
+                        setGeneratedGuideLink(null);
+                        setGuideActionStatus("");
+                        setMessageDraft("");
+                      }}
+                    />
+                    Purchased item guide
+                  </label>
+                  <label style={styles.radioOption}>
+                    <input
+                      type="radio"
+                      name={`guide-source-${record.id}`}
+                      value="library"
+                      checked={effectiveGuideSource === "library"}
+                      onChange={() => {
+                        setGuideSource("library");
+                        setGeneratedGuideLink(null);
+                        setGuideActionStatus("");
+                        setMessageDraft("");
+                      }}
+                    />
+                    Any grow guide
+                  </label>
+                </fieldset>
+                {effectiveGuideSource === "purchased" ? (
+                  <label style={styles.inlineLabel}>
+                    Purchased item guide
+                    <select
+                      value={selectedGuideItem?.id || ""}
+                      onChange={(event) => {
+                        setGuideItemId(event.target.value);
+                        setGeneratedGuideLink(null);
+                        setGuideActionStatus("");
+                        setMessageDraft("");
+                      }}
+                      style={styles.select}
+                      disabled={!growGuideItems.length}
+                    >
+                      {growGuideItems.map((item) => (
+                        <option key={`${item.orderCode}-${item.id}`} value={item.id}>
+                          {getGrowGuideLabelForOrderItem(item)} -{" "}
+                          {getRequestedItemLabel(item)} - {item.orderCode}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <label style={styles.inlineLabel}>
+                    Any grow guide
+                    <select
+                      value={selectedLibraryGuide?.slug || ""}
+                      onChange={(event) => {
+                        setLibraryGuideSlug(event.target.value);
+                        setGeneratedGuideLink(null);
+                        setGuideActionStatus("");
+                        setMessageDraft("");
+                      }}
+                      style={styles.select}
+                    >
+                      {growGuideLibraryOptions.map((guide) => (
+                        <option key={guide.slug} value={guide.slug}>
+                          {guide.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div style={styles.formButtonRow}>
+                  <button
+                    type="button"
+                    style={styles.secondarySmallButton}
+                    disabled={isGeneratingGuide || !activeGuideItem}
+                    onClick={generateGrowGuideLink}
+                  >
+                    {isGeneratingGuide ? "Generating..." : "Generate tracked link"}
+                  </button>
+                  {activeTrackedGuideLinkUrl ? (
+                    <a
+                      href={activeTrackedGuideLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.inlineDetailLink}
+                    >
+                      Open guide
+                    </a>
+                  ) : null}
+                </div>
+                {activeTrackedGuideLinkUrl ? (
+                  <div style={styles.generatedGuideBox}>
+                    <strong>
+                      {generatedGuideLink
+                        ? "New tracked link generated"
+                        : "Existing tracked link"}
+                    </strong>
+                    <span style={styles.breakText}>{activeTrackedGuideLinkUrl}</span>
+                    <p style={styles.crmSubtext}>
+                      Reuse this link unless you specifically need a fresh tracked link.
+                    </p>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p style={styles.emptyText}>No grow guides are available yet.</p>
+            )
+          ) : null}
+          {messageType === "custom" && activeTrackedGuideLinkUrl ? (
+            <button
+              type="button"
+              style={styles.secondarySmallButton}
+              onClick={() =>
+                setMessageDraft((current) =>
+                  current.includes(activeTrackedGuideLinkUrl)
+                    ? current
+                    : `${current.trim()}${current.trim() ? "\n\n" : ""}${activeTrackedGuideLinkUrl}`
+                )
+              }
+            >
+              Add tracked guide link
+            </button>
+          ) : null}
+          {messageType === "custom" || activeTrackedGuideLinkUrl ? (
+            <>
+              <TextAreaField
+                label="Message to review / edit"
+                value={messageDraft}
+                onChange={setMessageDraft}
+              />
+              <div style={styles.formButtonRow}>
+                {record.contact?.phone ? (
+                  <button
+                    type="button"
+                    style={styles.primarySmallButton}
+                    disabled={!messageDraft.trim()}
+                    onClick={async () => {
+                      openWhatsAppMessage(record.contact.phone, messageDraft);
+                      await recordPreparedMessageConversation("WhatsApp");
+                    }}
+                  >
+                    Send WhatsApp message
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  style={styles.secondarySmallButton}
+                  disabled={!messageDraft.trim()}
+                  onClick={async () => {
+                    const copied = await copyTextToClipboard(messageDraft);
+                    if (copied) await recordPreparedMessageConversation("copy");
+                    setGuideActionStatus(
+                      copied
+                        ? "Message copied and conversation block added."
+                        : "Message could not be copied."
+                    );
+                  }}
+                >
+                  Copy message
+                </button>
+              </div>
+            </>
+          ) : null}
+          {guideActionStatus ? (
+            <p style={styles.crmSubtext}>{guideActionStatus}</p>
+          ) : null}
+        </section>
+      </CollapsibleDetailGroup>
+
+      <div style={styles.crmHeader}>
+        <div>
+          <h3 style={styles.detailHeading}>Conversation Notes</h3>
+          <p style={styles.crmSubtext}>
+            Latest conversation, next steps, relationships affected, and follow-up reminders.
+          </p>
+        </div>
+      </div>
+
 
       {record.latestConversationNote ? (
         <div style={styles.latestNote}>
@@ -1523,137 +1801,7 @@ function PeopleCrmPanel({ record, onProfileAction }) {
         </button>
       )}
 
-      <section style={styles.growGuideConversationPanel}>
-        <div>
-          <strong>Send grow guide link</strong>
-          <p style={styles.crmSubtext}>
-            Use this for customer-care guide messages. Receipts and order updates stay under Orders.
-          </p>
-        </div>
-        {growGuideItems.length || growGuideLibraryOptions.length ? (
-          <>
-            <label style={styles.inlineLabel}>
-              Guide source
-              <select
-                value={effectiveGuideSource}
-                onChange={(event) => {
-                  setGuideSource(event.target.value);
-                  setGeneratedGuideLink(null);
-                  setGuideActionStatus("");
-                }}
-                style={styles.select}
-              >
-                <option value="purchased" disabled={!growGuideItems.length}>
-                  Purchased item guide
-                </option>
-                <option value="library">Any grow guide</option>
-              </select>
-            </label>
-            {effectiveGuideSource === "purchased" ? (
-              <label style={styles.inlineLabel}>
-                Purchased item guide
-                <select
-                  value={selectedGuideItem?.id || ""}
-                  onChange={(event) => {
-                    setGuideItemId(event.target.value);
-                    setGeneratedGuideLink(null);
-                    setGuideActionStatus("");
-                  }}
-                  style={styles.select}
-                  disabled={!growGuideItems.length}
-                >
-                  {growGuideItems.map((item) => (
-                    <option key={`${item.orderCode}-${item.id}`} value={item.id}>
-                      {getGrowGuideLabelForOrderItem(item)} -{" "}
-                      {getRequestedItemLabel(item)} - {item.orderCode}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <label style={styles.inlineLabel}>
-                Any grow guide
-                <select
-                  value={selectedLibraryGuide?.slug || ""}
-                  onChange={(event) => {
-                    setLibraryGuideSlug(event.target.value);
-                    setGeneratedGuideLink(null);
-                    setGuideActionStatus("");
-                  }}
-                  style={styles.select}
-                >
-                  {growGuideLibraryOptions.map((guide) => (
-                    <option key={guide.slug} value={guide.slug}>
-                      {guide.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <div style={styles.formButtonRow}>
-              <button
-                type="button"
-                style={styles.secondarySmallButton}
-                disabled={isGeneratingGuide || !activeGuideItem}
-                onClick={generateGrowGuideLink}
-              >
-                {isGeneratingGuide ? "Generating..." : "Generate tracked link"}
-              </button>
-              {generatedGuideLink?.linkUrl ? (
-                <a
-                  href={generatedGuideLink.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={styles.inlineDetailLink}
-                >
-                  Open guide
-                </a>
-              ) : null}
-            </div>
-            {generatedGuideLink?.linkUrl ? (
-              <div style={styles.generatedGuideBox}>
-                <span style={styles.breakText}>{generatedGuideLink.linkUrl}</span>
-                <div style={styles.formButtonRow}>
-                  {record.contact?.phone ? (
-                    <button
-                      type="button"
-                      style={styles.primarySmallButton}
-                      onClick={async () => {
-                        openWhatsAppMessage(record.contact.phone, preparedGuideMessage);
-                        await recordGuideConversation("WhatsApp");
-                      }}
-                    >
-                      Send WhatsApp guide
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    style={styles.secondarySmallButton}
-                    onClick={async () => {
-                      const copied = await copyTextToClipboard(preparedGuideMessage);
-                      if (copied) await recordGuideConversation("copy");
-                      setGuideActionStatus(
-                        copied
-                          ? "Grow guide message copied and conversation block added."
-                          : "Grow guide message could not be copied."
-                      );
-                    }}
-                  >
-                    Copy guide message
-                  </button>
-                </div>
-              </div>
-            ) : null}
-            {guideActionStatus ? (
-              <p style={styles.crmSubtext}>{guideActionStatus}</p>
-            ) : null}
-          </>
-        ) : (
-          <p style={styles.emptyText}>
-            No grow guides are available yet.
-          </p>
-        )}
-      </section>
+    </section>
 
       <DetailList
         title="Conversation Timeline"
@@ -1717,7 +1865,7 @@ function PeopleCrmPanel({ record, onProfileAction }) {
           />
         )}
       />
-    </section>
+    </>
   );
 }
 
@@ -1738,11 +1886,14 @@ function ConversationTimelineCard({
   if (isEditing) {
     return (
       <form onSubmit={onSaveEdit} style={styles.conversationCard}>
-        <div style={styles.conversationHeader}>
+        <div style={{ ...styles.conversationHeader, ...styles.conversationHeaderSticky }}>
           <div>
             <strong>Edit conversation block</strong>
             <span style={styles.muted}>{formatDate(conversation.createdAt)}</span>
           </div>
+          <button type="button" style={styles.textDangerButton} onClick={onDelete}>
+            Delete block
+          </button>
         </div>
         <div style={styles.conversationEditGrid}>
           {conversationSections.map((section) => (
@@ -1772,7 +1923,13 @@ function ConversationTimelineCard({
 
   return (
     <article style={styles.conversationCard}>
-      <div style={styles.conversationHeader}>
+      <div
+        style={
+          isExpanded
+            ? { ...styles.conversationHeader, ...styles.conversationHeaderSticky }
+            : styles.conversationHeader
+        }
+      >
         <div>
           <strong>{formatDate(conversation.createdAt)}</strong>
           {conversation.createdByUserName ? (
@@ -1792,9 +1949,6 @@ function ConversationTimelineCard({
             onClick={() => onStartEdit(conversation)}
           >
             Edit block
-          </button>
-          <button type="button" style={styles.textDangerButton} onClick={onDelete}>
-            Delete block
           </button>
         </div>
       </div>
@@ -2137,16 +2291,12 @@ function getDeviceActivityLine(metadata) {
     : "";
   const status = metadata.reason ? `reason: ${metadata.reason}` : "";
 
-  return [device, location, status].filter(Boolean).join(" · ");
+  return [device, location, status].filter(Boolean).join(" Â· ");
 }
 
 const styles = {
   section: {
-    background: "#fffdfa",
-    border: "1px solid rgba(32, 28, 29, 0.14)",
-    borderRadius: "8px",
     margin: "18px 0",
-    padding: "18px",
   },
   headerRow: {
     alignItems: "flex-start",
@@ -2182,7 +2332,7 @@ const styles = {
     gap: "7px",
     fontSize: "13px",
     fontWeight: 800,
-    marginTop: "16px",
+    marginTop: 0,
   },
   searchInput: {
     border: "1px solid rgba(32, 28, 29, 0.18)",
@@ -2208,8 +2358,10 @@ const styles = {
   stageHeaderButton: {
     alignItems: "center",
     background: "#fffdfa",
-    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderColor: "rgba(32, 28, 29, 0.14)",
     borderRadius: "8px",
+    borderStyle: "solid",
+    borderWidth: "1px",
     color: "#28231F",
     cursor: "pointer",
     display: "flex",
@@ -2241,7 +2393,7 @@ const styles = {
   card: {
     border: "1px solid rgba(32, 28, 29, 0.12)",
     borderRadius: "8px",
-    overflow: "hidden",
+    overflow: "visible",
   },
   cardButton: {
     alignItems: "center",
@@ -2253,8 +2405,11 @@ const styles = {
     gap: "12px",
     justifyContent: "space-between",
     padding: "14px",
+    position: "sticky",
     textAlign: "left",
+    top: 0,
     width: "100%",
+    zIndex: 20,
   },
   identityBlock: {
     display: "grid",
@@ -2304,10 +2459,8 @@ const styles = {
     padding: "14px",
   },
   detailGroup: {
-    background: "#fffdfa",
-    border: "1px solid rgba(32, 28, 29, 0.1)",
-    borderRadius: "8px",
-    padding: "12px",
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    padding: "12px 0",
   },
   detailHeading: {
     fontSize: "14px",
@@ -2330,12 +2483,10 @@ const styles = {
     width: "100%",
   },
   crmPanel: {
-    background: "#fffdfa",
-    border: "1px solid rgba(47, 116, 64, 0.22)",
-    borderRadius: "8px",
+    borderTop: "1px solid rgba(47, 116, 64, 0.22)",
     display: "grid",
     gap: "12px",
-    padding: "12px",
+    padding: "12px 0",
   },
   crmHeader: {
     alignItems: "flex-start",
@@ -2350,10 +2501,39 @@ const styles = {
     margin: "-4px 0 0",
   },
   followUpRow: {
-    alignItems: "end",
+    alignItems: "stretch",
+    background: "#fffdfa",
+    borderColor: "rgba(47, 116, 64, 0.14)",
+    borderRadius: "8px",
+    borderStyle: "solid",
+    borderWidth: "1px",
     display: "grid",
-    gap: "10px",
-    gridTemplateColumns: "minmax(180px, 260px) 1fr",
+    gap: "12px",
+    gridTemplateColumns: "1fr",
+    padding: "12px",
+  },
+  followUpControlLabel: {
+    color: "#6f6258",
+    display: "grid",
+    gap: "7px",
+    fontSize: "12px",
+    fontWeight: 900,
+    letterSpacing: "0.02em",
+    textTransform: "uppercase",
+  },
+  followUpSelect: {
+    appearance: "auto",
+    background: "#ffffff",
+    borderColor: "rgba(47, 116, 64, 0.35)",
+    borderRadius: "8px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: "#1f2f22",
+    font: "inherit",
+    fontWeight: 850,
+    minHeight: "46px",
+    padding: "10px 12px",
+    width: "100%",
   },
   inlineLabel: {
     display: "grid",
@@ -2370,11 +2550,33 @@ const styles = {
   },
   followUpStatus: {
     alignItems: "center",
-    color: "#6b625c",
+    color: "#2f2824",
     display: "flex",
-    fontSize: "13px",
+    fontSize: "14px",
+    fontWeight: 850,
     gap: "8px",
-    minHeight: "38px",
+    lineHeight: 1.35,
+  },
+  followUpStatusCard: {
+    background: "#eef5ee",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "5px",
+    padding: "10px 12px",
+  },
+  followUpStatusLabel: {
+    color: "#6f6258",
+    fontSize: "11px",
+    fontWeight: 900,
+    letterSpacing: "0.02em",
+    textTransform: "uppercase",
+  },
+  followUpDueDate: {
+    color: "#6b625c",
+    display: "block",
+    fontSize: "12px",
+    fontWeight: 700,
+    marginTop: "2px",
   },
   profileEditPanel: {
     background: "#fbf7f1",
@@ -2439,6 +2641,52 @@ const styles = {
     display: "flex",
     gap: "8px",
     flexWrap: "wrap",
+  },
+  messageTypeTabs: {
+    border: "1px solid rgba(47, 116, 64, 0.25)",
+    borderRadius: "8px",
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    overflow: "hidden",
+  },
+  messageTypeTab: {
+    background: "#fffdfa",
+    border: 0,
+    color: "#2f2824",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 800,
+    padding: "10px",
+  },
+  messageTypeTabActive: {
+    background: "#2f7440",
+    border: 0,
+    color: "#fff",
+    cursor: "pointer",
+    font: "inherit",
+    fontWeight: 900,
+    padding: "10px",
+  },
+  radioGroup: {
+    border: "1px solid rgba(32, 28, 29, 0.12)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "8px",
+    margin: 0,
+    padding: "10px",
+  },
+  inlineLegend: {
+    color: "#6f6258",
+    fontSize: "0.82rem",
+    fontWeight: 900,
+    padding: "0 4px",
+    textTransform: "uppercase",
+  },
+  radioOption: {
+    alignItems: "center",
+    display: "flex",
+    gap: "8px",
+    fontWeight: 800,
   },
   growGuideConversationPanel: {
     background: "#eef5ee",
@@ -2534,6 +2782,13 @@ const styles = {
     gap: "10px",
     justifyContent: "space-between",
     paddingBottom: "10px",
+  },
+  conversationHeaderSticky: {
+    background: "#fffdfa",
+    paddingTop: "8px",
+    position: "sticky",
+    top: "76px",
+    zIndex: 12,
   },
   conversationActions: {
     display: "flex",

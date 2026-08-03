@@ -680,6 +680,14 @@ type TicketAssistantOwnerMode =
   | "owner_pays_addons"
   | "owner_selects_sender_pays_addons";
 
+type CartDiscountPreview = {
+  status: "idle" | "checking" | "applied" | "error";
+  code: string;
+  label?: string;
+  message: string;
+  discountAmount: number;
+};
+
 type TicketAssistantSlot = {
   assistantIndex: number;
   name: string;
@@ -3183,6 +3191,209 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedOrderBaseLines, activeDiscountDefinition]
   );
 
+  const [cartDiscountDraft, setCartDiscountDraft] = useState("");
+  const [cartDiscountPreview, setCartDiscountPreview] =
+    useState<CartDiscountPreview>({
+      status: "idle",
+      code: "",
+      message: "",
+      discountAmount: 0,
+    });
+
+  const cartDiscountShopKey =
+    config.slug === "garden-package" || config.slug === "little-orchard-shop"
+      ? config.slug
+      : config.slug;
+  const cartDiscountCurrencyCode =
+    sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode;
+  const cartDiscountLines = useMemo(
+    () =>
+      sharedOrderLines
+        .filter((line) => line.selected !== false && line.lineTotal > 0)
+        .map((line) => ({
+          productId: line.productId,
+          productSku: line.productSku ?? null,
+          productTitle: line.productTitle,
+          sizeOptionId: line.sizeOptionId,
+          sizeOptionSku: line.sizeOptionSku ?? null,
+          sizeLabel: line.sizeLabel,
+          purchaseModeId: line.purchaseModeId ?? null,
+          sku: line.sku ?? line.purchaseModeSku ?? line.sizeOptionSku ?? line.productSku ?? null,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          lineTotal: line.lineTotal,
+        })),
+    [sharedOrderLines]
+  );
+  const cartDiscountCartSignature = useMemo(
+    () =>
+      JSON.stringify({
+        shopKey: cartDiscountShopKey,
+        currencyCode: cartDiscountCurrencyCode,
+        customerEmail: String(answers.email ?? "").trim().toLowerCase(),
+        customerPhone: String(
+          answers.whatsappNumber ?? answers.primaryPhone ?? answers.phone ?? ""
+        ).replace(/\D/g, ""),
+        lines: cartDiscountLines.map((line) => ({
+          productId: line.productId,
+          sizeOptionId: line.sizeOptionId,
+          purchaseModeId: line.purchaseModeId,
+          quantity: line.quantity,
+          lineTotal: line.lineTotal,
+        })),
+      }),
+    [
+      answers.email,
+      answers.phone,
+      answers.primaryPhone,
+      answers.whatsappNumber,
+      cartDiscountCurrencyCode,
+      cartDiscountLines,
+      cartDiscountShopKey,
+    ]
+  );
+  const validateCartDiscountCode = useCallback(
+    async (code: string, options?: { silent?: boolean }) => {
+      const normalizedCode = code.trim().toUpperCase().replace(/\s+/g, "");
+
+      if (!normalizedCode) {
+        setCartDiscountPreview({
+          status: "idle",
+          code: "",
+          message: "",
+          discountAmount: 0,
+        });
+        setAnswers((prev) => ({
+          ...prev,
+          plantShopDiscountCode: "",
+          discountCode: "",
+        }));
+        return;
+      }
+
+      if (!cartDiscountLines.length) {
+        setCartDiscountPreview({
+          status: "error",
+          code: normalizedCode,
+          message: "Add items to your cart before applying a discount.",
+          discountAmount: 0,
+        });
+        return;
+      }
+
+      if (!options?.silent) {
+        setCartDiscountPreview({
+          status: "checking",
+          code: normalizedCode,
+          message: "Checking discount code...",
+          discountAmount: 0,
+        });
+      }
+
+      try {
+        const response = await fetch("/api/plant-shop/discount-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: normalizedCode,
+            shopKey: cartDiscountShopKey,
+            currencyCode: cartDiscountCurrencyCode,
+            lines: cartDiscountLines,
+            customerEmail: String(answers.email ?? "").trim(),
+            customerPhone: String(
+              answers.whatsappNumber ?? answers.primaryPhone ?? answers.phone ?? ""
+            ).trim(),
+          }),
+        });
+        const data = await response.json();
+
+        if (!response.ok || data?.ok !== true || data?.applied !== true) {
+          const message =
+            typeof data?.error === "string" && data.error.trim()
+              ? data.error.trim()
+              : "That discount code is not eligible for this cart.";
+
+          setCartDiscountPreview({
+            status: "error",
+            code: normalizedCode,
+            message,
+            discountAmount: 0,
+          });
+          setAnswers((prev) => ({
+            ...prev,
+            plantShopDiscountCode: "",
+            discountCode: "",
+          }));
+          return;
+        }
+
+        const discountAmount = Number(data.discountAmount ?? 0);
+        const label = String(data.label ?? data.code ?? normalizedCode).trim();
+
+        setCartDiscountPreview({
+          status: "applied",
+          code: normalizedCode,
+          label,
+          message: `${label} applied.`,
+          discountAmount: Number.isFinite(discountAmount)
+            ? Math.max(0, discountAmount)
+            : 0,
+        });
+        setAnswers((prev) => {
+          if (
+            prev.plantShopDiscountCode === normalizedCode &&
+            prev.discountCode === normalizedCode
+          ) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            plantShopDiscountCode: normalizedCode,
+            discountCode: normalizedCode,
+          };
+        });
+      } catch (error) {
+        console.error("Cart discount validation error:", error);
+        setCartDiscountPreview({
+          status: "error",
+          code: normalizedCode,
+          message: "Could not check that discount code. Try again.",
+          discountAmount: 0,
+        });
+      }
+    },
+    [
+      answers.email,
+      answers.phone,
+      answers.primaryPhone,
+      answers.whatsappNumber,
+      cartDiscountCurrencyCode,
+      cartDiscountLines,
+      cartDiscountShopKey,
+    ]
+  );
+
+  useEffect(() => {
+    const savedCode = String(
+      answers.plantShopDiscountCode ?? answers.discountCode ?? ""
+    )
+      .trim()
+      .toUpperCase();
+
+    if (savedCode && !cartDiscountDraft) {
+      setCartDiscountDraft(savedCode);
+    }
+  }, [answers.discountCode, answers.plantShopDiscountCode, cartDiscountDraft]);
+
+  useEffect(() => {
+    if (cartDiscountPreview.status !== "applied" || !cartDiscountPreview.code) {
+      return;
+    }
+
+    void validateCartDiscountCode(cartDiscountPreview.code, { silent: true });
+  }, [cartDiscountCartSignature]);
+
   useEffect(() => {
     if (!isCheckoutDraftSlug(config.slug) || sharedOrderLines.length === 0) {
       setCheckoutReservationSecondsRemaining(CHECKOUT_RESERVATION_SECONDS);
@@ -3732,11 +3943,25 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sharedTicketOwnerAddonBudgetTotal +
     sharedTicketUpgradeTotal;
 
+  const validatedCartDiscountTotal =
+    cartDiscountPreview.status === "applied"
+      ? Math.max(0, cartDiscountPreview.discountAmount)
+      : 0;
+  const sharedOrderCombinedDiscountTotal =
+    sharedOrderSummary.discountTotal + validatedCartDiscountTotal;
+  const sharedOrderActiveDiscountLabel =
+    cartDiscountPreview.status === "applied"
+      ? cartDiscountPreview.label ?? cartDiscountPreview.code
+      : activeDiscountDefinition?.label;
   const sharedOrderGrandTotalWithMeals =
-    sharedOrderSummary.grandTotal +
-    sharedMealExtraTotal +
-    sharedTicketOwnerAddonBudgetTotal +
-    sharedTicketUpgradeTotal;
+    Math.max(
+      0,
+      sharedOrderSummary.grandTotal +
+        sharedMealExtraTotal +
+        sharedTicketOwnerAddonBudgetTotal +
+        sharedTicketUpgradeTotal -
+        validatedCartDiscountTotal
+    );
 
   const sidePanelCartTotal = sharedOrderGrandTotalWithMeals;
   const sidePanelCartCurrencyCode =
@@ -6181,6 +6406,7 @@ async function next() {
       orderSummary: {
         ...sharedOrderSummary,
         subtotal: sharedOrderSubtotalWithMeals,
+        discountTotal: sharedOrderCombinedDiscountTotal,
         grandTotal: sharedOrderGrandTotalWithMeals,
         ticketOwnerAddonBudgetTotal: sharedTicketOwnerAddonBudgetTotal,
       },
@@ -6224,7 +6450,11 @@ async function next() {
       cart: sharedOrderCart,
       lines: sharedOrderLines,
       catalog: sharedShopDisplayCatalog,
-      orderSummary: sharedOrderSummary,
+      orderSummary: {
+        ...sharedOrderSummary,
+        discountTotal: sharedOrderCombinedDiscountTotal,
+        grandTotal: sharedOrderGrandTotalWithMeals,
+      },
       orderRequestKey,
       deliverySelection: sharedDeliverySelection,
       adminAssisted:
@@ -7451,7 +7681,7 @@ async function handleNext() {
     );
 
     const sharedOrderHasDiscount =
-      sharedOrderSummary.discountTotal > 0;
+      sharedOrderCombinedDiscountTotal > 0;
 
     const currentSlideFieldErrors = getCurrentSlideFieldErrors();
     const hasCurrentSlideFieldErrors =
@@ -8679,6 +8909,26 @@ async function handleNext() {
                             checkoutReservationSecondsRemaining
                           }
                           inventoryNotices={cartInventoryNotices}
+                          discountDraft={cartDiscountDraft}
+                          discountPreview={cartDiscountPreview}
+                          onChangeDiscountDraft={setCartDiscountDraft}
+                          onApplyDiscountCode={() =>
+                            validateCartDiscountCode(cartDiscountDraft)
+                          }
+                          onClearDiscountCode={() => {
+                            setCartDiscountDraft("");
+                            setCartDiscountPreview({
+                              status: "idle",
+                              code: "",
+                              message: "",
+                              discountAmount: 0,
+                            });
+                            setAnswers((prev) => ({
+                              ...prev,
+                              plantShopDiscountCode: "",
+                              discountCode: "",
+                            }));
+                          }}
                           showReservationCountdown={
                             currentSlide.id !== "review-selected-items"
                           }
@@ -9009,13 +9259,13 @@ async function handleNext() {
                             0
                           )}
                           deliveryFee={sharedOrderSummary.deliveryFee}
-                          discountTotal={sharedOrderSummary.discountTotal}
+                          discountTotal={sharedOrderCombinedDiscountTotal}
                           grandTotal={sharedOrderGrandTotalWithMeals}
                           ticketOwnerAddonBudgetTotal={
                             sharedTicketOwnerAddonBudgetTotal
                           }
                           ticketUpgradeTotal={sharedTicketUpgradeTotal}
-                          activeDiscountLabel={activeDiscountDefinition?.label}
+                          activeDiscountLabel={sharedOrderActiveDiscountLabel}
                           showDeliveryFee={
                             sharedOrderNeedsFulfillment && sharedOrderHasDeliveryFee
                           }
@@ -11950,6 +12200,11 @@ function ShopSlideRenderer({
   selectedLines,
   reservationSecondsRemaining,
   inventoryNotices,
+  discountDraft = "",
+  discountPreview,
+  onChangeDiscountDraft,
+  onApplyDiscountCode,
+  onClearDiscountCode,
   showReservationCountdown = true,
   mealMenu,
   ticketAssignments,
@@ -11982,6 +12237,11 @@ function ShopSlideRenderer({
   selectedLines: ShopResolvedCartLine[];
   reservationSecondsRemaining: number;
   inventoryNotices: string[];
+  discountDraft?: string;
+  discountPreview?: CartDiscountPreview;
+  onChangeDiscountDraft?: (value: string) => void;
+  onApplyDiscountCode?: () => void;
+  onClearDiscountCode?: () => void;
   showReservationCountdown?: boolean;
   mealMenu?: MealMenu | null;
   ticketAssignments?: TicketAssignments;
@@ -13563,6 +13823,72 @@ function ShopSlideRenderer({
           <strong>{activeCurrencyCode}</strong>
         )}
       </div>
+      ) : null}
+
+      {slideMode === "review" && reviewSection === "primary" ? (
+        <section className={styles.cartDiscountPanel} aria-label="Discount code">
+          <label className={styles.cartDiscountLabel} htmlFor={`${slideId}-discount-code`}>
+            Discount code
+          </label>
+          <div className={styles.cartDiscountInputRow}>
+            <input
+              id={`${slideId}-discount-code`}
+              className={styles.cartDiscountInput}
+              type="text"
+              value={discountDraft}
+              placeholder="Enter code"
+              onChange={(event) => onChangeDiscountDraft?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onApplyDiscountCode?.();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={styles.cartDiscountApplyButton}
+              onClick={onApplyDiscountCode}
+              disabled={discountPreview?.status === "checking"}
+            >
+              {discountPreview?.status === "checking" ? "Checking..." : "Apply"}
+            </button>
+            {discountPreview?.status === "applied" ? (
+              <button
+                type="button"
+                className={styles.cartDiscountClearButton}
+                onClick={onClearDiscountCode}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+          {discountPreview?.message ? (
+            <p
+              className={`${styles.cartDiscountMessage} ${
+                discountPreview.status === "applied"
+                  ? styles.cartDiscountMessageApplied
+                  : discountPreview.status === "error"
+                    ? styles.cartDiscountMessageError
+                    : ""
+              }`}
+            >
+              {discountPreview.message}
+              {discountPreview.status === "applied" &&
+              discountPreview.discountAmount > 0 ? (
+                <>
+                  {" "}
+                  You save{" "}
+                  {formatCurrency(
+                    discountPreview.discountAmount,
+                    catalog?.currencyCode ?? activeCurrencyCode
+                  )}
+                  .
+                </>
+              ) : null}
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
       {slideMode === "review" &&
