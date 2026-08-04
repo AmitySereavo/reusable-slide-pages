@@ -29,6 +29,11 @@ const dashboardSections = [
     description: "Manage music, merch, gift cards, store credit, and reusable shop products.",
   },
   {
+    href: "/seedlings",
+    label: "Seedling Shop",
+    description: "Open the public seedling batch shop for dated pre-orders.",
+  },
+  {
     href: "/dashboard/discount-codes",
     label: "Discount Codes",
     description: "Create product, cart, shop, customer, date-limited, and usage-limited discounts.",

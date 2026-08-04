@@ -4903,6 +4903,32 @@
   opacity: 0.78;
 }
 
+.seedlingBatchDetails {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(47, 111, 62, 0.16);
+  border-radius: 8px;
+  background: rgba(47, 111, 62, 0.06);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.seedlingBatchDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.seedlingCountdown {
+  color: #2f6f3e;
+}
+
+.seedlingBatchFinePrint {
+  opacity: 0.72;
+}
+
 @media (max-width: 768px) {
   .sizeRow {
     grid-template-columns: auto 1fr;
@@ -5029,6 +5055,10 @@
     border-top-width: 18px;
     border-bottom-width: 18px;
     border-left-width: 28px;
+  }
+
+  .seedlingBatchDetailGrid {
+    grid-template-columns: 1fr;
   }
 }
 

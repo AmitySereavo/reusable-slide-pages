@@ -28,6 +28,7 @@ import {
   evaluateDiscountCode,
   recordDiscountRedemption,
 } from "@/lib/discountCodes";
+import { SEEDLING_SHOP_SLUG } from "@/lib/seedlings/productionTemplates";
 import type {
   ShopCart,
   ShopCatalog,
@@ -148,6 +149,13 @@ async function getOrderShopCatalog(questionnaireSlug: string) {
     await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
 
     return getUnifiedShopCatalog(prisma as any, GARDEN_PACKAGE_SHOP_SLUG, {
+      ...littleOrchardShopCatalog,
+      products: [],
+    });
+  }
+
+  if (questionnaireSlug === SEEDLING_SHOP_SLUG) {
+    return getUnifiedShopCatalog(prisma as any, SEEDLING_SHOP_SLUG, {
       ...littleOrchardShopCatalog,
       products: [],
     });
@@ -575,7 +583,15 @@ export async function POST(request: Request) {
       );
     }
 
-    if (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG) {
+    const selectedFulfillmentMethod = cleanText(
+      body.answers?.plantShopFulfillmentMethod
+    );
+    const requiresDeliveryAddress =
+      questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
+      (questionnaireSlug === SEEDLING_SHOP_SLUG &&
+        selectedFulfillmentMethod === "paid_delivery");
+
+    if (requiresDeliveryAddress) {
       const requiredAddressFields = [
         body.answers?.plantDeliveryCountry,
         body.answers?.plantDeliveryRegion,
@@ -588,7 +604,9 @@ export async function POST(request: Request) {
           {
             ok: false,
             error:
-              "Enter the country, parish or region, city or town, and street address for package delivery.",
+              questionnaireSlug === SEEDLING_SHOP_SLUG
+                ? "Enter the country, parish or region, city or town, and street address for seedling delivery."
+                : "Enter the country, parish or region, city or town, and street address for package delivery.",
           },
           { status: 400 }
         );
@@ -675,7 +693,9 @@ export async function POST(request: Request) {
     const shopKey =
       questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG
         ? GARDEN_PACKAGE_SHOP_SLUG
-        : LITTLE_ORCHARD_SHOP_SLUG;
+        : questionnaireSlug === SEEDLING_SHOP_SLUG
+          ? SEEDLING_SHOP_SLUG
+          : LITTLE_ORCHARD_SHOP_SLUG;
     const discount = await evaluateDiscountCode({
       db: prisma as any,
       code: discountCode,

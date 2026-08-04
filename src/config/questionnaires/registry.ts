@@ -454,6 +454,24 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: "/api/questionnaires/garden-package/catalog",
   },
 
+  "seedling-shop": {
+    slug: "seedling-shop",
+    name: "Para-life Trees Seedling Shop",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/seedlingShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {
+      shopCatalog: {
+        currencyCode: "JMD",
+        weightUnit: "lb",
+        products: [],
+      },
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/seedling-shop/catalog",
+  },
+
   "lettuce-grow-guide": {
     slug: "lettuce-grow-guide",
     name: "Para-life Trees Lettuce Seedling Grow Guide",

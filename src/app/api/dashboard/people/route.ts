@@ -1253,6 +1253,7 @@ export async function GET(request: Request) {
   const guard = await requireAdminSessionJson();
   if (guard.response) return guard.response;
 
+  try {
   const url = new URL(request.url);
   const query = String(url.searchParams.get("q") || "").trim();
   const take = Math.min(100, Math.max(10, Number(url.searchParams.get("limit")) || 60));
@@ -1345,11 +1346,23 @@ export async function GET(request: Request) {
     prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT
         l.*,
-        COUNT(v."id")::int AS "slideViewCount",
-        COUNT(DISTINCT v."deviceKey")::int AS "deviceCount",
-        MAX(v."createdAt") AS "latestVisitAt",
-        COALESCE(
-          json_agg(
+        COALESCE(stats."slideViewCount", 0)::int AS "slideViewCount",
+        COALESCE(stats."deviceCount", 0)::int AS "deviceCount",
+        stats."latestVisitAt" AS "latestVisitAt",
+        COALESCE(recent."visits", '[]'::json) AS "visits"
+      FROM "CustomerGrowGuideLink" l
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(v."id")::int AS "slideViewCount",
+          COUNT(DISTINCT v."deviceKey")::int AS "deviceCount",
+          MAX(v."createdAt") AS "latestVisitAt"
+        FROM "CustomerGrowGuideVisit" v
+        WHERE v."linkId" = l."id"
+      ) stats ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(
+            json_agg(
             json_build_object(
               'id', v."id",
               'eventType', v."eventType",
@@ -1362,14 +1375,19 @@ export async function GET(request: Request) {
               'metadata', v."metadata",
               'createdAt', v."createdAt"
             )
-            ORDER BY v."createdAt" ASC
-          ) FILTER (WHERE v."id" IS NOT NULL),
-          '[]'::json
-        ) AS "visits"
-      FROM "CustomerGrowGuideLink" l
-      LEFT JOIN "CustomerGrowGuideVisit" v ON v."linkId" = l."id"
-      GROUP BY l."id"
-      ORDER BY COALESCE(MAX(v."createdAt"), l."updatedAt") DESC
+              ORDER BY v."createdAt" ASC
+            ),
+            '[]'::json
+          ) AS "visits"
+        FROM (
+          SELECT *
+          FROM "CustomerGrowGuideVisit"
+          WHERE "linkId" = l."id"
+          ORDER BY "createdAt" DESC
+          LIMIT 50
+        ) v
+      ) recent ON true
+      ORDER BY COALESCE(stats."latestVisitAt", l."updatedAt") DESC
       LIMIT ${take * 8}
     `),
     prisma.$queryRaw<any[]>(Prisma.sql`
@@ -1480,4 +1498,16 @@ export async function GET(request: Request) {
     unregisteredInterestedVisitors,
     unnamedDeviceLeads: unregisteredInterestedVisitors,
   });
+  } catch (error) {
+    console.error("People dashboard API failed", error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "People dashboard data could not be loaded.",
+      },
+      { status: 500 }
+    );
+  }
 }

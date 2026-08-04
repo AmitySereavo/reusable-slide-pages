@@ -14552,6 +14552,13 @@ function ShopSlideRenderer({
                           <ShopSizeDescription text={sizeOption.description} />
                         ) : null}
 
+                        {sizeOption.metadata?.seedlingBatchId ? (
+                          <SeedlingBatchDetails
+                            metadata={sizeOption.metadata}
+                            currencyCode={catalog.currencyCode ?? "JMD"}
+                          />
+                        ) : null}
+
                         {sizeOptionSoldOut ? (
                           <div className={styles.nurseryStockRequest}>
                             <div className={styles.soldOutLine}>
@@ -14687,7 +14694,12 @@ function ShopSlideRenderer({
                               }`}
                               onClick={handleCartToggle}
                             >
-                              {selected ? "Remove from cart" : "Add to cart"}
+                              {selected
+                                ? "Remove from cart"
+                                : String(
+                                    sizeOption.metadata?.primaryActionLabel ??
+                                      "Add to cart"
+                                  )}
                             </button>
                           ) : null}
                         </div>
@@ -15319,6 +15331,110 @@ function pluralizeSubject(subject: string, quantity: number) {
   }
 
   return subject;
+}
+
+function SeedlingBatchDetails({
+  metadata,
+  currencyCode,
+}: {
+  metadata: Record<string, unknown>;
+  currencyCode: string;
+}) {
+  const availabilityAt = String(metadata.availabilityAt ?? "");
+  const nextPriceIncreaseAt = String(metadata.nextPriceIncreaseAt ?? "");
+  const productionAt = String(metadata.productionAt ?? "");
+  const quantityReserved = Number(metadata.quantityReserved ?? 0);
+  const quantityRemaining = Number(metadata.quantityRemaining ?? 0);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!availabilityAt && !nextPriceIncreaseAt) {
+      return;
+    }
+
+    const interval = window.setInterval(() => setNow(Date.now()), 60000);
+
+    return () => window.clearInterval(interval);
+  }, [availabilityAt, nextPriceIncreaseAt]);
+
+  return (
+    <div className={styles.seedlingBatchDetails}>
+      <div className={styles.seedlingBatchDetailGrid}>
+        <span>
+          <strong>Production:</strong> {formatBatchDate(productionAt)}
+        </span>
+        <span>
+          <strong>Available:</strong> {formatBatchDate(availabilityAt)}
+        </span>
+        <span>
+          <strong>Reserved:</strong> {quantityReserved}
+        </span>
+        <span>
+          <strong>Remaining:</strong> {quantityRemaining}
+        </span>
+      </div>
+      {availabilityAt ? (
+        <div className={styles.seedlingCountdown}>
+          Batch availability:{" "}
+          <strong>{formatDurationUntil(availabilityAt, now)}</strong>
+        </div>
+      ) : null}
+      {nextPriceIncreaseAt ? (
+        <div className={styles.seedlingCountdown}>
+          Next batch price movement:{" "}
+          <strong>{formatDurationUntil(nextPriceIncreaseAt, now)}</strong>
+        </div>
+      ) : null}
+      <span className={styles.seedlingBatchFinePrint}>
+        Price shown in {currencyCode || "JMD"} follows the current batch stage.
+      </span>
+    </div>
+  );
+}
+
+function formatBatchDate(value: string) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-JM", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDurationUntil(value: string, now: number) {
+  const target = new Date(value).getTime();
+
+  if (!Number.isFinite(target)) {
+    return "not set";
+  }
+
+  const remainingMs = target - now;
+
+  if (remainingMs <= 0) {
+    return "now available";
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  return [
+    days ? `${days}d` : "",
+    hours ? `${hours}h` : "",
+    !days && minutes ? `${minutes}m` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function DataBlockRenderer({

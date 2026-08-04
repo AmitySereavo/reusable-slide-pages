@@ -25,6 +25,7 @@ const emptyForm = {
 const shopOptions = [
   { id: "little-orchard-shop", label: "Little Orchard Shop" },
   { id: "garden-package", label: "Garden Package" },
+  { id: "seedling-shop", label: "Seedling Shop" },
   { id: "music-merch-shop", label: "Music + Merch Store" },
   { id: "ticket-add-ons", label: "Ticket Add-ons" },
   { id: "invitation-tickets", label: "Invitation Tickets" },

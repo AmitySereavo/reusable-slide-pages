@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 const shopOptions = [
   { id: "little-orchard-shop", label: "Little Orchard Shop" },
   { id: "garden-package", label: "Garden Package" },
+  { id: "seedling-shop", label: "Seedling Shop" },
   { id: "music-merch-shop", label: "Music + Merch Store" },
   { id: "ticket-add-ons", label: "Ticket Add-ons" },
   { id: "invitation-tickets", label: "Invitation Tickets" },
@@ -60,6 +61,20 @@ const emptyForm = {
   optionPrice: 0,
 };
 
+const seedlingActionOptions = [
+  { id: "watered", label: "Watered" },
+  { id: "transplanted", label: "Transplanted" },
+  { id: "booster", label: "Booster applied" },
+  { id: "soap", label: "Soap applied" },
+  { id: "pest_treatment", label: "Pest treatment" },
+  { id: "inspected", label: "Inspected" },
+  { id: "photo_added", label: "Photo added" },
+  { id: "marked_available", label: "Marked available" },
+  { id: "custom", label: "Custom action" },
+];
+
+const todayInputValue = new Date().toISOString().slice(0, 10);
+
 export default function InventoryManager() {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -78,6 +93,26 @@ export default function InventoryManager() {
   const [showInventoryImages, setShowInventoryImages] = useState(true);
   const [visibilityView, setVisibilityView] = useState("all");
   const [listArrangementDrafts, setListArrangementDrafts] = useState({});
+  const [seedlingBatchData, setSeedlingBatchData] = useState({
+    templates: [],
+    batches: [],
+  });
+  const [seedlingBatchForm, setSeedlingBatchForm] = useState({
+    cropKey: "",
+    productionDate: todayInputValue,
+    productionTime: "08:00",
+    quantityStarted: "",
+    retailPrice: "",
+  });
+  const [seedlingActivityForm, setSeedlingActivityForm] = useState({
+    batchId: "",
+    actionType: "watered",
+    customActionTitle: "",
+    performedDate: todayInputValue,
+    performedTime: "",
+    notes: "",
+    photoUrl: "",
+  });
 
   const activeStep = flowSteps[stepIndex] || flowSteps[0];
 
@@ -132,6 +167,7 @@ export default function InventoryManager() {
 
   useEffect(() => {
     loadItems();
+    loadSeedlingBatches();
   }, []);
 
   useEffect(() => {
@@ -157,6 +193,129 @@ export default function InventoryManager() {
 
     setItems(payload.items || []);
     setStatus("");
+  }
+
+  async function loadSeedlingBatches() {
+    const response = await fetch("/api/dashboard/seedling-batches");
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Seedling batches could not be loaded.");
+      return;
+    }
+
+    setSeedlingBatchData({
+      templates: payload.templates || [],
+      batches: payload.batches || [],
+    });
+    setSeedlingBatchForm((current) => ({
+      ...current,
+      cropKey: current.cropKey || payload.templates?.[0]?.key || "",
+      retailPrice:
+        current.retailPrice || String(payload.templates?.[0]?.retailPrice ?? ""),
+    }));
+  }
+
+  async function createSeedlingBatch() {
+    setIsSaving(true);
+    setStatus("Creating seedling batch...");
+    const response = await fetch("/api/dashboard/seedling-batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "create-batch",
+        cropKey: seedlingBatchForm.cropKey,
+        productionDate: seedlingBatchForm.productionDate || todayInputValue,
+        productionTime: seedlingBatchForm.productionTime || "08:00",
+        quantityStarted: Number(seedlingBatchForm.quantityStarted || 0),
+        retailPrice: Number(seedlingBatchForm.retailPrice || 0),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Seedling batch could not be created.");
+      return;
+    }
+
+    setSeedlingBatchData({
+      templates: payload.templates || seedlingBatchData.templates,
+      batches: payload.batches || [],
+    });
+    setSeedlingBatchForm((current) => ({
+      ...current,
+      quantityStarted: "",
+    }));
+    await loadItems();
+    setStatus(`Created: ${payload.batch?.batchName || "seedling batch"}.`);
+  }
+
+  async function syncStarterSeedlingBatches() {
+    setIsSaving(true);
+    setStatus("Creating starter seedling batches...");
+    const response = await fetch("/api/dashboard/seedling-batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "sync-starter-batches" }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Starter seedling batches could not be created.");
+      return;
+    }
+
+    setSeedlingBatchData({
+      templates: payload.templates || seedlingBatchData.templates,
+      batches: payload.batches || [],
+    });
+    await loadItems();
+    setStatus(
+      payload.created?.length
+        ? `Created ${payload.created.length} starter seedling batches.`
+        : "All starter seedling batches already exist."
+    );
+  }
+
+  async function recordSeedlingBatchActivity() {
+    setIsSaving(true);
+    setStatus("Recording seedling batch activity...");
+    const response = await fetch("/api/dashboard/seedling-batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "record-activity",
+        batchId: seedlingActivityForm.batchId,
+        actionType: seedlingActivityForm.actionType,
+        customActionTitle: seedlingActivityForm.customActionTitle,
+        performedDate: seedlingActivityForm.performedDate || todayInputValue,
+        performedTime: seedlingActivityForm.performedTime,
+        notes: seedlingActivityForm.notes,
+        photoUrl: seedlingActivityForm.photoUrl,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Seedling batch activity could not be saved.");
+      return;
+    }
+
+    setSeedlingBatchData({
+      templates: payload.templates || seedlingBatchData.templates,
+      batches: payload.batches || [],
+    });
+    setSeedlingActivityForm((current) => ({
+      ...current,
+      notes: "",
+      photoUrl: "",
+      customActionTitle: "",
+    }));
+    await loadItems();
+    setStatus("Seedling batch activity recorded.");
   }
 
   async function syncLittleOrchardConfig() {
@@ -811,6 +970,299 @@ export default function InventoryManager() {
           {status}
         </p>
       ) : null}
+
+      <div style={styles.panel}>
+        <div style={styles.panelHeader}>
+          <div>
+            <h3 style={styles.h3}>Seedling Shop</h3>
+            <p style={styles.copy}>
+              Create dated seedling and cutting batches. Each batch becomes a
+              Seedling Shop listing in unified inventory.
+            </p>
+          </div>
+          <a href="/seedlings" style={styles.inlineLink}>
+            Open Seedling Shop
+          </a>
+        </div>
+
+        <div style={styles.formGrid}>
+          <label style={styles.field}>
+            <span>Crop template</span>
+            <select
+              value={seedlingBatchForm.cropKey}
+              onChange={(event) => {
+                const cropKey = event.target.value;
+                const template = seedlingBatchData.templates.find(
+                  (item) => item.key === cropKey
+                );
+
+                setSeedlingBatchForm((current) => ({
+                  ...current,
+                  cropKey,
+                  retailPrice: String(template?.retailPrice ?? current.retailPrice),
+                }));
+              }}
+              style={styles.input}
+            >
+              {seedlingBatchData.templates.map((template) => (
+                <option key={template.key} value={template.key}>
+                  {template.cropName} ({template.propagationType})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={styles.field}>
+            <span>Production date</span>
+            <div style={styles.inlineControl}>
+              <input
+                type="date"
+                value={seedlingBatchForm.productionDate}
+                onChange={(event) =>
+                  setSeedlingBatchForm((current) => ({
+                    ...current,
+                    productionDate: event.target.value,
+                  }))
+                }
+                style={styles.input}
+              />
+              <button
+                type="button"
+                style={styles.secondaryButton}
+                onClick={() =>
+                  setSeedlingBatchForm((current) => ({
+                    ...current,
+                    productionDate: todayInputValue,
+                  }))
+                }
+              >
+                Today
+              </button>
+            </div>
+          </label>
+
+          <label style={styles.field}>
+            <span>Production time</span>
+            <input
+              type="time"
+              value={seedlingBatchForm.productionTime}
+              onChange={(event) =>
+                setSeedlingBatchForm((current) => ({
+                  ...current,
+                  productionTime: event.target.value,
+                }))
+              }
+              style={styles.input}
+            />
+          </label>
+
+          <label style={styles.field}>
+            <span>Quantity started</span>
+            <input
+              type="number"
+              min={1}
+              value={seedlingBatchForm.quantityStarted}
+              onChange={(event) =>
+                setSeedlingBatchForm((current) => ({
+                  ...current,
+                  quantityStarted: event.target.value,
+                }))
+              }
+              placeholder="72"
+              style={styles.input}
+            />
+          </label>
+
+          <label style={styles.field}>
+            <span>Retail price per item</span>
+            <input
+              type="number"
+              min={0}
+              value={seedlingBatchForm.retailPrice}
+              onChange={(event) =>
+                setSeedlingBatchForm((current) => ({
+                  ...current,
+                  retailPrice: event.target.value,
+                }))
+              }
+              placeholder="50"
+              style={styles.input}
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          style={styles.primaryButton}
+          disabled={isSaving}
+          onClick={createSeedlingBatch}
+        >
+          Add New Batch
+        </button>
+        <button
+          type="button"
+          style={styles.secondaryButton}
+          disabled={isSaving}
+          onClick={syncStarterSeedlingBatches}
+        >
+          Sync Starter Batches
+        </button>
+
+        <div style={styles.seedlingBatchGrid}>
+          {seedlingBatchData.batches.length ? (
+            seedlingBatchData.batches.map((batch) => (
+              <article key={batch.id} style={styles.seedlingBatchCard}>
+                <div style={styles.panelHeader}>
+                  <div>
+                    <strong>{batch.batchName}</strong>
+                    <p style={styles.copy}>
+                      {batch.propagationType} batch • {batch.status}
+                    </p>
+                  </div>
+                  <strong>{formatJmd(batch.currentPrice)}</strong>
+                </div>
+                <dl style={styles.seedlingStats}>
+                  <div>
+                    <dt>Production</dt>
+                    <dd>{formatDateTime(batch.productionAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Available</dt>
+                    <dd>{formatDateTime(batch.availabilityAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>Reserved</dt>
+                    <dd>{batch.quantityReserved}</dd>
+                  </div>
+                  <div>
+                    <dt>Remaining</dt>
+                    <dd>{batch.quantityRemaining}</dd>
+                  </div>
+                </dl>
+                {batch.nextPriceIncreaseAt ? (
+                  <p style={styles.copy}>
+                    Next price movement: {formatDateTime(batch.nextPriceIncreaseAt)}
+                  </p>
+                ) : null}
+              </article>
+            ))
+          ) : (
+            <p style={styles.copy}>
+              No seedling batches yet. Create the first batch above.
+            </p>
+          )}
+        </div>
+
+        <div style={styles.subPanel}>
+          <h4 style={styles.h4}>Record Batch Activity</h4>
+          <div style={styles.formGrid}>
+            <label style={styles.field}>
+              <span>Batch</span>
+              <select
+                value={seedlingActivityForm.batchId}
+                onChange={(event) =>
+                  setSeedlingActivityForm((current) => ({
+                    ...current,
+                    batchId: event.target.value,
+                  }))
+                }
+                style={styles.input}
+              >
+                <option value="">Choose batch</option>
+                {seedlingBatchData.batches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>
+                    {batch.batchName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={styles.field}>
+              <span>Action</span>
+              <select
+                value={seedlingActivityForm.actionType}
+                onChange={(event) =>
+                  setSeedlingActivityForm((current) => ({
+                    ...current,
+                    actionType: event.target.value,
+                  }))
+                }
+                style={styles.input}
+              >
+                {seedlingActionOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {seedlingActivityForm.actionType === "custom" ? (
+              <label style={styles.field}>
+                <span>Custom action title</span>
+                <input
+                  value={seedlingActivityForm.customActionTitle}
+                  onChange={(event) =>
+                    setSeedlingActivityForm((current) => ({
+                      ...current,
+                      customActionTitle: event.target.value,
+                    }))
+                  }
+                  style={styles.input}
+                />
+              </label>
+            ) : null}
+            <label style={styles.field}>
+              <span>Action date</span>
+              <input
+                type="date"
+                value={seedlingActivityForm.performedDate}
+                onChange={(event) =>
+                  setSeedlingActivityForm((current) => ({
+                    ...current,
+                    performedDate: event.target.value,
+                  }))
+                }
+                style={styles.input}
+              />
+            </label>
+            <label style={styles.field}>
+              <span>Action time</span>
+              <input
+                type="time"
+                value={seedlingActivityForm.performedTime}
+                onChange={(event) =>
+                  setSeedlingActivityForm((current) => ({
+                    ...current,
+                    performedTime: event.target.value,
+                  }))
+                }
+                style={styles.input}
+              />
+            </label>
+            <label style={styles.fieldWide}>
+              <span>Notes</span>
+              <textarea
+                rows={3}
+                value={seedlingActivityForm.notes}
+                onChange={(event) =>
+                  setSeedlingActivityForm((current) => ({
+                    ...current,
+                    notes: event.target.value,
+                  }))
+                }
+                style={styles.textarea}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            style={styles.secondaryButton}
+            disabled={isSaving || !seedlingActivityForm.batchId}
+            onClick={recordSeedlingBatchActivity}
+          >
+            Save Batch Activity
+          </button>
+        </div>
+      </div>
 
       <div style={styles.panel}>
         <h3 style={styles.h3}>All Inventory</h3>
@@ -2123,6 +2575,23 @@ function formatJmd(value) {
   return `JMD $${Number(value || 0).toLocaleString()}`;
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("en-JM", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 function toPositiveNumber(value) {
   const parsed = Number(value || 0);
 
@@ -2198,6 +2667,10 @@ const styles = {
     fontSize: "17px",
     margin: 0,
   },
+  h4: {
+    fontSize: "15px",
+    margin: 0,
+  },
   copy: {
     margin: "4px 0 0",
     opacity: 0.7,
@@ -2209,6 +2682,67 @@ const styles = {
     display: "grid",
     gap: "12px",
     padding: "16px",
+  },
+  subPanel: {
+    background: "rgba(47, 111, 62, 0.04)",
+    border: "1px solid rgba(47, 111, 62, 0.16)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "12px",
+    padding: "14px",
+  },
+  formGrid: {
+    display: "grid",
+    gap: "12px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  },
+  field: {
+    display: "grid",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: 700,
+  },
+  fieldWide: {
+    display: "grid",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: 700,
+    gridColumn: "1 / -1",
+  },
+  inlineControl: {
+    alignItems: "center",
+    display: "flex",
+    gap: "8px",
+  },
+  inlineLink: {
+    color: "#2f6f3e",
+    fontWeight: 800,
+    textDecoration: "underline",
+  },
+  seedlingBatchGrid: {
+    display: "grid",
+    gap: "10px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  },
+  seedlingBatchCard: {
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    padding: "12px",
+  },
+  seedlingStats: {
+    display: "grid",
+    gap: "8px",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    margin: 0,
+  },
+  textarea: {
+    border: "1px solid rgba(32, 28, 29, 0.18)",
+    borderRadius: "8px",
+    font: "inherit",
+    padding: "10px 12px",
+    resize: "vertical",
   },
   inventoryList: {
     display: "grid",
