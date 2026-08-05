@@ -2370,6 +2370,37 @@
   line-height: 1.45;
 }
 
+.packageAdjustmentSaveNotice {
+  color: #2f7440 !important;
+  font-size: 0.82rem !important;
+  font-weight: 800;
+}
+
+.packageAdjustmentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.secondaryActionButton {
+  min-height: 40px;
+  border: 1px solid rgba(216, 199, 163, 0.95);
+  border-radius: 10px;
+  background: #fffdf8;
+  color: #241f1a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 900;
+  padding: 8px 12px;
+}
+
+.secondaryActionButton:hover {
+  border-color: rgba(47, 116, 64, 0.6);
+  color: #214f35;
+}
+
 .packageAdjustmentStack {
   display: grid;
   gap: 14px;
@@ -2452,6 +2483,17 @@
   font-size: 0.74rem;
   font-style: normal;
   font-weight: 800;
+}
+
+.packageGrowthNote {
+  width: fit-content;
+  border: 1px solid rgba(143, 47, 68, 0.28);
+  border-radius: 999px;
+  color: #8f2f44;
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  text-transform: uppercase;
 }
 
 .packageAdjustmentFormat,

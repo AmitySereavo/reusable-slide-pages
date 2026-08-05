@@ -12924,14 +12924,18 @@ function ShopSlideRenderer({
     const getPackageContentSection = (label: string) => {
       const normalized = label.toLowerCase();
 
+      if (normalized.includes("basil")) {
+        return "Basils";
+      }
+
       if (
         normalized.includes("scallion") ||
         normalized.includes("thyme") ||
-        normalized.includes("basil") ||
         normalized.includes("dill") ||
         normalized.includes("parsley") ||
         normalized.includes("cilantro") ||
         normalized.includes("culantro") ||
+        normalized.includes("rosemary") ||
         normalized.includes("lemongrass") ||
         normalized.includes("fever grass")
       ) {
@@ -12946,17 +12950,19 @@ function ShopSlideRenderer({
         normalized.includes("tree mint") ||
         normalized.includes("bolo mint") ||
         normalized.includes("panadol plant") ||
+        normalized.includes("chinese mint") ||
         normalized.includes("french thyme") ||
         normalized.includes("cuban mint") ||
         normalized.includes("lemon balm")
       ) {
-        return "Tea mints";
+        return "Mints";
       }
 
       if (
         normalized.includes("lettuce") ||
         normalized.includes("spinach") ||
         normalized.includes("pak choi") ||
+        normalized.includes("bok choy") ||
         normalized.includes("callaloo") ||
         normalized.includes("cabbage")
       ) {
@@ -12965,40 +12971,94 @@ function ShopSlideRenderer({
 
       if (
         normalized.includes("scotch bonnet") ||
+        normalized.includes("chili") ||
+        normalized.includes("bird pepper") ||
+        normalized.includes("caribbean red") ||
         normalized.includes("sweet pepper") ||
         normalized.includes("pepper - sweet") ||
-        normalized.includes("pepper - scotch") ||
+        normalized.includes("pepper - bird") ||
+        normalized.includes("pepper - chili") ||
+        normalized.includes("pepper - caribbean") ||
+        normalized.includes("pepper - scotch")
+      ) {
+        return "Peppers";
+      }
+
+      if (normalized.includes("string bean")) {
+        return "Legumes";
+      }
+
+      if (
         normalized.includes("tomato") ||
         normalized.includes("eggplant") ||
         normalized.includes("okra") ||
         normalized.includes("cucumber") ||
-        normalized.includes("string bean")
+        normalized.includes("susumba")
       ) {
-        return "Fruit vegetables";
+        return "Fruiting vegetables";
+      }
+
+      if (
+        normalized.includes("carrot") ||
+        normalized.includes("beetroot") ||
+        normalized.includes("turnip") ||
+        normalized.includes("garlic") ||
+        normalized.includes("onion")
+      ) {
+        return "Root crops";
+      }
+
+      if (
+        normalized.includes("sweet potato") ||
+        normalized.includes("coco yam") ||
+        normalized.includes("dasheen") ||
+        normalized.includes("yellow yam") ||
+        normalized.includes("renta yam") ||
+        normalized.includes("irish potato")
+      ) {
+        return "Yams and tubers";
+      }
+
+      if (
+        normalized.includes("banana sucker") ||
+        normalized.includes("plantain sucker")
+      ) {
+        return "Banana and plantain suckers";
+      }
+
+      if (normalized.includes("grape")) {
+        return "Grapevines";
       }
 
       if (
         normalized.includes("black pepper") ||
         normalized.includes("pepper - black") ||
-        normalized.includes("sweet potato") ||
-        normalized.includes("coco root") ||
-        normalized.includes("yam slips") ||
-        normalized.includes("irish potato") ||
-        normalized.includes("carrot") ||
-        normalized.includes("beetroot") ||
-        normalized.includes("banana sucker") ||
-        normalized.includes("plantain sucker")
+        normalized.includes("chow chow") ||
+        normalized.includes("chayote") ||
+        normalized.includes("sweet cup")
       ) {
-        return "Root and vine crops";
+        return "Other vines";
       }
 
       if (
         normalized.includes("mulberry") ||
         normalized.includes("lime tree") ||
         normalized.includes("star fruit") ||
+        normalized.includes("soursop") ||
         normalized.includes("cherry tree")
       ) {
-        return "Trees";
+        return "Fruit trees";
+      }
+
+      if (
+        normalized.includes("strawberry") ||
+        normalized.includes("blueberry")
+      ) {
+        return "Berries";
+      }
+
+      if (normalized.includes("cerasee") || normalized.includes("cloves")) {
+        return "Medicinal and spices";
       }
 
       return "Other items";
@@ -13040,14 +13100,18 @@ function ShopSlideRenderer({
   const getPackageComponentSection = (label: string) => {
     const normalized = label.toLowerCase();
 
+    if (normalized.includes("basil")) {
+      return "Basils";
+    }
+
     if (
       normalized.includes("scallion") ||
       normalized.includes("thyme") ||
-      normalized.includes("basil") ||
       normalized.includes("dill") ||
       normalized.includes("parsley") ||
       normalized.includes("cilantro") ||
       normalized.includes("culantro") ||
+      normalized.includes("rosemary") ||
       normalized.includes("lemongrass") ||
       normalized.includes("fever grass")
     ) {
@@ -13060,19 +13124,22 @@ function ShopSlideRenderer({
         normalized.includes("peppermint") ||
         normalized.includes("black mint") ||
         normalized.includes("tree mint") ||
+        normalized.includes("balla mint") ||
         normalized.includes("bolo mint") ||
         normalized.includes("panadol plant") ||
+        normalized.includes("chinese mint") ||
         normalized.includes("french thyme") ||
         normalized.includes("cuban mint") ||
         normalized.includes("lemon balm")
       ) {
-      return "Tea mints";
+      return "Mints";
     }
 
     if (
       normalized.includes("lettuce") ||
       normalized.includes("spinach") ||
       normalized.includes("pak choi") ||
+      normalized.includes("bok choy") ||
       normalized.includes("callaloo") ||
       normalized.includes("cabbage")
     ) {
@@ -13081,40 +13148,94 @@ function ShopSlideRenderer({
 
     if (
       normalized.includes("scotch bonnet") ||
+      normalized.includes("chili") ||
+      normalized.includes("bird pepper") ||
+      normalized.includes("caribbean red") ||
       normalized.includes("sweet pepper") ||
       normalized.includes("pepper - sweet") ||
-      normalized.includes("pepper - scotch") ||
+      normalized.includes("pepper - bird") ||
+      normalized.includes("pepper - chili") ||
+      normalized.includes("pepper - caribbean") ||
+      normalized.includes("pepper - scotch")
+    ) {
+      return "Peppers";
+    }
+
+    if (normalized.includes("string bean")) {
+      return "Legumes";
+    }
+
+    if (
       normalized.includes("tomato") ||
       normalized.includes("eggplant") ||
       normalized.includes("okra") ||
       normalized.includes("cucumber") ||
-      normalized.includes("string bean")
+      normalized.includes("susumba")
     ) {
-      return "Fruit vegetables";
+      return "Fruiting vegetables";
+    }
+
+    if (
+      normalized.includes("carrot") ||
+      normalized.includes("beetroot") ||
+      normalized.includes("turnip") ||
+      normalized.includes("garlic") ||
+      normalized.includes("onion")
+    ) {
+      return "Root crops";
+    }
+
+    if (
+      normalized.includes("sweet potato") ||
+      normalized.includes("coco yam") ||
+      normalized.includes("dasheen") ||
+      normalized.includes("yellow yam") ||
+      normalized.includes("renta yam") ||
+      normalized.includes("irish potato")
+    ) {
+      return "Yams and tubers";
+    }
+
+    if (
+      normalized.includes("banana sucker") ||
+      normalized.includes("plantain sucker")
+    ) {
+      return "Banana and plantain suckers";
+    }
+
+    if (normalized.includes("grape")) {
+      return "Grapevines";
     }
 
     if (
       normalized.includes("black pepper") ||
       normalized.includes("pepper - black") ||
-      normalized.includes("sweet potato") ||
-      normalized.includes("coco root") ||
-      normalized.includes("yam slips") ||
-      normalized.includes("irish potato") ||
-      normalized.includes("carrot") ||
-      normalized.includes("beetroot") ||
-      normalized.includes("banana sucker") ||
-      normalized.includes("plantain sucker")
+      normalized.includes("chow chow") ||
+      normalized.includes("chayote") ||
+      normalized.includes("sweet cup")
     ) {
-      return "Root and vine crops";
+      return "Other vines";
     }
 
     if (
       normalized.includes("mulberry") ||
       normalized.includes("lime tree") ||
       normalized.includes("star fruit") ||
+      normalized.includes("soursop") ||
       normalized.includes("cherry tree")
     ) {
-      return "Trees";
+      return "Fruit trees";
+    }
+
+    if (
+      normalized.includes("strawberry") ||
+      normalized.includes("blueberry")
+    ) {
+      return "Berries";
+    }
+
+    if (normalized.includes("cerasee") || normalized.includes("cloves")) {
+      return "Medicinal and spices";
     }
 
     return "Other items";
@@ -13122,11 +13243,20 @@ function ShopSlideRenderer({
   const getPackageSectionOrder = (section: string) => {
     const order = [
       "Culinary herbs",
-      "Tea mints",
+      "Basils",
+      "Mints",
       "Leafy vegetables",
-      "Fruit vegetables",
-      "Root and vine crops",
-      "Trees",
+      "Fruiting vegetables",
+      "Peppers",
+      "Legumes",
+      "Root crops",
+      "Yams and tubers",
+      "Other vines",
+      "Grapevines",
+      "Banana and plantain suckers",
+      "Fruit trees",
+      "Berries",
+      "Medicinal and spices",
       "Other items",
     ];
 
@@ -13336,6 +13466,198 @@ function ShopSlideRenderer({
 
       return nextCart;
     };
+    const resetPackageRowsToOriginal = (currentCart: ShopCart) => {
+      if (!selectedShell || !selectedShellKey || !selectedPackageMode) {
+        return currentCart;
+      }
+
+      const nextCart: ShopCart = {};
+
+      for (const [key, line] of Object.entries(currentCart)) {
+        const belongsToCurrentPackage =
+          key === selectedShellKey ||
+          line.bundledFromLineKey === selectedShellKey;
+
+        if (!belongsToCurrentPackage) {
+          nextCart[key] = line;
+        }
+      }
+
+      nextCart[selectedShellKey] = {
+        ...selectedShell,
+        selected: true,
+        quantity: 1,
+        unitPriceOverride: 0,
+        compareAtUnitPrice: selectedShell.compareAtUnitPrice,
+        lockedQuantity: true,
+        lockedPurchaseMode: true,
+        metadata: {
+          ...(selectedShell.metadata ?? {}),
+          packageShell: true,
+          packageAdjusted: false,
+        },
+      };
+
+      for (const bundledItem of selectedPackageMode.bundledCartItems ?? []) {
+        const product =
+          catalog.products.find(
+            (candidate) => candidate.id === bundledItem.productId
+          ) ?? findPackageProductBySku(bundledItem.sourceSku);
+        const sizeOption =
+          product?.sizeOptions.find(
+            (option) => option.id === bundledItem.sizeOptionId
+          ) ??
+          product?.sizeOptions.find(
+            (option) =>
+              String(option.sku ?? product.sku ?? "")
+                .trim()
+                .toUpperCase() ===
+              String(bundledItem.sourceSku ?? "").trim().toUpperCase()
+          );
+
+        if (!product || !sizeOption) {
+          continue;
+        }
+
+        const purchaseModeId =
+          bundledItem.purchaseModeId ?? sizeOption.purchaseModes?.[0]?.id;
+        const lineKey = `${selectedShellKey}::bundle::${product.id}::${sizeOption.id}${
+          purchaseModeId ? `::${purchaseModeId}` : ""
+        }`;
+
+        nextCart[lineKey] = {
+          productId: product.id,
+          sizeOptionId: sizeOption.id,
+          selected: true,
+          quantity: Math.max(1, bundledItem.quantity ?? 1),
+          purchaseModeId,
+          bundledFromLineKey: selectedShellKey,
+          bundledByPurchaseModeId: selectedPackageMode.id,
+          lockedQuantity: false,
+          lockedPurchaseMode: false,
+          metadata: {
+            packageComponent: true,
+            packageBaseQuantity: Math.max(1, bundledItem.quantity ?? 1),
+            packageSourceSku: bundledItem.sourceSku,
+          },
+        };
+      }
+
+      return nextCart;
+    };
+    const getVisiblePackageGrowthNote = (entry: {
+      label: string;
+      product?: ShopCatalogProduct;
+      sizeOption?: ShopCatalogSizeOption;
+    }) => {
+      const normalizedLabel = entry.label.toLowerCase();
+
+      if (
+        normalizedLabel.includes("coco yam") ||
+        normalizedLabel.includes("dasheen")
+      ) {
+        return "";
+      }
+
+      return String(
+        entry.sizeOption?.metadata?.growthNote ||
+          entry.product?.metadata?.growthNote ||
+          ""
+      ).trim();
+    };
+    const downloadAdjustedPackagePdf = () => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const selectedRows = packageComponentEntries.filter(
+        (entry) => entry.line.selected !== false
+      );
+      const packageTitle =
+        [
+          selectedShellProduct?.title,
+          selectedShellOption?.label,
+          selectedShell?.metadata?.packageAdjusted === true
+            ? "(adjusted)"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" - ") || "Adjusted Garden Package";
+      const total = selectedRows.reduce(
+        (sum, entry) =>
+          sum +
+          Number(entry.sizeOption?.price || 0) *
+            Math.max(1, Number(entry.line.quantity || 1)),
+        0
+      );
+      const escapeHtml = (value: unknown) =>
+        String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      const rowsHtml = selectedRows
+        .map((entry) => {
+          const quantity = Math.max(1, Number(entry.line.quantity || 1));
+          const price = Number(entry.sizeOption?.price || 0);
+          const note = getVisiblePackageGrowthNote(entry);
+
+          return `<tr>
+            <td>${escapeHtml(entry.label)}${
+              note ? `<br><small>${escapeHtml(note)}</small>` : ""
+            }</td>
+            <td>${escapeHtml(getPackageFormatLabel(entry.sizeOption?.label || ""))}</td>
+            <td>${quantity}</td>
+            <td>${escapeHtml(formatCurrency(price, catalog.currencyCode))}</td>
+            <td>${escapeHtml(formatCurrency(price * quantity, catalog.currencyCode))}</td>
+          </tr>`;
+        })
+        .join("");
+      const printWindow = window.open("", "_blank", "noopener,noreferrer");
+
+      if (!printWindow) {
+        return;
+      }
+
+      printWindow.document.write(`<!doctype html>
+        <html>
+          <head>
+            <title>${escapeHtml(packageTitle)}</title>
+            <style>
+              body { color: #28231f; font-family: Arial, sans-serif; margin: 32px; }
+              h1 { color: #2f7440; font-size: 24px; margin: 0 0 8px; }
+              p { margin: 0 0 18px; }
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border-bottom: 1px solid #ddd5c8; padding: 8px; text-align: left; vertical-align: top; }
+              th { background: #f7f1e8; }
+              small { color: #7c2d20; font-weight: 700; }
+              .total { font-size: 18px; font-weight: 800; margin-top: 18px; text-align: right; }
+            </style>
+          </head>
+          <body>
+            <h1>${escapeHtml(packageTitle)}</h1>
+            <p>Adjusted package saved from Para-life Trees Garden Package.</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Format</th>
+                  <th>Quantity</th>
+                  <th>Unit price</th>
+                  <th>Line total</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+            <div class="total">Total: ${escapeHtml(
+              formatCurrency(total, catalog.currencyCode)
+            )}</div>
+          </body>
+        </html>`);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    };
 
     return (
       <div className={styles.shopStack}>
@@ -13356,6 +13678,31 @@ function ShopSlideRenderer({
             Keep the items you want, remove the ones you do not need, and mix
             formats item by item.
           </p>
+          <p className={styles.packageAdjustmentSaveNotice}>
+            Your progress is saved automatically on this device.
+          </p>
+          {packageComponentEntries.length ? (
+            <div className={styles.packageAdjustmentActions}>
+              <button
+                type="button"
+                className={styles.secondaryActionButton}
+                onClick={() =>
+                  onUpdateCart?.((currentCart) =>
+                    resetPackageRowsToOriginal(currentCart)
+                  )
+                }
+              >
+                Reset to original package
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryActionButton}
+                onClick={downloadAdjustedPackagePdf}
+              >
+                Download adjusted package PDF
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {packageComponentEntries.length === 0 ? (
@@ -13407,6 +13754,13 @@ function ShopSlideRenderer({
                           <span>
                             {entry.label}
                             <em>{selected ? "Included" : "Removed from pack"}</em>
+                            {getVisiblePackageGrowthNote(entry)
+                              .trim()
+                              .toLowerCase() === "intrusive runner" ? (
+                              <small className={styles.packageGrowthNote}>
+                                Intrusive runner
+                              </small>
+                            ) : null}
                           </span>
                         </label>
 
@@ -13580,11 +13934,20 @@ function ShopSlideRenderer({
                   const packageRows = getPackageContentRows(sizeOption);
                   const packageSections = [
                     "Culinary herbs",
-                    "Tea mints",
+                    "Basils",
+                    "Mints",
                     "Leafy vegetables",
-                    "Fruit vegetables",
-                    "Root and vine crops",
-                    "Trees",
+                    "Fruiting vegetables",
+                    "Peppers",
+                    "Legumes",
+                    "Root crops",
+                    "Yams and tubers",
+                    "Other vines",
+                    "Grapevines",
+                    "Banana and plantain suckers",
+                    "Fruit trees",
+                    "Berries",
+                    "Medicinal and spices",
                     "Other items",
                   ]
                     .map((section) => ({

@@ -188,6 +188,15 @@ const conversationSections = [
   { key: "additionalNotes", label: "Additional notes" },
 ];
 
+const offerDecisionQuestionsTemplate = [
+  "What questions do you still have?",
+  "What, if anything, is preventing us from getting started today?",
+  "Outside of the investment, is there anything giving you hesitation?",
+  "What would need to happen for you to feel 100% comfortable moving forward today?",
+  "Let's say we don't do this today. What happens next?",
+  "Is there anything I haven't covered that would stop you from making a decision today?",
+].join("\n");
+
 function makeConversationDraft(conversation = {}) {
   return conversationSections.reduce((draft, section) => {
     draft[section.key] = conversation[section.key] || "";
@@ -1084,6 +1093,7 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
   const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
   const [messageType, setMessageType] = useState("grow-guide");
   const [messageDraft, setMessageDraft] = useState("");
+  const [customMessageDraft, setCustomMessageDraft] = useState("");
   const profile = record.peopleProfile || {};
   const followUpStatus = profile.followUpStatus || {};
   const dotStyle = getFollowUpDotStyle(followUpStatus);
@@ -1282,11 +1292,17 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
       return;
     }
 
+    const messageExcerpt = messageDraft.trim().replace(/\s+/g, " ");
+    const summaryMessage =
+      messageExcerpt.length > 140
+        ? `${messageExcerpt.slice(0, 137)}...`
+        : messageExcerpt;
+
     await onProfileAction(record, {
       action: "add-conversation-note",
       note: {
         ...emptyConversationNote,
-        summary: `Prepared ${messageType === "custom" ? "custom" : "customer-care"} message for this person.`,
+        summary: `Message ${sentBy === "copy" ? "copied" : "sent"}: ${summaryMessage}`,
         immediateNextStep: "Review whether the person responds and record the outcome.",
         nextQuestions: "Ask what they need next and whether the message was helpful.",
         additionalNotes: [
@@ -1518,8 +1534,13 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
                     : styles.messageTypeTab
                 }
                 onClick={() => {
+                  if (messageType === "custom") {
+                    setCustomMessageDraft(messageDraft);
+                  }
                   setMessageType(type);
-                  setMessageDraft(type === "custom" ? "" : preparedGuideMessage);
+                  setMessageDraft(
+                    type === "custom" ? customMessageDraft : preparedGuideMessage
+                  );
                 }}
               >
                 {label}
@@ -1659,12 +1680,36 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
               Add tracked guide link
             </button>
           ) : null}
+          {messageType === "custom" ? (
+            <button
+              type="button"
+              style={styles.secondarySmallButton}
+              onClick={() => {
+                setMessageDraft((current) => {
+                  const next = current.includes(offerDecisionQuestionsTemplate)
+                    ? current
+                    : `${current.trim()}${
+                        current.trim() ? "\n\n" : ""
+                      }${offerDecisionQuestionsTemplate}`;
+                  setCustomMessageDraft(next);
+                  return next;
+                });
+              }}
+            >
+              Insert offer decision questions
+            </button>
+          ) : null}
           {messageType === "custom" || activeTrackedGuideLinkUrl ? (
             <>
               <TextAreaField
                 label="Message to review / edit"
                 value={messageDraft}
-                onChange={setMessageDraft}
+                onChange={(value) => {
+                  setMessageDraft(value);
+                  if (messageType === "custom") {
+                    setCustomMessageDraft(value);
+                  }
+                }}
               />
               <div style={styles.formButtonRow}>
                 {record.contact?.phone ? (
@@ -1705,16 +1750,6 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
         </section>
       </CollapsibleDetailGroup>
 
-      <div style={styles.crmHeader}>
-        <div>
-          <h3 style={styles.detailHeading}>Conversation Notes</h3>
-          <p style={styles.crmSubtext}>
-            Latest conversation, next steps, relationships affected, and follow-up reminders.
-          </p>
-        </div>
-      </div>
-
-
       {record.latestConversationNote ? (
         <div style={styles.latestNote}>
           <strong>Last conversation summary</strong>
@@ -1726,87 +1761,90 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
         </div>
       ) : null}
 
-      {isAddingNote ? (
-        <form onSubmit={addConversationNote} style={styles.noteForm}>
-          <TextAreaField
-            label="Summary of last conversation"
-            value={note.summary}
-            onChange={(value) => updateNoteField("summary", value)}
-          />
-          <TextAreaField
-            label="Current goals"
-            value={note.currentGoals}
-            onChange={(value) => updateNoteField("currentGoals", value)}
-          />
-          <TextAreaField
-            label="Current position"
-            value={note.currentPosition}
-            onChange={(value) => updateNoteField("currentPosition", value)}
-          />
-          <TextAreaField
-            label="Immediate next step"
-            value={note.immediateNextStep}
-            onChange={(value) => updateNoteField("immediateNextStep", value)}
-          />
-          <TextAreaField
-            label="Relationships affected by this goal"
-            value={note.relationshipImpact}
-            onChange={(value) => updateNoteField("relationshipImpact", value)}
-          />
-          <TextAreaField
-            label="Questions to ask next time"
-            value={note.nextQuestions}
-            onChange={(value) => updateNoteField("nextQuestions", value)}
-          />
-          <TextAreaField
-            label="Emotional state"
-            value={note.emotionalState}
-            onChange={(value) => updateNoteField("emotionalState", value)}
-          />
-          <TextAreaField
-            label="Satisfaction since last interaction"
-            value={note.satisfaction}
-            onChange={(value) => updateNoteField("satisfaction", value)}
-          />
-          <TextAreaField
-            label="Referral opportunities"
-            value={note.referralOpportunities}
-            onChange={(value) => updateNoteField("referralOpportunities", value)}
-          />
-          <TextAreaField
-            label="Additional notes"
-            value={note.additionalNotes}
-            onChange={(value) => updateNoteField("additionalNotes", value)}
-          />
-          <div style={styles.formButtonRow}>
-            <button type="submit" style={styles.primarySmallButton}>
-              Save conversation
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAddingNote(false)}
-              style={styles.secondarySmallButton}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsAddingNote(true)}
-          style={styles.primarySmallButton}
-        >
-          Add conversation block
-        </button>
-      )}
-
     </section>
 
       <DetailList
         title="Conversation Timeline"
         items={record.conversationNotes}
         empty="No conversation blocks saved yet."
+        topSlot={
+          isAddingNote ? (
+            <form onSubmit={addConversationNote} style={styles.noteForm}>
+              <TextAreaField
+                label="Summary of last conversation"
+                value={note.summary}
+                onChange={(value) => updateNoteField("summary", value)}
+              />
+              <TextAreaField
+                label="Current goals"
+                value={note.currentGoals}
+                onChange={(value) => updateNoteField("currentGoals", value)}
+              />
+              <TextAreaField
+                label="Current position"
+                value={note.currentPosition}
+                onChange={(value) => updateNoteField("currentPosition", value)}
+              />
+              <TextAreaField
+                label="Immediate next step"
+                value={note.immediateNextStep}
+                onChange={(value) => updateNoteField("immediateNextStep", value)}
+              />
+              <TextAreaField
+                label="Relationships affected by this goal"
+                value={note.relationshipImpact}
+                onChange={(value) => updateNoteField("relationshipImpact", value)}
+              />
+              <TextAreaField
+                label="Questions to ask next time"
+                value={note.nextQuestions}
+                onChange={(value) => updateNoteField("nextQuestions", value)}
+              />
+              <TextAreaField
+                label="Emotional state"
+                value={note.emotionalState}
+                onChange={(value) => updateNoteField("emotionalState", value)}
+              />
+              <TextAreaField
+                label="Satisfaction since last interaction"
+                value={note.satisfaction}
+                onChange={(value) => updateNoteField("satisfaction", value)}
+              />
+              <TextAreaField
+                label="Referral opportunities"
+                value={note.referralOpportunities}
+                onChange={(value) =>
+                  updateNoteField("referralOpportunities", value)
+                }
+              />
+              <TextAreaField
+                label="Additional notes"
+                value={note.additionalNotes}
+                onChange={(value) => updateNoteField("additionalNotes", value)}
+              />
+              <div style={styles.formButtonRow}>
+                <button type="submit" style={styles.primarySmallButton}>
+                  Save conversation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingNote(false)}
+                  style={styles.secondarySmallButton}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsAddingNote(true)}
+              style={styles.primarySmallButton}
+            >
+              Add conversation block
+            </button>
+          )
+        }
         renderItem={(conversation) => (
           <ConversationTimelineCard
             conversation={conversation}
@@ -1933,7 +1971,9 @@ function ConversationTimelineCard({
         <div>
           <strong>{formatDate(conversation.createdAt)}</strong>
           {conversation.createdByUserName ? (
-            <span style={styles.muted}>Entered by {conversation.createdByUserName}</span>
+            <span style={styles.conversationEnteredBy}>
+              Entered by {conversation.createdByUserName}
+            </span>
           ) : null}
           <span style={styles.conversationPreview}>
             {getConversationPreview(conversation)}
@@ -2117,7 +2157,7 @@ function ActivityLogList({ items = [] }) {
   );
 }
 
-function DetailList({ title, items, empty, renderItem }) {
+function DetailList({ title, items, empty, renderItem, topSlot = null }) {
   const isCollapsible = title === "Devices" || title === "Conversation Timeline";
   const [isOpen, setIsOpen] = useState(!isCollapsible);
 
@@ -2143,6 +2183,7 @@ function DetailList({ title, items, empty, renderItem }) {
       ) : (
         <h3 style={styles.detailHeading}>{title}</h3>
       )}
+      {isOpen && topSlot ? <div style={styles.detailTopSlot}>{topSlot}</div> : null}
       {isOpen && items?.length ? (
         <div style={styles.miniList}>
           {items.map((item, index) => (
@@ -2461,6 +2502,9 @@ const styles = {
   detailGroup: {
     borderTop: "1px solid rgba(32, 28, 29, 0.12)",
     padding: "12px 0",
+  },
+  detailTopSlot: {
+    marginBottom: "12px",
   },
   detailHeading: {
     fontSize: "14px",
@@ -2789,6 +2833,12 @@ const styles = {
     position: "sticky",
     top: "76px",
     zIndex: 12,
+  },
+  conversationEnteredBy: {
+    color: "#8d8580",
+    display: "inline-block",
+    fontSize: "13px",
+    marginLeft: "10px",
   },
   conversationActions: {
     display: "flex",
