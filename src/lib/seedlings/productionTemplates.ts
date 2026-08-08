@@ -6,6 +6,12 @@ export type SeedlingProductionTemplate = {
   estimatedGerminationDays: number;
   readyWeeksAfterGermination: number;
   defaultQuantity: number;
+  currentBatch?: {
+    dateStarted: string;
+    quantityLabel: string;
+    estimatedPlantsLabel: string;
+    germinationTimeLabel: string;
+  };
 };
 
 export type SeedlingTimelineEvent = {
@@ -27,25 +33,58 @@ export type SeedlingTimelineEvent = {
 export const SEEDLING_SHOP_SLUG = "seedling-shop";
 
 export const seedlingProductionTemplates: SeedlingProductionTemplate[] = [
-  { key: "callaloo", cropName: "Callaloo", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 4, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "cucumber", cropName: "Cucumber", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 3, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "thai-basil", cropName: "Thai Basil", propagationType: "seedling", retailPrice: 75, estimatedGerminationDays: 7, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "pak-choi", cropName: "Pak Choi", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 4, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "bok-choy", cropName: "Bok Choy", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 4, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "cabbage", cropName: "Cabbage", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 5, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "lettuce", cropName: "Lettuce", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 3, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "scotch-bonnet-pepper", cropName: "Scotch Bonnet Pepper", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "sweet-pepper", cropName: "Sweet Pepper", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 8, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "slicing-tomato", cropName: "Slicing Tomato", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 5, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "plum-tomato", cropName: "Plum Tomato", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 5, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "cherry-tomato", cropName: "Cherry Tomato", propagationType: "seedling", retailPrice: 50, estimatedGerminationDays: 5, readyWeeksAfterGermination: 4, defaultQuantity: 1000 },
-  { key: "rosemary-seed", cropName: "Rosemary (grown from seed)", propagationType: "seedling", retailPrice: 100, estimatedGerminationDays: 18, readyWeeksAfterGermination: 6, defaultQuantity: 1000 },
-  { key: "black-mint-cutting", cropName: "Black Mint", propagationType: "cutting", retailPrice: 100, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 500 },
-  { key: "spearmint-cutting", cropName: "Spearmint", propagationType: "cutting", retailPrice: 100, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 500 },
-  { key: "tree-mint-cutting", cropName: "Costa Rican Peppermint / Tree Mint / Jamaican Peppermint", propagationType: "cutting", retailPrice: 100, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 500 },
-  { key: "bolo-mint-cutting", cropName: "Bola Mint / Panadol Plant", propagationType: "cutting", retailPrice: 100, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 500 },
-  { key: "common-mint-cutting", cropName: "Common Mint", propagationType: "cutting", retailPrice: 100, estimatedGerminationDays: 10, readyWeeksAfterGermination: 4, defaultQuantity: 500 },
+  makeCurrentSeedlingTemplate("yellow-passion-fruit", "Yellow Passion Fruit", "seedling", 100, "2026-07-19", "2 seed rolls", "~50 seeds", "10-21 days", 50, 21),
+  makeCurrentSeedlingTemplate("cherry-tomatoes", "Cherry Tomatoes", "seedling", 50, "2026-07-19", "4 seed rolls", "~100 seeds", "6-12 days", 100, 12),
+  makeCurrentSeedlingTemplate("purple-sweet-peppers", "Purple Sweet Peppers", "seedling", 50, "2026-07-19", "6 seed rolls", "~150 seeds", "7-14 days", 150, 14),
+  makeCurrentSeedlingTemplate("eggplant", "Eggplant", "seedling", 50, "2026-07-20", "7 seed rolls", "~175 seeds", "6-10 days", 175, 10),
+  makeCurrentSeedlingTemplate("cucumber", "Cucumber", "seedling", 50, "2026-08-02", "2 seed rolls", "~50 seeds", "3-10 days", 50, 10),
+  makeCurrentSeedlingTemplate("carrots", "Carrots", "seedling", 50, "2026-08-02", "2 seed rolls", "~50 seeds", "12-18 days", 50, 18),
+  makeCurrentSeedlingTemplate("pak-choi", "Pak Choi", "seedling", 30, "2026-08-02", "2 seed rolls", "~50 seeds", "3-5 days", 50, 5),
+  makeCurrentSeedlingTemplate("bok-choy", "Bok Choy", "seedling", 30, "2026-08-02", "2 seed rolls", "~50 seeds", "3-5 days", 50, 5),
+  makeCurrentSeedlingTemplate("okra", "Okra", "seedling", 50, "2026-08-03", "2 seed rolls", "~50 seeds", "7-10 days", 50, 10),
+  makeCurrentSeedlingTemplate("callaloo", "Callaloo", "seedling", 30, "2026-08-03", "1 seed roll", "~25 seeds", "5-10 days", 25, 10),
+  makeCurrentSeedlingTemplate("rosemary", "Rosemary", "seedling", 100, "2026-08-03", "2 seed rolls", "~50 seeds", "14-28 days", 50, 28, 6),
+  makeCurrentSeedlingTemplate("caribbean-red-peppers", "Caribbean Red Peppers", "seedling", 50, "2026-08-04", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
+  makeCurrentSeedlingTemplate("cilantro", "Cilantro", "seedling", 75, "2026-08-05", "2 seed rolls", "~50 seeds", "7-10 days", 50, 10),
+  makeCurrentSeedlingTemplate("utah-celery", "Utah Celery", "seedling", 75, "2026-08-05", "2 seed rolls", "~50 seeds", "14-21 days", 50, 21),
+  makeCurrentSeedlingTemplate("italian-flat-leaf-parsley", "Italian Flat-Leaf Parsley", "seedling", 75, "2026-08-05", "2 seed rolls", "~50 seeds", "40-60 days", 50, 60, 6),
+  makeCurrentSeedlingTemplate("string-beans", "String Beans", "seedling", 40, "2026-08-05", "3 seeds in 1 cup", "3 seeds", "5-10 days", 3, 10),
+  makeCurrentSeedlingTemplate("thai-basil", "Thai Basil", "seedling", 75, "2026-08-05", "1 seed roll", "~25 seeds", "5-10 days", 25, 10),
+  makeCurrentSeedlingTemplate("italian-basil-cuttings", "Italian Basil (Cuttings)", "cutting", 75, "2026-08-05", "25 cuttings", "25 plants", "Roots in 7-14 days", 25, 14),
+  makeCurrentSeedlingTemplate("genovese-basil-cuttings", "Genovese Basil (Cuttings)", "cutting", 75, "2026-08-05", "25 cuttings", "25 plants", "Roots in 7-14 days", 25, 14),
+  makeCurrentSeedlingTemplate("chili-pepper", "Chili Pepper", "seedling", 50, "2026-08-06", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
+  makeCurrentSeedlingTemplate("bird-pepper", "Bird Pepper", "seedling", 50, "2026-08-06", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
 ];
+
+function makeCurrentSeedlingTemplate(
+  key: string,
+  cropName: string,
+  propagationType: "seedling" | "cutting",
+  retailPrice: number,
+  dateStarted: string,
+  quantityLabel: string,
+  estimatedPlantsLabel: string,
+  germinationTimeLabel: string,
+  defaultQuantity: number,
+  estimatedGerminationDays: number,
+  readyWeeksAfterGermination = 4
+): SeedlingProductionTemplate {
+  return {
+    key,
+    cropName,
+    propagationType,
+    retailPrice,
+    estimatedGerminationDays,
+    readyWeeksAfterGermination,
+    defaultQuantity,
+    currentBatch: {
+      dateStarted,
+      quantityLabel,
+      estimatedPlantsLabel,
+      germinationTimeLabel,
+    },
+  };
+}
 
 export function getSeedlingProductionTemplate(key: unknown) {
   return seedlingProductionTemplates.find(

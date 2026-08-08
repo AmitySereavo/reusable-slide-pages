@@ -8,6 +8,7 @@ import {
   getUnifiedShopCatalog,
 } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import {
+  HOME_GARDEN_PACKAGE_SYNC_VERSION,
   getUnifiedInventoryItems,
   syncHomeGardenPackagesToUnifiedInventory,
 } from "@/lib/inventory/unifiedInventory";
@@ -32,8 +33,23 @@ export async function GET() {
       )
     );
   });
+  const hasCurrentGardenPackageSync = inventoryItems.some((item) => {
+    const shopTags: unknown[] = Array.isArray(item.shopTags)
+      ? item.shopTags
+      : [];
+    const metadata =
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : {};
 
-  if (!hasGardenPackages) {
+    return (
+      shopTags.includes(GARDEN_PACKAGE_SHOP_SLUG) &&
+      metadata.source === "home-garden-package" &&
+      metadata.syncVersion === HOME_GARDEN_PACKAGE_SYNC_VERSION
+    );
+  });
+
+  if (!hasGardenPackages || !hasCurrentGardenPackageSync) {
     await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
   }
 

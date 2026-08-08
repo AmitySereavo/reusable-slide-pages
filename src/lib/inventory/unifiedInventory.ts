@@ -27,6 +27,9 @@ type UnifiedInventoryInput = {
   metadata?: Record<string, unknown>;
 };
 
+export const HOME_GARDEN_PACKAGE_SYNC_VERSION =
+  "2026-08-08-admin-out-of-stock-package-items";
+
 export async function ensureUnifiedInventoryTable(db: Database) {
   await db.$executeRaw`
     CREATE TABLE IF NOT EXISTS "UnifiedInventoryItem" (
@@ -1013,6 +1016,28 @@ const homeGardenPackageFormatOverrides: Record<
   },
 };
 
+const homeGardenPackageAdminOnlyOutOfStockItems = new Set(
+  [
+    "Blueberry",
+    "Strawberry",
+    "Cloves",
+    "Yellow Yam Slips",
+    "Dasheen",
+    "Beetroot",
+    "Onion",
+    "Turnip",
+    "Irish Potato Slips",
+    "Chow Chow (Chayote)",
+    "One-Hand Bandit Plantain Sucker",
+  ].map((item) => item.toLowerCase())
+);
+
+function isHomeGardenPackageAdminOnlyOutOfStockItem(productTitle: string) {
+  return homeGardenPackageAdminOnlyOutOfStockItems.has(
+    productTitle.trim().toLowerCase()
+  );
+}
+
 function getEffectiveHomeGardenPackageFormat(
   productTitle: string,
   requestedFormat: HomeGardenPackageFormat
@@ -1080,6 +1105,11 @@ export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
       );
       const price = packageContents.reduce((sum, content) => {
         const title = content.productTitle;
+
+        if (isHomeGardenPackageAdminOnlyOutOfStockItem(title)) {
+          return sum;
+        }
+
         const effectiveFormat = getEffectiveHomeGardenPackageFormat(
           title,
           format.id
@@ -1139,6 +1169,7 @@ export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
         source: "home-garden-package",
         category: "Package",
         packageType: "home-garden",
+        syncVersion: HOME_GARDEN_PACKAGE_SYNC_VERSION,
       },
     });
   }
@@ -1167,6 +1198,9 @@ async function ensureHomeGardenPackageComponentItems(db: Database) {
       const price = homeGardenPackagePrices[format.id][productTitle] ?? 0;
       const optionLabel = getProductFormatLabel(productTitle, format.label);
       const isIntrusiveRunner = isIntrusiveRunnerPackageItem(productTitle);
+      const adminOnlyOutOfStock =
+        isHomeGardenPackageAdminOnlyOutOfStockItem(productTitle);
+      const availableQuantity = adminOnlyOutOfStock ? 0 : quantity;
 
       return {
         id: sanitizeSlug(optionLabel),
@@ -1179,11 +1213,12 @@ async function ensureHomeGardenPackageComponentItems(db: Database) {
         weight: 0.8,
         quantityOnHand: quantity,
         quantityReserved: 0,
-        quantityAvailable: quantity,
+        quantityAvailable: availableQuantity,
         metadata: {
           source: "home-garden-package-component",
           format: format.id,
-          eventQuantityAvailable: quantity,
+          eventQuantityAvailable: availableQuantity,
+          adminOnlyOutOfStock,
           ...(isIntrusiveRunner ? { growthNote: "Intrusive runner" } : {}),
         },
       };
@@ -1229,6 +1264,9 @@ async function ensureHomeGardenPackageComponentItems(db: Database) {
         source: "home-garden-package-component",
         category: "PackageComponent",
         hideFromBrowse: true,
+        adminOnlyOutOfStock:
+          isHomeGardenPackageAdminOnlyOutOfStockItem(productTitle),
+        syncVersion: HOME_GARDEN_PACKAGE_SYNC_VERSION,
         ...(isIntrusiveRunnerPackageItem(productTitle)
           ? { growthNote: "Intrusive runner" }
           : {}),

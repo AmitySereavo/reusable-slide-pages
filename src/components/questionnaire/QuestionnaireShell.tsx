@@ -239,6 +239,7 @@ const CHECKOUT_DRAFT_SLUGS = new Set([
   "invitation",
   "ticket-purchase-assistant",
   "home-gardener-plant-giveaway",
+  "garden-package",
 ]);
 
 function formatVideoTime(totalSeconds: number) {
@@ -12895,6 +12896,12 @@ function ShopSlideRenderer({
       )
     );
   };
+  const isAdminOnlyOutOfStockPackageItem = (
+    product?: ShopCatalogProduct,
+    sizeOption?: ShopCatalogSizeOption
+  ) =>
+    product?.metadata?.adminOnlyOutOfStock === true ||
+    sizeOption?.metadata?.adminOnlyOutOfStock === true;
   const markPackageShellAdjusted = (
     nextCart: ShopCart,
     sourceLineKey: string | undefined
@@ -12919,7 +12926,12 @@ function ShopSlideRenderer({
 
   const getPackageContentRows = (
     sizeOption: ShopCatalogSizeOption
-  ): Array<{ section: string; label: string; quantity: number }> => {
+  ): Array<{
+    section: string;
+    label: string;
+    quantity: number;
+    adminOnlyOutOfStock: boolean;
+  }> => {
     const bundledItems = sizeOption.purchaseModes?.[0]?.bundledCartItems ?? [];
     const getPackageContentSection = (label: string) => {
       const normalized = label.toLowerCase();
@@ -13064,24 +13076,33 @@ function ShopSlideRenderer({
       return "Other items";
     };
 
-    return bundledItems.map((bundledItem) => {
+    return bundledItems.flatMap((bundledItem) => {
       const sourceProduct = catalog.products.find(
         (product) => product.id === bundledItem.productId
       );
       const sourceOption = sourceProduct?.sizeOptions.find(
         (option) => option.id === bundledItem.sizeOptionId
       );
+      const adminOnlyOutOfStock = isAdminOnlyOutOfStockPackageItem(
+        sourceProduct,
+        sourceOption
+      );
+
+      if (!isAdminUser && adminOnlyOutOfStock) {
+        return [];
+      }
 
       const label =
         sourceProduct?.title ||
         cleanPackageSkuLabel(bundledItem.sourceSku ?? "") ||
         "Package item";
 
-      return {
+      return [{
         section: getPackageContentSection(label),
         label,
         quantity: bundledItem.quantity ?? 1,
-      };
+        adminOnlyOutOfStock,
+      }];
     });
   };
   const getPackageFormatKey = (label: string) => {
@@ -13274,13 +13295,25 @@ function ShopSlideRenderer({
     const packageShellKeys = new Set(packageShellEntries.map(([key]) => key));
     const cartPackageComponentEntries = Object.entries(cart)
       .filter(([, line]) => line.bundledFromLineKey && packageShellKeys.has(line.bundledFromLineKey))
-      .map(([lineKey, line]) => {
+      .flatMap(([lineKey, line]) => {
         const product = catalog.products.find(
           (candidate) => candidate.id === line.productId
         );
         const sizeOption = product?.sizeOptions.find(
           (option) => option.id === line.sizeOptionId
         );
+        const adminOnlyOutOfStock = isAdminOnlyOutOfStockPackageItem(
+          product,
+          sizeOption
+        );
+
+        if (
+          !isAdminUser &&
+          adminOnlyOutOfStock
+        ) {
+          return [];
+        }
+
         const formatOptions =
           product?.sizeOptions.map((option) => ({
             id: option.id,
@@ -13289,15 +13322,15 @@ function ShopSlideRenderer({
           })) ?? [];
         const label = product?.title ?? "Package item";
 
-        return {
+        return [{
           lineKey,
-          line,
+          line: adminOnlyOutOfStock ? { ...line, selected: false } : line,
           product,
           sizeOption,
           formatOptions,
           label,
           section: getPackageComponentSection(label),
-        };
+        }];
       })
       .filter((entry) => entry.product && entry.sizeOption)
     const selectedShellEntry = packageShellEntries[0];
@@ -13315,7 +13348,7 @@ function ShopSlideRenderer({
       ) ?? selectedShellOption?.purchaseModes?.[0];
     const fallbackPackageComponentEntries =
       selectedShell && selectedShellKey
-        ? (selectedPackageMode?.bundledCartItems ?? []).map((bundledItem) => {
+        ? (selectedPackageMode?.bundledCartItems ?? []).flatMap((bundledItem) => {
             const product =
               catalog.products.find(
                 (candidate) => candidate.id === bundledItem.productId
@@ -13334,6 +13367,18 @@ function ShopSlideRenderer({
               product?.sizeOptions[0];
             const purchaseModeId =
               bundledItem.purchaseModeId ?? sizeOption?.purchaseModes?.[0]?.id;
+
+            if (
+              !isAdminUser &&
+              isAdminOnlyOutOfStockPackageItem(product, sizeOption)
+            ) {
+              return [];
+            }
+            const adminOnlyOutOfStock = isAdminOnlyOutOfStockPackageItem(
+              product,
+              sizeOption
+            );
+
             const lineKey = `${selectedShellKey}::bundle::${
               product?.id ?? bundledItem.productId
             }::${sizeOption?.id ?? bundledItem.sizeOptionId}${
@@ -13347,7 +13392,7 @@ function ShopSlideRenderer({
             const line: ShopCartLine = existingLine ?? {
               productId: product?.id ?? bundledItem.productId,
               sizeOptionId: sizeOption?.id ?? bundledItem.sizeOptionId,
-              selected: true,
+              selected: !adminOnlyOutOfStock,
               quantity,
               purchaseModeId,
               bundledFromLineKey: selectedShellKey,
@@ -13371,7 +13416,7 @@ function ShopSlideRenderer({
                 price: option.price,
               })) ?? [];
 
-            return {
+            return [{
               lineKey,
               line,
               product,
@@ -13379,7 +13424,7 @@ function ShopSlideRenderer({
               formatOptions,
               label,
               section: getPackageComponentSection(label),
-            };
+            }];
           })
         : [];
     const packageComponentEntries = (
@@ -13519,6 +13564,15 @@ function ShopSlideRenderer({
           continue;
         }
 
+        const adminOnlyOutOfStock = isAdminOnlyOutOfStockPackageItem(
+          product,
+          sizeOption
+        );
+
+        if (!isAdminUser && adminOnlyOutOfStock) {
+          continue;
+        }
+
         const purchaseModeId =
           bundledItem.purchaseModeId ?? sizeOption.purchaseModes?.[0]?.id;
         const lineKey = `${selectedShellKey}::bundle::${product.id}::${sizeOption.id}${
@@ -13528,7 +13582,7 @@ function ShopSlideRenderer({
         nextCart[lineKey] = {
           productId: product.id,
           sizeOptionId: sizeOption.id,
-          selected: true,
+          selected: !adminOnlyOutOfStock,
           quantity: Math.max(1, bundledItem.quantity ?? 1),
           purchaseModeId,
           bundledFromLineKey: selectedShellKey,
@@ -13571,7 +13625,9 @@ function ShopSlideRenderer({
       }
 
       const selectedRows = packageComponentEntries.filter(
-        (entry) => entry.line.selected !== false
+        (entry) =>
+          entry.line.selected !== false &&
+          !isAdminOnlyOutOfStockPackageItem(entry.product, entry.sizeOption)
       );
       const packageTitle =
         [
@@ -13613,13 +13669,7 @@ function ShopSlideRenderer({
           </tr>`;
         })
         .join("");
-      const printWindow = window.open("", "_blank", "noopener,noreferrer");
-
-      if (!printWindow) {
-        return;
-      }
-
-      printWindow.document.write(`<!doctype html>
+      const printableHtml = `<!doctype html>
         <html>
           <head>
             <title>${escapeHtml(packageTitle)}</title>
@@ -13652,11 +13702,30 @@ function ShopSlideRenderer({
             <div class="total">Total: ${escapeHtml(
               formatCurrency(total, catalog.currencyCode)
             )}</div>
+            <script>
+              window.addEventListener('load', () => {
+                window.setTimeout(() => window.print(), 250);
+              });
+            </script>
           </body>
-        </html>`);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
+        </html>`;
+      const blob = new Blob([printableHtml], { type: "text/html" });
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, "_blank");
+
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+
+      if (!printWindow) {
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download = `${packageTitle
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "") || "adjusted-garden-package"}.html`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+      }
     };
 
     return (
@@ -13723,6 +13792,11 @@ function ShopSlideRenderer({
                   {section.rows.map((entry) => {
                     const selected = entry.line.selected !== false;
                     const quantity = Math.max(1, entry.line.quantity ?? 1);
+                    const adminOnlyOutOfStock =
+                      isAdminOnlyOutOfStockPackageItem(
+                        entry.product,
+                        entry.sizeOption
+                      );
 
                     return (
                       <div
@@ -13735,6 +13809,7 @@ function ShopSlideRenderer({
                           <input
                             type="checkbox"
                             checked={selected}
+                            disabled={adminOnlyOutOfStock}
                             onChange={(event) => {
                               onUpdateCart?.((currentCart) =>
                                 materializePackageRows(currentCart, {
@@ -13754,6 +13829,11 @@ function ShopSlideRenderer({
                           <span>
                             {entry.label}
                             <em>{selected ? "Included" : "Removed from pack"}</em>
+                            {adminOnlyOutOfStock ? (
+                              <small className={styles.packageGrowthNote}>
+                                Out of stock
+                              </small>
+                            ) : null}
                             {getVisiblePackageGrowthNote(entry)
                               .trim()
                               .toLowerCase() === "intrusive runner" ? (
@@ -14037,6 +14117,19 @@ function ShopSlideRenderer({
                                 continue;
                               }
 
+                              const adminOnlyOutOfStock =
+                                isAdminOnlyOutOfStockPackageItem(
+                                  bundledProduct,
+                                  bundledSizeOption
+                                );
+
+                              if (
+                                !isAdminUser &&
+                                adminOnlyOutOfStock
+                              ) {
+                                continue;
+                              }
+
                               const bundledPurchaseModeId =
                                 bundledItem.purchaseModeId ??
                                 bundledSizeOption.purchaseModes?.[0]?.id;
@@ -14053,7 +14146,7 @@ function ShopSlideRenderer({
                               nextCart[bundledLineKey] = {
                                 productId: bundledProduct.id,
                                 sizeOptionId: bundledSizeOption.id,
-                                selected: true,
+                                selected: !adminOnlyOutOfStock,
                                 quantity: bundledQuantity,
                                 purchaseModeId: bundledPurchaseModeId,
                                 bundledFromLineKey: sourceLineKey,
@@ -14092,6 +14185,9 @@ function ShopSlideRenderer({
                                   >
                                     <span>{row.label}</span>
                                     <strong>x {row.quantity}</strong>
+                                    {row.adminOnlyOutOfStock ? (
+                                      <em>Out of stock</em>
+                                    ) : null}
                                   </div>
                                 ))}
                               </div>

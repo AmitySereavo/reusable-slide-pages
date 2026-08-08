@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import { SEEDLING_SHOP_SLUG } from "@/lib/seedlings/productionTemplates";
+import { syncCurrentSeedlingShopBatches } from "@/lib/seedlings/seedlingBatches";
 
 export async function GET() {
   try {
+    await syncCurrentSeedlingShopBatches(prisma as any);
     const catalog = await getUnifiedShopCatalog(prisma as any, SEEDLING_SHOP_SLUG);
 
     return NextResponse.json({

@@ -2337,6 +2337,19 @@
   white-space: nowrap;
 }
 
+.packageContentList em {
+  grid-column: 1 / -1;
+  width: fit-content;
+  border: 1px solid rgba(143, 47, 68, 0.28);
+  border-radius: 999px;
+  color: #8f2f44;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+
 .packageAdjustmentHeader,
 .packageAdjustmentEmpty {
   display: grid;

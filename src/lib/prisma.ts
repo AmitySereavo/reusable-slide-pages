@@ -13,10 +13,13 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
+const poolMax = Number(process.env.DATABASE_POOL_MAX || 5);
+
 const pool =
   globalForPrisma.pgPool ??
   new Pool({
     connectionString,
+    max: Number.isFinite(poolMax) && poolMax > 0 ? poolMax : 5,
   });
 
 if (process.env.NODE_ENV !== "production") {

@@ -205,6 +205,114 @@ export async function syncStarterSeedlingBatches(db: DbClient) {
   return created;
 }
 
+export async function syncCurrentSeedlingShopBatches(db: DbClient) {
+  await ensureSeedlingBatchTables(db);
+  const activeInventorySlugs: string[] = [];
+
+  for (const template of seedlingProductionTemplates) {
+    const currentBatch = template.currentBatch;
+
+    if (!currentBatch) {
+      continue;
+    }
+
+    const productionDate = currentBatch.dateStarted;
+    const productionAt = toLocalDateTimeIso(productionDate, "08:00");
+    const timeline = buildSeedlingTimeline({ productionAt, template });
+    const id = `seedling-batch-current-${template.key}-${productionDate}`;
+    const batchName = `${template.cropName} - Started ${productionDate}`;
+
+    await db.$executeRaw`
+      INSERT INTO "SeedlingProductionBatch" (
+        "id",
+        "cropKey",
+        "cropName",
+        "propagationType",
+        "batchName",
+        "productionAt",
+        "germinationAt",
+        "availabilityAt",
+        "priceIncreaseDates",
+        "quantityStarted",
+        "quantityReserved",
+        "quantityAvailable",
+        "retailPrice",
+        "status",
+        "timeline",
+        "metadata",
+        "updatedAt"
+      )
+      VALUES (
+        ${id},
+        ${template.key},
+        ${template.cropName},
+        ${template.propagationType},
+        ${batchName},
+        ${new Date(productionAt)},
+        ${new Date(timeline.germinationAt)},
+        ${new Date(timeline.availabilityAt)},
+        CAST(${JSON.stringify(timeline.priceIncreaseDates)} AS jsonb),
+        ${template.defaultQuantity},
+        0,
+        ${template.defaultQuantity},
+        ${template.retailPrice},
+        'planned',
+        CAST(${JSON.stringify(timeline.events)} AS jsonb),
+        CAST(${JSON.stringify({
+          template,
+          currentSeedlingShopBatch: true,
+          quantityLabel: currentBatch.quantityLabel,
+          estimatedPlantsLabel: currentBatch.estimatedPlantsLabel,
+          germinationTimeLabel: currentBatch.germinationTimeLabel,
+        })} AS jsonb),
+        CURRENT_TIMESTAMP
+      )
+      ON CONFLICT ("id") DO UPDATE SET
+        "cropKey" = EXCLUDED."cropKey",
+        "cropName" = EXCLUDED."cropName",
+        "propagationType" = EXCLUDED."propagationType",
+        "batchName" = EXCLUDED."batchName",
+        "productionAt" = EXCLUDED."productionAt",
+        "germinationAt" = EXCLUDED."germinationAt",
+        "availabilityAt" = EXCLUDED."availabilityAt",
+        "priceIncreaseDates" = EXCLUDED."priceIncreaseDates",
+        "quantityStarted" = EXCLUDED."quantityStarted",
+        "quantityAvailable" = GREATEST(0, EXCLUDED."quantityStarted" - "SeedlingProductionBatch"."quantityReserved"),
+        "retailPrice" = EXCLUDED."retailPrice",
+        "status" = EXCLUDED."status",
+        "timeline" = EXCLUDED."timeline",
+        "metadata" = EXCLUDED."metadata",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `;
+
+    const rows = await db.$queryRaw<any[]>`
+      SELECT *
+      FROM "SeedlingProductionBatch"
+      WHERE "id" = ${id}
+      LIMIT 1
+    `;
+    const batch = rows[0] ? serializeSeedlingBatch(rows[0]) : null;
+
+    if (batch) {
+      await upsertSeedlingBatchInventoryItem(db, batch);
+      activeInventorySlugs.push(batch.id);
+    }
+  }
+
+  if (activeInventorySlugs.length) {
+    await db.$executeRaw`
+      UPDATE "UnifiedInventoryItem"
+      SET
+        "active" = false,
+        "shopTags" = '[]'::jsonb,
+        "shopListings" = '[]'::jsonb,
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "metadata"->>'source' = 'seedling-production-batch'
+        AND NOT ("slug" = ANY(${activeInventorySlugs}))
+    `;
+  }
+}
+
 export async function recordSeedlingBatchActivity(
   db: DbClient,
   input: SeedlingBatchUpdateInput
@@ -307,8 +415,18 @@ export function serializeSeedlingBatch(row: any) {
 export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any) {
   const dateLabel = batch.productionAt.slice(0, 10);
   const preOrder = !batch.availableNow;
-  const description = [
+  const batchMetadata = normalizeObject(batch.metadata);
+  const descriptionLines = [
     `${batch.batchName}.`,
+    batchMetadata.quantityLabel
+      ? `Quantity started: ${batchMetadata.quantityLabel}.`
+      : "",
+    batchMetadata.estimatedPlantsLabel
+      ? `Estimated plants/seeds: ${batchMetadata.estimatedPlantsLabel}.`
+      : "",
+    batchMetadata.germinationTimeLabel
+      ? `Germination / rooting time: ${batchMetadata.germinationTimeLabel}.`
+      : "",
     `Production date: ${formatDate(batch.productionAt)}.`,
     `Availability date: ${formatDate(batch.availabilityAt)}.`,
     batch.nextPriceIncreaseAt
@@ -317,8 +435,8 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
     `Reserved: ${batch.quantityReserved} seedlings.`,
     `Remaining: ${batch.quantityAvailable} seedlings.`,
   ]
-    .filter(Boolean)
-    .join(" ");
+    .filter(Boolean);
+  const description = descriptionLines.map((line) => `- ${line}`).join("\n");
 
   await upsertUnifiedInventoryItem(db as any, {
     id: `inventory-${batch.id}`,
@@ -363,6 +481,9 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
           nextPriceIncreaseAt: batch.nextPriceIncreaseAt,
           quantityReserved: batch.quantityReserved,
           quantityRemaining: batch.quantityAvailable,
+          quantityLabel: batchMetadata.quantityLabel || null,
+          estimatedPlantsLabel: batchMetadata.estimatedPlantsLabel || null,
+          germinationTimeLabel: batchMetadata.germinationTimeLabel || null,
           timeline: batch.timeline,
           primaryActionLabel: preOrder
             ? "Pre-Order Now at Discounted Price"
@@ -379,6 +500,9 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
       nextPriceIncreaseAt: batch.nextPriceIncreaseAt,
       quantityReserved: batch.quantityReserved,
       quantityRemaining: batch.quantityAvailable,
+      quantityLabel: batchMetadata.quantityLabel || null,
+      estimatedPlantsLabel: batchMetadata.estimatedPlantsLabel || null,
+      germinationTimeLabel: batchMetadata.germinationTimeLabel || null,
       timeline: batch.timeline,
       priceIncreaseDates: batch.priceIncreaseDates,
     },
