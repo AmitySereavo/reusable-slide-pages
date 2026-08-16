@@ -102,6 +102,34 @@ function cleanFulfillmentNotesForDisplay(value) {
     .join("\n");
 }
 
+function isCallalooOrder(item) {
+  return item?.metadata?.questionnaireSlug === "callaloo";
+}
+
+function getOrderRecordTitle(item) {
+  if (isCallalooOrder(item)) {
+    return "Callaloo Subscription";
+  }
+
+  return item?.metadata?.shopDisplayName || "Little Orchard Order";
+}
+
+function getOrderItemsTabLabel(item, orderQuantity) {
+  if (isCallalooOrder(item)) {
+    return `SUBSCRIPTION (${orderQuantity})`;
+  }
+
+  return `ITEMS (${orderQuantity})`;
+}
+
+function getOrderItemsSectionLabel(item) {
+  if (isCallalooOrder(item)) {
+    return "Subscription details";
+  }
+
+  return "Order items";
+}
+
 function confirmTypedDelete(message) {
   const response = window.prompt(`${message}\n\nType delete to confirm.`);
   return String(response || "").trim().toLowerCase() === "delete";
@@ -228,6 +256,222 @@ function getOrderItemTitle(item) {
 
 function getRequestedItemLabel(item) {
   return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
+}
+
+const CALLALOO_SEEDS_PER_PARCEL = 10;
+const CALLALOO_AVAILABILITY_STORAGE_KEY =
+  "paralife:orders:callaloo-seedling-availability";
+
+function isRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value);
+}
+
+function findCallalooDeliveryPlan(value, depth = 0) {
+  if (!value || depth > 5) return [];
+
+  if (Array.isArray(value)) {
+    const looksLikePlan = value.some(
+      (entry) => isRecord(entry) && (entry.deliveryDate || entry.deliveryLabel)
+    );
+
+    if (looksLikePlan) return value.filter(isRecord);
+
+    return value.flatMap((entry) => findCallalooDeliveryPlan(entry, depth + 1));
+  }
+
+  if (!isRecord(value)) return [];
+
+  if (Array.isArray(value.callalooDeliveryPlan)) {
+    return value.callalooDeliveryPlan.filter(isRecord);
+  }
+
+  for (const child of Object.values(value)) {
+    const result = findCallalooDeliveryPlan(child, depth + 1);
+    if (result.length) return result;
+  }
+
+  return [];
+}
+
+function parsePlanningDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function addMonths(date, months) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getNearestSaturday(date) {
+  return getNearestWeekday(date, 6);
+}
+
+function getNearestSunday(date) {
+  return getNearestWeekday(date, 0);
+}
+
+function getNearestWeekday(date, targetDay) {
+  const day = date.getDay();
+  const forward = (targetDay - day + 7) % 7;
+  const backward = forward === 0 ? 0 : forward - 7;
+  const offset = Math.abs(backward) <= Math.abs(forward) ? backward : forward;
+  const nextDate = new Date(date);
+  nextDate.setDate(date.getDate() + offset);
+  nextDate.setHours(8, 0, 0, 0);
+  return nextDate;
+}
+
+function formatPlanningDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatPlanningDate(value) {
+  const date = value instanceof Date ? value : parsePlanningDate(value);
+  if (!date) return "Not dated";
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+  }).format(date);
+}
+
+function formatCallalooPrepLabel(value) {
+  const labels = {
+    fresh_bundle: "Fresh bundle",
+    cleaned_chopped: "Cleaned and chopped",
+    cleaned_chopped_seasoned: "Cleaned, chopped and seasoned",
+  };
+
+  return labels[value] || String(value || "Format not selected");
+}
+
+function getCallalooSeedlingStage({ now, sowingDate, transplantDate, deliveryDate }) {
+  const germinatedDate = new Date(sowingDate);
+  germinatedDate.setDate(germinatedDate.getDate() + 7);
+  const harvestDate = new Date(deliveryDate);
+  harvestDate.setHours(7, 0, 0, 0);
+
+  if (now < sowingDate) return "Needs sowing";
+  if (now < germinatedDate) return "Sown / awaiting germination";
+  if (now < transplantDate) return "Germinated / nursery tray";
+  if (now < harvestDate) return "Transplanted / growing to harvest";
+  return "Harvest and prep due";
+}
+
+function buildCallalooPlanning(items, availabilityConfirmations = {}) {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const sourceByOrder = new Map();
+
+  for (const item of items) {
+    const metadata = isRecord(item.metadata) ? item.metadata : {};
+    const plan = findCallalooDeliveryPlan(metadata);
+
+    if (!plan.length) continue;
+
+    const key = item.orderCode || item.id;
+    if (!sourceByOrder.has(key)) {
+      sourceByOrder.set(key, { item, plan });
+    }
+  }
+
+  const deliveries = [];
+
+  for (const { item, plan } of sourceByOrder.values()) {
+    plan.forEach((block, index) => {
+      const deliveryDate = parsePlanningDate(block.deliveryDate);
+      if (!deliveryDate || deliveryDate < todayStart) return;
+
+      const parcelQuantity = Math.max(
+        0,
+        Math.floor(Number(block.parcelQuantity || block.quantity || 0))
+      );
+      if (!parcelQuantity) return;
+
+      const sowingDate = getNearestSaturday(addMonths(deliveryDate, -3));
+      const transplantDate = getNearestSunday(addDays(sowingDate, 21));
+      const seedCount = parcelQuantity * CALLALOO_SEEDS_PER_PARCEL;
+      const stage = getCallalooSeedlingStage({
+        now,
+        sowingDate,
+        transplantDate,
+        deliveryDate,
+      });
+
+      deliveries.push({
+        key: `${item.orderCode || item.id}:${block.id || index}:${deliveryDate.toISOString()}`,
+        orderCode: item.orderCode || "No order code",
+        customerName: item.recipientName || "No customer name",
+        deliveryDate,
+        deliveryLabel: block.deliveryLabel || formatPlanningDate(deliveryDate),
+        useLabel: block.useLabel || "",
+        prepFormat: formatCallalooPrepLabel(block.prepFormat),
+        parcelQuantity,
+        seedCount,
+        sowingDate,
+        stage,
+        note: block.customerNote || "",
+        lineTotal: Number(block.lineTotal || 0),
+        currencyCode: item.currencyCode || "JMD",
+      });
+    });
+  }
+
+  deliveries.sort((first, second) => second.deliveryDate - first.deliveryDate);
+
+  const sowingGroups = Array.from(
+    deliveries.reduce((groups, delivery) => {
+      const key = formatPlanningDateKey(delivery.sowingDate);
+      const current =
+        groups.get(key) || {
+          key,
+          sowingDate: delivery.sowingDate,
+          parcels: 0,
+          seeds: 0,
+          deliveries: [],
+        };
+
+      current.parcels += delivery.parcelQuantity;
+      current.seeds += delivery.seedCount;
+      current.deliveries.push(delivery);
+      groups.set(key, current);
+
+      return groups;
+    }, new Map()).values()
+  ).sort((first, second) => second.sowingDate - first.sowingDate);
+
+  const stageGroups = Array.from(
+    deliveries.reduce((groups, delivery) => {
+      const current =
+        groups.get(delivery.stage) || {
+          key: delivery.stage,
+          stage: delivery.stage,
+          parcels: 0,
+          seeds: 0,
+          deliveries: [],
+        };
+
+      current.parcels += delivery.parcelQuantity;
+      current.seeds += delivery.seedCount;
+      current.deliveries.push(delivery);
+      groups.set(delivery.stage, current);
+
+      return groups;
+    }, new Map()).values()
+  ).map((group) => ({
+    ...group,
+    confirmedAvailable: availabilityConfirmations[group.key] || "",
+  }));
+
+  return { deliveries, sowingGroups, stageGroups };
 }
 
 const customerMessageTemplates = [
@@ -598,6 +842,7 @@ export default function OrdersManager() {
   const [updatingItemIds, setUpdatingItemIds] = useState({});
   const [paymentMethods, setPaymentMethods] = useState({});
   const [cashTenderedByOrder, setCashTenderedByOrder] = useState({});
+  const [testModeByOrder, setTestModeByOrder] = useState({});
   const [adHocItemDrafts, setAdHocItemDrafts] = useState({});
   const [catalogItemDrafts, setCatalogItemDrafts] = useState({});
   const [littleOrchardCatalogChoices, setLittleOrchardCatalogChoices] =
@@ -846,6 +1091,7 @@ export default function OrdersManager() {
     if (busyActionLocksRef.current[actionKey]) return;
     const paymentMethod = paymentMethods[item.orderCode] || "";
     const cashTenderedRaw = cashTenderedByOrder[item.orderCode] || "";
+    const testMode = Boolean(testModeByOrder[item.orderCode]);
 
     if (!paymentMethod) {
       setMessage("Choose the payment method before confirming payment.");
@@ -864,6 +1110,7 @@ export default function OrdersManager() {
           paymentMethod,
           fulfillmentStatus,
           cashTendered: paymentMethod === "cash" ? cashTenderedRaw : undefined,
+          testMode,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -1924,7 +2171,7 @@ export default function OrdersManager() {
                 style={styles.closeAccordionButton}
                 onClick={() => toggleAccordion(item.orderCode, "items")}
               >
-                Close Items
+                {isCallalooOrder(item) ? "Close Subscription" : "Close Items"}
               </button>
             </div>
           );
@@ -2348,7 +2595,7 @@ export default function OrdersManager() {
                   <div style={isNarrow ? styles.orderBlockHeaderNarrow : styles.orderBlockHeader}>
                     <div style={styles.minWidthZero}>
                       <strong style={styles.orderTitleStack}>
-                        <span>Little Orchard Order</span>
+                        <span>{getOrderRecordTitle(item)}</span>
                         <span style={styles.orderNumberLine}>{item.orderCode}</span>
                       </strong>
                       <div style={styles.customerSubline}>
@@ -2586,6 +2833,25 @@ export default function OrdersManager() {
                               </div>
                             </div>
                           ) : null}
+                          <label style={styles.checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(testModeByOrder[item.orderCode])}
+                              onChange={(event) =>
+                                setTestModeByOrder((current) => ({
+                                  ...current,
+                                  [item.orderCode]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>
+                              Test mode confirmation
+                              <small>
+                                Admin test only. This should not count as real
+                                revenue, profit/loss, or a real customer delivery.
+                              </small>
+                            </span>
+                          </label>
                           <button
                             type="button"
                             onClick={() =>
@@ -2620,7 +2886,7 @@ export default function OrdersManager() {
                           : styles.orderTabButton
                       }
                     >
-                      ITEMS ({orderQuantity})
+                      {getOrderItemsTabLabel(item, orderQuantity)}
                     </button>
                     {isNarrow && expandedSection === "items"
                       ? itemsAccordionPanel
@@ -2926,13 +3192,13 @@ export default function OrdersManager() {
                           customer no longer owes a balance.
                         </div>
                       )}
-                      <button
-                        type="button"
-                        style={styles.closeAccordionButton}
-                        onClick={() => toggleAccordion(item.orderCode, "items")}
-                      >
-                        Close Items
-                      </button>
+                        <button
+                          type="button"
+                          style={styles.closeAccordionButton}
+                          onClick={() => toggleAccordion(item.orderCode, "items")}
+                        >
+                        {isCallalooOrder(item) ? "Close Subscription" : "Close Items"}
+                        </button>
                     </div>
                   ) : null}
 
@@ -3140,14 +3406,22 @@ export default function OrdersManager() {
                 <div style={styles.minWidthZero}>
                   <strong style={styles.breakText}>
                     {group.isLittleOrchardOrder
-                      ? `Little Orchard order ${item.orderCode || ""}`.trim()
+                      ? `${getOrderRecordTitle(item)} ${
+                          item.orderCode || ""
+                        }`.trim()
                       : item.productTitle}
                   </strong>
                   <div style={styles.muted}>
                     {group.isLittleOrchardOrder
                       ? [
                           item.recipientName || "No customer name",
-                          `${orderItems.length} item${orderItems.length === 1 ? "" : "s"}`,
+                          isCallalooOrder(item)
+                            ? `${orderItems.length} subscription line${
+                                orderItems.length === 1 ? "" : "s"
+                              }`
+                            : `${orderItems.length} item${
+                                orderItems.length === 1 ? "" : "s"
+                              }`,
                         ].join(" - ")
                       : [item.sizeLabel, item.purchaseModeLabel]
                           .filter(Boolean)
@@ -3219,7 +3493,7 @@ export default function OrdersManager() {
 
               {group.isLittleOrchardOrder ? (
                 <div style={styles.section}>
-                  <strong>Order items</strong>
+                  <strong>{getOrderItemsSectionLabel(item)}</strong>
                   <div style={styles.orderItemList}>
                     {orderItems.map((entry) => (
                       <div key={entry.id} style={styles.orderItemRow}>
@@ -4144,6 +4418,63 @@ const styles = {
     gap: "12px",
     padding: "12px",
   },
+  planningPanel: {
+    background: "#fffdfa",
+    border: "1px solid rgba(32, 28, 29, 0.14)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "14px",
+    padding: "14px",
+  },
+  planningHeader: {
+    alignItems: "start",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "12px",
+  },
+  planningBadge: {
+    background: "#2f6f46",
+    borderRadius: "999px",
+    color: "#fff",
+    fontSize: "0.82rem",
+    fontWeight: 800,
+    padding: "6px 10px",
+    whiteSpace: "nowrap",
+  },
+  planningGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "12px",
+  },
+  planningGridNarrow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: "12px",
+  },
+  planningColumn: {
+    border: "1px solid rgba(32, 28, 29, 0.12)",
+    borderRadius: "8px",
+    display: "grid",
+    gap: "10px",
+    padding: "12px",
+  },
+  planningList: {
+    display: "grid",
+    gap: "10px",
+  },
+  planningItem: {
+    borderTop: "1px solid rgba(32, 28, 29, 0.12)",
+    display: "grid",
+    gap: "6px",
+    paddingTop: "10px",
+  },
+  planningItemHeader: {
+    alignItems: "baseline",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+    justifyContent: "space-between",
+  },
   message: {
     color: "#2f6f46",
     fontWeight: 800,
@@ -4745,6 +5076,16 @@ const styles = {
     gap: "5px",
     fontWeight: 800,
     minWidth: 0,
+  },
+  checkboxLabel: {
+    alignItems: "start",
+    background: "rgba(155, 103, 17, 0.08)",
+    border: "1px solid rgba(155, 103, 17, 0.18)",
+    borderRadius: "6px",
+    display: "flex",
+    gap: "9px",
+    lineHeight: 1.35,
+    padding: "10px",
   },
   textarea: {
     border: "1px solid rgba(32, 28, 29, 0.16)",

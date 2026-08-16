@@ -159,7 +159,6 @@ inDownloadFormatsBlock = false;
       inDownloadButtonsBlock = false;
       inDownloadRequestsBlock = false;
       inDownloadFormatsBlock = false;
-      inWhenBlock = false;
       inBackWhenBlock = false;
       inShowIfBlock = false;
       continue;
@@ -482,6 +481,11 @@ inDownloadFormatsBlock = false;
           readValue(line, "@showprogressbar:"),
           true
         );
+        continue;
+      }
+
+      if (line.startsWith("@sidebar:")) {
+        draft.showInSidebar = parseBooleanValue(readValue(line, "@sidebar:"), true);
         continue;
       }
 
@@ -899,6 +903,7 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     countStep: draft.countStep,
     showStepText: draft.showStepText,
     showProgressBar: draft.showProgressBar,
+    showInSidebar: draft.showInSidebar,
     progressPlacement: draft.progressPlacement,
     showReturnHome: draft.showReturnHome,
     cancelGoto: draft.cancelGoto,

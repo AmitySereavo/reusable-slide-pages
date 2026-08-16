@@ -1649,6 +1649,34 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [config.variables, dynamicVariables]
   );
 
+  useEffect(() => {
+    const prefillAnswers = mergedVariables.prefillAnswers;
+
+    if (
+      !prefillAnswers ||
+      typeof prefillAnswers !== "object" ||
+      Array.isArray(prefillAnswers)
+    ) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const nextAnswers = { ...prev };
+      let changed = false;
+
+      for (const [key, value] of Object.entries(
+        prefillAnswers as Record<string, QuestionnaireVariableValue>
+      )) {
+        if (nextAnswers[key] === undefined || nextAnswers[key] === "") {
+          nextAnswers[key] = value;
+          changed = true;
+        }
+      }
+
+      return changed ? nextAnswers : prev;
+    });
+  }, [mergedVariables.prefillAnswers]);
+
   const gatedAccessConfig = useMemo(
     () => getGatedAccessConfig(mergedVariables),
     [mergedVariables]
@@ -1804,73 +1832,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [urlDiscountDefinition, promotionDiscountDefinition]
   );
 
-  const selectedBatchRecord = useMemo(
-    () =>
-      getSelectedRecordFromSource(
-        mergedVariables,
-        "nurseryBatches",
-        String(answers.opsSelectedBatchCode ?? "").trim()
-      ),
-    [mergedVariables, answers.opsSelectedBatchCode]
-  );
-
-  const selectedBatchSubsetRecord = useMemo(
-    () =>
-      getSelectedRecordFromSource(
-        mergedVariables,
-        "nurseryBatchSubsets",
-        String(answers.opsSelectedBatchSubsetCode ?? "").trim()
-      ),
-    [mergedVariables, answers.opsSelectedBatchSubsetCode]
-  );
-
-  const selectedTransplantRecord = useMemo(
-    () =>
-      getSelectedRecordFromSource(
-        mergedVariables,
-        "nurseryTransplantedIndividuals",
-        String(answers.opsSelectedTransplantCode ?? "").trim()
-      ),
-    [mergedVariables, answers.opsSelectedTransplantCode]
-  );
-
-
   const evaluationContext = useMemo<QuestionnaireAnswers>(
     () => ({
       ...mergedVariables,
       ...answers,
-      selectedBatchCode:
-        typeof selectedBatchRecord?.code === "string"
-          ? selectedBatchRecord.code
-          : String(answers.opsSelectedBatchCode ?? "").trim(),
-      selectedBatchPlantName:
-        typeof selectedBatchRecord?.plantName === "string"
-          ? selectedBatchRecord.plantName
-          : "",
-      selectedBatchSubsetCode:
-        typeof selectedBatchSubsetRecord?.code === "string"
-          ? selectedBatchSubsetRecord.code
-          : String(answers.opsSelectedBatchSubsetCode ?? "").trim(),
-      selectedBatchSubsetPlantName:
-        typeof selectedBatchSubsetRecord?.plantName === "string"
-          ? selectedBatchSubsetRecord.plantName
-          : "",
-      selectedTransplantCode:
-        typeof selectedTransplantRecord?.code === "string"
-          ? selectedTransplantRecord.code
-          : String(answers.opsSelectedTransplantCode ?? "").trim(),
-      selectedTransplantPlantName:
-        typeof selectedTransplantRecord?.plantName === "string"
-          ? selectedTransplantRecord.plantName
-          : "",
     }),
-    [
-      mergedVariables,
-      answers,
-      selectedBatchRecord,
-      selectedBatchSubsetRecord,
-      selectedTransplantRecord,
-    ]
+    [mergedVariables, answers]
   );
 
   const resolvedBlocks = useMemo<Record<string, DataBlockDefinition>>(() => {
@@ -1879,14 +1846,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
     for (const [blockKey, block] of Object.entries(registryBlocks)) {
       const resolvedSourceKey = block.sourceKey;
-            const selectedValue =
-        resolvedSourceKey === "nurseryBatches"
-          ? String(answers.opsSelectedBatchCode ?? "").trim()
-          : resolvedSourceKey === "nurseryBatchSubsets"
-            ? String(answers.opsSelectedBatchSubsetCode ?? "").trim()
-            : resolvedSourceKey === "nurseryTransplantedIndividuals"
-              ? String(answers.opsSelectedTransplantCode ?? "").trim()
-              : "";
+      const selectedValue = "";
 
       const blockSourceRecord = resolvedSourceKey
         ? getSelectedRecordFromSource(
@@ -1939,9 +1899,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   }, [
     config.blocks,
     mergedVariables,
-    answers.opsSelectedBatchCode,
-    answers.opsSelectedBatchSubsetCode,
-    answers.opsSelectedTransplantCode,
     evaluationContext,
   ]);
 
@@ -2562,7 +2519,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       visibleSlides
         .filter(
           (slide) =>
-            (config.slug.endsWith("-grow-guide") ||
+            slide.showInSidebar !== false &&
+            (config.showSidebarChapters ||
+              config.slug.endsWith("-grow-guide") ||
               ((slide.type === "media" || slide.type === "video") &&
                 (slide.mediaType === "video" || Boolean(slide.mediaUrl)))) &&
             (!slide.requiresDripUnlock ||
@@ -2575,7 +2534,14 @@ export default function QuestionnaireShell({ config, theme }: Props) {
           label: slide.title || slide.id,
           locked: Boolean(getPlantGiveawayBlockedSlideBeforeTarget(slide.id)),
         })),
-    [answers, config.slug, dripUnlockKeys, isAdminUser, visibleSlides]
+    [
+      answers,
+      config.showSidebarChapters,
+      config.slug,
+      dripUnlockKeys,
+      isAdminUser,
+      visibleSlides,
+    ]
   );
 
   const sidebarAlbumDownloadItemId = useMemo(() => {
@@ -2604,18 +2570,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/dashboard/projects", label: "Projects" },
+      { href: "/dashboard/dsl-flows", label: "DSL Flows" },
       { href: "/dashboard/people", label: "People" },
       { href: "/dashboard/tickets", label: "Tickets" },
       { href: "/dashboard/inventory", label: "Inventory" },
       { href: "/dashboard/currencies", label: "Currencies" },
       { href: "/dashboard/identity-verifications", label: "ID Verifications" },
       { href: "/dashboard/email-sequences", label: "Email Sequences" },
-      { href: "/shop", label: "Little Orchard Shop" },
-      { href: "/gardenpackage", label: "Garden Package" },
-      { href: "/questionnaire/project-docs", label: "Project Docs" },
-      { href: "/questionnaire/ticket-purchase-assistant", label: "Ticket Assistant" },
-      { href: "/questionnaire/escape-album", label: "Escape Album" },
-      { href: "/questionnaire/itasl", label: "ITASL Sequence" },
     ];
   }, [authSessionUser?.adminLevel]);
 
@@ -2624,8 +2585,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     sidebarSlideLinks.length > 0 ||
     Boolean(sidebarAlbumDownloadItemId);
   const canShowContentSidebarHint = sidebarSlideLinks.length > 0;
-  const shouldForceGrowGuideCoverHint =
-    config.slug.endsWith("-grow-guide") &&
+  const shouldForceCoverChapterHint =
+    (config.showSidebarChapters || config.slug.endsWith("-grow-guide")) &&
     Boolean(currentSlide?.id) &&
     currentSlide?.id === visibleSlides[0]?.id;
 
@@ -2647,13 +2608,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   useEffect(() => {
     if (
       !canShowContentSidebarHint ||
-      (!shouldForceGrowGuideCoverHint && hasSeenContentSidebarHint)
+      (!shouldForceCoverChapterHint && hasSeenContentSidebarHint)
     ) {
       setIsContentSidebarHintActive(false);
       return;
     }
 
-    if (shouldForceGrowGuideCoverHint) {
+    if (shouldForceCoverChapterHint) {
       setHasSeenContentSidebarHint(true);
     }
 
@@ -2665,8 +2626,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return () => window.clearTimeout(timeout);
   }, [
     canShowContentSidebarHint,
+    config.showSidebarChapters,
     hasSeenContentSidebarHint,
-    shouldForceGrowGuideCoverHint,
+    shouldForceCoverChapterHint,
     config.slug,
   ]);
 
@@ -2846,67 +2808,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return [];
     }
 
-    if (currentSlide.id === "batch-subsets-list") {
-      const selectedBatchCode = String(answers.opsSelectedBatchCode ?? "").trim();
-
-      return getRecordListItems(
-        {
-          ...mergedVariables,
-          nurseryBatchSubsets: getRecordArray(
-            mergedVariables,
-            "nurseryBatchSubsets"
-          ).filter((record) => record.batchCode === selectedBatchCode),
-        },
-        currentSlide
-      );
-    }
-
-      if (currentSlide.id === "batch-transplants-list") {
-      const selectedBatchCode = String(answers.opsSelectedBatchCode ?? "").trim();
-
-      return getRecordListItems(
-        {
-          ...mergedVariables,
-          nurseryTransplantedIndividuals: getRecordArray(
-            mergedVariables,
-            "nurseryTransplantedIndividuals"
-          ).filter((record) => record.batchCode === selectedBatchCode),
-        },
-        currentSlide
-      );
-    }
-
-    if (currentSlide.id === "subset-transplants-list") {
-      const selectedBatchSubsetId =
-        typeof selectedBatchSubsetRecord?.id === "string"
-          ? selectedBatchSubsetRecord.id
-          : "";
-
-      return getRecordListItems(
-        {
-          ...mergedVariables,
-          nurseryTransplantedIndividuals: getRecordArray(
-            mergedVariables,
-            "nurseryTransplantedIndividuals"
-          ).filter((record) => {
-            const parentUnitId =
-              typeof record.parentUnitId === "string" ? record.parentUnitId : "";
-         return selectedBatchSubsetId
-              ? parentUnitId === selectedBatchSubsetId
-              : false;
-          }),
-        },
-        currentSlide
-      );
-    }
-
     return getRecordListItems(mergedVariables, currentSlide);
-  }, [
-    mergedVariables,
-    currentSlide,
-    answers.opsSelectedBatchCode,
-    selectedBatchSubsetRecord,
-  ]);
+  }, [mergedVariables, currentSlide]);
 
   const currentBlock = useMemo<DataBlockDefinition | null>(() => {
     if (!currentSlide?.blockKey) {
@@ -2916,26 +2819,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return resolvedBlocks[currentSlide.blockKey] ?? null;
   }, [currentSlide, resolvedBlocks]);
 
-    const selectedRecord = useMemo(() => {
-    if (currentBlock?.sourceKey === "nurseryTransplantedIndividuals") {
-      return selectedTransplantRecord;
-    }
-
-    if (currentBlock?.sourceKey === "nurseryBatchSubsets") {
-      return selectedBatchSubsetRecord;
-    }
-
-    if (currentBlock?.sourceKey === "nurseryBatches") {
-      return selectedBatchRecord;
-    }
-
-    return null;
-  }, [
-    currentBlock,
-    selectedTransplantRecord,
-    selectedBatchSubsetRecord,
-    selectedBatchRecord,
-  ]);
+  const selectedRecord = useMemo(() => null, []);
     const currentDeleteAction = useMemo<DataBlockAction | null>(() => {
     if (!currentBlock?.actions?.length) {
       return null;
@@ -2986,12 +2870,141 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const totalStepCount = countableVisibleSlides.length;
 
   const currentShopCatalog = useMemo(
-    () =>
-      currentSlide?.type === "shop"
-        ? getShopCatalog(mergedVariables, currentSlide.catalogKey)
-        : null,
-    [mergedVariables, currentSlide]
+    () => {
+      if (currentSlide?.type !== "shop") {
+        return null;
+      }
+
+      const catalog = getShopCatalog(mergedVariables, currentSlide.catalogKey);
+
+      if (currentSlide.id === "callaloo-subscription-options") {
+        return getCallalooSubscriptionCatalog(catalog, answers);
+      }
+
+      return catalog;
+    },
+    [
+      answers.callalooBundleAmount,
+      answers.callalooCurrentUseCount,
+      answers.callalooCurrentUsePeriod,
+      answers.callalooPrepFormat,
+      answers.callalooSubscriptionDurationMonths,
+      answers.callalooDeliveryPlan,
+      answers.callalooUseFrequency,
+      mergedVariables,
+      currentSlide,
+    ]
   );
+
+  const callalooCheckoutCatalog = useMemo(
+    () => {
+      if (config.slug !== "callaloo") {
+        return null;
+      }
+
+      return getCallalooSubscriptionCatalog(
+        getShopCatalog(mergedVariables, "shopCatalog"),
+        answers
+      );
+    },
+    [
+      answers.callalooBundleAmount,
+      answers.callalooCurrentUseCount,
+      answers.callalooCurrentUsePeriod,
+      answers.callalooDeliveryPlan,
+      answers.callalooPrepFormat,
+      answers.callalooSubscriptionDurationMonths,
+      answers.callalooUseFrequency,
+      config.slug,
+      mergedVariables,
+    ]
+  );
+
+  useEffect(() => {
+    if (config.slug !== "callaloo" || !callalooCheckoutCatalog) {
+      return;
+    }
+
+    const product = callalooCheckoutCatalog.products[0];
+    const sizeOption = product?.sizeOptions[0];
+
+    if (!product || !sizeOption) {
+      return;
+    }
+
+    const purchaseModeId = getDefaultPurchaseModeId(sizeOption);
+    const lineKey = makeShopLineKey(product.id, sizeOption.id);
+    const total = Number(sizeOption.price || 0);
+    const signature = [
+      product.id,
+      sizeOption.id,
+      purchaseModeId ?? "",
+      total,
+      answers.callalooSubscriptionDurationMonths ?? "",
+      JSON.stringify(answers.callalooDeliveryPlan ?? []),
+    ].join("::");
+
+    if (answers.callalooAutoCartSignature === signature) {
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      callalooAutoCartSignature: signature,
+      orderCart: {
+        [lineKey]: {
+          productId: product.id,
+          sizeOptionId: sizeOption.id,
+          selected: true,
+          quantity: 1,
+          purchaseModeId,
+          unitPriceOverride: total,
+          lockedQuantity: true,
+          lockedPurchaseMode: true,
+          metadata: {
+            callalooAutoSubscription: true,
+          },
+        },
+      },
+    }));
+  }, [
+    answers.callalooAutoCartSignature,
+    answers.callalooDeliveryPlan,
+    answers.callalooSubscriptionDurationMonths,
+    callalooCheckoutCatalog,
+    config.slug,
+  ]);
+
+  useEffect(() => {
+    if (
+      config.slug !== "callaloo" ||
+      currentSlide?.id !== "callaloo-delivery-details"
+    ) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      if (!next.plantDeliveryCountry) {
+        next.plantDeliveryCountry = "Jamaica";
+        changed = true;
+      }
+
+      if (!next.plantDeliveryRegion) {
+        next.plantDeliveryRegion = "Kingston";
+        changed = true;
+      }
+
+      if (!next.plantDeliveryCityTown) {
+        next.plantDeliveryCityTown = "Kingston";
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [config.slug, currentSlide?.id]);
 
   const currencyRates = useMemo(() => {
     const value = mergedVariables.currencyRates;
@@ -3973,24 +3986,109 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
   const getRuntimeFormField = useCallback(
     (field: FormField): FormField => {
+      const formFieldOptions = mergedVariables.formFieldOptions;
+      let runtimeField = field;
+
+      if (
+        formFieldOptions &&
+        typeof formFieldOptions === "object" &&
+        !Array.isArray(formFieldOptions)
+      ) {
+        const fieldOptions = (formFieldOptions as Record<string, unknown>)[
+          field.name
+        ];
+
+        if (Array.isArray(fieldOptions)) {
+          runtimeField = {
+            ...runtimeField,
+            options: fieldOptions
+              .map((option) => {
+                if (!option || typeof option !== "object") {
+                  return null;
+                }
+
+                const optionRecord = option as Record<string, unknown>;
+                const value = String(optionRecord.value ?? "").trim();
+                const label = String(optionRecord.label ?? value).trim();
+
+                if (!value || !label) {
+                  return null;
+                }
+
+                return {
+                  value,
+                  label,
+                  disabled: optionRecord.disabled === true,
+                };
+              })
+              .filter(Boolean) as FormField["options"],
+          };
+        }
+      }
+
+      if (field.name === "affiliateProductSkuSelection") {
+        const selectedStore = String(answers.affiliatePreferredStore ?? "");
+        const optionsByStore = mergedVariables.affiliateProductOptionsByStore;
+
+        if (
+          selectedStore &&
+          optionsByStore &&
+          typeof optionsByStore === "object" &&
+          !Array.isArray(optionsByStore)
+        ) {
+          const selectedStoreOptions = (
+            optionsByStore as Record<string, unknown>
+          )[selectedStore];
+
+          if (Array.isArray(selectedStoreOptions)) {
+            runtimeField = {
+              ...runtimeField,
+              options: selectedStoreOptions
+                .map((option) => {
+                  if (!option || typeof option !== "object") {
+                    return null;
+                  }
+
+                  const optionRecord = option as Record<string, unknown>;
+                  const value = String(optionRecord.value ?? "").trim();
+                  const label = String(optionRecord.label ?? value).trim();
+
+                  if (!value || !label) {
+                    return null;
+                  }
+
+                  return {
+                    value,
+                    label,
+                    disabled: optionRecord.disabled === true,
+                  };
+                })
+                .filter(Boolean) as FormField["options"],
+            };
+          }
+        }
+      }
+
       const overrides = mergedVariables.formFieldOptionOverrides;
 
       if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) {
-        return field;
+        return runtimeField;
       }
 
-      const fieldOverride = (overrides as Record<string, unknown>)[field.name];
+      const fieldOverride = (overrides as Record<string, unknown>)[
+        runtimeField.name
+      ];
 
       if (
         !fieldOverride ||
         typeof fieldOverride !== "object" ||
         Array.isArray(fieldOverride)
       ) {
-        return field;
+        return runtimeField;
       }
 
       const optionOverrides = fieldOverride as Record<string, unknown>;
-      const nextOptions = field.options?.map((option) => {
+      const nextOptions = runtimeField.options?.map((option) => {
         const optionOverride = optionOverrides[option.value];
 
         if (
@@ -4016,9 +4114,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         };
       });
 
-      return nextOptions ? { ...field, options: nextOptions } : field;
+      return nextOptions ? { ...runtimeField, options: nextOptions } : runtimeField;
     },
-    [mergedVariables]
+    [answers.affiliatePreferredStore, mergedVariables]
   );
 
   useEffect(() => {
@@ -4027,10 +4125,11 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       return;
     }
 
+    const dynamicEndpoint = endpoint;
     const controller = new AbortController();
     async function loadDynamicVariables() {
       try {
-        let requestUrl = endpoint;
+        let requestUrl: string = dynamicEndpoint;
 
         if (config.slug === "self-trust") {
           const selfScore = answers.selfScore;
@@ -4046,6 +4145,16 @@ export default function QuestionnaireShell({ config, theme }: Props) {
           });
 
           requestUrl = `${endpoint}?${params.toString()}`;
+        } else if (typeof window !== "undefined") {
+          const currentParams = new URLSearchParams(window.location.search);
+
+          currentParams.delete("slide");
+
+          if (currentParams.toString()) {
+            requestUrl = `${requestUrl}${
+              requestUrl.includes("?") ? "&" : "?"
+            }${currentParams.toString()}`;
+          }
         }
 
         if (!requestUrl) {
@@ -4076,20 +4185,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
         const nextVariables =
           data.variables && typeof data.variables === "object"
             ? data.variables
-            : {
-                ...(Array.isArray(data.nurseryBatches)
-                  ? { nurseryBatches: data.nurseryBatches }
-                  : {}),
-                ...(Array.isArray(data.nurseryBatchSubsets)
-                  ? { nurseryBatchSubsets: data.nurseryBatchSubsets }
-                  : {}),
-                ...(Array.isArray(data.nurseryTransplantedIndividuals)
-                  ? {
-                      nurseryTransplantedIndividuals:
-                        data.nurseryTransplantedIndividuals,
-                    }
-                  : {}),
-              };
+            : {};
 
         if (!Object.keys(nextVariables).length) {
           return;
@@ -4152,57 +4248,6 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       };
     });
   }, [discountDefinitions, requestedDiscountCode]);
-
-  useEffect(() => {
-    if (config.slug !== "seed") {
-      return;
-    }
-
-    if (!selectedPromotionItem || !sharedShopCatalog) {
-      return;
-    }
-
-    const existingSelectedLines = resolveShopSelectedLines(
-      sharedShopCatalog,
-      sharedOrderCart
-    );
-
-    if (existingSelectedLines.length > 0) {
-      return;
-    }
-
-    const product = sharedShopCatalog.products.find(
-      (item) => item.id === selectedPromotionItem.productId
-    );
-
-    const sizeOption = product?.sizeOptions[0];
-
-    if (!product || !sizeOption) {
-      return;
-    }
-
-    const purchaseModeId = getDefaultPurchaseModeId(sizeOption);
-
-    const seededLine = {
-      productId: product.id,
-      sizeOptionId: sizeOption.id,
-      selected: true,
-      quantity: 1,
-      ...(purchaseModeId ? { purchaseModeId } : {}),
-    };
-
-    setAnswers((prev) => ({
-      ...prev,
-      orderCart: {
-        [`${product.id}::${sizeOption.id}`]: seededLine,
-      },
-    }));
-  }, [
-    config.slug,
-    selectedPromotionItem,
-    sharedShopCatalog,
-    sharedOrderCart,
-  ]);
 
   useEffect(() => {
     setIsCurrentVerticalVideoPlaying(false);
@@ -4299,7 +4344,32 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       });
     }
 
-    setAnswers((prev) => ({ ...prev, [key]: value }));
+    setAnswers((prev) => {
+      const nextAnswers = { ...prev, [key]: value };
+
+      if (key === "affiliatePreferredStore") {
+        const affiliateStoreTypes = mergedVariables.affiliateStoreTypes;
+        const selectedStore = String(value ?? "");
+
+        if (
+          affiliateStoreTypes &&
+          typeof affiliateStoreTypes === "object" &&
+          !Array.isArray(affiliateStoreTypes)
+        ) {
+          const selectedShopType = (
+            affiliateStoreTypes as Record<string, unknown>
+          )[selectedStore];
+
+          if (typeof selectedShopType === "string") {
+            nextAnswers.affiliateSelectedShopType = selectedShopType;
+          }
+        }
+
+        nextAnswers.affiliateProductSkuSelection = [];
+      }
+
+      return nextAnswers;
+    });
   }
 
   function resetCheckoutReservation() {
@@ -5348,12 +5418,15 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     goToTarget("custom-lyric-merch");
   }
 
-  function openCurrentSlideFooterPanel() {
+function openCurrentSlideFooterPanel() {
     if (!currentSlide) {
       return;
     }
 
-    if (currentSlide.footerFormEnabled && currentSlide.fields?.length) {
+    if (
+      currentSlide.footerFormEnabled &&
+      (currentSlide.fields?.length || isCallalooFooterPanelSlide(currentSlide.id))
+    ) {
       setActiveFooterTextPanel(null);
       setActiveFooterFormSlideId(currentSlide.id);
       return;
@@ -6341,7 +6414,8 @@ async function next() {
       whatsappOptIn:
         answers.whatsappOptIn === true ||
         answers.sendByWhatsapp === true ||
-        answers.updatesByWhatsapp === true,
+        answers.updatesByWhatsapp === true ||
+        answers.affiliatePhoneIsWhatsapp === true,
       answers,
     };
   }
@@ -6442,20 +6516,68 @@ async function next() {
       }));
     }
 
+    let payloadCatalog = sharedShopDisplayCatalog;
+    let payloadCart = sharedOrderCart;
+    let payloadLines = sharedOrderLines;
+    let payloadOrderSummary: DiscountedOrderSummary = {
+      ...sharedOrderSummary,
+      discountTotal: sharedOrderCombinedDiscountTotal,
+      grandTotal: sharedOrderGrandTotalWithMeals,
+    };
+
+    if (
+      config.slug === "callaloo" &&
+      payloadLines.length === 0 &&
+      callalooCheckoutCatalog
+    ) {
+      const product = callalooCheckoutCatalog.products[0];
+      const sizeOption = product?.sizeOptions[0];
+
+      if (product && sizeOption) {
+        const purchaseModeId = getDefaultPurchaseModeId(sizeOption);
+        const lineKey = makeShopLineKey(product.id, sizeOption.id);
+
+        payloadCatalog = callalooCheckoutCatalog;
+        payloadCart = {
+          [lineKey]: {
+            productId: product.id,
+            sizeOptionId: sizeOption.id,
+            selected: true,
+            quantity: 1,
+            purchaseModeId,
+            unitPriceOverride: Number(sizeOption.price || 0),
+            lockedQuantity: true,
+            lockedPurchaseMode: true,
+            metadata: {
+              callalooAutoSubscription: true,
+            },
+          },
+        };
+        payloadLines = applyDiscountToShopLines(
+          resolveShopSelectedLines(payloadCatalog, payloadCart),
+          activeDiscountDefinition
+        );
+        payloadOrderSummary = {
+          ...summarizeDiscountedOrder(payloadLines, sharedDeliveryFeeDisplay),
+          discountTotal: sharedOrderCombinedDiscountTotal,
+          grandTotal:
+            summarizeDiscountedOrder(payloadLines, sharedDeliveryFeeDisplay)
+              .grandTotal + validatedCartDiscountTotal,
+        };
+      }
+    }
+
     return buildPlantShopOrderPayload({
       slug: config.slug,
       answers: {
         ...answers,
         plantShopOrderRequestKey: orderRequestKey,
+        ...(config.slug === "callaloo" ? { orderCart: payloadCart } : {}),
       },
-      cart: sharedOrderCart,
-      lines: sharedOrderLines,
-      catalog: sharedShopDisplayCatalog,
-      orderSummary: {
-        ...sharedOrderSummary,
-        discountTotal: sharedOrderCombinedDiscountTotal,
-        grandTotal: sharedOrderGrandTotalWithMeals,
-      },
+      cart: payloadCart,
+      lines: payloadLines,
+      catalog: payloadCatalog,
+      orderSummary: payloadOrderSummary,
       orderRequestKey,
       deliverySelection: sharedDeliverySelection,
       adminAssisted:
@@ -6512,30 +6634,6 @@ async function next() {
       addressLine2: String(answers.addressLine2 ?? "").trim(),
       parishOrRegion: String(answers.parishOrRegion ?? "").trim(),
       postalCode: String(answers.postalCode ?? "").trim(),
-    };
-  }
-
-  function getNurseryBatchPayload() {
-  return {
-    questionnaireSlug: config.slug,
-    action: "createNurseryBatch",
-    answers,
-  };
-  }
-
-  function getNurseryActivityPayload() {
-    return {
-      questionnaireSlug: config.slug,
-      action: "logNurseryActivity",
-      answers,
-    };
-  }
-
-  function getNurseryTransplantPayload() {
-    return {
-      questionnaireSlug: config.slug,
-      action: "recordNurseryTransplant",
-      answers,
     };
   }
 
@@ -6620,19 +6718,6 @@ async function next() {
       url: "/api/password/reset",
       payload: getAuthResetPasswordPayload,
       successGoto: "reset-password-success",
-    },
-
-    createNurseryBatch: {
-      url: "/api/questionnaires/nursery-ops/create-batch",
-      payload: getNurseryBatchPayload,
-    },
-    logNurseryActivity: {
-      url: "/api/questionnaires/nursery-ops/log-activity",
-      payload: getNurseryActivityPayload,
-    },
-    recordNurseryTransplant: {
-      url: "/api/questionnaires/nursery-ops/record-transplant",
-      payload: getNurseryTransplantPayload,
     },
   };
 
@@ -6860,17 +6945,6 @@ async function next() {
     if (action.successGoto) {
       setSubmitError(null);
       goToTarget(action.successGoto);
-    }
-
-    if (
-      runName === "createNurseryBatch" &&
-      data?.generatedBatchCode &&
-      typeof data.generatedBatchCode === "string"
-    ) {
-      setAnswers((prev) => ({
-        ...prev,
-        opsGeneratedBatchCode: data.generatedBatchCode,
-      }));
     }
 
       return true;
@@ -7504,11 +7578,17 @@ async function handleNext() {
   const isPlantGiveawayDsl = config.slug === "home-gardener-plant-giveaway";
   const isLittleOrchardShopDsl = config.slug === "little-orchard-shop";
   const isGrowGuideDsl = config.slug.endsWith("-grow-guide");
+  const isCallalooDsl = config.slug === "callaloo";
   const shouldShowPlainWhatsappContact =
-    isPlantGiveawayDsl || isLittleOrchardShopDsl || isGrowGuideDsl;
+    isPlantGiveawayDsl ||
+    isLittleOrchardShopDsl ||
+    isGrowGuideDsl ||
+    isCallalooDsl;
   const plainWhatsappMessage = isLittleOrchardShopDsl
     ? "What's rare in the nursery, that you're not telling just anyone about?"
-    : isGrowGuideDsl
+    : isCallalooDsl
+      ? "I need help with the callaloo subscription."
+      : isGrowGuideDsl
       ? `I need help with ${
           config.slug
             .replace(/-grow-guide$/, "")
@@ -7574,6 +7654,13 @@ async function handleNext() {
     currentSlide.type === "shop" && currentSlide.shopMode === "browse"
       ? currentShopSelectedTotal
       : sharedOrderGrandTotalWithMeals;
+  const callalooDeliveryPlanActionTotal =
+    currentSlide.id === "callaloo-delivery-plan-adjust" &&
+    Array.isArray(answers.callalooDeliveryPlan)
+      ? getCallalooDeliveryPlanTotal(
+          normalizeCallalooDeliveryPlan(answers.callalooDeliveryPlan, [])
+        )
+      : 0;
 
   const cartReturnActive =
     String(answers.cartReturnTarget ?? "") === "review-order" &&
@@ -7587,6 +7674,11 @@ async function handleNext() {
         )}`
       : ticketAssistantSharedTotalLabel
         ? ticketAssistantSharedTotalLabel
+      : callalooDeliveryPlanActionTotal > 0
+        ? `${currentSlide.nextLabel ?? "Continue"} - ${formatCurrency(
+            callalooDeliveryPlanActionTotal,
+            "JMD"
+          )}`
       : cartReturnActive && currentSlide.type === "shop"
       ? `Back to cart Â· ${formatCurrency(
           sharedOrderGrandTotalWithMeals,
@@ -8778,6 +8870,63 @@ async function handleNext() {
                         setAnswer
                       )}
 
+                      {currentSlide.id === "callaloo-subscription-pricing" ? (
+                        <CallalooSubscriptionPricingPanel
+                          answers={answers}
+                          onAdjust={goToTarget}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-use-frequency" ? (
+                        <CallalooCurrentUseFrequencyPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-household-amount" ? (
+                        <CallalooBundleAmountPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-use-days" ? (
+                        <CallalooUseDaysPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-prep-format" ? (
+                        <CallalooPrepFormatPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-delivery-plan" ? (
+                        <CallalooDeliveryPlanPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
+                      {currentSlide.id === "callaloo-delivery-plan-adjust" ? (
+                        <CallalooDeliveryPlanPanel
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                        />
+                      ) : null}
+
                       {currentSlide.dripCountdownSequenceKey ? (
                         <DripCountdownPanel
                           questionnaireSlug={config.slug}
@@ -9706,6 +9855,27 @@ async function handleNext() {
                   panelContent={
                     activeFooterFormSlideId === currentSlide.id &&
                     currentSlide.footerFormEnabled &&
+                    isCallalooFooterPanelSlide(currentSlide.id) ? (
+                      <div className={styles.slideFooterFormPanel}>
+                        <CallalooFooterPanel
+                          slideId={currentSlide.id}
+                          answers={answers}
+                          setAnswer={setAnswer}
+                          theme={theme}
+                          onAdjust={goToTarget}
+                        />
+
+                        <button
+                          type="button"
+                          className={`${styles.primaryButton} ${styles.actionButton} ${styles.slideFooterSubmitButton}`}
+                          onClick={() => void handleNext()}
+                          disabled={isSubmitting}
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    ) : activeFooterFormSlideId === currentSlide.id &&
+                    currentSlide.footerFormEnabled &&
                     currentSlide.fields?.length ? (
                       <div className={styles.slideFooterFormPanel}>
                         {hasRenderableSections(currentSlide.sections) ? (
@@ -9838,15 +10008,17 @@ async function handleNext() {
                     ) : undefined
                   }
                   shouldShowChapterHint={isContentSidebarHintActive}
-                  canTogglePanel={Boolean(
+                canTogglePanel={Boolean(
                     (currentSlide.footerFormEnabled &&
-                      currentSlide.fields?.length) ||
+                      (currentSlide.fields?.length ||
+                        isCallalooFooterPanelSlide(currentSlide.id))) ||
                       currentSlide.annotatedTextSourceUrl
                   )}
                   onContentLabelClick={() => {
                     if (
                       currentSlide.footerFormEnabled &&
-                      currentSlide.fields?.length
+                      (currentSlide.fields?.length ||
+                        isCallalooFooterPanelSlide(currentSlide.id))
                     ) {
                       setActiveFooterFormSlideId((current) =>
                         current === currentSlide.id ? null : currentSlide.id
@@ -15826,7 +15998,7 @@ function SeedlingBatchDetails({
           <strong>Available:</strong> {formatBatchDate(availabilityAt)}
         </span>
         <span>
-          <strong>Reserved:</strong> {quantityReserved}
+          <strong>Reserved / sold:</strong> {quantityReserved}
         </span>
         <span>
           <strong>Remaining:</strong> {quantityRemaining}
@@ -16011,6 +16183,2027 @@ function getVisibleFormFields(
 
     return field.showIf.every((rule) => evaluateConditionRule(rule, answers));
   });
+}
+
+function CallalooCurrentUseFrequencyPanel({
+  answers,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const countValue = String(
+    answers.callalooCurrentUseCount ?? frequency.count ?? 1
+  );
+  const periodValue = String(
+    answers.callalooCurrentUsePeriod ?? frequency.period ?? "week"
+  );
+  const digitOptions = Array.from({ length: 7 }, (_, index) => String(index + 1));
+  const periodOptions = [
+    { value: "week", label: "week" },
+    { value: "fortnight", label: "2 weeks (fortnight)" },
+    { value: "month", label: "month" },
+  ];
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "14px",
+        width: "min(640px, 100%)",
+        margin: "18px auto 0",
+        padding: "18px",
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radius?.card ?? "12px",
+        background: "rgba(255, 255, 255, 0.88)",
+        textAlign: "left",
+      }}
+    >
+      <label
+        style={{
+          display: "grid",
+          gap: "8px",
+          color: theme.colors.text,
+          fontWeight: 800,
+        }}
+      >
+        Times used
+        <select
+          value={countValue}
+          onChange={(event) => {
+            setAnswer("callalooCurrentUseCount", event.target.value);
+            setAnswer(
+              "callalooUseFrequency",
+              buildCallalooFrequencyKey(event.target.value, periodValue)
+            );
+          }}
+          style={callalooSelectStyle(theme)}
+        >
+          {digitOptions.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label
+        style={{
+          display: "grid",
+          gap: "8px",
+          color: theme.colors.text,
+          fontWeight: 800,
+        }}
+      >
+        Per
+        <select
+          value={periodValue}
+          onChange={(event) => {
+            setAnswer("callalooCurrentUsePeriod", event.target.value);
+            setAnswer(
+              "callalooUseFrequency",
+              buildCallalooFrequencyKey(countValue, event.target.value)
+            );
+          }}
+          style={callalooSelectStyle(theme)}
+        >
+          {periodOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div
+        style={{
+          padding: "12px 14px",
+          borderRadius: theme.radius?.button ?? "10px",
+          background: "rgba(47, 107, 68, 0.1)",
+          color: theme.colors.text,
+          lineHeight: 1.45,
+        }}
+      >
+        <ul style={{ margin: 0, paddingLeft: "1.15rem" }}>
+          <li>
+            Current use frequency: <strong>{frequency.label}</strong>
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function CallalooBundleAmountPanel({
+  answers,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const bundleQuantity = getCallalooBundleQuantity(
+    String(answers.callalooBundleAmount ?? "")
+  );
+  const bundleOptions = Array.from({ length: 7 }, (_, index) => index + 1);
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "14px",
+        width: "min(640px, 100%)",
+        margin: "18px auto 0",
+        padding: "18px",
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radius?.card ?? "12px",
+        background: "rgba(255, 255, 255, 0.88)",
+        textAlign: "left",
+      }}
+    >
+      <label
+        style={{
+          display: "grid",
+          gap: "8px",
+          color: theme.colors.text,
+          fontWeight: 800,
+        }}
+      >
+        Parcels each time
+        <select
+          value={String(bundleQuantity)}
+          onChange={(event) => {
+            setAnswer("callalooBundleAmount", `${event.target.value}_bundles`);
+          }}
+          style={callalooSelectStyle(theme)}
+        >
+          {bundleOptions.map((value) => (
+            <option key={value} value={value}>
+              {value} {value === 1 ? "parcel" : "parcels"} ({value * 2} servings)
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div
+        style={{
+          padding: "12px 14px",
+          borderRadius: theme.radius?.button ?? "10px",
+          background: "rgba(47, 107, 68, 0.1)",
+          color: theme.colors.text,
+          lineHeight: 1.45,
+        }}
+      >
+        <ul style={{ margin: 0, paddingLeft: "1.15rem" }}>
+          <li>
+            Selected amount:{" "}
+            <strong>
+              {bundleQuantity} {bundleQuantity === 1 ? "parcel" : "parcels"} (
+              {bundleQuantity * 2} servings) each time
+            </strong>
+          </li>
+          <li>One parcel is an estimate of 2 servings.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function isCallalooFooterPanelSlide(slideId: string | undefined) {
+  return [
+    "callaloo-subscription",
+    "callaloo-household-amount",
+    "callaloo-use-frequency",
+    "callaloo-use-days",
+  ].includes(String(slideId ?? ""));
+}
+
+function CallalooFooterPanel({
+  slideId,
+  answers,
+  setAnswer,
+  theme,
+}: {
+  slideId: string | undefined;
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+  onAdjust?: (target: string) => void;
+}) {
+  if (slideId === "callaloo-household-amount") {
+    return (
+      <CallalooBundleAmountPanel
+        answers={answers}
+        setAnswer={setAnswer}
+        theme={theme}
+      />
+    );
+  }
+
+  if (slideId === "callaloo-use-frequency") {
+    return (
+      <CallalooCurrentUseFrequencyPanel
+        answers={answers}
+        setAnswer={setAnswer}
+        theme={theme}
+      />
+    );
+  }
+
+  if (slideId === "callaloo-use-days") {
+    return (
+      <CallalooUseDaysPanel
+        answers={answers}
+        setAnswer={setAnswer}
+        theme={theme}
+      />
+    );
+  }
+
+  return null;
+}
+
+function CallalooUseDaysPanel({
+  answers,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const dayCount = getCallalooPeriodDayCount(frequency.period);
+  const maxSelections = Math.max(1, Math.min(7, frequency.count));
+  const rawSelectedDays = Array.isArray(answers.callalooUseDays)
+    ? answers.callalooUseDays
+    : [];
+  const selectedDays = rawSelectedDays
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value >= 1 && value <= dayCount)
+    .slice(0, maxSelections);
+  const selectedDaySet = new Set(selectedDays);
+  const weekColors = [
+    { background: "#D9D9D9", selected: "#BFBFBF", text: "#111111" },
+    { background: "#FFE16A", selected: "#F7C948", text: "#111111" },
+    { background: "#08BF63", selected: "#049C50", text: "#071F12" },
+    { background: "#FF3131", selected: "#D71920", text: "#FFFFFF" },
+  ];
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const today = getCallalooStartOfDay(new Date());
+  const calendarDays = Array.from({ length: dayCount }, (_, index) => {
+    const weekday = weekdays[index % 7];
+
+    return {
+      dayNumber: index + 1,
+      weekday,
+      isDeliveryDay: weekday === "Mon" || weekday === "Fri",
+    };
+  });
+  const weeks = Array.from({ length: Math.ceil(dayCount / 7) }, (_, weekIndex) =>
+    calendarDays.slice(weekIndex * 7, weekIndex * 7 + 7)
+  );
+  const minimumDeliveryDate = getNextCallalooDeliveryDate(today);
+  const firstDeliveryDate = selectedDays.length
+    ? selectedDays
+        .map((dayNumber) =>
+          getCallalooDeliveryDateForUse(
+            addCallalooDays(today, dayNumber - 1),
+            minimumDeliveryDate
+          )
+        )
+        .sort((a, b) => a.getTime() - b.getTime())[0]
+    : minimumDeliveryDate;
+
+  useEffect(() => {
+    if (
+      selectedDays.length !== rawSelectedDays.length ||
+      selectedDays.some((day, index) => day !== Number(rawSelectedDays[index]))
+    ) {
+      setAnswer("callalooUseDays", selectedDays);
+    }
+  }, [rawSelectedDays, selectedDays, setAnswer]);
+
+  function toggleDay(dayNumber: number) {
+    const alreadySelected = selectedDaySet.has(dayNumber);
+    const nextDays = alreadySelected
+      ? selectedDays.filter((day) => day !== dayNumber)
+      : selectedDays.length >= maxSelections
+        ? selectedDays
+        : [...selectedDays, dayNumber].sort((a, b) => a - b);
+
+    setAnswer("callalooUseDays", nextDays);
+  }
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "14px",
+        width: "min(900px, 100%)",
+        margin: "18px auto 0",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "6px",
+          padding: "14px",
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius?.card ?? "12px",
+          background: "rgba(255, 255, 255, 0.88)",
+        }}
+      >
+        <strong>
+          Choose {maxSelections} {maxSelections === 1 ? "use day" : "use days"}{" "}
+          from this example {dayCount}-day pattern
+        </strong>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: "1.15rem",
+            color: theme.colors.text,
+            lineHeight: 1.45,
+          }}
+        >
+          <li>
+            Selected: {selectedDays.length} of {maxSelections}.
+          </li>
+          <li>This is an example calendar pattern, not a one-time date picker.</li>
+          <li>Delivery planning days are Monday and Friday.</li>
+          <li>
+            First package arrival:{" "}
+            <strong>{formatCallalooDisplayDate(firstDeliveryDate)}</strong>.
+          </li>
+        </ul>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "14px",
+          overflowX: "auto",
+          paddingBottom: "4px",
+        }}
+      >
+        {weeks.map((weekDays, weekIndex) => {
+          return (
+          <div key={weekIndex} style={{ display: "grid", gap: "6px" }}>
+            <strong
+              style={{
+                color: theme.colors.text,
+                fontSize: "0.82rem",
+                textTransform: "uppercase",
+              }}
+            >
+              Week {weekIndex + 1}
+            </strong>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${weekDays.length}, minmax(74px, 1fr))`,
+                gap: "4px",
+                minWidth: `${weekDays.length * 74}px`,
+              }}
+            >
+              {weekDays.map((day) => {
+                const weekColor =
+                  weekColors[weekIndex] ?? weekColors[weekColors.length - 1];
+                const selected = selectedDaySet.has(day.dayNumber);
+                const disabled = !selected && selectedDays.length >= maxSelections;
+
+                return (
+                  <button
+                    key={day.dayNumber}
+                    type="button"
+                    onClick={() => toggleDay(day.dayNumber)}
+                    disabled={disabled}
+                    aria-pressed={selected}
+                    style={{
+                      display: "grid",
+                      gap: "4px",
+                      minHeight: "76px",
+                      padding: "8px 6px",
+                      border: `1px solid ${
+                        selected ? "#111111" : "rgba(17, 17, 17, 0.34)"
+                      }`,
+                      borderRadius: "8px",
+                      background: selected
+                        ? weekColor.selected
+                        : day.isDeliveryDay
+                          ? `linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), ${weekColor.background}`
+                          : weekColor.background,
+                      boxShadow: selected
+                        ? `inset 0 0 0 3px #111111`
+                        : day.isDeliveryDay
+                          ? `inset 0 -3px 0 ${theme.colors.primary}`
+                          : "none",
+                      color: weekColor.text,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      opacity: disabled ? 0.48 : 1,
+                      font: "inherit",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ fontWeight: 900 }}>
+                      {selected ? "✓ " : ""}
+                      {day.weekday}
+                    </span>
+                    <span style={{ fontSize: "0.76rem", fontWeight: 800 }}>
+                      Day {day.dayNumber}
+                    </span>
+                    {day.isDeliveryDay ? (
+                      <span style={{ fontSize: "0.68rem", fontWeight: 800 }}>
+                        Delivery
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          );
+        })}
+      </div>
+
+      {selectedDays.length >= maxSelections ? (
+        <p style={{ margin: 0, color: theme.colors.subtitle ?? theme.colors.text }}>
+          To choose a different day, unselect one first.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CallalooPrepFormatPanel({
+  answers,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const selectedPrep = String(answers.callalooPrepFormat ?? "fresh_bundle");
+  const [expandedPrep, setExpandedPrep] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{
+    src: string;
+    alt: string;
+  } | null>(null);
+  const prepOptions = getCallalooPrepOptions();
+
+  return (
+    <>
+      {previewImage ? (
+        <div
+          className={styles.productImagePreviewOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewImage.alt}
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className={styles.productImagePreviewPanel}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.productImagePreviewClose}
+              onClick={() => setPreviewImage(null)}
+              aria-label="Close image preview"
+            >
+              x
+            </button>
+            <img src={previewImage.src} alt={previewImage.alt} />
+            <strong>{previewImage.alt}</strong>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        style={{
+          display: "grid",
+          gap: "14px",
+          width: "min(820px, 100%)",
+          margin: "18px auto 0",
+        }}
+      >
+        {prepOptions.map((option) => {
+          const selected = selectedPrep === option.value;
+          const expanded = expandedPrep === option.value;
+
+          return (
+            <div
+              key={option.value}
+              className={styles.productPanel}
+              style={{
+                borderColor: selected ? theme.colors.primary : theme.colors.border,
+                borderWidth: selected ? 2 : 1,
+                background: selected
+                  ? "rgba(47, 107, 68, 0.08)"
+                  : "rgba(255, 255, 255, 0.88)",
+              }}
+            >
+              <div className={styles.productPanelHeader}>
+                <div className={styles.productHeaderMain}>
+                  <div className={styles.productImageColumn}>
+                    <button
+                      type="button"
+                      className={styles.productImageButton}
+                      onClick={() =>
+                        setPreviewImage({
+                          src: option.imageUrl,
+                          alt: option.imageAlt,
+                        })
+                      }
+                    >
+                      <img
+                        src={option.imageUrl}
+                        alt={option.imageAlt}
+                        className={styles.productImage}
+                      />
+                    </button>
+                  </div>
+
+                  <div className={styles.productHeaderText}>
+                    <div className={styles.productTitleRow}>
+                      <div className={styles.productTitleGroup}>
+                        <h3 className={styles.productTitle}>{option.label}</h3>
+                        <div className={styles.productImageHint}>
+                          <span aria-hidden="true">&lt;</span> Tap image to see it
+                          bigger.
+                        </div>
+                      </div>
+
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          fontSize: "0.92rem",
+                          fontWeight: 800,
+                          color: theme.colors.text,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="callaloo-prep-format"
+                          checked={selected}
+                          onChange={() =>
+                            setAnswer("callalooPrepFormat", option.value)
+                          }
+                          style={{
+                            width: "18px",
+                            height: "18px",
+                            accentColor: theme.colors.primary,
+                          }}
+                        />
+                        Select
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <p className={styles.productDescriptionFull}>{option.summary}</p>
+
+                {!expanded ? (
+                  <div className={styles.productHeaderActions}>
+                    <button
+                      type="button"
+                      className={styles.seeCostButton}
+                      onClick={() => setExpandedPrep(option.value)}
+                      style={{
+                        borderColor: theme.colors.border,
+                        color: theme.colors.text,
+                      }}
+                    >
+                      See details
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              {expanded ? (
+                <div className={styles.sizeRows}>
+                  <div className={styles.sizeRowBlock}>
+                    <div className={styles.sizeDescriptionBlock}>
+                      {option.details.map((detail) => (
+                        <span key={detail} className={styles.sizeDescription}>
+                          {detail}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.eventProductBottomActions}>
+                    <button
+                      type="button"
+                      className={styles.seeCostButton}
+                      onClick={() => setExpandedPrep(null)}
+                      style={{
+                        borderColor: theme.colors.border,
+                        color: theme.colors.text,
+                      }}
+                    >
+                      Hide details
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function CallalooDeliveryPlanPanel({
+  answers,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const prepOptions = getCallalooPrepOptions();
+  const durationMonths = getCallalooSelectedDurationMonths(answers);
+  const defaultPrepKey = String(answers.callalooPrepFormat ?? "fresh_bundle");
+  const defaultParcelQuantity = getCallalooBundleQuantity(
+    String(answers.callalooBundleAmount ?? "")
+  );
+  const generatedPlan = useMemo(
+    () => buildCallalooDeliveryPlan(answers),
+    [
+      answers.callalooCurrentUseCount,
+      answers.callalooCurrentUsePeriod,
+      answers.callalooUseFrequency,
+      answers.callalooUseDays,
+      answers.callalooBundleAmount,
+      answers.callalooPrepFormat,
+      answers.callalooSubscriptionDurationMonths,
+    ]
+  );
+  const rawPlan = Array.isArray(answers.callalooDeliveryPlan)
+    ? answers.callalooDeliveryPlan
+    : [];
+  const [openNoteBlocks, setOpenNoteBlocks] = useState<Record<string, boolean>>(
+    {}
+  );
+  const planSignature = getCallalooDeliveryPlanSignature(answers);
+  const savedSignature = String(answers.callalooDeliveryPlanSignature ?? "");
+  const activePlan =
+    savedSignature === planSignature && rawPlan.length
+      ? normalizeCallalooDeliveryPlan(rawPlan, generatedPlan)
+      : generatedPlan;
+  const total = getCallalooDeliveryPlanTotal(activePlan);
+
+  useEffect(() => {
+    if (savedSignature !== planSignature || rawPlan.length === 0) {
+      setAnswer("callalooDeliveryPlan", generatedPlan);
+      setAnswer("callalooDeliveryPlanSignature", planSignature);
+    }
+  }, [generatedPlan, planSignature, rawPlan, savedSignature, setAnswer]);
+
+  function updatePlanBlock(
+    blockId: string,
+    updates: Partial<CallalooDeliveryPlanBlock>
+  ) {
+    const nextPlan = activePlan.map((block) => {
+      if (block.id !== blockId) return block;
+
+      const nextBlock = { ...block, ...updates };
+      const prep = getCallalooPrepOption(nextBlock.prepFormat);
+      return {
+        ...nextBlock,
+        unitPrice: prep.price,
+        lineTotal: prep.price * nextBlock.parcelQuantity,
+      };
+    });
+
+    setAnswer("callalooDeliveryPlan", nextPlan);
+    setAnswer("callalooDeliveryPlanSignature", planSignature);
+  }
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "14px",
+        width: "min(900px, 100%)",
+        margin: "18px auto 0",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "8px",
+          padding: "14px",
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius?.card ?? "12px",
+          background: "rgba(255, 255, 255, 0.88)",
+        }}
+      >
+        <strong>
+          {durationMonths}-month delivery plan · {activePlan.length} planned{" "}
+          {activePlan.length === 1 ? "block" : "blocks"}
+        </strong>
+        <span style={{ lineHeight: 1.45 }}>
+          Default: {defaultParcelQuantity}{" "}
+          {defaultParcelQuantity === 1 ? "parcel" : "parcels"} as{" "}
+          {getCallalooPrepOption(defaultPrepKey).label}. You can raise or lower
+          a block before payment.
+        </span>
+        <strong>Total after adjustments: {formatCurrency(total, "JMD")}</strong>
+      </div>
+
+      <div style={{ display: "grid", gap: "12px" }}>
+        {activePlan.map((block, index) => {
+          const productionTimeline = getCallalooDeliveryProductionTimeline(block);
+
+          return (
+          <section
+            key={block.id}
+            style={{
+              display: "grid",
+              gap: "12px",
+              padding: "14px",
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.radius?.card ?? "12px",
+              background: "rgba(255, 255, 255, 0.9)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                justifyContent: "space-between",
+                gap: "10px",
+              }}
+            >
+              <div>
+                <strong>Delivery {index + 1}</strong>
+                <div>{block.deliveryLabel}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <strong>{formatCurrency(block.lineTotal, "JMD")}</strong>
+                <div style={{ fontSize: "0.82rem" }}>
+                  For planned use: {block.useLabel}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "10px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+              }}
+            >
+              <label style={{ display: "grid", gap: "6px", fontWeight: 800 }}>
+                Prep format
+                <select
+                  value={block.prepFormat}
+                  onChange={(event) =>
+                    updatePlanBlock(block.id, { prepFormat: event.target.value })
+                  }
+                  style={callalooSelectStyle(theme)}
+                >
+                  {prepOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} · {formatCurrency(option.price, "JMD")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: "grid", gap: "6px", fontWeight: 800 }}>
+                Parcels
+                <select
+                  value={String(block.parcelQuantity)}
+                  onChange={(event) =>
+                    updatePlanBlock(block.id, {
+                      parcelQuantity: Math.max(1, Number(event.target.value) || 1),
+                    })
+                  }
+                  style={callalooSelectStyle(theme)}
+                >
+                  {Array.from({ length: 7 }, (_, optionIndex) => optionIndex + 1).map(
+                    (value) => (
+                      <option key={value} value={value}>
+                        {value} {value === 1 ? "parcel" : "parcels"} (
+                        {value * 2} servings)
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+            </div>
+
+            {openNoteBlocks[block.id] || block.customerNote ? (
+              <label style={{ display: "grid", gap: "6px", fontWeight: 800 }}>
+                Notes for this delivery
+                <textarea
+                  value={block.customerNote ?? ""}
+                  onChange={(event) =>
+                    updatePlanBlock(block.id, { customerNote: event.target.value })
+                  }
+                  placeholder="Example: gonna have special guests the following weekend"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 12px",
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.radius?.button ?? "10px",
+                    background: "#FFFFFF",
+                    color: theme.colors.text,
+                    font: "inherit",
+                    lineHeight: 1.45,
+                    resize: "vertical",
+                  }}
+                />
+              </label>
+            ) : (
+              <button
+                type="button"
+                className={styles.seeCostButton}
+                onClick={() =>
+                  setOpenNoteBlocks((current) => ({
+                    ...current,
+                    [block.id]: true,
+                  }))
+                }
+                style={{
+                  borderColor: theme.colors.border,
+                  color: theme.colors.text,
+                }}
+              >
+                Add notes for this delivery
+              </button>
+            )}
+
+            <div
+              style={{
+                padding: "0",
+                borderRadius: theme.radius?.button ?? "10px",
+                background: "rgba(47, 107, 68, 0.08)",
+                fontSize: "0.9rem",
+                lineHeight: 1.4,
+              }}
+            >
+              <details>
+                <summary
+                  style={{
+                    padding: "10px 12px",
+                    cursor: "pointer",
+                    fontWeight: 900,
+                  }}
+                >
+                  Post-payment production timeline
+                </summary>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "12px",
+                    padding: "0 12px 12px",
+                  }}
+                >
+                  <CallalooProductionProgressBar
+                    timeline={productionTimeline}
+                    theme={theme}
+                  />
+
+                  {productionTimeline.items.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(130px, 0.85fr) 1fr",
+                        gap: "10px",
+                        padding: "8px 0",
+                        borderTop: `1px solid ${theme.colors.border}`,
+                        borderLeft: item.color
+                          ? `5px solid ${item.color}`
+                          : undefined,
+                        paddingLeft: item.color ? "10px" : 0,
+                      }}
+                    >
+                      <strong>{item.label}</strong>
+                      <span>{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          </section>
+        );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CallalooSubscriptionPricingPanel({
+  answers,
+  onAdjust,
+  setAnswer,
+  theme,
+}: {
+  answers: QuestionnaireAnswers;
+  onAdjust: (target: string) => void;
+  setAnswer: (key: string, value: QuestionnaireVariableValue) => void;
+  theme: ThemeConfig;
+}) {
+  const bundleKey = String(answers.callalooBundleAmount ?? "");
+  const prepKey = String(answers.callalooPrepFormat ?? "");
+  const selectedDuration = Number(
+    answers.callalooSubscriptionDurationMonths ?? 3
+  );
+
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const bundleQuantity = getCallalooBundleQuantity(bundleKey);
+  const prep = getCallalooPrepOption(prepKey);
+  const durations = [3, 6, 12];
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "14px",
+        width: "min(760px, 100%)",
+        margin: "18px auto 0",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "10px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+        }}
+      >
+        <CallalooSummaryTile
+          label="Format"
+          value={prep.label}
+          theme={theme}
+          onAdjust={() => onAdjust("callaloo-prep-format")}
+        />
+        <CallalooSummaryTile
+          label="Amount"
+          value={`${bundleQuantity} ${bundleQuantity === 1 ? "parcel" : "parcels"} (${bundleQuantity * 2} servings) each time`}
+          theme={theme}
+          onAdjust={() => onAdjust("callaloo-household-amount")}
+        />
+        <CallalooSummaryTile
+          label="Current use"
+          value={frequency.label}
+          theme={theme}
+          onAdjust={() => onAdjust("callaloo-use-days")}
+        />
+      </div>
+
+      <div
+        style={{
+          overflowX: "auto",
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius?.card ?? "12px",
+          background: "rgba(255, 255, 255, 0.88)",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            minWidth: "520px",
+            borderCollapse: "collapse",
+            color: theme.colors.text,
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={callalooPricingCellStyle}>Choose</th>
+              <th style={callalooPricingCellStyle}>Plan length</th>
+              <th style={callalooPricingCellStyle}>Estimated uses</th>
+              <th style={callalooPricingCellStyle}>Parcels</th>
+              <th style={callalooPricingCellStyle}>Estimated total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {durations.map((months) => {
+              const useOccasions = frequency.usesPerMonth * months;
+              const totalBundles = useOccasions * bundleQuantity;
+              const total = totalBundles * prep.price;
+              const selected = selectedDuration === months;
+
+              return (
+                <tr
+                  key={months}
+                  onClick={() =>
+                    setAnswer("callalooSubscriptionDurationMonths", months)
+                  }
+                  style={{
+                    background: selected
+                      ? "rgba(47, 107, 68, 0.1)"
+                      : "transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  <td style={callalooPricingCellStyle}>
+                    <input
+                      type="radio"
+                      name="callaloo-subscription-duration"
+                      checked={selected}
+                      onChange={() =>
+                        setAnswer("callalooSubscriptionDurationMonths", months)
+                      }
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        accentColor: theme.colors.primary,
+                      }}
+                    />
+                  </td>
+                  <td style={callalooPricingCellStyle}>{months} months</td>
+                  <td style={callalooPricingCellStyle}>{useOccasions}</td>
+                  <td style={callalooPricingCellStyle}>{totalBundles}</td>
+                  <td
+                    style={{
+                      ...callalooPricingCellStyle,
+                      fontWeight: 800,
+                      color: theme.colors.primary,
+                    }}
+                  >
+                    {formatCurrency(total, "JMD")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        style={{
+          padding: "12px 14px",
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.radius?.card ?? "12px",
+          background: "rgba(47, 107, 68, 0.1)",
+          color: theme.colors.text,
+          lineHeight: 1.45,
+        }}
+      >
+        Selected plan: <strong>{selectedDuration} months</strong>
+      </div>
+    </div>
+  );
+}
+
+function CallalooSummaryTile({
+  label,
+  onAdjust,
+  value,
+  theme,
+}: {
+  label: string;
+  onAdjust?: () => void;
+  value: string;
+  theme: ThemeConfig;
+}) {
+  return (
+    <div
+      style={{
+        padding: "14px",
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.radius?.card ?? "12px",
+        background: "rgba(255, 255, 255, 0.86)",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "10px",
+        }}
+      >
+        <div
+          style={{
+            color: theme.colors.subtitle ?? theme.colors.primary,
+            fontSize: "0.78rem",
+            fontWeight: 800,
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </div>
+        {onAdjust ? (
+          <button
+            type="button"
+            onClick={onAdjust}
+            style={{
+              border: "none",
+              padding: 0,
+              background: "transparent",
+              color: theme.colors.primary,
+              cursor: "pointer",
+              font: "inherit",
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              textDecoration: "underline",
+            }}
+          >
+            Adjust
+          </button>
+        ) : null}
+      </div>
+      <div style={{ marginTop: "4px", fontWeight: 800 }}>{value}</div>
+    </div>
+  );
+}
+
+const callalooPricingCellStyle = {
+  padding: "12px",
+  borderBottom: "1px solid rgba(0, 0, 0, 0.1)",
+  textAlign: "left" as const,
+};
+
+type CallalooDeliveryPlanBlock = {
+  id: string;
+  deliveryDate: string;
+  deliveryLabel: string;
+  useLabel: string;
+  prepFormat: string;
+  parcelQuantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  customerNote?: string;
+};
+
+function callalooSelectStyle(theme: ThemeConfig) {
+  return {
+    width: "100%",
+    minHeight: "48px",
+    padding: "10px 12px",
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radius?.button ?? "10px",
+    background: "#FFFFFF",
+    color: theme.colors.text,
+    font: "inherit",
+    fontWeight: 700,
+  };
+}
+
+function buildCallalooFrequencyKey(countValue: unknown, periodValue: unknown) {
+  const count = Math.max(1, Math.min(7, Number(countValue) || 1));
+  const period = String(periodValue || "week");
+
+  return `${count}_${period}`;
+}
+
+function getCallalooPeriodDayCount(period: "week" | "fortnight" | "month") {
+  if (period === "week") return 7;
+  if (period === "fortnight") return 14;
+
+  return 28;
+}
+
+function getCallalooSelectedDurationMonths(answers: QuestionnaireAnswers) {
+  const duration = Number(answers.callalooSubscriptionDurationMonths ?? 3);
+
+  return [3, 6, 12].includes(duration) ? duration : 3;
+}
+
+function getCallalooSelectedUseDays(
+  answers: QuestionnaireAnswers,
+  frequency: ReturnType<typeof getCallalooFrequencyOption>
+) {
+  const dayCount = getCallalooPeriodDayCount(frequency.period);
+  const maxSelections = Math.max(1, Math.min(7, frequency.count));
+  const selectedDays = Array.isArray(answers.callalooUseDays)
+    ? answers.callalooUseDays
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 1 && value <= dayCount)
+        .slice(0, maxSelections)
+    : [];
+
+  if (selectedDays.length) {
+    return selectedDays;
+  }
+
+  return Array.from({ length: maxSelections }, (_, index) => index + 1);
+}
+
+function getCallalooDeliveryPlanSignature(answers: QuestionnaireAnswers) {
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const useDays = getCallalooSelectedUseDays(answers, frequency);
+
+  return [
+    getCallalooSelectedDurationMonths(answers),
+    frequency.count,
+    frequency.period,
+    useDays.join("-"),
+    getCallalooBundleQuantity(String(answers.callalooBundleAmount ?? "")),
+    String(answers.callalooPrepFormat ?? "fresh_bundle"),
+  ].join("|");
+}
+
+function buildCallalooDeliveryPlan(
+  answers: QuestionnaireAnswers
+): CallalooDeliveryPlanBlock[] {
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const durationMonths = getCallalooSelectedDurationMonths(answers);
+  const dayCount = getCallalooPeriodDayCount(frequency.period);
+  const cyclesPerMonth = dayCount === 7 ? 4 : dayCount === 14 ? 2 : 1;
+  const selectedUseDays = getCallalooSelectedUseDays(answers, frequency);
+  const prepFormat = String(answers.callalooPrepFormat ?? "fresh_bundle");
+  const prep = getCallalooPrepOption(prepFormat);
+  const parcelQuantity = getCallalooBundleQuantity(
+    String(answers.callalooBundleAmount ?? "")
+  );
+  const startDate = getNextCallalooDeliveryDate(new Date());
+  const groupedBlocks = new Map<
+    string,
+    {
+      deliveryDate: Date;
+      useLabels: string[];
+      useCount: number;
+    }
+  >();
+
+  for (let cycleIndex = 0; cycleIndex < durationMonths * cyclesPerMonth; cycleIndex += 1) {
+    const periodStart = addCallalooDays(startDate, cycleIndex * dayCount + 1);
+
+    for (const selectedDay of selectedUseDays) {
+      const useDate = addCallalooDays(periodStart, selectedDay - 1);
+      const deliveryDate = getCallalooDeliveryDateForUse(useDate, startDate);
+      const key = formatCallalooIsoDate(deliveryDate);
+      const existing = groupedBlocks.get(key);
+      const useLabel = formatCallalooDisplayDate(useDate);
+
+      if (existing) {
+        existing.useLabels.push(useLabel);
+        existing.useCount += 1;
+      } else {
+        groupedBlocks.set(key, {
+          deliveryDate,
+          useLabels: [useLabel],
+          useCount: 1,
+        });
+      }
+    }
+  }
+
+  return Array.from(groupedBlocks.entries())
+    .sort((first, second) => first[1].deliveryDate.getTime() - second[1].deliveryDate.getTime())
+    .map(([deliveryDateKey, block], index) => {
+      const blockParcelQuantity = Math.max(1, parcelQuantity * block.useCount);
+
+      return {
+        id: `callaloo-delivery-${deliveryDateKey}-${index + 1}`,
+        deliveryDate: deliveryDateKey,
+        deliveryLabel: formatCallalooDisplayDate(block.deliveryDate),
+        useLabel: block.useLabels.join(", "),
+        prepFormat,
+        parcelQuantity: blockParcelQuantity,
+        unitPrice: prep.price,
+        lineTotal: prep.price * blockParcelQuantity,
+        customerNote: "",
+      };
+    });
+}
+
+function normalizeCallalooDeliveryPlan(
+  rawPlan: QuestionnaireVariableValue[],
+  fallbackPlan: CallalooDeliveryPlanBlock[]
+): CallalooDeliveryPlanBlock[] {
+  if (!rawPlan.length) return fallbackPlan;
+
+  return rawPlan.flatMap((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+
+    const record = item as QuestionnaireVariableMap;
+    const fallback = fallbackPlan[index];
+    const prepFormat = String(record.prepFormat ?? fallback?.prepFormat ?? "fresh_bundle");
+    const prep = getCallalooPrepOption(prepFormat);
+    const parcelQuantity = Math.max(
+      1,
+      Math.min(99, Number(record.parcelQuantity ?? fallback?.parcelQuantity ?? 1) || 1)
+    );
+
+    return [
+      {
+        id: String(record.id ?? fallback?.id ?? `callaloo-delivery-${index + 1}`),
+        deliveryDate: String(record.deliveryDate ?? fallback?.deliveryDate ?? ""),
+        deliveryLabel: String(record.deliveryLabel ?? fallback?.deliveryLabel ?? ""),
+        useLabel: String(record.useLabel ?? fallback?.useLabel ?? ""),
+        prepFormat,
+        parcelQuantity,
+        unitPrice: prep.price,
+        lineTotal: prep.price * parcelQuantity,
+        customerNote: String(record.customerNote ?? fallback?.customerNote ?? ""),
+      },
+    ];
+  });
+}
+
+function getCallalooDeliveryPlanTotal(plan: CallalooDeliveryPlanBlock[]) {
+  return plan.reduce((total, block) => total + block.lineTotal, 0);
+}
+
+type CallalooProductionTimeline = {
+  startDate: Date;
+  currentDate: Date;
+  germinatedDate: Date;
+  transplantDate: Date;
+  harvestDate: Date;
+  deliveryDate: Date;
+  progressPercent: number;
+  germinationPercent: number;
+  transplantPercent: number;
+  harvestPercent: number;
+  items: Array<{ label: string; value: string; color?: string }>;
+};
+
+const callalooTimelineColors = {
+  seedToGerminate: "#CDAA45",
+  germinateToTransplant: "#7B8F2A",
+  transplantToHarvest: "#2F6B44",
+  harvestToDelivery: "#8A3B12",
+  currentMarker: "#111111",
+};
+
+function CallalooProductionProgressBar({
+  timeline,
+  theme,
+}: {
+  timeline: CallalooProductionTimeline;
+  theme: ThemeConfig;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gap: "8px",
+        padding: "12px",
+        borderRadius: theme.radius?.button ?? "10px",
+        background: "rgba(255, 255, 255, 0.82)",
+        border: `1px solid ${theme.colors.border}`,
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          display: "grid",
+          gap: "8px",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            height: "14px",
+            borderRadius: "999px",
+            background: `linear-gradient(90deg, ${callalooTimelineColors.seedToGerminate} 0%, ${callalooTimelineColors.seedToGerminate} ${timeline.germinationPercent}%, ${callalooTimelineColors.germinateToTransplant} ${timeline.germinationPercent}%, ${callalooTimelineColors.germinateToTransplant} ${timeline.transplantPercent}%, ${callalooTimelineColors.transplantToHarvest} ${timeline.transplantPercent}%, ${callalooTimelineColors.transplantToHarvest} ${timeline.harvestPercent}%, ${callalooTimelineColors.harvestToDelivery} ${timeline.harvestPercent}%, ${callalooTimelineColors.harvestToDelivery} 100%)`,
+            overflow: "hidden",
+          }}
+          aria-label={`Production progress ${Math.round(
+            timeline.progressPercent
+          )}%`}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: `${timeline.germinationPercent}%`,
+              top: 0,
+              bottom: 0,
+              width: "3px",
+              transform: "translateX(-50%)",
+              background: "#7B8F2A",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: `${timeline.transplantPercent}%`,
+              top: 0,
+              bottom: 0,
+              width: "3px",
+              transform: "translateX(-50%)",
+              background: "#2C6B3F",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: `${timeline.harvestPercent}%`,
+              top: 0,
+              bottom: 0,
+              width: "3px",
+              transform: "translateX(-50%)",
+              background: "#8A3B12",
+            }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              left: `${timeline.progressPercent}%`,
+              top: "50%",
+              width: "20px",
+              height: "20px",
+              borderRadius: "999px",
+              transform: "translate(-50%, -50%)",
+              background: "#FFFFFF",
+              border: `4px solid ${callalooTimelineColors.currentMarker}`,
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.18)",
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            minHeight: "58px",
+            fontSize: "0.76rem",
+            lineHeight: 1.25,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              maxWidth: "42%",
+            }}
+          >
+            <strong>Seed sowing</strong>
+            <br />
+            {formatCallalooDisplayDate(timeline.startDate)}
+          </span>
+          <span
+            style={{
+              position: "absolute",
+              left: `${timeline.harvestPercent}%`,
+              top: 0,
+              width: "140px",
+              maxWidth: "44%",
+              transform: "translateX(-100%)",
+              textAlign: "right",
+            }}
+          >
+            <strong>Harvest</strong>
+            <br />
+            {formatCallalooDisplayDate(timeline.harvestDate)}
+          </span>
+          <span
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: 0,
+              width: "140px",
+              maxWidth: "46%",
+              textAlign: "right",
+            }}
+          >
+            <strong>Delivery</strong>
+            <br />
+            {formatCallalooDisplayDate(timeline.deliveryDate)}
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gap: "6px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            fontSize: "0.74rem",
+            lineHeight: 1.25,
+          }}
+        >
+          {[
+            ["Seed to germinate", callalooTimelineColors.seedToGerminate],
+            ["Germinate to transplant", callalooTimelineColors.germinateToTransplant],
+            ["Transplant to harvest", callalooTimelineColors.transplantToHarvest],
+            ["Harvest to delivery", callalooTimelineColors.harvestToDelivery],
+          ].map(([label, color]) => (
+            <span
+              key={label}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "4px",
+                  background: color,
+                  flexShrink: 0,
+                }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getCallalooDeliveryProductionTimeline(
+  block: CallalooDeliveryPlanBlock
+): CallalooProductionTimeline {
+  const deliveryDate = parseCallalooDeliveryDate(block.deliveryDate);
+  const reachedAddressAt = setCallalooTime(deliveryDate, 11, 0);
+  const sentWithCourierAt = addCallalooHours(reachedAddressAt, -1);
+  const packagedAt = new Date(sentWithCourierAt);
+  const cleaningStartsAt = addCallalooHours(packagedAt, -1);
+  const harvestAt = addCallalooHours(cleaningStartsAt, -2);
+  const sowingDate = getNearestCallalooWeekday(
+    addCallalooMonths(deliveryDate, -3),
+    6,
+    8
+  );
+  const germinatedDate = addCallalooDays(sowingDate, 7);
+  const transplantDate = getNearestCallalooWeekday(
+    addCallalooDays(sowingDate, 21),
+    0,
+    8
+  );
+  const includeSeasoning = block.prepFormat === "cleaned_chopped_seasoned";
+  const currentDate = new Date();
+  const startDay = getCallalooStartOfDay(sowingDate);
+  const currentDay = getCallalooStartOfDay(currentDate);
+  const harvestDay = getCallalooStartOfDay(harvestAt);
+  const deliveryDay = getCallalooStartOfDay(reachedAddressAt);
+  const totalMs = Math.max(1, deliveryDay.getTime() - startDay.getTime());
+  const currentMs = currentDay.getTime() - startDay.getTime();
+  const germinationMs = getCallalooStartOfDay(germinatedDate).getTime() - startDay.getTime();
+  const transplantMs = getCallalooStartOfDay(transplantDate).getTime() - startDay.getTime();
+  const harvestMs = harvestDay.getTime() - startDay.getTime();
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, (currentMs / totalMs) * 100)
+  );
+  const germinationPercent = Math.max(
+    0,
+    Math.min(100, (germinationMs / totalMs) * 100)
+  );
+  const transplantPercent = Math.max(
+    0,
+    Math.min(100, (transplantMs / totalMs) * 100)
+  );
+  const harvestPercent = Math.max(
+    0,
+    Math.min(100, (harvestMs / totalMs) * 100)
+  );
+  const items = [
+    {
+      label: "Seed sowing date",
+      value: formatCallalooDisplayDate(sowingDate),
+      color: callalooTimelineColors.seedToGerminate,
+    },
+    {
+      label: "Germinated",
+      value: `${formatCallalooDisplayDate(germinatedDate)} estimate`,
+      color: callalooTimelineColors.germinateToTransplant,
+    },
+    {
+      label: "Transplant date",
+      value: `${formatCallalooDisplayDate(transplantDate)} estimate`,
+      color: callalooTimelineColors.transplantToHarvest,
+    },
+    {
+      label: "Harvest date",
+      value: `${formatCallalooDisplayDateTime(harvestAt)} estimate`,
+      color: callalooTimelineColors.harvestToDelivery,
+    },
+    {
+      label: "Cleaning and chopping",
+      value:
+        block.prepFormat === "fresh_bundle"
+          ? "Not selected for this delivery"
+          : `${formatCallalooDisplayDateTime(cleaningStartsAt)} for about 1 hour`,
+    },
+  ];
+
+  if (includeSeasoning) {
+    items.push({
+      label: "Seasonings added",
+      value: `${formatCallalooDisplayDateTime(addCallalooMinutes(packagedAt, -10))} estimate`,
+    });
+  }
+
+  items.push(
+    {
+      label: "Packaged and labeled",
+      value: formatCallalooDisplayDateTime(packagedAt),
+    },
+    {
+      label: "Sent with courier",
+      value: formatCallalooDisplayDateTime(sentWithCourierAt),
+    },
+    {
+      label: "Reached address",
+      value: `${formatCallalooDisplayDateTime(reachedAddressAt)} estimate`,
+    }
+  );
+
+  return {
+    startDate: sowingDate,
+    currentDate,
+    germinatedDate,
+    transplantDate,
+    harvestDate: harvestAt,
+    deliveryDate: reachedAddressAt,
+    progressPercent,
+    germinationPercent,
+    transplantPercent,
+    harvestPercent,
+    items,
+  };
+}
+
+function getNextCallalooDeliveryDate(fromDate: Date) {
+  const start = new Date(fromDate);
+  start.setHours(0, 0, 0, 0);
+
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const candidate = addCallalooDays(start, offset);
+    const day = candidate.getDay();
+
+    if (day === 1 || day === 5) {
+      return candidate;
+    }
+  }
+
+  return start;
+}
+
+function getCallalooDeliveryDateForUse(useDate: Date, minimumDate: Date) {
+  const candidate = new Date(useDate);
+  candidate.setHours(0, 0, 0, 0);
+
+  for (let offset = 1; offset <= 7; offset += 1) {
+    const possibleDeliveryDate = addCallalooDays(candidate, -offset);
+    const day = possibleDeliveryDate.getDay();
+
+    if ((day === 1 || day === 5) && possibleDeliveryDate >= minimumDate) {
+      return possibleDeliveryDate;
+    }
+  }
+
+  return minimumDate;
+}
+
+function parseCallalooDeliveryDate(value: string) {
+  const parsed = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return getNextCallalooDeliveryDate(new Date());
+  }
+
+  return parsed;
+}
+
+function setCallalooTime(date: Date, hours: number, minutes: number) {
+  const nextDate = new Date(date);
+  nextDate.setHours(hours, minutes, 0, 0);
+
+  return nextDate;
+}
+
+function addCallalooDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  nextDate.setHours(0, 0, 0, 0);
+
+  return nextDate;
+}
+
+function addCallalooHours(date: Date, hours: number) {
+  const nextDate = new Date(date);
+  nextDate.setHours(nextDate.getHours() + hours);
+
+  return nextDate;
+}
+
+function addCallalooMinutes(date: Date, minutes: number) {
+  const nextDate = new Date(date);
+  nextDate.setMinutes(nextDate.getMinutes() + minutes);
+
+  return nextDate;
+}
+
+function addCallalooMonths(date: Date, months: number) {
+  const nextDate = new Date(date);
+  nextDate.setMonth(nextDate.getMonth() + months);
+  nextDate.setHours(0, 0, 0, 0);
+
+  return nextDate;
+}
+
+function getCallalooStartOfDay(date: Date) {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+
+  return nextDate;
+}
+
+function getNearestCallalooWeekday(date: Date, targetDay: number, hour = 8) {
+  const day = date.getDay();
+  const forwardOffset = (targetDay - day + 7) % 7;
+  const backwardOffset = forwardOffset === 0 ? 0 : forwardOffset - 7;
+  const offset =
+    Math.abs(backwardOffset) <= Math.abs(forwardOffset)
+      ? backwardOffset
+      : forwardOffset;
+  const nextDate = addCallalooDays(date, offset);
+  nextDate.setHours(hour, 0, 0, 0);
+
+  return nextDate;
+}
+
+function formatCallalooIsoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatCallalooDisplayDate(date: Date) {
+  return date.toLocaleDateString("en-JM", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatCallalooDisplayDateTime(date: Date) {
+  return date.toLocaleString("en-JM", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getCallalooFrequencyOptionFromAnswers(answers: QuestionnaireAnswers) {
+  const count = Number(answers.callalooCurrentUseCount);
+  const period = String(answers.callalooCurrentUsePeriod ?? "");
+
+  if (Number.isFinite(count) && count >= 1 && count <= 7 && period) {
+    return getCallalooFrequencyOption(buildCallalooFrequencyKey(count, period));
+  }
+
+  return getCallalooFrequencyOption(String(answers.callalooUseFrequency ?? ""));
+}
+
+function getCallalooFrequencyOption(value: string) {
+  const dynamicMatch = value.match(/^([1-7])_(week|fortnight|month)$/);
+
+  if (dynamicMatch) {
+    const count = Number(dynamicMatch[1]);
+    const period = dynamicMatch[2];
+    const periodLabel =
+      period === "fortnight"
+        ? "2 weeks"
+        : period === "month"
+          ? "month"
+          : "week";
+    const usesPerMonth =
+      period === "week" ? count * 4 : period === "fortnight" ? count * 2 : count;
+
+    return {
+      label: `${count} ${count === 1 ? "time" : "times"} per ${periodLabel}`,
+      usesPerMonth,
+      count,
+      period: period as "week" | "fortnight" | "month",
+    };
+  }
+
+  const options: Record<
+    string,
+    {
+      label: string;
+      usesPerMonth: number;
+      count: number;
+      period: "week" | "fortnight" | "month";
+    }
+  > =
+    {
+      once_weekly: {
+        label: "Once a week",
+        usesPerMonth: 4,
+        count: 1,
+        period: "week",
+      },
+      three_times_weekly: {
+        label: "Three times a week or more",
+        usesPerMonth: 12,
+        count: 3,
+        period: "week",
+      },
+      once_every_two_weeks: {
+        label: "Once every two weeks",
+        usesPerMonth: 2,
+        count: 1,
+        period: "fortnight",
+      },
+      twice_every_two_weeks: {
+        label: "Twice every two weeks",
+        usesPerMonth: 4,
+        count: 2,
+        period: "fortnight",
+      },
+      once_monthly: {
+        label: "Once a month",
+        usesPerMonth: 1,
+        count: 1,
+        period: "month",
+      },
+      twice_monthly: {
+        label: "Twice a month",
+        usesPerMonth: 2,
+        count: 2,
+        period: "month",
+      },
+    };
+
+  return options[value] ?? options.once_weekly;
+}
+
+function getCallalooBundleQuantity(value: string) {
+  const dynamicMatch = value.match(/^([1-7])_bundles?$/);
+
+  if (dynamicMatch) {
+    return Number(dynamicMatch[1]);
+  }
+
+  const options: Record<string, number> = {
+    one_bundle: 1,
+    two_bundles: 2,
+    three_bundles: 3,
+    four_or_more_bundles: 4,
+  };
+
+  return options[value] ?? 1;
+}
+
+function getCallalooPrepOption(value: string) {
+  const options = Object.fromEntries(
+    getCallalooPrepOptions().map((option) => [
+      option.value,
+      { label: option.label, price: option.price },
+    ])
+  ) as Record<string, { label: string; price: number }>;
+
+  return options[value] ?? options.fresh_bundle;
+}
+
+function getCallalooPrepOptions() {
+  return [
+    {
+      value: "fresh_bundle",
+      label: "Fresh bundle",
+      price: 200,
+      summary: "You prepare, wash, trim, and chop it yourself.",
+      details: [
+        "Best for customers who prefer full control over trimming and seasoning.",
+        "More hands-on preparation at home.",
+        "Delivered as a fresh callaloo parcel for home preparation.",
+      ],
+      imageUrl: "/media/paralife_trees/png/product_callaloo_bundled.png",
+      imageAlt: "Fresh bundled callaloo",
+    },
+    {
+      value: "cleaned_chopped",
+      label: "Cleaned + chopped",
+      price: 300,
+      summary: "You want much of the preparation work already done.",
+      details: [
+        "Useful when you want faster cooking prep at home.",
+        "Cleaning, sorting, trimming, and chopping details will be finalized before launch.",
+        "Seasoning remains in your control.",
+      ],
+      imageUrl: "/media/paralife_trees/png/product_callaloo_chopped.png",
+      imageAlt: "Cleaned and chopped callaloo",
+    },
+    {
+      value: "cleaned_chopped_seasoned",
+      label: "Cleaned + chopped + seasoned",
+      price: 400,
+      summary: "You want it closest to cooking-ready.",
+      details: [
+        "Closest to ready-for-pot preparation.",
+        "Seasoning ingredient list and customization rules are still being finalized.",
+        "Best for customers who value the most convenience.",
+      ],
+      imageUrl: "/media/paralife_trees/png/product_callaloo_chopped_seasoned.png",
+      imageAlt: "Cleaned, chopped and seasoned callaloo",
+    },
+  ];
+}
+
+function getCallalooPrepInventoryKey(value: string) {
+  const options: Record<string, string> = {
+    fresh_bundle: "fresh-bundle",
+    cleaned_chopped: "cleaned-chopped",
+    cleaned_chopped_seasoned: "cleaned-chopped-seasoned",
+  };
+
+  return options[value] ?? "fresh-bundle";
+}
+
+function getCallalooSubscriptionCatalog(
+  catalog: ShopCatalog | null,
+  answers: QuestionnaireAnswers
+): ShopCatalog | null {
+  if (!catalog) return null;
+
+  const prepKey = getCallalooPrepInventoryKey(
+    String(answers.callalooPrepFormat ?? "")
+  );
+  const frequency = getCallalooFrequencyOptionFromAnswers(answers);
+  const bundleQuantity = getCallalooBundleQuantity(
+    String(answers.callalooBundleAmount ?? "")
+  );
+  const selectedDurationMonths = Number(
+    answers.callalooSubscriptionDurationMonths ?? 3
+  );
+  const savedDeliveryPlan = Array.isArray(answers.callalooDeliveryPlan)
+    ? normalizeCallalooDeliveryPlan(answers.callalooDeliveryPlan, [])
+    : [];
+  const adjustedDeliveryPlanTotal = getCallalooDeliveryPlanTotal(savedDeliveryPlan);
+
+  return {
+    ...catalog,
+    products: catalog.products
+      .filter((product) => product.metadata?.preparationLevel === prepKey)
+      .map((product) => ({
+        ...product,
+        minOrderQuantity: 1,
+        maxOrderQuantity: 1,
+        description: `${product.description ?? ""} Plan prices below estimate ${bundleQuantity} ${
+          bundleQuantity === 1 ? "parcel" : "parcels"
+        } (${bundleQuantity * 2} servings) each time, based on current use at ${frequency.label.toLowerCase()}. Deliveries can be grouped around operating delivery days such as Mondays and Fridays.`.trim(),
+        sizeOptions: Array.from(
+          new Map(
+            product.sizeOptions.map((option) => [
+              Number(option.metadata?.durationMonths ?? 3),
+              option,
+            ])
+          ).entries()
+        )
+          .sort(([a], [b]) => a - b)
+          .filter(([durationMonths]) =>
+            [3, 6, 12].includes(selectedDurationMonths)
+              ? durationMonths === selectedDurationMonths
+              : true
+          )
+          .map(([durationMonths, option]) => {
+            const baseUnitPrice = Number(product.metadata?.unitPriceJmd ?? option.price ?? 0);
+            const price =
+              adjustedDeliveryPlanTotal > 0
+                ? adjustedDeliveryPlanTotal
+                : baseUnitPrice *
+                  bundleQuantity *
+                  frequency.usesPerMonth *
+                  durationMonths;
+            const adjustedDescription =
+              adjustedDeliveryPlanTotal > 0
+                ? `Uses the final adjusted delivery plan with ${savedDeliveryPlan.length} delivery blocks.`
+                : `Estimates ${frequency.usesPerMonth * durationMonths} use occasions and ${bundleQuantity * frequency.usesPerMonth * durationMonths} total ${
+                    bundleQuantity * frequency.usesPerMonth * durationMonths === 1
+                      ? "parcel"
+                      : "parcels"
+                  } over ${durationMonths} months. Delivery dates are planned separately.`;
+
+            return {
+              ...option,
+              label: `${durationMonths}-month plan`,
+              price,
+              metadata: {
+                ...(option.metadata ?? {}),
+                selectedFrequencyLabel: frequency.label,
+                adjustedDeliveryPlanTotal,
+                adjustedDeliveryPlanBlockCount: savedDeliveryPlan.length,
+              },
+              description: adjustedDescription,
+            };
+          }),
+      }))
+      .filter((product) => product.sizeOptions.length > 0),
+  };
 }
 
 function renderSections(

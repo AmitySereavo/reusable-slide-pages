@@ -9,7 +9,7 @@
 - npm run dev starts cleanly after deleting .next when auth/session/schema files changed.
 - No stale Prisma client errors appear after restart.
 - Questionnaire pages load from /questionnaire/[slug].
-- Existing flows still load: invitation, auth-login, auth-account, nursery-ops, seed.
+- Existing flows still load: invitation, auth-login, auth-account, Little Orchard Shop, Garden Package, Seedling Shop, and admin project docs.
 - Public custom-domain aliases still load: /gift for the giveaway and /shop for the Little Orchard Shop.
 ```
 
@@ -464,7 +464,22 @@
 
 ---
 
-## 19B. Currency, store credit, and inventory dashboard
+## 19B. Plant Batches / Inventory Sync
+
+```txt
+- Creating a Plant Batch can generate a linked unified inventory row tagged with metadata.source = seedling-production-batch.
+- New batch-generated inventory appears in admin Inventory but starts hidden from storefront shop listings.
+- Showing a batch-generated inventory item in a shop is an explicit admin action.
+- Removing a shop tag/listing from a batch-generated inventory item updates the linked Plant Batch shop/purpose metadata.
+- Removing all shop tags/listings from a batch-generated inventory item keeps the Plant Batch and moves its purpose to General Nursery Stock.
+- Deleting a batch-generated inventory row does not delete the Plant Batch.
+- Deleting a Plant Batch deletes only the generated inventory row tied to that batch id.
+- Regular inventory items that are not batch-generated do not update Plant Batch records.
+```
+
+---
+
+## 19C. Currency, store credit, and inventory dashboard
 
 ```txt
 - Account side panel shows purchased store credit balance.
@@ -490,7 +505,7 @@
 
 ---
 
-## 19C. Orders and fulfillment dashboard
+## 19D. Orders and fulfillment dashboard
 
 ```txt
 - /dashboard/orders loads only for users with adminLevel >= 1.

@@ -1515,6 +1515,13 @@
   height: 18px;
 }
 
+.fieldHelpText {
+  color: rgba(35, 31, 32, 0.68);
+  font-size: 13px;
+  line-height: 1.35;
+  margin: 0;
+}
+
 .fieldInfoPanel {
   display: grid;
   gap: 6px;

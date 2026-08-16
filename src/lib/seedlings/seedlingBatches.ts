@@ -8,8 +8,13 @@ import {
   getSeedlingProductionTemplate,
   seedlingProductionTemplates,
   toLocalDateTimeIso,
+  type SeedlingProductionTemplate,
   type SeedlingTimelineEvent,
 } from "./productionTemplates";
+import {
+  getCanonicalPlantKey,
+  getCanonicalPlantName,
+} from "@/lib/nursery/plantRecipes";
 
 type DbClient = {
   $executeRawUnsafe: (query: string) => Promise<unknown>;
@@ -19,10 +24,15 @@ type DbClient = {
 
 export type SeedlingBatchInput = {
   cropKey?: string;
+  cropName?: string;
+  propagationType?: string;
   productionDate?: string;
   productionTime?: string;
   quantityStarted?: number;
   retailPrice?: number;
+  purposeKey?: string;
+  purposeLabel?: string;
+  shopKey?: string;
 };
 
 export type SeedlingBatchUpdateInput = {
@@ -32,8 +42,21 @@ export type SeedlingBatchUpdateInput = {
   performedDate?: string;
   performedTime?: string;
   useNow?: boolean;
+  quantityTransplanted?: number;
   notes?: string;
   photoUrl?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type SeedlingBatchEditInput = {
+  batchId?: string;
+  batchName?: string;
+  purposeKey?: string;
+  status?: string;
+  quantityStarted?: number;
+  quantityReserved?: number;
+  quantityAvailable?: number;
+  retailPrice?: number;
 };
 
 export async function ensureSeedlingBatchTables(db: DbClient) {
@@ -86,15 +109,28 @@ export async function listSeedlingBatches(db: DbClient) {
     FROM "SeedlingProductionBatch"
     ORDER BY "availabilityAt" ASC, "productionAt" DESC
   `;
+  const activities = await db.$queryRaw<any[]>`
+    SELECT *
+    FROM "SeedlingBatchActivity"
+    ORDER BY "performedAt" DESC, "enteredAt" DESC
+  `;
+  const activitiesByBatch = activities.reduce((groups, activity) => {
+    const batchId = String(activity.batchId || "");
+    groups.set(batchId, [...(groups.get(batchId) || []), serializeBatchActivity(activity)]);
+    return groups;
+  }, new Map<string, any[]>());
 
-  return rows.map(serializeSeedlingBatch);
+  return rows.map((row) => ({
+    ...serializeSeedlingBatch(row),
+    activities: activitiesByBatch.get(String(row.id)) || [],
+  }));
 }
 
 export async function createSeedlingBatch(db: DbClient, input: SeedlingBatchInput) {
   await ensureSeedlingBatchTables(db);
-  const template = getSeedlingProductionTemplate(input.cropKey);
+  const template = getBatchProductionTemplate(input);
   if (!template) {
-    throw new Error("Choose a supported seedling or cutting crop.");
+    throw new Error("Choose a plant from the Plant Production Timeline catalog.");
   }
 
   const quantityStarted = Math.max(
@@ -118,11 +154,13 @@ export async function createSeedlingBatch(db: DbClient, input: SeedlingBatchInpu
   const id = `seedling-batch-${template.key}-${productionDate}-${Date.now()
     .toString(36)
     .toLowerCase()}`;
-  const batchName = `${template.cropName} Seedlings - Batch - ${productionDate}`;
+  const batchName = getBatchTitle(template.cropName);
   const retailPrice = Math.max(
     0,
     Number(input.retailPrice || template.retailPrice)
   );
+  const purposeKey = normalizePurposeKey(input.purposeKey || input.shopKey);
+  const purpose = getProductionPurpose(purposeKey);
 
   await db.$executeRaw`
     INSERT INTO "SeedlingProductionBatch" (
@@ -147,7 +185,7 @@ export async function createSeedlingBatch(db: DbClient, input: SeedlingBatchInpu
     VALUES (
       ${id},
       ${template.key},
-      ${template.cropName},
+      ${getBatchTitle(template.cropName)},
       ${template.propagationType},
       ${batchName},
       ${new Date(productionAt)},
@@ -160,7 +198,16 @@ export async function createSeedlingBatch(db: DbClient, input: SeedlingBatchInpu
       ${retailPrice},
       'planned',
       CAST(${JSON.stringify(timeline.events)} AS jsonb),
-      CAST(${JSON.stringify({ template })} AS jsonb),
+      CAST(${JSON.stringify({
+        template,
+        productionPurposeKey: purpose.key,
+        productionPurposeLabel:
+          String(input.purposeLabel || "").trim() || purpose.label,
+        productionPurposeType: purpose.type,
+        shopKey: purpose.shopKey,
+        quantityAtTransplant: null,
+        transplantAt: null,
+      })} AS jsonb),
       CURRENT_TIMESTAMP
     )
   `;
@@ -172,6 +219,59 @@ export async function createSeedlingBatch(db: DbClient, input: SeedlingBatchInpu
 
   await upsertSeedlingBatchInventoryItem(db, batch);
   return batch;
+}
+
+function getBatchProductionTemplate(input: SeedlingBatchInput): SeedlingProductionTemplate | null {
+  const existingTemplate = getSeedlingProductionTemplate(input.cropKey);
+  if (existingTemplate) return existingTemplate;
+
+  const cropName = getCanonicalPlantName(input.cropName || input.cropKey);
+  const cropKey = getCanonicalPlantKey(input.cropKey || cropName);
+  if (!cropName || !cropKey) return null;
+
+  const propagationType = normalizeStartMethod(input.propagationType);
+
+  return {
+    key: cropKey,
+    cropName,
+    propagationType,
+    retailPrice: 0,
+    estimatedGerminationDays: propagationType === "cutting" ? 14 : 7,
+    readyWeeksAfterGermination: 4,
+    defaultQuantity: 1,
+  };
+}
+
+function getBatchTitle(value: unknown) {
+  return getCanonicalPlantName(value) || String(value || "").trim() || "Plant batch";
+}
+
+function cleanBatchQuantityLabel(value: unknown) {
+  return String(value || "")
+    .replace(/\s*seeds\s*\/\s*cells\s*/gi, " seeds")
+    .replace(/\s*cells?\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function normalizeStartMethod(value: unknown): SeedlingProductionTemplate["propagationType"] {
+  const normalized = String(value || "seedling").trim();
+  if (
+    [
+      "seedling",
+      "cutting",
+      "air_layer",
+      "division",
+      "sucker",
+      "grafting",
+      "existing_stock",
+      "other",
+    ].includes(normalized)
+  ) {
+    return normalized as SeedlingProductionTemplate["propagationType"];
+  }
+
+  return "seedling";
 }
 
 export async function syncStarterSeedlingBatches(db: DbClient) {
@@ -207,7 +307,6 @@ export async function syncStarterSeedlingBatches(db: DbClient) {
 
 export async function syncCurrentSeedlingShopBatches(db: DbClient) {
   await ensureSeedlingBatchTables(db);
-  const activeInventorySlugs: string[] = [];
 
   for (const template of seedlingProductionTemplates) {
     const currentBatch = template.currentBatch;
@@ -220,7 +319,8 @@ export async function syncCurrentSeedlingShopBatches(db: DbClient) {
     const productionAt = toLocalDateTimeIso(productionDate, "08:00");
     const timeline = buildSeedlingTimeline({ productionAt, template });
     const id = `seedling-batch-current-${template.key}-${productionDate}`;
-    const batchName = `${template.cropName} - Started ${productionDate}`;
+    const batchName = getBatchTitle(template.cropName);
+    const purpose = getProductionPurpose("seedling-shop");
 
     await db.$executeRaw`
       INSERT INTO "SeedlingProductionBatch" (
@@ -245,7 +345,7 @@ export async function syncCurrentSeedlingShopBatches(db: DbClient) {
       VALUES (
         ${id},
         ${template.key},
-        ${template.cropName},
+        ${getBatchTitle(template.cropName)},
         ${template.propagationType},
         ${batchName},
         ${new Date(productionAt)},
@@ -261,6 +361,12 @@ export async function syncCurrentSeedlingShopBatches(db: DbClient) {
         CAST(${JSON.stringify({
           template,
           currentSeedlingShopBatch: true,
+          productionPurposeKey: purpose.key,
+          productionPurposeLabel: purpose.label,
+          productionPurposeType: purpose.type,
+          shopKey: purpose.shopKey,
+          quantityAtTransplant: null,
+          transplantAt: null,
           quantityLabel: currentBatch.quantityLabel,
           estimatedPlantsLabel: currentBatch.estimatedPlantsLabel,
           germinationTimeLabel: currentBatch.germinationTimeLabel,
@@ -295,21 +401,7 @@ export async function syncCurrentSeedlingShopBatches(db: DbClient) {
 
     if (batch) {
       await upsertSeedlingBatchInventoryItem(db, batch);
-      activeInventorySlugs.push(batch.id);
     }
-  }
-
-  if (activeInventorySlugs.length) {
-    await db.$executeRaw`
-      UPDATE "UnifiedInventoryItem"
-      SET
-        "active" = false,
-        "shopTags" = '[]'::jsonb,
-        "shopListings" = '[]'::jsonb,
-        "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "metadata"->>'source' = 'seedling-production-batch'
-        AND NOT ("slug" = ANY(${activeInventorySlugs}))
-    `;
   }
 }
 
@@ -326,6 +418,10 @@ export async function recordSeedlingBatchActivity(
   const title =
     String(input.customActionTitle || "").trim() ||
     getActionLabel(input.actionType);
+  const quantityTransplanted = Math.max(
+    0,
+    Math.floor(Number(input.quantityTransplanted || 0))
+  );
   const performedAt = input.useNow
     ? new Date()
     : new Date(
@@ -364,12 +460,227 @@ export async function recordSeedlingBatchActivity(
       CURRENT_TIMESTAMP,
       ${String(input.notes || "").trim() || null},
       ${String(input.photoUrl || "").trim() || null},
-      CAST(${JSON.stringify({ source: "dashboard" })} AS jsonb)
+      CAST(${JSON.stringify({
+        source: "dashboard",
+        ...normalizeObject(input.metadata),
+        quantityTransplanted: quantityTransplanted || null,
+      })} AS jsonb)
     )
   `;
 
+  if (
+    quantityTransplanted > 0 &&
+    ["transplanted", "transplant_session"].includes(
+      String(input.actionType || "").trim()
+    )
+  ) {
+    const rows = await db.$queryRaw<any[]>`
+      SELECT "metadata"
+      FROM "SeedlingProductionBatch"
+      WHERE "id" = ${batchId}
+      LIMIT 1
+    `;
+    const metadata = normalizeObject(rows[0]?.metadata);
+    const transplantSessions = normalizeArray(metadata.transplantSessions);
+    const currentTotal = Math.max(
+      0,
+      Math.floor(Number(metadata.quantityAtTransplant || 0))
+    );
+    const nextTotal = currentTotal + quantityTransplanted;
+
+    await db.$executeRaw`
+      UPDATE "SeedlingProductionBatch"
+      SET
+        "metadata" = CAST(${JSON.stringify({
+          ...metadata,
+          quantityAtTransplant: nextTotal,
+          lastTransplantSessionAt: performedAt.toISOString(),
+          transplantSessions: [
+            ...transplantSessions,
+            {
+              performedAt: performedAt.toISOString(),
+              quantityTransplanted,
+              activityId: id,
+              notes: String(input.notes || "").trim() || null,
+            },
+          ],
+        })} AS jsonb),
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${batchId}
+    `;
+  }
+
   const batches = await listSeedlingBatches(db);
   return batches.find((batch) => batch.id === batchId);
+}
+
+export async function updateSeedlingBatch(
+  db: DbClient,
+  input: SeedlingBatchEditInput
+) {
+  await ensureSeedlingBatchTables(db);
+  const batchId = String(input.batchId || "").trim();
+  if (!batchId) {
+    throw new Error("Choose a batch to update.");
+  }
+
+  const rows = await db.$queryRaw<any[]>`
+    SELECT *
+    FROM "SeedlingProductionBatch"
+    WHERE "id" = ${batchId}
+    LIMIT 1
+  `;
+  const existing = rows[0] ? serializeSeedlingBatch(rows[0]) : null;
+  if (!existing) {
+    throw new Error("Batch not found.");
+  }
+
+  const existingMetadata = normalizeObject(existing.metadata);
+  const purpose = getProductionPurpose(
+    input.purposeKey || existing.productionPurpose?.key
+  );
+  const quantityStarted = Math.max(
+    0,
+    Math.floor(Number(input.quantityStarted ?? existing.quantityStarted))
+  );
+  const quantityReserved = Math.max(
+    0,
+    Math.floor(Number(input.quantityReserved ?? existing.quantityReserved))
+  );
+  const quantityAvailable = Math.max(
+    0,
+    Math.floor(
+      Number(
+        input.quantityAvailable ??
+          Math.max(0, quantityStarted - quantityReserved)
+      )
+    )
+  );
+  const retailPrice = Math.max(0, Number(input.retailPrice ?? existing.retailPrice));
+  const status = String(input.status || existing.status || "planned").trim();
+  const batchName =
+    String(input.batchName || "").trim() || existing.batchName || existing.cropName;
+  const metadata = {
+    ...existingMetadata,
+    productionPurposeKey: purpose.key,
+    productionPurposeLabel: purpose.label,
+    productionPurposeType: purpose.type,
+    shopKey: purpose.shopKey,
+  };
+
+  await db.$executeRaw`
+    UPDATE "SeedlingProductionBatch"
+    SET
+      "batchName" = ${batchName},
+      "quantityStarted" = ${quantityStarted},
+      "quantityReserved" = ${quantityReserved},
+      "quantityAvailable" = ${quantityAvailable},
+      "retailPrice" = ${retailPrice},
+      "status" = ${status},
+      "metadata" = CAST(${JSON.stringify(metadata)} AS jsonb),
+      "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${batchId}
+  `;
+
+  const updated = (await listSeedlingBatches(db)).find(
+    (batch) => batch.id === batchId
+  );
+  if (updated) {
+    await upsertSeedlingBatchInventoryItem(db, updated);
+  }
+
+  return updated;
+}
+
+export async function deleteSeedlingBatch(
+  db: DbClient,
+  input: { batchId?: string; confirmation?: string }
+) {
+  await ensureSeedlingBatchTables(db);
+  const batchId = String(input.batchId || "").trim();
+  if (!batchId) {
+    throw new Error("Choose a batch to delete.");
+  }
+
+  if (String(input.confirmation || "").trim() !== "delete batch") {
+    throw new Error('Type "delete batch" to confirm deletion.');
+  }
+
+  const rows = await db.$queryRaw<any[]>`
+    SELECT *
+    FROM "SeedlingProductionBatch"
+    WHERE "id" = ${batchId}
+    LIMIT 1
+  `;
+  const batch = rows[0] ? serializeSeedlingBatch(rows[0]) : null;
+  if (!batch) {
+    throw new Error("Batch not found.");
+  }
+
+  await db.$executeRaw`
+    DELETE FROM "SeedlingProductionBatch"
+    WHERE "id" = ${batchId}
+  `;
+
+  await db.$executeRaw`
+    DELETE FROM "UnifiedInventoryItem"
+    WHERE "metadata"->>'source' = 'seedling-production-batch'
+      AND "metadata"->>'seedlingBatchId' = ${batchId}
+  `;
+
+  return batch;
+}
+
+export async function reconcileSeedlingBatchShopLinksFromInventory(
+  db: DbClient,
+  input: { batchId?: string; shopTags?: unknown[]; shopListings?: unknown[] }
+) {
+  await ensureSeedlingBatchTables(db);
+  const batchId = String(input.batchId || "").trim();
+  if (!batchId) return null;
+
+  const rows = await db.$queryRaw<any[]>`
+    SELECT "metadata"
+    FROM "SeedlingProductionBatch"
+    WHERE "id" = ${batchId}
+    LIMIT 1
+  `;
+  const existingMetadata = normalizeObject(rows[0]?.metadata);
+  if (!rows.length) return null;
+
+  const linkedShopKeys = Array.from(
+    new Set(
+      [
+        ...normalizeArray(input.shopTags),
+        ...normalizeArray(input.shopListings).map((listing: any) =>
+          listing && typeof listing === "object" ? listing.shopKey : ""
+        ),
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
+  const nextPurpose = linkedShopKeys.length
+    ? getProductionPurpose(linkedShopKeys[0])
+    : getProductionPurpose("greenhouse-stock");
+
+  await db.$executeRaw`
+    UPDATE "SeedlingProductionBatch"
+    SET
+      "metadata" = CAST(${JSON.stringify({
+        ...existingMetadata,
+        productionPurposeKey: nextPurpose.key,
+        productionPurposeLabel: nextPurpose.label,
+        productionPurposeType: nextPurpose.type,
+        shopKey: nextPurpose.shopKey,
+        linkedShopKeys,
+      })} AS jsonb),
+      "updatedAt" = CURRENT_TIMESTAMP
+    WHERE "id" = ${batchId}
+  `;
+
+  const batches = await listSeedlingBatches(db);
+  return batches.find((batch) => batch.id === batchId) || null;
 }
 
 export function serializeSeedlingBatch(row: any) {
@@ -399,14 +710,17 @@ export function serializeSeedlingBatch(row: any) {
     priceIncreaseDates,
     nextPriceIncreaseAt,
     quantityStarted: Number(row.quantityStarted || 0),
+    quantityAtTransplant: normalizeNumber(row.metadata?.quantityAtTransplant),
     quantityReserved: reserved,
     quantityAvailable: available,
+    quantityRemaining: available,
     retailPrice: Number(row.retailPrice || 0),
     currentPrice,
     status: row.status,
     timeline,
     publicUpdates: normalizeArray(row.publicUpdates),
     metadata: normalizeObject(row.metadata),
+    productionPurpose: getSerializedPurpose(row.metadata),
     soldOut: available <= 0,
     availableNow: new Date(row.availabilityAt).getTime() <= Date.now(),
   };
@@ -416,13 +730,39 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
   const dateLabel = batch.productionAt.slice(0, 10);
   const preOrder = !batch.availableNow;
   const batchMetadata = normalizeObject(batch.metadata);
-  const descriptionLines = [
-    `${batch.batchName}.`,
+  const purpose = batch.productionPurpose || getSerializedPurpose(batch.metadata);
+  const title = getBatchTitle(batch.cropName || batch.batchName);
+  const listingShopKey = purpose?.shopKey || SEEDLING_SHOP_SLUG;
+  const listingCategory =
+    batch.propagationType === "cutting" ? "Cuttings" : "Seedlings";
+  const existingRows = await db.$queryRaw<any[]>`
+    SELECT "shopListings"
+    FROM "UnifiedInventoryItem"
+    WHERE "metadata"->>'source' = 'seedling-production-batch'
+      AND "metadata"->>'seedlingBatchId' = ${batch.id}
+    LIMIT 1
+  `;
+  const existingShopListings = normalizeArray(existingRows[0]?.shopListings);
+  const existingListing = existingShopListings.find(
+    (listing: any) =>
+      listing &&
+      typeof listing === "object" &&
+      String(listing.shopKey || "") === String(listingShopKey || "")
+  ) as Record<string, unknown> | undefined;
+  const shopListingActive =
+    typeof existingListing?.active === "boolean" ? existingListing.active : false;
+  const shortDescription = preOrder
+    ? "Available for pre-order from nursery production."
+    : "Available from nursery production.";
+  const detailsLines = [
+    `Plant: ${title}.`,
     batchMetadata.quantityLabel
-      ? `Quantity started: ${batchMetadata.quantityLabel}.`
+      ? `Quantity: ${cleanBatchQuantityLabel(batchMetadata.quantityLabel)}.`
       : "",
     batchMetadata.estimatedPlantsLabel
-      ? `Estimated plants/seeds: ${batchMetadata.estimatedPlantsLabel}.`
+      ? `Estimated quantity: ${cleanBatchQuantityLabel(
+          batchMetadata.estimatedPlantsLabel
+        )}.`
       : "",
     batchMetadata.germinationTimeLabel
       ? `Germination / rooting time: ${batchMetadata.germinationTimeLabel}.`
@@ -432,35 +772,35 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
     batch.nextPriceIncreaseAt
       ? `Next price increase: ${formatDate(batch.nextPriceIncreaseAt)}.`
       : "",
-    `Reserved: ${batch.quantityReserved} seedlings.`,
+    `Reserved / sold: ${batch.quantityReserved} seedlings.`,
     `Remaining: ${batch.quantityAvailable} seedlings.`,
   ]
     .filter(Boolean);
-  const description = descriptionLines.map((line) => `- ${line}`).join("\n");
+  const detailsDescription = detailsLines.map((line) => `- ${line}`).join("\n");
 
   await upsertUnifiedInventoryItem(db as any, {
     id: `inventory-${batch.id}`,
     sku: `SEED-${batch.cropKey}-${dateLabel.replace(/-/g, "")}`.toUpperCase(),
     slug: batch.id,
-    title: batch.batchName,
-    description,
-    detailsDescription: description,
+    title,
+    description: shortDescription,
+    detailsDescription,
     fulfillmentType: "physical",
     active: !batch.soldOut,
     quantityOnHand: batch.quantityStarted,
     quantityReserved: batch.quantityReserved,
     quantityAvailable: batch.quantityAvailable,
-    shopTags: [SEEDLING_SHOP_SLUG],
+    shopTags: listingShopKey ? [listingShopKey] : [],
     categoryTags: [
-      batch.propagationType === "cutting" ? "Cuttings" : "Seedlings",
-      batch.cropName,
+      listingCategory,
+      title,
       "Batch",
     ],
     shopListings: [
       {
-        shopKey: SEEDLING_SHOP_SLUG,
-        categoryLabel: batch.propagationType === "cutting" ? "Cuttings" : "Seedlings",
-        active: !batch.soldOut,
+        shopKey: listingShopKey,
+        categoryLabel: listingCategory,
+        active: shopListingActive && !batch.soldOut,
         sortOrder: new Date(batch.availabilityAt).getTime(),
         categorySortOrder: batch.propagationType === "cutting" ? 2 : 1,
       },
@@ -470,7 +810,7 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
         id: "batch",
         sku: `SEED-${batch.cropKey}-${dateLabel.replace(/-/g, "")}`.toUpperCase(),
         label: preOrder ? "Pre-order batch" : "Available batch",
-        description,
+        description: shortDescription,
         price: batch.currentPrice,
         quantityAvailable: batch.quantityAvailable,
         metadata: {
@@ -484,6 +824,7 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
           quantityLabel: batchMetadata.quantityLabel || null,
           estimatedPlantsLabel: batchMetadata.estimatedPlantsLabel || null,
           germinationTimeLabel: batchMetadata.germinationTimeLabel || null,
+          productionPurpose: purpose,
           timeline: batch.timeline,
           primaryActionLabel: preOrder
             ? "Pre-Order Now at Discounted Price"
@@ -494,6 +835,7 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
     metadata: {
       source: "seedling-production-batch",
       seedlingBatchId: batch.id,
+      defaultStorefrontVisibility: "hidden",
       propagationType: batch.propagationType,
       productionAt: batch.productionAt,
       availabilityAt: batch.availabilityAt,
@@ -503,6 +845,7 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
       quantityLabel: batchMetadata.quantityLabel || null,
       estimatedPlantsLabel: batchMetadata.estimatedPlantsLabel || null,
       germinationTimeLabel: batchMetadata.germinationTimeLabel || null,
+      productionPurpose: purpose,
       timeline: batch.timeline,
       priceIncreaseDates: batch.priceIncreaseDates,
     },
@@ -512,18 +855,51 @@ export async function upsertSeedlingBatchInventoryItem(db: DbClient, batch: any)
 function getActionLabel(value: unknown) {
   const action = String(value || "").trim();
   const labels: Record<string, string> = {
+    water: "Water",
+    mist: "Mist",
+    feed: "Feed",
+    pest_control: "Pest Control",
+    disease_control: "Disease Control",
+    prune: "Prune",
+    pinch: "Pinch",
+    pot_up: "Pot-up",
+    transplant: "Transplant",
+    hardening: "Hardening",
+    move_to_sun: "Move to Sun",
+    move_to_shade: "Move to Shade",
+    install_support: "Install Support",
+    pest_inspection: "Pest Inspection",
+    disease_inspection: "Disease Inspection",
+    harvest_ready_check: "Harvest Ready Check",
+    propagation_material_check: "Propagation Material Check",
     watered: "Watered",
     transplanted: "Transplanted",
+    transplant_session: "Transplant Session",
     seedling_booster_applied: "Seedling Booster Applied",
     insecticidal_soap_applied: "Insecticidal Soap Applied",
     pest_treatment_applied: "Pest Treatment Applied",
     inspected: "Inspected",
     photo_added: "Photo Added",
     marked_available: "Marked Available",
+    not_done_rescheduled: "Not Done / Rescheduled",
     custom_action: "Custom Action",
   };
 
   return labels[action] || "Custom Action";
+}
+
+function serializeBatchActivity(row: any) {
+  return {
+    id: row.id,
+    batchId: row.batchId,
+    actionType: row.actionType,
+    title: row.title,
+    performedAt: row.performedAt ? new Date(row.performedAt).toISOString() : null,
+    enteredAt: row.enteredAt ? new Date(row.enteredAt).toISOString() : null,
+    notes: row.notes || "",
+    photoUrl: row.photoUrl || "",
+    metadata: normalizeObject(row.metadata),
+  };
 }
 
 function normalizeArray(value: unknown) {
@@ -534,6 +910,88 @@ function normalizeObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function normalizeNumber(value: unknown) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePurposeKey(value: unknown) {
+  return String(value || "seedling-shop").trim() || "seedling-shop";
+}
+
+function getProductionPurpose(value: unknown) {
+  const key = normalizePurposeKey(value);
+  const purposes: Record<string, {
+    key: string;
+    label: string;
+    type: string;
+    shopKey: string | null;
+  }> = {
+    "seedling-shop": {
+      key: "seedling-shop",
+      label: "Seedling Shop",
+      type: "shop",
+      shopKey: "seedling-shop",
+    },
+    "little-orchard-shop": {
+      key: "little-orchard-shop",
+      label: "Little Orchard Shop",
+      type: "shop",
+      shopKey: "little-orchard-shop",
+    },
+    "garden-package": {
+      key: "garden-package",
+      label: "Garden Package",
+      type: "shop",
+      shopKey: "garden-package",
+    },
+    callaloo: {
+      key: "callaloo",
+      label: "Callaloo Store",
+      type: "shop",
+      shopKey: "callaloo",
+    },
+    "greenhouse-stock": {
+      key: "greenhouse-stock",
+      label: "General Nursery Stock",
+      type: "stock",
+      shopKey: null,
+    },
+    custom: {
+      key: "custom",
+      label: "Custom Purpose",
+      type: "custom",
+      shopKey: null,
+    },
+  };
+
+  return purposes[key] || {
+    key,
+    label: key
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" "),
+    type: "custom",
+    shopKey: key,
+  };
+}
+
+function getSerializedPurpose(metadata: unknown) {
+  const source = normalizeObject(metadata);
+  const purpose = getProductionPurpose(source.productionPurposeKey || source.shopKey);
+
+  return {
+    key: String(source.productionPurposeKey || purpose.key),
+    label: String(source.productionPurposeLabel || purpose.label),
+    type: String(source.productionPurposeType || purpose.type),
+    shopKey:
+      typeof source.shopKey === "string"
+        ? source.shopKey
+        : purpose.shopKey,
+  };
 }
 
 function formatDate(value: string) {

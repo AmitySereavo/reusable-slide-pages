@@ -1,0 +1,692 @@
+// PARA-LIFE TREES
+// CALLALOO PACKAGE FLOW
+// Source: Callaloo_Website_Codex_Build_Brief.docx
+// Product options are seeded inventory via /api/questionnaires/callaloo/catalog.
+
+@id: callaloo-cover
+@type: content
+@title: Callaloo
+@subtitle: Para-life Trees
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Callaloo
+BR
+[c3] From seed to plate.
+BR
+[c3] Grow it. Harvest it. Prepare it. Cook it. Understand the flavours, stories, and everyday Jamaican routines around callaloo.
+BR
+GUIDEGRID|Working concept::Callaloo: From Seed to Plate||Content principle::Useful first, commerce where relevant||Shop type::Service package||Affiliate eligible::Bronze 5 percent, Silver 10 percent, Gold 20 percent
+@back: Back
+@backgoto: /dashboard
+@next: Next
+@goto: callaloo-hub
+
+===
+
+@id: callaloo-hub
+@type: content
+@title: Callaloo Hub
+@subtitle: Gateway
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Callaloo
+# [c2] Hub
+BR
+[c3] This is the central place for callaloo growing notes, preparation guidance, recipes, and subscription access.
+BR
+GUIDEGRID|Learn::What Jamaican callaloo is and how it is used||Grow::Seed, transplant, harvest, and regrowth guidance||Prepare::Clean, trim, chop, cook, and season callaloo||Order::Choose a callaloo service package when ready
+@back: Back
+@next: Next
+@goto: callaloo-vegan-first
+
+===
+
+@id: callaloo-vegan-first
+@type: content
+@title: Vegan First
+@subtitle: Recipe rule
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Vegan
+# [c2] First
+BR
+[c3] Default callaloo recipes and pairings should be vegan.
+BR
+GUIDETABLE|Use|Avoid||Coconut milk or coconut cream|Saltfish, seafood, meat, eggs, dairy cheese, butter, cow's milk, or cream||Mushrooms, beans, ackee, tofu, lentils, peas, roasted vegetables, nuts, and seeds|Unsupported health, organic, pesticide-free, environmental, or certification claims||Clearly labelled vegan interpretations|Presenting invented or veganized recipes as traditional
+BR
+[c3] Do not call the commercial product certified vegan unless certification or process details are supplied later.
+@back: Back
+@next: Next
+@goto: callaloo-what-is
+
+===
+
+@id: callaloo-what-is
+@type: content
+@title: What Is Callaloo
+@subtitle: Jamaican context
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] What Is
+# [c2] Callaloo
+BR
+[c3] This chapter will explain Jamaican callaloo, common terminology, botanical identification, and how the word can mean different leafy greens in different Caribbean contexts.
+BR
+GUIDETABLE|Content need|Status||Jamaican context|Research placeholder||Botanical identification|Research placeholder||Regional differences|Research placeholder||Naming notes|Research placeholder
+@back: Back
+@next: Next
+@goto: callaloo-history-culture
+
+===
+
+@id: callaloo-history-culture
+@type: content
+@title: History Culture
+@subtitle: Research placeholder
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] History
+# [c2] Culture
+BR
+[c3] This chapter will cover origins, migration, Jamaican adoption, everyday cooking, and Caribbean distinctions after research is verified.
+BR
+GUIDEGRID|Do::Use citations and careful wording||Do not::Invent origin claims||Tone::Respectful, practical, and grounded||Status::Research needed
+@back: Back
+@next: Next
+@goto: callaloo-grow
+
+===
+
+@id: callaloo-grow
+@type: content
+@title: Grow Callaloo
+@subtitle: Garden notes
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Grow
+# [c2] Callaloo
+BR
+[c3] This chapter will cover seed, germination, seedlings, transplanting, growth, harvest, regrowth, and seed saving.
+BR
+GUIDETABLE|Stage|Notes||Seed|Research placeholder||Seedling|Research placeholder||Transplant|Research placeholder||Harvest|Research placeholder||Regrowth|Research placeholder||Seed saving|Research placeholder
+@back: Back
+@next: Next
+@goto: callaloo-harvest-selection
+
+===
+
+@id: callaloo-harvest-selection
+@type: content
+@title: Harvest Selection
+@subtitle: Quality notes
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Harvest
+# [c2] Selection
+BR
+[c3] This chapter will help customers understand tenderness, maturity, stems, flowering, harvest timing, and how to choose good callaloo.
+BR
+GUIDETABLE|Selection cue|What to explain||Tender leaves|Research placeholder||Stem handling|Research placeholder||Maturity|Research placeholder||Flowering|Research placeholder||Timing|Research placeholder
+@back: Back
+@next: Next
+@goto: callaloo-prepare
+
+===
+
+@id: callaloo-prepare
+@type: content
+@title: Prepare Callaloo
+@subtitle: Kitchen notes
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Prepare
+# [c2] Callaloo
+BR
+[c3] This chapter will explain sorting, washing, trimming, stem handling, chopping, and preparation demonstrations.
+BR
+GUIDEGRID|Sort::Remove damaged material||Wash::Process to verify later||Trim::Stem handling guidance needed||Chop::Show practical preparation steps
+@back: Back
+@next: Next
+@goto: callaloo-bitterness
+
+===
+
+@id: callaloo-bitterness
+@type: content
+@title: Why Bitter
+@subtitle: Diagnostic article
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Why
+# [c2] Bitter
+BR
+[c3] This chapter should become a diagnostic article for bitterness without making unsupported cause claims.
+BR
+GUIDETABLE|Possible area|Writing rule||Maturity|Verify before claiming||Stems|Verify before claiming||Cooking method|Verify before claiming||Variety or growing stress|Verify before claiming
+@back: Back
+@next: Next
+@goto: callaloo-flavour
+
+===
+
+@id: callaloo-flavour
+@type: content
+@title: Flavour Guide
+@subtitle: Vegan pairings
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Flavour
+# [c2] Guide
+BR
+GUIDETABLE|Family|Working examples||Aromatics|Scallion, onion, garlic, thyme, ginger, pimento/allspice.||Heat|Scotch bonnet, black pepper, and other peppers.||Creamy / rich|Coconut milk, coconut cream, plant-based cheese, cashew-style creams, or other vegan creamy components where suitable.||Umami / savoury|Mushrooms, nutritional yeast, fermented or seasoning components where appropriate and verified in a recipe.||Bright / acidic|Tomato, lime, and suitable pickled or acidic elements.||Starches|Green banana, yam, breadfruit, rice, dumpling, plantain, potato.||Plant proteins|Ackee, peas, beans, lentils, tofu, or other suitable vegan pairings.
+@back: Back
+@next: Next
+@goto: callaloo-recipes
+
+===
+
+@id: callaloo-recipes
+@type: content
+@title: Recipes
+@subtitle: Veganized
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Recipes
+BR
+[c3] Recipe cards should support title, summary, category, prep time, cook time, servings, ingredients, steps, substitutions, callaloo format used, tags, image, and status.
+BR
+GUIDETABLE|Initial recipe placeholder|Taxonomy note||Classic Jamaican-style steamed callaloo - vegan|Vegan interpretation unless historically documented.||Coconut callaloo|Draft.||Creamy callaloo with plant-based cheese|Vegan interpretation.||Callaloo and ackee|Draft.||Callaloo rice|Draft.||Callaloo rundown - vegan interpretation|Do not present as traditional version.||Callaloo fritters|Draft.||Creamy callaloo pasta|Original / experimental until tested.||Callaloo-stuffed dumplings|Draft.||Callaloo patty filling - vegan|Draft.||Callaloo soup|Draft.||Callaloo breakfast bowl|Draft.
+@back: Back
+@next: Next
+@goto: callaloo-behind-bag
+
+===
+
+@id: callaloo-behind-bag
+@type: content
+@title: Behind Bag
+@subtitle: Process value
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Behind
+# [c2] Bag
+BR
+[c3] This chapter should explain the work represented by each preparation level using verified process details only.
+BR
+GUIDETABLE|Preparation level|What to explain||Fresh bundle|Harvesting, bundling, and customer preparation.||Cleaned + chopped|Cleaning, sorting, trimming, and chopping once process details are verified.||Cleaned + chopped + seasoned|Seasoning work only after ingredients and customization rules are confirmed.
+@back: Back
+@next: Next
+@goto: callaloo-subscription
+
+===
+
+@id: callaloo-subscription
+@type: media
+@titleplacement: progress_overlay
+@title: Subscription
+@subtitle: Build your package
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@media: /media/paralife_trees/callaloo_sub_480p_intro.mp4
+@mediatype: video
+@mediaaspect: vertical
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@countstep: true
+@syncurl: false
+@shownext: false
+@showback: false
+@videoendgoto: footer
+@footerform: true
+@footercontentlabel: Tap for subscription steps
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Back|callaloo-behind-bag
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|callaloo-subscription-name
+---
+# [c2] Subscription
+BR
+[c3] We will ask a few quick questions before showing package options.
+BR
+GUIDETABLE|Step|Why it matters||Name|Lets us save your progress and follow up if you need to continue later.||Email|Lets us send a continuation nudge if the setup is abandoned.||Parcel amount|Starts with how much callaloo your household uses each time.||Current use frequency|Estimates how often your household uses callaloo now.||Use days|Helps plan around delivery days.||Prep format|Sets whether you prepare it yourself, receive it cleaned and chopped, or receive it closest to cooking-ready.||Price comparison|Shows the 3-month, 6-month, and 12-month estimates before checkout.
+@back: Back
+@next: Next
+@goto: callaloo-subscription-name
+
+===
+
+@id: callaloo-subscription-name
+@type: form
+@title: Your Name
+@subtitle: Save your setup
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: false
+@sidebar: false
+---
+# [c2] Your
+# [c2] Name
+BR
+[c3] We use this to save your subscription setup and recognize you if you continue later.
+BR
+@fields:
+- fullName|text|Full name|required|Enter your name
+@back: Back
+@next: Next
+@goto: callaloo-subscription-email
+
+===
+
+@id: callaloo-subscription-email
+@type: form
+@title: Email Address
+@subtitle: Continue later
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: false
+@sidebar: false
+---
+# [c2] Email
+# [c2] Address
+BR
+[c3] We can use this to remind you to finish your callaloo subscription setup if life interrupts.
+BR
+@fields:
+- email|email|Email address|required|Enter your email address
+@back: Back
+@next: Next
+@goto: callaloo-household-amount
+
+===
+
+@id: callaloo-household-amount
+@type: media
+@titleplacement: progress_overlay
+@title: Parcel Amount
+@subtitle: Meal size
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@media: /media/paralife_trees/callaloo_sub_480p_parcel_amount.mp4
+@mediatype: video
+@mediaaspect: vertical
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@countstep: true
+@syncurl: false
+@sidebar: false
+@shownext: false
+@showback: false
+@videoendgoto: footer
+@footerform: true
+@footercontentlabel: Tap to choose parcel amount
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Back|callaloo-subscription-email
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|callaloo-use-frequency
+---
+# [c2] Parcel
+# [c2] Amount
+BR
+[c3] What amount of callaloo would be suitable for your household each time?
+BR
+GUIDEGRID|Average use estimate::One parcel is about 2 servings.||Research note::This is an estimate of average use cases and may be adjusted later after further testing.
+@back: Back
+@next: Next
+@goto: callaloo-use-frequency
+
+===
+
+@id: callaloo-use-frequency
+@type: media
+@titleplacement: progress_overlay
+@title: Use Frequency
+@subtitle: Household rhythm
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@media: /media/paralife_trees/callaloo_sub_480p_use_frequency.mp4
+@mediatype: video
+@mediaaspect: vertical
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@countstep: true
+@syncurl: false
+@sidebar: false
+@shownext: false
+@showback: false
+@videoendgoto: footer
+@footerform: true
+@footercontentlabel: Tap to choose frequency
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Back|callaloo-household-amount
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|callaloo-use-days
+---
+# [c2] Current Use
+# [c2] Frequency
+BR
+[c3] How often do you use callaloo at home?
+BR
+[c3] Select the rhythm closest to how your household currently uses callaloo.
+@back: Back
+@next: Next
+@goto: callaloo-use-days
+
+===
+
+@id: callaloo-use-days
+@type: media
+@titleplacement: progress_overlay
+@title: Use Days
+@subtitle: Around delivery days
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@media: /media/paralife_trees/callaloo_sub_480p_use_days.mp4
+@mediatype: video
+@mediaaspect: vertical
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@countstep: true
+@syncurl: false
+@sidebar: false
+@shownext: false
+@showback: false
+@videoendgoto: footer
+@footerform: true
+@footercontentlabel: Tap to choose use days
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Back|callaloo-use-frequency
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|callaloo-prep-format
+---
+# [c2] Use
+# [c2] Days
+BR
+[c3] Select the days you expect to use callaloo within the period you chose.
+BR
+[c3] Mondays and Fridays are shown as delivery planning days, so you can choose days around them.
+@back: Back
+@next: Next
+@goto: callaloo-prep-format
+
+===
+
+@id: callaloo-prep-format
+@type: content
+@title: Prep Format
+@subtitle: How you want it
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: false
+@sidebar: false
+---
+# [c2] Prep
+# [c2] Format
+BR
+[c3] How do you want your callaloo prepared?
+BR
+[c3] Select one format. Tap see details if you want to compare what each option includes.
+@back: Back
+@next: Next
+@goto: callaloo-subscription-pricing
+
+===
+
+@id: callaloo-subscription-pricing
+@type: content
+@title: Choose Subscription Length
+@subtitle: Plan length
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: false
+@sidebar: false
+---
+# [c2] Choose
+# [c2] Subscription
+# [c2] Length
+BR
+[c3] - Totals use the amount, frequency, and prep format you selected.
+BR
+[c3] - Choose the subscription length that fits your household.
+BR
+[c3] - You can fine-tune delivery blocks before payment.
+@back: Back
+@next: Next
+@goto: callaloo-delivery-plan
+
+===
+
+@id: callaloo-delivery-plan
+@type: media
+@titleplacement: progress_overlay
+@title: Delivery Plan
+@subtitle: Final adjustment
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@media: /media/paralife_trees/callaloo_sub_480p_delivery_adjustments.mp4
+@mediatype: video
+@mediaaspect: vertical
+@showprogressbar: true
+@progressmode: video
+@progressplacement: footer-edge
+@countstep: true
+@syncurl: false
+@sidebar: false
+@shownext: false
+@showback: false
+@videoendgoto: next
+@footeraction: goto|previous|Back|callaloo-subscription-pricing
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|callaloo-delivery-plan-adjust
+---
+@back: Back
+@next: Next
+@goto: callaloo-delivery-plan-adjust
+
+===
+
+@id: callaloo-delivery-plan-adjust
+@type: content
+@title: Delivery Plan
+@subtitle: Adjust deliveries
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: false
+@sidebar: false
+---
+# [c2] Delivery
+# [c2] Plan
+BR
+[c3] - Fine-tune each planned delivery before payment.
+BR
+[c3] - After payment, delivery dates stay fixed.
+BR
+[c3] - Future delivery blocks remain accessible for allowed adjustments before their cutoff.
+@back: Back
+@next: Next
+@goto: callaloo-contact-details
+
+===
+
+@id: callaloo-contact-details
+@type: form
+@contactmode: order
+@title: Contact Details
+@subtitle: Callaloo Subscription
+@pagebgcolor: #FBF7EF
+@syncurl: false
+@sidebar: false
+---
+# [c2] Contact
+# [c2] Details
+BR
+[c3] - Choose where we should send delivery notifications.
+BR
+[c3] - Use the contact channel you check most often for subscription updates.
+BR
+@fields:
+- plantShopContactMethod|select|Delivery notification channel|required|Choose one|whatsapp=WhatsApp,email=Email,phone_call=Phone call / SMS
+- whatsappNumber|tel|WhatsApp number|required|Include country and area code, example: 1 876 372 7415||showif:plantShopContactMethod=whatsapp
+- primaryPhone|tel|Phone call / SMS number|required|Include country and area code||showif:plantShopContactMethod=phone_call
+- plantShopConsent|checkbox|I understand how my name, contact details, subscription information, and order information will be used.|required
+- legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
+---
+@back: Back
+@next: Next
+@goto: callaloo-delivery-details
+
+===
+
+@id: callaloo-delivery-details
+@type: form
+@contactmode: order
+@title: Delivery / Pickup
+@subtitle: Callaloo Subscription
+@pagebgcolor: #FBF7EF
+@syncurl: false
+@sidebar: false
+---
+# [c2] Delivery
+# [c2] Pickup
+BR
+[c3] Choose how you would like us to plan your subscription handoff.
+BR
+@fields:
+- plantShopFulfillmentMethod|select|Pickup or delivery|required|Choose one|package_delivery=Delivery to an address,earth_sovereign=Earth (Sovereign Center Liguanea),barbican_132=One32 Guest House (Barbican),linstead=Redwood Taxi Stand (Linstead)
+- plantDeliveryCountry|select|Country|required|Jamaica|Jamaica=Jamaica|showif:plantShopFulfillmentMethod=package_delivery
+- plantDeliveryRegion|select|Parish|required|Kingston|Kingston=Kingston|showif:plantShopFulfillmentMethod=package_delivery
+- plantDeliveryCityTown|select|City / town|required|Kingston|Kingston=Kingston|showif:plantShopFulfillmentMethod=package_delivery
+- plantDeliveryStreetAddress|textarea|Street address|required|Street address, apartment, landmark||showif:plantShopFulfillmentMethod=package_delivery
+- plantDeliveryPostalCode|text|ZIP / postal code|optional|Enter ZIP or postal code||showif:plantShopFulfillmentMethod=package_delivery
+- plantDeliveryNotes|textarea|Delivery notes|optional|Gate code, landmark, preferred timing, or other helpful notes||showif:plantShopFulfillmentMethod=package_delivery
+- earthSovereignPickupDetails|info|Earth pickup details|optional|Earth Retail Jamaica, 106 Hope Road, Shop 27A, Sovereign Center, Kingston. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:plantShopFulfillmentMethod=earth_sovereign
+- barbicanPickupDetails|info|One32 Guest House pickup details|optional|132 Barbican Road, Kingston, Jamaica. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:plantShopFulfillmentMethod=barbican_132
+- linsteadPickupDetails|info|Redwood Taxi Stand pickup details|optional|Redwood Taxi Stand, Linstead Town, Jamaica. Pickup times: Mondays to Wednesdays, 9:30am to 4pm.||showif:plantShopFulfillmentMethod=linstead
+- deliveryProgressNotice|info|Delivery updates|optional|You will receive updates as each planned subscription delivery moves from sowing to harvest, preparation, handoff, and delivery.
+---
+@back: Back
+@next: Next
+@goto: callaloo-payment-options
+
+===
+
+@id: callaloo-payment-options
+@type: form
+@contactmode: order
+@title: Payment Options
+@subtitle: Callaloo Subscription
+@syncurl: false
+@sidebar: false
+@pagebgcolor: #FBF7EF
+@run: submitPlantShopOrder
+---
+# [c2] Payment
+# [c2] Options
+BR
+[c3] Select how you would prefer to handle payment for this subscription order.
+BR
+[c3] After payment is confirmed, delivery dates stay fixed. You may still adjust quantity, preparation format, and notes for each delivery block until its cutoff.
+BR
+[c3] If an adjustment lowers the price, the balance is issued as store credit. If an adjustment increases the price, you will be asked whether to use store credit or choose another payment method.
+BR
+@fields:
+- plantShopPaymentPreference|select|Payment option|required|Choose payment option|bank_transfer_scotia=Bank transfer - Scotiabank,bank_transfer_ncb=Bank transfer - NCB,cash_on_delivery=Cash on delivery,remittance=Western Union / remittance request,[card_payment=Card payment (coming soon)]
+- plantShopDiscountCode|text|Discount code|optional|Enter discount code if you have one
+- paymentScotiaDetails|info|Scotiabank|optional|YVONNE DOWNER;;Savings / Transit: 60145;;Account: 60145 000804485||showif:plantShopPaymentPreference=bank_transfer_scotia
+- paymentScotiaConfirmationDetails|info|Payment confirmation|optional|Please send a screenshot or copy of the payment receipt after payment.||showif:plantShopPaymentPreference=bank_transfer_scotia
+- paymentNcbDetails|info|NCB|optional|Yvonne Downer;;Branch: Half-Way Tree;;Account: 104004032||showif:plantShopPaymentPreference=bank_transfer_ncb
+- paymentNcbConfirmationDetails|info|Payment confirmation|optional|Please send a screenshot or copy of the payment receipt after payment.||showif:plantShopPaymentPreference=bank_transfer_ncb
+- paymentCashDeliveryDetails|info|Cash on delivery|optional|Cash on delivery is available for eligible subscription delivery and pickup arrangements.||showif:plantShopPaymentPreference=cash_on_delivery
+- paymentRemittanceDetails|info|Western Union / remittance request|optional|Western Union payment details are available upon request.||showif:plantShopPaymentPreference=remittance
+- packageProductionTimeline|info|Production timeline|optional|Subscription delivery plans include sowing, germination, transplanting, harvest, preparation, packing, and delivery status updates.
+---
+@back: Back
+@next: Submit order
+@goto: callaloo-order-confirmed
+
+===
+
+@id: callaloo-order-confirmed
+@type: content
+@title: Order Recorded
+@subtitle: Callaloo Subscription
+@pagebgcolor: #FBF7EF
+@showback: false
+@shownext: false
+@syncurl: true
+@sidebar: false
+@countstep: false
+---
+# [c2] Your subscription order has been recorded.
+BR
+[c3] If you chose WhatsApp, press Send in WhatsApp so we can receive your prepared order message.
+BR
+[c3] If you chose email, your receipt and order summary will be sent to the email address you entered.
+BR
+[c4] We will contact you with payment, delivery, and subscription status details.
+BR
+[c3] [Visit shop](/shop)
+
+===
+
+@id: callaloo-todos
+@type: content
+@title: Decisions Needed
+@subtitle: Before launch
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Decisions
+# [c2] Needed
+BR
+GUIDETABLE|Decision|Status||Final prices|TBD||Exact bag/bundle weights and acceptable variance|TBD||Seasoned-bag ingredient list and customization rules|TBD||Delivery areas, delivery fees, days, and windows|TBD||Billing model and payment schedule|TBD||Pause, skip, cancellation, refund, and failed-payment rules|TBD||Storage instructions, shelf life, and food-safety handling|TBD||Verified growing, harvest process, source, and farm details|TBD||Final brand naming for the callaloo editorial property|TBD||Research and citations for history, botany, growing, bitterness, and recipes|TBD
+@back: Back
+@next: Next
+@goto: callaloo-subscription

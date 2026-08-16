@@ -153,6 +153,7 @@ export async function POST(request: Request) {
   const fulfillmentStatus = getPaymentConfirmationFulfillmentStatus(
     body?.fulfillmentStatus
   );
+  const testMode = body?.testMode === true;
   const cashTendered =
     paymentMethod === "cash" ? normalizeNonNegativeMoney(body?.cashTendered) : null;
 
@@ -296,6 +297,16 @@ export async function POST(request: Request) {
         paymentConfirmedAt: now.toISOString(),
         paymentConfirmedBy: staffUserId,
         paymentConfirmedByName: staffUserName,
+        ...(testMode
+          ? {
+              transactionMode: "admin_test",
+              isAdminTestTransaction: true,
+              testMode: true,
+              testConfirmedAt: now.toISOString(),
+              testConfirmedBy: staffUserId,
+              testConfirmedByName: staffUserName,
+            }
+          : {}),
         inventoryApplied: true,
         inventoryAppliedAt: now.toISOString(),
         inventoryAppliedBy: staffUserId,
@@ -331,6 +342,7 @@ export async function POST(request: Request) {
           notes: [
             `Payment confirmed. Method: ${paymentMethodLabels[paymentMethod]}.`,
             `Fulfillment status set to ${fulfillmentStatus}.`,
+            testMode ? "Admin test transaction; not real revenue or delivery." : "",
             paymentMethod === "cash" && cashTendered !== null
               ? `Cash received: ${cashTendered}. Change returned: ${changeDue}.`
               : "",
@@ -345,6 +357,8 @@ export async function POST(request: Request) {
             cashTendered,
             changeDue,
             fulfillmentStatus,
+            transactionMode: testMode ? "admin_test" : "live",
+            isAdminTestTransaction: testMode,
           },
         });
 
@@ -381,5 +395,7 @@ export async function POST(request: Request) {
     cashTendered,
     changeDue,
     message: "Payment confirmed and inventory marked as applied.",
+    transactionMode: testMode ? "admin_test" : "live",
+    isAdminTestTransaction: testMode,
   });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { mirrorSubmissionToGoogleSheets } from "@/lib/googleSheets";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
@@ -21,12 +22,36 @@ type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue };
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
+const AFFILIATE_SIGNUP_SLUG = "affiliate-sign-up";
+const AFFILIATE_EMAIL_VERIFICATION_TARGET_PREFIX =
+  "affiliateEmailVerification";
 const DEFAULT_PLANT_GIVEAWAY_ADMIN_EMAIL = "paralifetrees@gmail.com";
 const PLANT_GIVEAWAY_ADMIN_SEQUENCE_KEY =
   "website-op-plant-giveaway-admin-notification-email";
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function generateRawToken() {
+  return randomBytes(32).toString("hex");
+}
+
+function hashToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function getBaseUrl(request: Request) {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "");
+  }
+
+  const origin = request.headers.get("origin");
+  if (origin) {
+    return origin.replace(/\/+$/, "");
+  }
+
+  return "http://localhost:3000";
 }
 
 function toJsonValue(value: unknown): JsonValue {
@@ -369,17 +394,126 @@ async function notifyPlantGiveawayAdmin({
   });
 }
 
+function buildAffiliateEmailVerificationMessage({
+  fullName,
+  verifyUrl,
+}: {
+  fullName: string | null;
+  verifyUrl: string;
+}) {
+  const applicantName = fullName?.trim() || "there";
+  const text = [
+    `Hi ${applicantName},`,
+    "",
+    "We received your Para-life Trees affiliate application.",
+    "",
+    "Please confirm your email address using this link:",
+    verifyUrl,
+    "",
+    "Verified emails get priority in our review process.",
+    "",
+    "Para-life Trees - Planting a Life in Paradise.",
+  ].join("\n");
+
+  return {
+    subject: "Confirm your Para-life Trees affiliate application",
+    text,
+    html: buildHtmlFromText(text),
+  };
+}
+
+async function sendAffiliateEmailVerification({
+  request,
+  submission,
+  answers,
+}: {
+  request: Request;
+  submission: {
+    id: string;
+    fullName: string | null;
+    email: string | null;
+  };
+  answers: Record<string, unknown>;
+}) {
+  const email = String(submission.email || "").trim().toLowerCase();
+
+  if (!email || !isValidEmail(email)) {
+    return {
+      ok: false,
+      status: "skipped",
+      skipped: true,
+      reason: "No valid applicant email.",
+    };
+  }
+
+  const rawToken = generateRawToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+  const target = `${AFFILIATE_EMAIL_VERIFICATION_TARGET_PREFIX}:${submission.id}`;
+  const baseUrl = getBaseUrl(request);
+  const successRedirect = `${baseUrl}/questionnaire/affiliate-sign-up?slide=affiliate-thank-you&emailVerified=1`;
+  const verifyUrl = `${baseUrl}/verify?token=${encodeURIComponent(rawToken)}`;
+
+  await prisma.verificationToken.deleteMany({
+    where: {
+      identifier: email,
+      target,
+    },
+  });
+
+  await prisma.verificationToken.create({
+    data: {
+      identifier: email,
+      tokenHash,
+      expiresAt,
+      target,
+      successRedirect,
+    },
+  });
+
+  await prisma.questionnaireSubmission.update({
+    where: { id: submission.id },
+    data: {
+      answers: {
+        ...answers,
+        affiliateEmailVerification: {
+          status: "pending",
+          sentAt: new Date().toISOString(),
+          email,
+          expiresAt: expiresAt.toISOString(),
+        },
+      } as any,
+    },
+  });
+
+  const message = buildAffiliateEmailVerificationMessage({
+    fullName: submission.fullName,
+    verifyUrl,
+  });
+
+  return sendEmailMessage({
+    to: email,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    fromName: "Para-life Trees",
+    purpose: "affiliate-email-verification",
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as SubmitPayload;
 
     const questionnaireSlug = String(body.questionnaireSlug ?? "").trim();
-    const fullName = String(body.fullName ?? "").trim();
-    const email = String(body.email ?? "").trim();
-    const phone = String(body.phone ?? "").trim();
-    const whatsappOptIn = body.whatsappOptIn === true;
     const answers =
       body.answers && typeof body.answers === "object" ? body.answers : {};
+    const fullName = String(body.fullName ?? answers.fullName ?? "").trim();
+    const email = String(body.email ?? answers.email ?? "").trim();
+    const phone = String(
+      body.phone ?? answers.phone ?? answers.primaryPhone ?? ""
+    ).trim();
+    const whatsappOptIn = body.whatsappOptIn === true;
 
     if (!questionnaireSlug) {
       return NextResponse.json(
@@ -443,6 +577,7 @@ export async function POST(req: Request) {
 
     let sheetsMirrored = false;
     let adminNotificationSent = false;
+    let affiliateEmailVerificationSent = false;
 
     try {
       const mirrorResult = await mirrorSubmissionToGoogleSheets({
@@ -484,12 +619,37 @@ export async function POST(req: Request) {
       }
     }
 
+    if (questionnaireSlug === AFFILIATE_SIGNUP_SLUG) {
+      try {
+        const verificationResult = await sendAffiliateEmailVerification({
+          request: req,
+          submission: {
+            id: submission.id,
+            fullName: submission.fullName,
+            email: submission.email,
+          },
+          answers,
+        });
+
+        affiliateEmailVerificationSent =
+          verificationResult?.ok === true ||
+          verificationResult?.status === "sent" ||
+          verificationResult?.status === "simulated";
+      } catch (verificationError) {
+        console.error(
+          "Affiliate email verification notification error:",
+          verificationError
+        );
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Submission received.",
       submissionId: submission.id,
       sheetsMirrored,
       adminNotificationSent,
+      affiliateEmailVerificationSent,
     });
   } catch (error) {
     console.error("Submit route error:", error);

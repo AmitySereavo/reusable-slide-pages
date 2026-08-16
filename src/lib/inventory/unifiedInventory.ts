@@ -29,6 +29,9 @@ type UnifiedInventoryInput = {
 
 export const HOME_GARDEN_PACKAGE_SYNC_VERSION =
   "2026-08-08-admin-out-of-stock-package-items";
+export const CALLALOO_PACKAGE_SHOP_SLUG = "callaloo-package";
+export const CALLALOO_PACKAGE_SYNC_VERSION =
+  "2026-08-10-callaloo-images";
 
 export async function ensureUnifiedInventoryTable(db: Database) {
   await db.$executeRaw`
@@ -172,20 +175,27 @@ export async function upsertUnifiedInventoryItem(
 export async function updateUnifiedInventoryShopOrder(
   db: Database,
   shopKey: string,
-  orderedIds: string[]
+  orderedIds: string[],
+  visibilityById: Record<string, boolean> = {}
 ) {
   await ensureUnifiedInventoryTable(db);
 
   const normalizedShopKey = String(shopKey || "").trim();
+  const visibilityEntries = Object.entries(visibilityById).filter(([id]) =>
+    String(id || "").trim()
+  );
+  const itemIds = Array.from(
+    new Set([...orderedIds, ...visibilityEntries.map(([id]) => id)])
+  );
 
-  if (!normalizedShopKey || !orderedIds.length) {
+  if (!normalizedShopKey || !itemIds.length) {
     return;
   }
 
   const items = await db.$queryRaw<any[]>`
-    SELECT "id", "shopListings"
+    SELECT "id", "categoryTags", "shopListings"
     FROM "UnifiedInventoryItem"
-    WHERE "id" = ANY(${orderedIds})
+    WHERE "id" = ANY(${itemIds})
   `;
   const orderIndex = new Map(
     orderedIds.map((id, index) => [id, index])
@@ -193,8 +203,12 @@ export async function updateUnifiedInventoryShopOrder(
 
   for (const item of items) {
     const sortOrder = orderIndex.get(item.id);
+    const hasVisibilityChange = Object.prototype.hasOwnProperty.call(
+      visibilityById,
+      item.id
+    );
 
-    if (sortOrder === undefined) {
+    if (sortOrder === undefined && !hasVisibilityChange) {
       continue;
     }
 
@@ -203,20 +217,39 @@ export async function updateUnifiedInventoryShopOrder(
     )
       ? item.shopListings
       : [];
+    let listingWasUpdated = false;
     const nextListings = currentListings.map((listing) => {
       if (
         listing &&
         typeof listing === "object" &&
         listing.shopKey === normalizedShopKey
       ) {
+        listingWasUpdated = true;
         return {
           ...listing,
-          sortOrder,
+          ...(sortOrder !== undefined ? { sortOrder } : {}),
+          ...(hasVisibilityChange
+            ? { active: Boolean(visibilityById[item.id]) }
+            : {}),
         };
       }
 
       return listing;
     });
+    if (!listingWasUpdated && hasVisibilityChange) {
+      const primaryCategory = Array.isArray(item.categoryTags)
+        ? String(item.categoryTags[0] || "Uncategorized")
+        : "Uncategorized";
+
+      nextListings.push({
+        shopKey: normalizedShopKey,
+        shopLabel: normalizedShopKey,
+        categoryKey: sanitizeSlug(primaryCategory),
+        categoryLabel: primaryCategory,
+        active: Boolean(visibilityById[item.id]),
+        sortOrder: sortOrder ?? currentListings.length,
+      });
+    }
 
     await db.$executeRaw`
       UPDATE "UnifiedInventoryItem"
@@ -226,6 +259,32 @@ export async function updateUnifiedInventoryShopOrder(
       WHERE "id" = ${item.id}
     `;
   }
+}
+
+export async function deleteUnifiedInventoryItem(db: Database, itemId: string) {
+  await ensureUnifiedInventoryTable(db);
+  const normalizedId = String(itemId || "").trim();
+  if (!normalizedId) {
+    throw new Error("Choose an inventory item to delete.");
+  }
+
+  const rows = await db.$queryRaw<any[]>`
+    SELECT *
+    FROM "UnifiedInventoryItem"
+    WHERE "id" = ${normalizedId}
+    LIMIT 1
+  `;
+  const item = rows[0] || null;
+  if (!item) {
+    throw new Error("Inventory item not found.");
+  }
+
+  await db.$executeRaw`
+    DELETE FROM "UnifiedInventoryItem"
+    WHERE "id" = ${normalizedId}
+  `;
+
+  return item;
 }
 
 export async function syncLittleOrchardCatalogToUnifiedInventory(db: Database) {
@@ -706,7 +765,7 @@ const homeGardenPackageFormats: Array<{
   {
     id: "starter",
     label: "Seedling Pack",
-    description: "Ready to transplant immediately. Lowest cost.",
+    description: "Ready to transplant immediately. Lower cash price with more home growing time.",
     optionSuffix: "STARTER-SEEDLING",
   },
   {
@@ -1175,6 +1234,147 @@ export async function syncHomeGardenPackagesToUnifiedInventory(db: Database) {
   }
 }
 
+export async function syncCallalooPackagesToUnifiedInventory(db: Database) {
+  const subscriptionFrequencies = [
+    {
+      id: "once_weekly",
+      label: "Weekly",
+      description: "Weekly delivery cadence. Billing rule is TBD.",
+    },
+    {
+      id: "three_times_weekly",
+      label: "Three times a week",
+      description: "Three times weekly delivery cadence. Billing rule is TBD.",
+    },
+    {
+      id: "once_every_two_weeks",
+      label: "Every 2 weeks",
+      description: "Every 2 weeks delivery cadence. Billing rule is TBD.",
+    },
+    {
+      id: "twice_every_two_weeks",
+      label: "Twice every 2 weeks",
+      description:
+        "Twice every 2 weeks delivery cadence. Billing rule is TBD.",
+    },
+    {
+      id: "once_monthly",
+      label: "Monthly",
+      description: "Monthly delivery cadence. Billing rule is TBD.",
+    },
+    {
+      id: "twice_monthly",
+      label: "Twice monthly",
+      description: "Twice monthly delivery cadence. Billing rule is TBD.",
+    },
+  ];
+  const subscriptionDurations = [
+    { id: "3m", label: "3 months", months: 3 },
+    { id: "6m", label: "6 months", months: 6 },
+    { id: "12m", label: "12 months", months: 12 },
+  ];
+  const variants = [
+    {
+      id: "fresh-bundle",
+      sku: "CALLALOO-FRESH-BUNDLE",
+      title: "Fresh Callaloo Bundle",
+      price: 200,
+      preparation: "Unprocessed bundle",
+      positioning: "For customers who prefer to prepare their own callaloo.",
+      imageUrl: "/media/paralife_trees/png/product_callaloo_bundled.png",
+      sortOrder: 10,
+    },
+    {
+      id: "cleaned-chopped",
+      sku: "CALLALOO-CLEANED-CHOPPED",
+      title: "Cleaned + Chopped Callaloo",
+      price: 300,
+      preparation: "Cleaned and chopped",
+      positioning: "Removes much of the preparation work.",
+      imageUrl: "/media/paralife_trees/png/product_callaloo_chopped.png",
+      sortOrder: 20,
+    },
+    {
+      id: "cleaned-chopped-seasoned",
+      sku: "CALLALOO-CLEANED-CHOPPED-SEASONED",
+      title: "Cleaned + Chopped + Seasoned Callaloo",
+      price: 400,
+      preparation: "Cleaned, chopped, and seasoned",
+      positioning:
+        "Closest to cooking-ready; seasoning details are still TBD.",
+      imageUrl:
+        "/media/paralife_trees/png/product_callaloo_chopped_seasoned.png",
+      sortOrder: 30,
+    },
+  ];
+
+  for (const variant of variants) {
+    await upsertUnifiedInventoryItem(db, {
+      id: `inventory-callaloo-${variant.id}`,
+      sku: variant.sku,
+      slug: `callaloo-${variant.id}`,
+      title: variant.title,
+      description: `${variant.positioning} Prices and subscription billing rules are placeholders until confirmed.`,
+      detailsDescription:
+        "Callaloo service package. Approx. 1/2 lb per unit. Delivery cadence, term, billing, delivery fees, shelf life, storage, and food-safety details are still TBD.",
+      imageUrl: variant.imageUrl,
+      previewImageUrl: variant.imageUrl,
+      fulfillmentType: "service",
+      active: true,
+      quantityOnHand: 100,
+      quantityReserved: 0,
+      quantityAvailable: 100,
+      shopTags: [CALLALOO_PACKAGE_SHOP_SLUG],
+      categoryTags: ["Package", "Subscription", "Callaloo"],
+      shopListings: [
+        {
+          shopKey: CALLALOO_PACKAGE_SHOP_SLUG,
+          shopLabel: "Callaloo Package",
+          categoryKey: "subscription",
+          categoryLabel: "Subscription",
+          categorySortOrder: 5,
+          active: true,
+          sortOrder: variant.sortOrder,
+        },
+      ],
+      options: subscriptionFrequencies.flatMap((frequency) =>
+        subscriptionDurations.map((duration) => ({
+          id: `${variant.id}-${frequency.id}-${duration.id}`,
+          sku: `${variant.sku}-${frequency.id.toUpperCase()}-${duration.id.toUpperCase()}`,
+          label: `${frequency.label} - ${duration.label}`,
+          description: `${frequency.description} Subscription pricing, discounts, pause, skip, cancellation, and billing schedule are still TBD.`,
+          price: variant.price,
+          weight: null,
+          quantityOnHand: 100,
+          quantityReserved: 0,
+          quantityAvailable: 100,
+          metadata: {
+            source: "callaloo-service-package",
+            preparationLevel: variant.id,
+            frequency: frequency.id,
+            durationMonths: duration.months,
+            pricesArePlaceholder: true,
+            eventQuantityAvailable: 100,
+          },
+        }))
+      ),
+      metadata: {
+        source: "callaloo-service-package",
+        syncVersion: CALLALOO_PACKAGE_SYNC_VERSION,
+        category: "Subscription",
+        packageType: "service",
+        preparationLevel: variant.id,
+        preparation: variant.preparation,
+        approxQuantity: "Approx. 1/2 lb",
+        unitPriceJmd: variant.price,
+        pricesArePlaceholder: true,
+        affiliateStoreKey: CALLALOO_PACKAGE_SHOP_SLUG,
+        affiliateEligible: true,
+      },
+    });
+  }
+}
+
 async function ensureHomeGardenPackageComponentItems(db: Database) {
   const productTitles = Array.from(
     new Set(
@@ -1294,6 +1494,27 @@ function makeHomeGardenPackageContents(
     }`,
     quantity,
   }));
+}
+
+export function getLargestHomeGardenPackageBillOfMaterials(
+  format: HomeGardenPackageFormat = "premium"
+) {
+  const definition =
+    homeGardenPackageDefinitions.find((item) => item.size === "large") ||
+    homeGardenPackageDefinitions[homeGardenPackageDefinitions.length - 1];
+  const packageFormat =
+    homeGardenPackageFormats.find((item) => item.id === format) ||
+    homeGardenPackageFormats[homeGardenPackageFormats.length - 1];
+
+  return {
+    packageId: definition.id,
+    packageTitle: definition.title,
+    packageSubtitle: definition.subtitle,
+    packageSize: definition.size,
+    packageFormatId: packageFormat.id,
+    packageFormatLabel: packageFormat.label,
+    contents: makeHomeGardenPackageContents(definition.size, packageFormat.id),
+  };
 }
 
 function getHomeGardenPackageComponentSlug(productTitle: string) {

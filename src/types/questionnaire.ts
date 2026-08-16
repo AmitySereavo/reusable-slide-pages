@@ -512,6 +512,7 @@ export type FieldType =
   | "textarea"
   | "info"
   | "radio"
+  | "multiselect"
   | "select";
 
 export type FormField = {
@@ -604,6 +605,7 @@ export type Slide = {
   countStep?: boolean;
   showStepText?: boolean;
   showProgressBar?: boolean;
+  showInSidebar?: boolean;
   progressPlacement?: SlideProgressPlacement;
   showReturnHome?: boolean;
   showCancel?: boolean;
@@ -712,6 +714,7 @@ export type QuestionnaireConfig = {
   variables?: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
+  showSidebarChapters?: boolean;
   overlayMode?: "transparent" | "opaque";
   blocks?: Record<string, DataBlockDefinition>;
 };
@@ -740,6 +743,7 @@ export type ParsedSlideDraft = {
   countStep?: boolean;
   showStepText?: boolean;
   showProgressBar?: boolean;
+  showInSidebar?: boolean;
   progressPlacement?: SlideProgressPlacement;
   showReturnHome?: boolean;
   showCancel?: boolean;

@@ -6,6 +6,11 @@ import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest"
 import { getCustomerOrderStageCopy } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import { getAdminSession } from "@/lib/auth/adminGuard";
+import {
+  formatCallalooPrepFormat,
+  getCallalooDeliveryAdjustmentStatus,
+  readCallalooDeliveryPlanFromMetadata,
+} from "@/lib/callaloo/deliveryAdjustments";
 import CustomerDeviceTracker from "@/components/plantShop/CustomerDeviceTracker";
 import CountdownTimer from "./CountdownTimer";
 import BankDetailsCopyPanel from "./BankDetailsCopyPanel";
@@ -55,6 +60,28 @@ function getStatusItemTitle(item: any) {
 
 function getRequestedItemLabel(item: any) {
   return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
+}
+
+function getOrderStatusCopy(metadata: Record<string, unknown>) {
+  if (metadata.questionnaireSlug === "callaloo") {
+    return {
+      eyebrow: "Callaloo Subscription",
+      title: "Subscription Status",
+      securedCopy: "Payment confirmed. Your subscription is secured.",
+      pendingRiskCopy:
+        "Your selected subscription slot may be released if payment is not completed.",
+      lineSectionTitle: "Subscription Details",
+    };
+  }
+
+  return {
+    eyebrow: "Little Orchard Shop",
+    title: "Order Status",
+    securedCopy: "Payment confirmed. Your items are secured.",
+    pendingRiskCopy:
+      "Your items might be made publicly available again, then sold to someone else.",
+    lineSectionTitle: "Items",
+  };
 }
 
 function getSelectedBankDetails(paymentPreference: unknown) {
@@ -162,6 +189,8 @@ export default async function OrderStatusPage({
 
   const firstItem = items[0];
   const metadata = readMetadata(firstItem.metadata);
+  const copy = getOrderStatusCopy(metadata);
+  const callalooDeliveryPlan = readCallalooDeliveryPlanFromMetadata(metadata);
   const orderCode = String(firstItem.orderCode || "");
   const receiptCode = String(metadata.receiptCode || "") || makeReceiptCode(orderCode);
   const paymentStatus = String(metadata.paymentStatus || "AWAITING_PAYMENT");
@@ -238,8 +267,8 @@ export default async function OrderStatusPage({
     <main style={pageStyle}>
       <CustomerDeviceTracker token={token} source="order-status" />
       <section style={panelStyle}>
-        <p style={eyebrowStyle}>Little Orchard Shop</p>
-        <h1 style={titleStyle}>Order Status</h1>
+        <p style={eyebrowStyle}>{copy.eyebrow}</p>
+        <h1 style={titleStyle}>{copy.title}</h1>
         <p style={customerNameStyle}>{customerName}</p>
         <p style={orderCodeStyle}>{orderCode}</p>
 
@@ -251,7 +280,7 @@ export default async function OrderStatusPage({
         >
           {isPaymentConfirmed ? (
             <>
-              <strong>Payment confirmed. Your items are secured.</strong>
+              <strong>{copy.securedCopy}</strong>
               <span>Confirmed at {formatJamaicaDateTime(metadata.paymentConfirmedAt)}</span>
             </>
           ) : (
@@ -260,10 +289,7 @@ export default async function OrderStatusPage({
                 Make payment within{" "}
                 <CountdownTimer expiresAt={paymentWindowExpiresAt} />.
               </strong>
-              <span>
-                Your items might be made publicly available again, then sold to
-                someone else.
-              </span>
+              <span>{copy.pendingRiskCopy}</span>
               <span>
                 Selected payment option: <strong>{paymentPreferenceLabel}</strong>
               </span>
@@ -356,7 +382,7 @@ export default async function OrderStatusPage({
         </section>
 
         <section style={sectionStyle}>
-          <h2 style={sectionTitleStyle}>Items</h2>
+          <h2 style={sectionTitleStyle}>{copy.lineSectionTitle}</h2>
           <div style={itemListStyle}>
             {items.map((item, index) => {
               const interestedPeopleCount =
@@ -400,6 +426,85 @@ export default async function OrderStatusPage({
             })}
           </div>
         </section>
+
+        {callalooDeliveryPlan.length ? (
+          <section style={sectionStyle}>
+            <h2 style={sectionTitleStyle}>Delivery Settings</h2>
+            <p style={mutedStyle}>
+              You can adjust an upcoming Callaloo delivery block until its
+              cutoff. Delivery dates stay fixed for now.
+            </p>
+            <div style={itemListStyle}>
+              {callalooDeliveryPlan.map((block, index) => {
+                const adjustmentStatus = getCallalooDeliveryAdjustmentStatus({
+                  block,
+                });
+
+                return (
+                  <article
+                    key={`${block.id || "callaloo-delivery"}-${index}`}
+                    style={itemStyle}
+                  >
+                    <strong>
+                      {block.deliveryLabel ||
+                        formatDate(block.deliveryDate) ||
+                        `Delivery ${index + 1}`}
+                    </strong>
+                    {block.useLabel ? (
+                      <span>Planned use: {block.useLabel}</span>
+                    ) : null}
+                    <span>
+                      Format: {formatCallalooPrepFormat(block.prepFormat)}
+                    </span>
+                    <span>Parcels: {Number(block.parcelQuantity || 0)}</span>
+                    <span>
+                      Block value:{" "}
+                      {formatMoney(currencyCode, Number(block.lineTotal || 0))}
+                    </span>
+                    <span>
+                      Adjustment cutoff:{" "}
+                      {adjustmentStatus.cutoff
+                        ? formatJamaicaDateTime(adjustmentStatus.cutoff)
+                        : "Not set"}
+                    </span>
+                    <span
+                      style={
+                        adjustmentStatus.canAdjust
+                          ? adjustmentOpenStyle
+                          : adjustmentLockedStyle
+                      }
+                    >
+                      {adjustmentStatus.canAdjust
+                        ? "Adjustments are open for this delivery block."
+                        : "Adjustments are closed for this delivery block."}
+                    </span>
+                    <span style={noteStyle}>{adjustmentStatus.policy}</span>
+                    {block.customerNote ? (
+                      <span style={noteStyle}>Note: {block.customerNote}</span>
+                    ) : null}
+                    <a
+                      href={`/order-status/${encodeURIComponent(
+                        token
+                      )}?adjustDelivery=${encodeURIComponent(
+                        String(block.id || index)
+                      )}`}
+                      aria-disabled={!adjustmentStatus.canAdjust}
+                      style={
+                        adjustmentStatus.canAdjust
+                          ? adjustDeliveryLinkStyle
+                          : disabledAdjustDeliveryLinkStyle
+                      }
+                    >
+                      {adjustmentStatus.canAdjust
+                        ? "Adjust this delivery"
+                        : "Adjustment locked"}
+                    </a>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <div style={orderStatusLinkRowStyle}>
           <a
@@ -593,6 +698,39 @@ const noteStyle = {
   color: "#7B3F2A",
   fontSize: "14px",
   lineHeight: 1.4,
+};
+
+const adjustmentOpenStyle = {
+  color: "#355E3B",
+  fontSize: "14px",
+  fontWeight: 800,
+  lineHeight: 1.4,
+};
+
+const adjustmentLockedStyle = {
+  color: "#8F1D12",
+  fontSize: "14px",
+  fontWeight: 800,
+  lineHeight: 1.4,
+};
+
+const adjustDeliveryLinkStyle = {
+  background: "#355E3B",
+  borderRadius: "12px",
+  color: "#FFFFFF",
+  display: "inline-block",
+  fontWeight: 800,
+  marginTop: "6px",
+  padding: "10px 12px",
+  textAlign: "center" as const,
+  textDecoration: "none",
+};
+
+const disabledAdjustDeliveryLinkStyle = {
+  ...adjustDeliveryLinkStyle,
+  background: "#D7D0C5",
+  color: "rgba(40, 35, 31, 0.58)",
+  cursor: "not-allowed",
 };
 
 const giveawayLinkStyle = {

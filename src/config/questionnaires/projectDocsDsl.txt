@@ -37,7 +37,7 @@ GUIDEGRID|Purpose::Make project knowledge easier to review inside the same DSL s
 # [c2] Core
 # [c2] System
 BR
-GUIDETABLE|Area|What it does||Questionnaire route|`/questionnaire/[slug]` renders registry-backed DSL flows.||QuestionnaireShell|Shared runtime for slides, side panels, media, footer actions, forms, blocks, carts, and navigation.||DSL parser|Turns plain-text DSL files into typed slide config.||Registry|Connects slugs to themes, DSL paths, variables, dynamic endpoints, and blocks.||Themes|Keep flow colors and reusable visual decisions outside individual slide code.||Reusable blocks|Render dashboards, records, forms, account sections, shops, tickets, meals, and guide tables.||Public aliases|Routes such as `/gift`, `/shop`, and grow-guide plant URLs point visitors to the intended flows.
+GUIDETABLE|Area|What it does||Questionnaire route|`/questionnaire/[slug]` renders registry-backed DSL flows.||QuestionnaireShell|Shared runtime for slides, side panels, media, footer actions, forms, blocks, carts, and navigation.||DSL parser|Turns plain-text DSL files into typed slide config.||Registry|Connects slugs to themes, DSL paths, variables, dynamic endpoints, and blocks.||Themes|Keep flow colors and reusable visual decisions outside individual slide code.||Reusable blocks|Render dashboards, records, forms, account sections, shops, tickets, meals, and guide tables.||Public aliases|Routes such as `/gift`, `/shop`, `/affiliate`, and grow-guide plant URLs point visitors to the intended flows.
 @back: Cover
 @next: Next
 @goto: docs-separation-rules
@@ -114,10 +114,29 @@ GUIDETABLE|Media type|Rule||Public media|Store in `public/media/...` and referen
 ---
 # [c2] Dashboard
 BR
-GUIDETABLE|Route|Purpose||`/dashboard`|Lightweight admin index.||`/dashboard/projects`|Project and DSL builder work.||`/dashboard/people`|Leads, accounts, customers, activity, devices, notes, and follow-up records.||`/dashboard/orders`|Digital and physical order fulfillment, payment, delivery, messages, and receipts.||`/dashboard/tickets`|Reusable ticket publishing.||`/dashboard/inventory`|Master inventory and shop/category assignment.||`/dashboard/currencies`|Currency exchange-rate settings.||`/dashboard/email-sequences`|Operational emails, templates, and nurture sequences.
+GUIDETABLE|Route|Purpose||`/dashboard`|Lightweight admin index.||`/dashboard/projects`|Project and DSL builder work.||`/dashboard/people`|Leads, accounts, customers, activity, devices, notes, and follow-up records.||`/dashboard/affiliates`|Affiliate applications, email verification status, approval review, level/scope settings, account setup email, and affiliated-product previews.||`/dashboard/affiliates?view=products`|Approved affiliate product view with commission percentage, estimated JMD commission amount, product links, and associated links.||`/dashboard/orders`|Digital and physical order fulfillment, payment, delivery, messages, and receipts.||`/dashboard/tickets`|Reusable ticket publishing.||`/dashboard/inventory`|Master inventory, shop/category assignment, and item-level affiliate commission overrides.||`/dashboard/discount-codes`|Discount code rules, thresholds, eligibility, and usage limits.||`/dashboard/currencies`|Currency exchange-rate settings.||`/dashboard/email-sequences`|Operational emails, templates, and nurture sequences.
 BR
 [c3] Dashboard pages require `adminLevel >= 1`.
 @back: Media rules
+@next: Next
+@goto: docs-affiliates
+
+===
+
+@id: docs-affiliates
+@type: content
+@title: Affiliates
+@subtitle: Applications and commission
+@pagebgcolor: #F6F0E3
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Affiliate
+# [c2] Workflow
+BR
+GUIDETABLE|Area|What to know||Public flow|`/affiliate` opens the `affiliate-sign-up` DSL application.||Catalog endpoint|`/api/questionnaires/affiliate-sign-up/catalog` supplies eligible stores and product choices.||Email verification|Submitting an application sends the requester a verification link and stores status under `affiliateEmailVerification`.||Review guard|Admins must type `APPROVE`, `DECLINE`, `PAUSE`, or `PENDING` before saving a matching status.||Approval email|New approvals create/update the applicant user record and email a password setup link.||Account handoff|After password setup, the applicant is routed toward login with the account page as the next destination.||Commission source|Shop defaults live in `src/lib/affiliates/storeCommissionSettings.ts`; item overrides live in unified inventory metadata under `affiliateCommission`.||Product preview|`View Affiliated Products` shows matching products, commission percent, estimated JMD amount, product links, and associated links.
+@back: Dashboard
 @next: Next
 @goto: docs-activity
 
@@ -175,7 +194,7 @@ GUIDETABLE|Area|Regression focus||Little Orchard Shop|Products load from databas
 # [c2] Regression
 # [c2] Checks
 BR
-GUIDETABLE|Checklist group|What to verify||Build and startup|`npm run build`, Prisma generate after schema changes, dev startup, core routes.||Reusable shell|No project-only wording or behavior leaks into shared shell code.||Auth|Login, return-to-slide, verification links, reset password, temporary lead sessions.||Side panels|Logged-out, logged-in, admin tabs, active chapter highlights, bookmarks.||Video|Progress tracking, resume behavior, autoplay/ended behavior, footer progress alignment.||Shops and orders|Inventory, cart, checkout, payments, receipts, dashboard order records.||People and CRM|Profiles, notes, activity, devices, follow-up reminders, deletion safeguards.||Grow guides|Hub search, public aliases, side-panel chapters, tracked guide links.
+GUIDETABLE|Checklist group|What to verify||Build and startup|`npm run build`, Prisma generate after schema changes, dev startup, core routes.||Reusable shell|No project-only wording or behavior leaks into shared shell code.||Auth|Login, return-to-slide, verification links, reset password, temporary lead sessions.||Side panels|Logged-out, logged-in, admin tabs, active chapter highlights, bookmarks.||Video|Progress tracking, resume behavior, autoplay/ended behavior, footer progress alignment.||Shops and orders|Inventory, cart, checkout, payments, receipts, dashboard order records.||Affiliates|Application submission, applicant email verification, typed admin approval, setup email, and affiliated-products preview.||People and CRM|Profiles, notes, activity, devices, follow-up reminders, deletion safeguards.||Grow guides|Hub search, public aliases, side-panel chapters, tracked guide links.
 @back: Shops orders
 @next: Next
 @goto: docs-release

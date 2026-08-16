@@ -1,0 +1,63 @@
+// PARA-LIFE TREES
+// CALLALOO RECIPE FLOW
+// Source: Callaloo_Website_Codex_Build_Brief.docx
+// Shell only. Fill recipe content one recipe at a time.
+
+@id: callaloo-recipe-cover
+@type: content
+@title: Callaloo Recipe
+@subtitle: Para-life Trees
+@pagebgcolor: #FBF7EF
+@cardopacity: 1
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Callaloo
+# [c2] Recipe
+BR
+[c3] Vegan-first recipe content for the Callaloo package.
+BR
+GUIDEGRID|Back to hub::/callaloo||Default recipe stance::Vegan by default||Recipe status::Draft, researched, or tested||Affiliate note::Recipe links should be shareable by approved affiliates once affiliate tracking is finalized
+@back: Callaloo
+@backgoto: /callaloo
+@next: Next
+@goto: callaloo-recipe-template
+
+===
+
+@id: callaloo-recipe-template
+@type: content
+@title: Recipe Template
+@subtitle: Data fields
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Recipe
+# [c2] Template
+BR
+GUIDETABLE|Field|Use||Title|Recipe name.||Summary|Short promise or use case.||Category|Traditional / historically documented, Vegan interpretation, or Original / experimental.||Prep time|TBD until tested.||Cook time|TBD until tested.||Servings|TBD until tested.||Ingredients|Use vegan ingredients by default.||Steps|Clear preparation sequence.||Substitutions|Plant-based swaps and ingredient notes.||Callaloo format used|Fresh bundle, cleaned + chopped, or seasoned after details are verified.||Tags|Search and filter terms.||Image|Photo or generated placeholder.||Status|Draft, researched, or tested.
+@back: Cover
+@next: Next
+@goto: callaloo-recipe-placeholders
+
+===
+
+@id: callaloo-recipe-placeholders
+@type: content
+@title: Recipe List
+@subtitle: Initial placeholders
+@pagebgcolor: #FBF7EF
+@showprogressbar: true
+@countstep: true
+@syncurl: true
+---
+# [c2] Recipe
+# [c2] List
+BR
+GUIDETABLE|Recipe|Status||Classic Jamaican-style steamed callaloo - vegan|Draft placeholder||Coconut callaloo|Draft placeholder||Creamy callaloo with plant-based cheese|Draft placeholder||Callaloo and ackee|Draft placeholder||Callaloo rice|Draft placeholder||Callaloo rundown - vegan interpretation|Draft placeholder||Callaloo fritters|Draft placeholder||Creamy callaloo pasta|Draft placeholder||Callaloo-stuffed dumplings|Draft placeholder||Callaloo patty filling - vegan|Draft placeholder||Callaloo soup|Draft placeholder||Callaloo breakfast bowl|Draft placeholder
+@back: Template
+@next: Callaloo package
+@goto: /callaloo

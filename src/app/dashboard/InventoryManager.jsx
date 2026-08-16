@@ -73,6 +73,15 @@ const seedlingActionOptions = [
   { id: "custom", label: "Custom action" },
 ];
 
+const seedlingBatchPurposeOptions = [
+  { id: "seedling-shop", label: "Seedling Shop" },
+  { id: "little-orchard-shop", label: "Little Orchard Shop" },
+  { id: "garden-package", label: "Garden Package" },
+  { id: "callaloo", label: "Callaloo Store" },
+  { id: "greenhouse-stock", label: "General Nursery Stock" },
+  { id: "custom", label: "Custom Purpose" },
+];
+
 const todayInputValue = new Date().toISOString().slice(0, 10);
 
 export default function InventoryManager() {
@@ -93,12 +102,15 @@ export default function InventoryManager() {
   const [showInventoryImages, setShowInventoryImages] = useState(true);
   const [visibilityView, setVisibilityView] = useState("all");
   const [listArrangementDrafts, setListArrangementDrafts] = useState({});
+  const [shopVisibilityDrafts, setShopVisibilityDrafts] = useState({});
+  const [shopSearchTerms, setShopSearchTerms] = useState({});
   const [seedlingBatchData, setSeedlingBatchData] = useState({
     templates: [],
     batches: [],
   });
   const [seedlingBatchForm, setSeedlingBatchForm] = useState({
     cropKey: "",
+    purposeKey: "seedling-shop",
     productionDate: todayInputValue,
     productionTime: "08:00",
     quantityStarted: "",
@@ -115,8 +127,10 @@ export default function InventoryManager() {
   });
 
   const activeStep = flowSteps[stepIndex] || flowSteps[0];
+  const currentShopSearchTerm = String(shopSearchTerms[filterShop] || "");
 
   const filteredItems = useMemo(() => {
+    const searchTerm = normalizeSearchText(shopSearchTerms[filterShop] || "");
     const shopFilteredItems =
       filterShop === "all"
         ? items
@@ -131,11 +145,20 @@ export default function InventoryManager() {
       filterShop === "all" || visibilityView === "all"
         ? displayableShopItems
         : displayableShopItems.filter((item) => {
-            const listing = getShopListing(item, filterShop);
+            const listing = getDraftAwareShopListing(
+              item,
+              filterShop,
+              shopVisibilityDrafts
+            );
             const isHidden = listing?.active === false;
 
             return visibilityView === "hidden" ? isHidden : !isHidden;
           });
+    const searchedItems = searchTerm
+      ? visibleItems.filter((item) =>
+          getInventorySearchText(item).includes(searchTerm)
+        )
+      : visibleItems;
 
     const draftIds =
       filterShop === "all" ? [] : normalizeArray(listArrangementDrafts[filterShop]);
@@ -143,7 +166,7 @@ export default function InventoryManager() {
       draftIds.map((itemId, index) => [String(itemId), index])
     );
 
-    return [...visibleItems].sort((first, second) => {
+    return [...searchedItems].sort((first, second) => {
       const firstDraftIndex = draftIndex.get(String(first.id));
       const secondDraftIndex = draftIndex.get(String(second.id));
       const firstSort =
@@ -160,10 +183,23 @@ export default function InventoryManager() {
         String(first.title || "").localeCompare(String(second.title || ""))
       );
     });
-  }, [filterShop, items, listArrangementDrafts, visibilityView]);
-  const canArrangeShopList = filterShop !== "all" && filteredItems.length > 1;
+  }, [
+    filterShop,
+    items,
+    listArrangementDrafts,
+    shopSearchTerms,
+    shopVisibilityDrafts,
+    visibilityView,
+  ]);
+  const canArrangeShopList =
+    filterShop !== "all" && !currentShopSearchTerm.trim() && filteredItems.length > 1;
+  const canManageShopVisibility = filterShop !== "all";
   const hasListArrangementDraft =
     filterShop !== "all" && Array.isArray(listArrangementDrafts[filterShop]);
+  const hasShopVisibilityDraft =
+    filterShop !== "all" &&
+    Object.keys(shopVisibilityDrafts[filterShop] || {}).length > 0;
+  const hasShopDraftChanges = hasListArrangementDraft || hasShopVisibilityDraft;
 
   useEffect(() => {
     loadItems();
@@ -225,6 +261,7 @@ export default function InventoryManager() {
       body: JSON.stringify({
         action: "create-batch",
         cropKey: seedlingBatchForm.cropKey,
+        purposeKey: seedlingBatchForm.purposeKey,
         productionDate: seedlingBatchForm.productionDate || todayInputValue,
         productionTime: seedlingBatchForm.productionTime || "08:00",
         quantityStarted: Number(seedlingBatchForm.quantityStarted || 0),
@@ -316,6 +353,43 @@ export default function InventoryManager() {
     }));
     await loadItems();
     setStatus("Seedling batch activity recorded.");
+  }
+
+  async function deleteSeedlingBatch(batch) {
+    const confirmation = window.prompt(
+      `Type "delete batch" to remove ${batch.batchName}.`
+    );
+
+    if (confirmation !== "delete batch") {
+      setStatus("Batch deletion cancelled.");
+      return;
+    }
+
+    setIsSaving(true);
+    setStatus(`Deleting ${batch.batchName}...`);
+    const response = await fetch("/api/dashboard/seedling-batches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete-batch",
+        batchId: batch.id,
+        confirmation,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setIsSaving(false);
+
+    if (!response.ok) {
+      setStatus(payload?.error || "Batch could not be deleted.");
+      return;
+    }
+
+    setSeedlingBatchData({
+      templates: payload.templates || seedlingBatchData.templates,
+      batches: payload.batches || [],
+    });
+    await loadItems();
+    setStatus(`Deleted: ${payload.deletedBatch?.batchName || batch.batchName}.`);
   }
 
   async function syncLittleOrchardConfig() {
@@ -500,6 +574,15 @@ export default function InventoryManager() {
       priceIncreaseDate: draft.priceIncreaseDate || "",
       expiryDate: draft.expiryDate || "",
       packageContents: parsePackageContentsText(draft.packageContentsText),
+      affiliateCommission: {
+        bronzePercent: toPercentNumber(draft.affiliateBronzePercent),
+        silverPercent: toPercentNumber(draft.affiliateSilverPercent),
+        goldPercent: toPercentNumber(draft.affiliateGoldPercent),
+        storeKeys: splitCsv(draft.affiliateStoreKeysText),
+        productSkus: splitCsv(draft.affiliateProductSkusText).map((sku) =>
+          sku.toUpperCase()
+        ),
+      },
     };
     const shopListings = shopTags.map((shopId) => {
       const existingListing = getShopListing(item, shopId);
@@ -590,15 +673,16 @@ export default function InventoryManager() {
     }
 
     const draftIds = normalizeArray(listArrangementDrafts[filterShop]);
+    const visibilityById = shopVisibilityDrafts[filterShop] || {};
 
-    if (!draftIds.length) {
-      setStatus("Arrange the list before publishing it.");
+    if (!draftIds.length && !Object.keys(visibilityById).length) {
+      setStatus("Stage a list or visibility change before publishing it.");
       return;
     }
 
     const scrollTop = window.scrollY;
     setIsSaving(true);
-    setStatus(`Publishing list arrangement for ${getShopLabel(filterShop)}...`);
+    setStatus(`Publishing shop changes for ${getShopLabel(filterShop)}...`);
     const response = await fetch("/api/dashboard/inventory/unified", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -606,6 +690,7 @@ export default function InventoryManager() {
         action: "reorder-shop-items",
         shopKey: filterShop,
         orderedIds: draftIds,
+        visibilityById,
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -622,11 +707,16 @@ export default function InventoryManager() {
       delete nextDrafts[filterShop];
       return nextDrafts;
     });
+    setShopVisibilityDrafts((current) => {
+      const nextDrafts = { ...current };
+      delete nextDrafts[filterShop];
+      return nextDrafts;
+    });
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: scrollTop });
     });
     setStatus(
-      `Published: list arrangement is now live in ${getShopLabel(filterShop)}.`
+      `Published: shop changes are now live in ${getShopLabel(filterShop)}.`
     );
   }
 
@@ -636,77 +726,25 @@ export default function InventoryManager() {
       return;
     }
 
-    const currentListing = getShopListing(item, filterShop);
-    const nextActive = currentListing?.active === false;
-    const categoryTags = normalizeArray(item.categoryTags);
-    const primaryCategory = categoryTags[0] || "Uncategorized";
-    const shopListings = normalizeArray(item.shopListings);
-    const hasCurrentListing = Boolean(currentListing);
-    const nextShopListings = hasCurrentListing
-      ? shopListings.map((listing) =>
-          listing &&
-          typeof listing === "object" &&
-          listing.shopKey === filterShop
-            ? { ...listing, active: nextActive }
-            : listing
-        )
-      : [
-          ...shopListings,
-          {
-            shopKey: filterShop,
-            shopLabel: getShopLabel(filterShop),
-            categoryKey: slugify(primaryCategory),
-            categoryLabel: primaryCategory,
-            active: nextActive,
-            sortOrder: getInventorySortValue(item, filterShop),
-          },
-        ];
-
-    setIsSaving(true);
-    setStatus(
-      `${nextActive ? "Showing" : "Hiding"} ${item.title} in ${getShopLabel(
-        filterShop
-      )}...`
+    const currentListing = getDraftAwareShopListing(
+      item,
+      filterShop,
+      shopVisibilityDrafts
     );
-
-    const response = await fetch("/api/dashboard/inventory/unified", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "upsert-item",
-        id: item.id,
-        sku: item.sku,
-        slug: item.slug || item.title,
-        title: item.title,
-        description: item.description,
-        detailsDescription: item.detailsDescription,
-        imageUrl: item.imageUrl,
-        previewImageUrl: item.previewImageUrl,
-        fulfillmentType: item.fulfillmentType,
-        active: item.active,
-        quantityOnHand: item.quantityOnHand,
-        quantityReserved: item.quantityReserved,
-        quantityAvailable: item.quantityAvailable,
-        shopTags: normalizeArray(item.shopTags),
-        categoryTags,
-        shopListings: nextShopListings,
-        options: normalizeArray(item.options),
-        metadata: getItemMetadata(item),
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    setIsSaving(false);
-
-    if (!response.ok) {
-      setStatus(payload?.error || "Shop visibility could not be updated.");
-      return;
-    }
-
-    setItems(payload.items || []);
+    const nextActive = currentListing?.active === false;
+    setShopVisibilityDrafts((current) => ({
+      ...current,
+      [filterShop]: {
+        ...(current[filterShop] || {}),
+        [item.id]: nextActive,
+      },
+    }));
     setStatus(
-      `${item.title} is now ${
-        nextActive ? "visible" : "hidden"
-      } in ${getShopLabel(filterShop)}.`
+      `Draft only: ${item.title} will be ${
+        nextActive ? "shown" : "hidden"
+      } in ${getShopLabel(
+        filterShop
+      )}. Publish shop changes when ready.`
     );
   }
 
@@ -892,14 +930,14 @@ export default function InventoryManager() {
               type="button"
               style={{
                 ...styles.primaryCompactButton,
-                ...(!hasListArrangementDraft
+              ...(!hasShopDraftChanges
                   ? styles.primaryCompactButtonDisabled
                   : null),
               }}
-              disabled={isSaving || !hasListArrangementDraft}
+              disabled={isSaving || !hasShopDraftChanges}
               onClick={publishListArrangement}
             >
-              Publish List Arrangement
+              Publish Shop Changes
             </button>
           ) : null}
           {filterShop !== "all" ? (
@@ -930,30 +968,39 @@ export default function InventoryManager() {
               </label>
             </div>
           ) : null}
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            disabled={isSaving}
-            onClick={syncLittleOrchardConfig}
-          >
-            Sync Little Orchard Catalog
-          </button>
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            disabled={isSaving}
-            onClick={syncNurseryPriceList}
-          >
-            Add Nursery Price List
-          </button>
-          <button
-            type="button"
-            style={styles.secondaryButton}
-            disabled={isSaving}
-            onClick={syncHomeGardenPackages}
-          >
-            Add Home Garden Packs
-          </button>
+          <label style={styles.shopSearchField}>
+            <span>
+              Search {filterShop === "all" ? "all inventory" : getShopLabel(filterShop)}
+            </span>
+            <div style={styles.searchInputRow}>
+              <input
+                type="search"
+                value={currentShopSearchTerm}
+                onChange={(event) =>
+                  setShopSearchTerms((current) => ({
+                    ...current,
+                    [filterShop]: event.target.value,
+                  }))
+                }
+                placeholder="Search name, SKU, category, option..."
+                style={styles.input}
+              />
+              {currentShopSearchTerm ? (
+                <button
+                  type="button"
+                  style={styles.secondaryButton}
+                  onClick={() =>
+                    setShopSearchTerms((current) => ({
+                      ...current,
+                      [filterShop]: "",
+                    }))
+                  }
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </label>
         </div>
       </div>
 
@@ -971,13 +1018,14 @@ export default function InventoryManager() {
         </p>
       ) : null}
 
+      {false ? (
       <div style={styles.panel}>
         <div style={styles.panelHeader}>
           <div>
             <h3 style={styles.h3}>Seedling Shop</h3>
             <p style={styles.copy}>
-              Create dated seedling and cutting batches. Each batch becomes a
-              Seedling Shop listing in unified inventory.
+              Create dated seedling and cutting batches. Each batch is attached
+              to the shop or production purpose it was grown to feed.
             </p>
           </div>
           <a href="/seedlings" style={styles.inlineLink}>
@@ -1007,6 +1055,26 @@ export default function InventoryManager() {
               {seedlingBatchData.templates.map((template) => (
                 <option key={template.key} value={template.key}>
                   {template.cropName} ({template.propagationType})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={styles.field}>
+            <span>Sown / propagated for</span>
+            <select
+              value={seedlingBatchForm.purposeKey}
+              onChange={(event) =>
+                setSeedlingBatchForm((current) => ({
+                  ...current,
+                  purposeKey: event.target.value,
+                }))
+              }
+              style={styles.input}
+            >
+              {seedlingBatchPurposeOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -1116,7 +1184,10 @@ export default function InventoryManager() {
                   <div>
                     <strong>{batch.batchName}</strong>
                     <p style={styles.copy}>
-                      {batch.propagationType} batch • {batch.status}
+                      {batch.propagationType} batch - {batch.status}
+                      {batch.productionPurpose?.label
+                        ? ` - For ${batch.productionPurpose.label}`
+                        : ""}
                     </p>
                   </div>
                   <strong>{formatJmd(batch.currentPrice)}</strong>
@@ -1144,6 +1215,14 @@ export default function InventoryManager() {
                     Next price movement: {formatDateTime(batch.nextPriceIncreaseAt)}
                   </p>
                 ) : null}
+                <button
+                  type="button"
+                  style={styles.dangerButton}
+                  disabled={isSaving}
+                  onClick={() => deleteSeedlingBatch(batch)}
+                >
+                  Delete batch
+                </button>
               </article>
             ))
           ) : (
@@ -1263,13 +1342,16 @@ export default function InventoryManager() {
           </button>
         </div>
       </div>
+      ) : null}
 
       <div style={styles.panel}>
         <h3 style={styles.h3}>All Inventory</h3>
         <p style={styles.copy}>
           {filterShop === "all"
             ? "Select a shop to arrange its storefront list."
-            : "Use the visibility view to focus the list. Arrange with drag, U/D, or the position number. Publish when ready."}
+            : currentShopSearchTerm.trim()
+              ? "Search is filtering this shop. Clear search before arranging the storefront list."
+              : "Use the visibility view to focus the list. Arrange with drag, U/D, or the position number. Publish when ready."}
         </p>
         {filteredItems.length ? (
           <div style={styles.inventoryList}>
@@ -1282,7 +1364,13 @@ export default function InventoryManager() {
               const variationInfo = getVariationInfo(item, options);
               const isItemExpanded = expandedItemIds[item.id] === true;
               const selectedShopListing =
-                filterShop === "all" ? null : getShopListing(item, filterShop);
+                filterShop === "all"
+                  ? null
+                  : getDraftAwareShopListing(
+                      item,
+                      filterShop,
+                      shopVisibilityDrafts
+                    );
               const isHiddenInSelectedShop =
                 filterShop !== "all" && selectedShopListing?.active === false;
 
@@ -1403,7 +1491,7 @@ export default function InventoryManager() {
                           : null),
                       }}
                     >
-                      {canArrangeShopList && !isCompactView ? (
+                      {canManageShopVisibility && !isCompactView ? (
                         <span style={styles.topOrderControls}>
                           <button
                             type="button"
@@ -1418,55 +1506,59 @@ export default function InventoryManager() {
                           >
                             {isHiddenInSelectedShop ? "Show" : "Hide"}
                           </button>
-                          <button
-                            type="button"
-                            style={styles.iconMoveButton}
-                            disabled={isSaving || index === 0}
-                            onClick={() => moveShopItem(item.id, -1)}
-                            title="Move up"
-                          >
-                            U
-                          </button>
-                          <input
-                            key={`${filterShop}-${item.id}-${index}-desktop-position`}
-                            type="number"
-                            min="1"
-                            max={filteredItems.length}
-                            defaultValue={index + 1}
-                            disabled={isSaving}
-                            style={styles.positionInput}
-                            title="List position"
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                moveShopItemToPosition(
-                                  item.id,
-                                  event.currentTarget.value
-                                );
-                              }
-                            }}
-                            onBlur={(event) =>
-                              moveShopItemToPosition(
-                                item.id,
-                                event.currentTarget.value
-                              )
-                            }
-                          />
-                          <button
-                            type="button"
-                            style={styles.iconMoveButton}
-                            disabled={isSaving || index === filteredItems.length - 1}
-                            onClick={() => moveShopItem(item.id, 1)}
-                            title="Move down"
-                          >
-                            D
-                          </button>
-                          <span
-                            style={styles.dragHandle}
-                            title="Click and hold the card, then drag to arrange"
-                          >
-                            Drag
-                          </span>
+                          {canArrangeShopList ? (
+                            <>
+                              <button
+                                type="button"
+                                style={styles.iconMoveButton}
+                                disabled={isSaving || index === 0}
+                                onClick={() => moveShopItem(item.id, -1)}
+                                title="Move up"
+                              >
+                                U
+                              </button>
+                              <input
+                                key={`${filterShop}-${item.id}-${index}-desktop-position`}
+                                type="number"
+                                min="1"
+                                max={filteredItems.length}
+                                defaultValue={index + 1}
+                                disabled={isSaving}
+                                style={styles.positionInput}
+                                title="List position"
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    moveShopItemToPosition(
+                                      item.id,
+                                      event.currentTarget.value
+                                    );
+                                  }
+                                }}
+                                onBlur={(event) =>
+                                  moveShopItemToPosition(
+                                    item.id,
+                                    event.currentTarget.value
+                                  )
+                                }
+                              />
+                              <button
+                                type="button"
+                                style={styles.iconMoveButton}
+                                disabled={isSaving || index === filteredItems.length - 1}
+                                onClick={() => moveShopItem(item.id, 1)}
+                                title="Move down"
+                              >
+                                D
+                              </button>
+                              <span
+                                style={styles.dragHandle}
+                                title="Click and hold the card, then drag to arrange"
+                              >
+                                Drag
+                              </span>
+                            </>
+                          ) : null}
                         </span>
                       ) : !isCompactView ? (
                         <span style={styles.reorderHint}>Select shop to arrange</span>
@@ -1489,7 +1581,7 @@ export default function InventoryManager() {
 
                   {isCompactView ? (
                     <div style={styles.mobileOrderRow}>
-                      {canArrangeShopList ? (
+                      {canManageShopVisibility ? (
                         <span style={styles.topOrderControlsCompact}>
                           <button
                             type="button"
@@ -1504,55 +1596,59 @@ export default function InventoryManager() {
                           >
                             {isHiddenInSelectedShop ? "Show" : "Hide"}
                           </button>
-                          <button
-                            type="button"
-                            style={styles.iconMoveButton}
-                            disabled={isSaving || index === 0}
-                            onClick={() => moveShopItem(item.id, -1)}
-                            title="Move up"
-                          >
-                            U
-                          </button>
-                          <input
-                            key={`${filterShop}-${item.id}-${index}-mobile-position`}
-                            type="number"
-                            min="1"
-                            max={filteredItems.length}
-                            defaultValue={index + 1}
-                            disabled={isSaving}
-                            style={styles.positionInput}
-                            title="List position"
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                moveShopItemToPosition(
-                                  item.id,
-                                  event.currentTarget.value
-                                );
-                              }
-                            }}
-                            onBlur={(event) =>
-                              moveShopItemToPosition(
-                                item.id,
-                                event.currentTarget.value
-                              )
-                            }
-                          />
-                          <button
-                            type="button"
-                            style={styles.iconMoveButton}
-                            disabled={isSaving || index === filteredItems.length - 1}
-                            onClick={() => moveShopItem(item.id, 1)}
-                            title="Move down"
-                          >
-                            D
-                          </button>
-                          <span
-                            style={styles.dragHandle}
-                            title="Click and hold the card, then drag to arrange"
-                          >
-                            Drag
-                          </span>
+                          {canArrangeShopList ? (
+                            <>
+                              <button
+                                type="button"
+                                style={styles.iconMoveButton}
+                                disabled={isSaving || index === 0}
+                                onClick={() => moveShopItem(item.id, -1)}
+                                title="Move up"
+                              >
+                                U
+                              </button>
+                              <input
+                                key={`${filterShop}-${item.id}-${index}-mobile-position`}
+                                type="number"
+                                min="1"
+                                max={filteredItems.length}
+                                defaultValue={index + 1}
+                                disabled={isSaving}
+                                style={styles.positionInput}
+                                title="List position"
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    moveShopItemToPosition(
+                                      item.id,
+                                      event.currentTarget.value
+                                    );
+                                  }
+                                }}
+                                onBlur={(event) =>
+                                  moveShopItemToPosition(
+                                    item.id,
+                                    event.currentTarget.value
+                                  )
+                                }
+                              />
+                              <button
+                                type="button"
+                                style={styles.iconMoveButton}
+                                disabled={isSaving || index === filteredItems.length - 1}
+                                onClick={() => moveShopItem(item.id, 1)}
+                                title="Move down"
+                              >
+                                D
+                              </button>
+                              <span
+                                style={styles.dragHandle}
+                                title="Click and hold the card, then drag to arrange"
+                              >
+                                Drag
+                              </span>
+                            </>
+                          ) : null}
                         </span>
                       ) : (
                         <span style={styles.reorderHint}>Select shop to arrange</span>
@@ -1762,6 +1858,39 @@ export default function InventoryManager() {
                           </button>
                         </div>
                       ) : null}
+
+                      <div
+                        style={{
+                          ...styles.recordSection,
+                          ...(isCompactView ? styles.recordSectionCompact : null),
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...styles.recordSectionLabel,
+                            ...(isCompactView
+                              ? styles.recordSectionLabelCompact
+                              : null),
+                          }}
+                        >
+                          Affiliate:
+                        </span>
+                        <span
+                          style={{
+                            ...styles.recordStats,
+                            ...(isCompactView ? styles.recordStatsCompact : null),
+                          }}
+                        >
+                          {formatAffiliateCommissionSummary(item)}
+                        </span>
+                        <button
+                          type="button"
+                          style={styles.editLinkButton}
+                          onClick={() => beginInlineEdit(item, "affiliate")}
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </>
                   ) : null}
 
@@ -1813,6 +1942,16 @@ export default function InventoryManager() {
                       onClick={() => beginInlineEdit(item, "dates")}
                     >
                       Dates
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.footerTextButton,
+                        ...(isCompactView ? styles.footerTextButtonCompact : null),
+                      }}
+                      onClick={() => beginInlineEdit(item, "affiliate")}
+                    >
+                      Affiliate
                     </button>
                   </div>
                   ) : null}
@@ -2258,6 +2397,58 @@ function InlineInventoryEditor({
         </label>
       ) : null}
 
+      {section === "affiliate" ? (
+        <div style={styles.inlineSection}>
+          <div style={styles.inlineEditorGrid}>
+            <Field
+              label="Bronze commission percent"
+              type="number"
+              value={draft.affiliateBronzePercent}
+              onChange={(value) =>
+                onUpdate(itemId, "affiliateBronzePercent", value)
+              }
+            />
+            <Field
+              label="Silver commission percent"
+              type="number"
+              value={draft.affiliateSilverPercent}
+              onChange={(value) =>
+                onUpdate(itemId, "affiliateSilverPercent", value)
+              }
+            />
+            <Field
+              label="Gold commission percent"
+              type="number"
+              value={draft.affiliateGoldPercent}
+              onChange={(value) =>
+                onUpdate(itemId, "affiliateGoldPercent", value)
+              }
+            />
+          </div>
+          <div style={styles.inlineEditorGrid}>
+            <Field
+              label="Eligible store keys, comma separated"
+              value={draft.affiliateStoreKeysText}
+              onChange={(value) =>
+                onUpdate(itemId, "affiliateStoreKeysText", value)
+              }
+            />
+            <Field
+              label="Eligible product SKUs, comma separated"
+              value={draft.affiliateProductSkusText}
+              onChange={(value) =>
+                onUpdate(itemId, "affiliateProductSkusText", value)
+              }
+            />
+          </div>
+          <span style={styles.inlineHelper}>
+            Leave percentages at 0 when this item should not generate affiliate
+            commission. Store and SKU lists can be blank when the item follows
+            the affiliate's approved scope.
+          </span>
+        </div>
+      ) : null}
+
       <div style={styles.actions}>
         <button
           type="button"
@@ -2276,6 +2467,35 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getInventorySearchText(item) {
+  const options = normalizeArray(item.options);
+  const searchParts = [
+    item.title,
+    item.sku,
+    item.slug,
+    item.description,
+    item.detailsDescription,
+    item.fulfillmentType,
+    ...normalizeArray(item.categoryTags),
+    ...normalizeArray(item.shopTags).map(getShopLabel),
+    ...options.flatMap((option) => [
+      option?.id,
+      option?.sku,
+      option?.label,
+      option?.description,
+    ]),
+  ];
+
+  return normalizeSearchText(searchParts.filter(Boolean).join(" "));
+}
+
 function getEditorSectionTitle(section) {
   const titles = {
     identity: "Edit product identity",
@@ -2287,6 +2507,7 @@ function getEditorSectionTitle(section) {
     dates: "Edit dates",
     adCopy: "Edit ad copy",
     package: "Edit package content",
+    affiliate: "Edit affiliate commission",
   };
 
   return titles[section] || "Edit inventory item";
@@ -2294,6 +2515,11 @@ function getEditorSectionTitle(section) {
 
 function makeItemDraft(item) {
   const metadata = getItemMetadata(item);
+  const affiliateCommission =
+    metadata.affiliateCommission &&
+    typeof metadata.affiliateCommission === "object"
+      ? metadata.affiliateCommission
+      : {};
   const options = normalizeArray(item.options);
   const primaryOption = options[0] || {};
   const priceInfo = getInventoryPriceInfo(item, options);
@@ -2325,6 +2551,11 @@ function makeItemDraft(item) {
     priceIncreaseDate: normalizeDateInput(metadata.priceIncreaseDate),
     expiryDate: normalizeDateInput(metadata.expiryDate),
     packageContentsText: formatPackageContentsText(metadata.packageContents),
+    affiliateBronzePercent: affiliateCommission.bronzePercent ?? 0,
+    affiliateSilverPercent: affiliateCommission.silverPercent ?? 0,
+    affiliateGoldPercent: affiliateCommission.goldPercent ?? 0,
+    affiliateStoreKeysText: normalizeArray(affiliateCommission.storeKeys).join(", "),
+    affiliateProductSkusText: normalizeArray(affiliateCommission.productSkus).join(", "),
   };
 }
 
@@ -2415,6 +2646,30 @@ function getPackageContentsSummary(item) {
   return optionSummaries.join("; ");
 }
 
+function formatAffiliateCommissionSummary(item) {
+  const metadata = getItemMetadata(item);
+  const affiliateCommission =
+    metadata.affiliateCommission &&
+    typeof metadata.affiliateCommission === "object"
+      ? metadata.affiliateCommission
+      : {};
+  const bronze = toPercentNumber(affiliateCommission.bronzePercent);
+  const silver = toPercentNumber(affiliateCommission.silverPercent);
+  const gold = toPercentNumber(affiliateCommission.goldPercent);
+
+  if (!bronze && !silver && !gold) {
+    return "No commission set";
+  }
+
+  return (
+    <>
+      <span>Bronze: {bronze}%</span>
+      <span>Silver: {silver}%</span>
+      <span>Gold: {gold}%</span>
+    </>
+  );
+}
+
 function normalizeCategoryTags(value) {
   const seen = new Set();
 
@@ -2444,6 +2699,20 @@ function getShopListing(item, shopId) {
         listing && typeof listing === "object" && listing.shopKey === shopId
     ) || null
   );
+}
+
+function getDraftAwareShopListing(item, shopId, visibilityDrafts) {
+  const listing = getShopListing(item, shopId);
+  const shopDraft = visibilityDrafts?.[shopId] || {};
+
+  if (!Object.prototype.hasOwnProperty.call(shopDraft, item.id)) {
+    return listing;
+  }
+
+  return {
+    ...(listing || { shopKey: shopId }),
+    active: Boolean(shopDraft[item.id]),
+  };
 }
 
 function getInventorySortValue(item, shopId) {
@@ -2606,6 +2875,23 @@ function toOptionalPositiveNumber(value) {
   const parsed = Number(value);
 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : "";
+}
+
+function toPercentNumber(value) {
+  const parsed = Number(value || 0);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+
+  return Math.min(100, parsed);
+}
+
+function splitCsv(value) {
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function normalizeDateInput(value) {
@@ -3213,6 +3499,19 @@ const styles = {
     fontWeight: 800,
     gap: "5px",
   },
+  shopSearchField: {
+    display: "grid",
+    flex: "1 1 320px",
+    gap: "6px",
+    fontSize: "13px",
+    fontWeight: 800,
+    minWidth: "240px",
+  },
+  searchInputRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "8px",
+  },
   primaryButton: {
     background: "#2f6f3e",
     border: "none",
@@ -3241,6 +3540,16 @@ const styles = {
     borderRadius: "6px",
     cursor: "pointer",
     fontWeight: 700,
+    padding: "10px 14px",
+  },
+  dangerButton: {
+    background: "#fff",
+    border: "1px solid rgba(160, 23, 23, 0.28)",
+    borderRadius: "6px",
+    color: "#a01717",
+    cursor: "pointer",
+    fontWeight: 800,
+    justifySelf: "start",
     padding: "10px 14px",
   },
   smallButton: {

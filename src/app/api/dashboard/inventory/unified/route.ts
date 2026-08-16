@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import {
+  deleteUnifiedInventoryItem,
   getUnifiedInventoryItems,
   syncNurseryPriceListToUnifiedInventory,
   syncLittleOrchardCatalogToUnifiedInventory,
@@ -9,6 +10,7 @@ import {
   syncHomeGardenPackagesToUnifiedInventory,
   upsertUnifiedInventoryItem,
 } from "@/lib/inventory/unifiedInventory";
+import { reconcileSeedlingBatchShopLinksFromInventory } from "@/lib/seedlings/seedlingBatches";
 
 export async function GET() {
   const guard = await requireAdminSessionJson();
@@ -56,6 +58,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const metadata =
+      body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+        ? body.metadata
+        : {};
+    const shopTags = Array.isArray(body.shopTags) ? body.shopTags : [];
+    const shopListings = Array.isArray(body.shopListings) ? body.shopListings : [];
+
     await upsertUnifiedInventoryItem(prisma as any, {
       id: body.id,
       sku: body.sku,
@@ -70,15 +79,23 @@ export async function POST(request: Request) {
       quantityOnHand: body.quantityOnHand,
       quantityReserved: body.quantityReserved,
       quantityAvailable: body.quantityAvailable,
-      shopTags: Array.isArray(body.shopTags) ? body.shopTags : [],
+      shopTags,
       categoryTags: Array.isArray(body.categoryTags) ? body.categoryTags : [],
-      shopListings: Array.isArray(body.shopListings) ? body.shopListings : [],
+      shopListings,
       options: Array.isArray(body.options) ? body.options : [],
-      metadata:
-        body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
-          ? body.metadata
-          : {},
+      metadata,
     });
+
+    if (
+      metadata.source === "seedling-production-batch" &&
+      typeof metadata.seedlingBatchId === "string"
+    ) {
+      await reconcileSeedlingBatchShopLinksFromInventory(prisma as any, {
+        batchId: metadata.seedlingBatchId,
+        shopTags,
+        shopListings,
+      });
+    }
 
     const items = await getUnifiedInventoryItems(prisma as any);
 
@@ -90,10 +107,21 @@ export async function POST(request: Request) {
     const orderedIds = Array.isArray(body?.orderedIds)
       ? body.orderedIds.map((id: unknown) => String(id)).filter(Boolean)
       : [];
+    const visibilityById =
+      body?.visibilityById &&
+      typeof body.visibilityById === "object" &&
+      !Array.isArray(body.visibilityById)
+        ? Object.fromEntries(
+            Object.entries(body.visibilityById).map(([id, active]) => [
+              String(id),
+              Boolean(active),
+            ])
+          )
+        : {};
 
-    if (!shopKey || !orderedIds.length) {
+    if (!shopKey || (!orderedIds.length && !Object.keys(visibilityById).length)) {
       return NextResponse.json(
-        { error: "Shop and ordered inventory ids are required." },
+        { error: "Shop and staged inventory changes are required." },
         { status: 400 }
       );
     }
@@ -101,11 +129,40 @@ export async function POST(request: Request) {
     await updateUnifiedInventoryShopOrder(
       prisma as any,
       shopKey,
-      orderedIds
+      orderedIds,
+      visibilityById
     );
     const items = await getUnifiedInventoryItems(prisma as any);
 
     return NextResponse.json({ ok: true, items });
+  }
+
+  if (body?.action === "delete-item") {
+    const deletedItem = await deleteUnifiedInventoryItem(
+      prisma as any,
+      String(body?.itemId || "")
+    );
+    const metadata =
+      deletedItem.metadata &&
+      typeof deletedItem.metadata === "object" &&
+      !Array.isArray(deletedItem.metadata)
+        ? deletedItem.metadata
+        : {};
+
+    if (
+      metadata.source === "seedling-production-batch" &&
+      typeof metadata.seedlingBatchId === "string"
+    ) {
+      await reconcileSeedlingBatchShopLinksFromInventory(prisma as any, {
+        batchId: metadata.seedlingBatchId,
+        shopTags: [],
+        shopListings: [],
+      });
+    }
+
+    const items = await getUnifiedInventoryItems(prisma as any);
+
+    return NextResponse.json({ ok: true, deletedItem, items });
   }
 
   return NextResponse.json(

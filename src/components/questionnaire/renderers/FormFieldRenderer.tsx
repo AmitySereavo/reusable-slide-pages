@@ -203,6 +203,58 @@ export default function FormFieldRenderer({
     );
   }
 
+  if (field.type === "multiselect") {
+    const selectedValues = Array.isArray(answers[field.name])
+      ? (answers[field.name] as Array<string | number | boolean>)
+      : [];
+    const maxSelections =
+      field.name === "affiliateProductSkuSelection" ? 3 : Number.POSITIVE_INFINITY;
+
+    return (
+      <div style={fieldFrameStyle}>
+        <div style={fieldLabelStyle}>{resolvedLabel}</div>
+        {resolvedPlaceholder ? (
+          <p className={styles.fieldHelpText}>{resolvedPlaceholder}</p>
+        ) : null}
+        <div className={styles.radioOptionStack}>
+          {(field.options ?? []).map((option) => {
+            const isSelected = selectedValues.includes(option.value);
+            const hasReachedLimit =
+              !isSelected && selectedValues.length >= maxSelections;
+
+            return (
+              <label
+                key={`${field.name}-${option.value}`}
+                className={styles.radioOptionRow}
+              >
+                <input
+                  type="checkbox"
+                  value={String(option.value)}
+                  checked={isSelected}
+                  disabled={option.disabled === true || hasReachedLimit}
+                  onChange={(event) => {
+                    const nextValues = event.target.checked
+                      ? [...selectedValues, option.value].slice(0, maxSelections)
+                      : selectedValues.filter((value) => value !== option.value);
+
+                    setAnswer(field.name, nextValues);
+                  }}
+                />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        {Number.isFinite(maxSelections) ? (
+          <p className={styles.fieldHelpText}>
+            Choose up to {maxSelections}. Selected: {selectedValues.length}.
+          </p>
+        ) : null}
+        {fieldError}
+      </div>
+    );
+  }
+
   if (field.type === "textarea") {
     return (
       <div style={fieldFrameStyle}>
@@ -335,6 +387,7 @@ export default function FormFieldRenderer({
 
     const passwordStrength =
       field.name === "password" ? getPasswordStrength(fieldValue) : null;
+    const passwordAutocomplete = getPasswordAutocomplete(field);
 
     const passwordRequirementResults =
       field.name === "password"
@@ -358,7 +411,7 @@ export default function FormFieldRenderer({
             onDrop={
               isConfirmPassword ? (event) => event.preventDefault() : undefined
             }
-            autoComplete="new-password"
+            autoComplete={passwordAutocomplete}
             style={{ borderColor: theme.colors.border }}
           />
 
@@ -450,4 +503,22 @@ export default function FormFieldRenderer({
     {fieldError}
   </div>
 );
+}
+
+function getPasswordAutocomplete(field: FormField) {
+  const fieldName = String(field.name || "").toLowerCase();
+  const label = String(field.label || "").toLowerCase();
+  const placeholder = String(field.placeholder || "").toLowerCase();
+  const combined = `${fieldName} ${label} ${placeholder}`;
+
+  if (
+    fieldName.includes("confirm") ||
+    combined.includes("new password") ||
+    combined.includes("create") ||
+    combined.includes("confirm")
+  ) {
+    return "new-password";
+  }
+
+  return "current-password";
 }

@@ -12,7 +12,11 @@ import {
   getLittleOrchardUnifiedShopCatalog,
   getUnifiedShopCatalog,
 } from "@/lib/inventory/littleOrchardUnifiedCatalog";
-import { syncHomeGardenPackagesToUnifiedInventory } from "@/lib/inventory/unifiedInventory";
+import {
+  CALLALOO_PACKAGE_SHOP_SLUG,
+  syncCallalooPackagesToUnifiedInventory,
+  syncHomeGardenPackagesToUnifiedInventory,
+} from "@/lib/inventory/unifiedInventory";
 import { getPlantShopEventQuantityOverrideMap } from "@/lib/plantShop/eventQuantityOverrides";
 import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
 import {
@@ -20,7 +24,11 @@ import {
   getLittleOrchardFulfillmentKey,
   getLittleOrchardFulfillmentOption,
 } from "@/lib/questionnaire/littleOrchardFulfillment";
-import { resolveShopSelectedLines } from "@/lib/questionnaire/shop";
+import {
+  getDefaultPurchaseModeId,
+  makeShopLineKey,
+  resolveShopSelectedLines,
+} from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
@@ -49,6 +57,8 @@ type PlantShopOrderBody = {
   deviceType?: string;
   contactMethod?: string;
   orderCart?: ShopCart;
+  resolvedLines?: ShopResolvedCartLine[];
+  orderSummary?: Record<string, unknown>;
   answers?: Record<string, unknown>;
   discountCode?: string;
 };
@@ -108,6 +118,63 @@ function normalizeOrderCart(value: unknown): ShopCart {
   return value as ShopCart;
 }
 
+function readNumericRecordValue(record: Record<string, unknown> | undefined, key: string) {
+  const value = record?.[key];
+  const parsed = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSubmittedResolvedLines(value: unknown): ShopResolvedCartLine[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+
+    const record = item as Record<string, unknown>;
+    const quantity = Math.max(1, Math.floor(Number(record.quantity || 1)));
+    const unitPrice = Number(record.unitPrice);
+    const lineTotal = Number(record.lineTotal);
+    const productTitle = cleanText(record.productTitle);
+    const sizeLabel = cleanText(record.sizeLabel);
+
+    if (!productTitle || !Number.isFinite(unitPrice) || !Number.isFinite(lineTotal)) {
+      return [];
+    }
+
+    return [
+      {
+        lineKey: cleanText(record.lineKey) || `submitted-callaloo-line-${index + 1}`,
+        selected: record.selected === false ? false : true,
+        availabilityStatus:
+          record.availabilityStatus === "unavailable" ? "unavailable" : "available",
+        productId: cleanText(record.productId) || "submitted-callaloo-product",
+        productSku: cleanText(record.productSku),
+        productTitle,
+        productImageUrl: cleanText(record.productImageUrl),
+        fulfillmentType: record.fulfillmentType === "digital" ? "digital" : "physical",
+        requiresPhysicalFulfillment: record.requiresPhysicalFulfillment === true,
+        sizeOptionId: cleanText(record.sizeOptionId) || "submitted-callaloo-option",
+        sizeOptionSku: cleanText(record.sizeOptionSku),
+        sizeLabel: sizeLabel || "Subscription",
+        quantity,
+        purchaseModeId: cleanText(record.purchaseModeId),
+        purchaseModeSku: cleanText(record.purchaseModeSku),
+        purchaseModeLabel: cleanText(record.purchaseModeLabel),
+        sku: cleanText(record.sku),
+        unitPrice,
+        lineTotal,
+        unitWeight: Number.isFinite(Number(record.unitWeight))
+          ? Number(record.unitWeight)
+          : undefined,
+        lineWeight: Number.isFinite(Number(record.lineWeight))
+          ? Number(record.lineWeight)
+          : undefined,
+      } satisfies ShopResolvedCartLine,
+    ];
+  });
+}
+
 function normalizeMetadata(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -145,6 +212,17 @@ function isDiscountCodeLine(
 }
 
 async function getOrderShopCatalog(questionnaireSlug: string) {
+  if (questionnaireSlug === "callaloo") {
+    await syncCallalooPackagesToUnifiedInventory(prisma as any);
+
+    return getUnifiedShopCatalog(prisma as any, CALLALOO_PACKAGE_SHOP_SLUG, {
+      ...littleOrchardShopCatalog,
+      currencyCode: "JMD",
+      weightUnit: "lb",
+      products: [],
+    });
+  }
+
   if (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG) {
     await syncHomeGardenPackagesToUnifiedInventory(prisma as any);
 
@@ -233,6 +311,32 @@ function formatMoney(value: number) {
   return `JMD $${Math.round(value).toLocaleString("en-JM")}`;
 }
 
+function getShopOrderCopy(questionnaireSlug: string) {
+  if (questionnaireSlug === "callaloo") {
+    return {
+      header: "New Callaloo Subscription Order",
+      shopName: "Callaloo Subscription",
+      selectedHeading: "Subscription Details",
+      quantitySummaryLabel: "Total subscription parcels",
+      lineTotalLabel: "Subscription line total",
+      sourceName: "Callaloo Subscription",
+      businessEmailPurpose: "callaloo-subscription-business-order",
+      customerEmailPurpose: "callaloo-subscription-customer-receipt",
+    };
+  }
+
+  return {
+    header: "New Little Orchard Shop Order",
+    shopName: "Little Orchard Shop",
+    selectedHeading: "Selected Items",
+    quantitySummaryLabel: "Total number of items",
+    lineTotalLabel: "Item total",
+    sourceName: "Little Orchard Shop",
+    businessEmailPurpose: "little-orchard-shop-business-order",
+    customerEmailPurpose: "little-orchard-shop-customer-receipt",
+  };
+}
+
 function hasLittleOrchardEventPassed() {
   const eventEndsAt = new Date(littleOrchardPlantShowEvent.eventEndsAt);
 
@@ -256,6 +360,7 @@ function buildOrderText({
   facebookMessengerHandle,
   paymentPreference,
   paymentPreferenceLabel,
+  questionnaireSlug,
 }: {
   orderCode: string;
   fullName: string;
@@ -273,7 +378,9 @@ function buildOrderText({
   facebookMessengerHandle: string;
   paymentPreference: keyof typeof paymentPreferenceLabels | "";
   paymentPreferenceLabel: string;
+  questionnaireSlug: string;
 }) {
+  const copy = getShopOrderCopy(questionnaireSlug);
   const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
   const plantCount = lines.reduce(
     (sum, line) => sum + (isDiscountCodeLine(line) ? 0 : line.quantity),
@@ -305,7 +412,7 @@ function buildOrderText({
           (isNurseryStockRequest
             ? `   Request fee: ${formatMoney(line.lineTotal)}\n`
             : `   Unit price: ${formatMoney(line.unitPrice)}\n` +
-              `   Item total: ${formatMoney(line.lineTotal)}`) +
+              `   ${copy.lineTotalLabel}: ${formatMoney(line.lineTotal)}`) +
           (isNurseryStockRequest
             ? "   Note: Event pickup stock is not available for this item. Nursery stock availability and final price will be confirmed when a representative reaches out."
             : "")
@@ -315,7 +422,7 @@ function buildOrderText({
     .join("\n\n");
 
   const parts = [
-    "New Little Orchard Shop Order",
+    copy.header,
     "",
     `Order number: ${orderCode}`,
     `Customer name: ${fullName}`,
@@ -345,18 +452,18 @@ function buildOrderText({
   }
   parts.push(
     "",
-    "Selected Items",
+    copy.selectedHeading,
     "",
     items,
     "",
     "Order Summary",
     "",
-    `Total number of items: ${plantCount}`,
+    `${copy.quantitySummaryLabel}: ${plantCount}`,
     `Order total: ${formatMoney(total)}`,
     `Pickup / delivery: ${fulfillmentLabel}`,
     fulfillmentDetail,
     ...deliveryAddressLines,
-    `Shop: ${littleOrchardPlantShowEvent.eventName}`,
+    `Shop: ${copy.shopName}`,
     "",
     "Order Status Link",
     "",
@@ -394,17 +501,20 @@ async function sendOrderEmails({
   fullName,
   email,
   text,
+  questionnaireSlug,
 }: {
   orderCode: string;
   fullName: string;
   email: string;
   text: string;
+  questionnaireSlug: string;
 }) {
+  const copy = getShopOrderCopy(questionnaireSlug);
   const businessEmail =
     process.env.PARALIFE_TREES_ORDER_EMAIL ||
     process.env.PLANT_GIVEAWAY_ADMIN_EMAIL ||
     littleOrchardPlantShowEvent.businessOrderEmail;
-  const subject = `Little Orchard Shop order ${orderCode}: ${fullName}`;
+  const subject = `${copy.shopName} order ${orderCode}: ${fullName}`;
   const html = buildHtmlFromText(text);
 
   await sendEmailMessage({
@@ -413,19 +523,19 @@ async function sendOrderEmails({
     text,
     html,
     replyTo: email || null,
-    fromName: "Little Orchard Shop",
-    purpose: "little-orchard-shop-business-order",
+    fromName: copy.shopName,
+    purpose: copy.businessEmailPurpose,
   });
 
   if (email && isValidEmail(email)) {
     await sendEmailMessage({
       to: email,
-      subject: `Your Little Orchard Shop order ${orderCode}`,
+      subject: `Your ${copy.shopName} order ${orderCode}`,
       text,
       html,
       replyTo: businessEmail,
-      fromName: "Little Orchard Shop",
-      purpose: "little-orchard-shop-customer-receipt",
+      fromName: copy.shopName,
+      purpose: copy.customerEmailPurpose,
     });
   }
 }
@@ -468,15 +578,62 @@ export async function POST(request: Request) {
         body.answers?.discountCode
     );
     const orderEmail = email && isValidEmail(email) ? email : "";
-    const cart = normalizeOrderCart(body.orderCart);
+    let cart = normalizeOrderCart(body.orderCart);
     const shopCatalog = await getOrderShopCatalog(questionnaireSlug);
-    const resolvedLines = resolveShopSelectedLines(shopCatalog, cart).filter(
+    let resolvedLines = resolveShopSelectedLines(shopCatalog, cart).filter(
       (line) =>
         line.selected !== false && line.availabilityStatus !== "unavailable"
     );
-    const lines = resolvedLines.filter(
+    let lines = resolvedLines.filter(
       (line) => !isPackageShellOrderLine(line, shopCatalog)
     );
+
+    if (questionnaireSlug === "callaloo" && !lines.length) {
+      const product = shopCatalog.products[0];
+      const sizeOption = product?.sizeOptions[0];
+
+      if (product && sizeOption) {
+        const lineKey = makeShopLineKey(product.id, sizeOption.id);
+        const submittedSubtotal =
+          readNumericRecordValue(body.orderSummary, "subtotal") ||
+          readNumericRecordValue(body.orderSummary, "grandTotal") ||
+          Number(sizeOption.price || 0);
+
+        cart = {
+          [lineKey]: {
+            productId: product.id,
+            sizeOptionId: sizeOption.id,
+            selected: true,
+            quantity: 1,
+            purchaseModeId: getDefaultPurchaseModeId(sizeOption),
+            unitPriceOverride: submittedSubtotal,
+            lockedQuantity: true,
+            lockedPurchaseMode: true,
+            metadata: {
+              callalooAutoSubscription: true,
+            },
+          },
+        };
+        resolvedLines = resolveShopSelectedLines(shopCatalog, cart).filter(
+          (line) =>
+            line.selected !== false && line.availabilityStatus !== "unavailable"
+        );
+        lines = resolvedLines.filter(
+          (line) => !isPackageShellOrderLine(line, shopCatalog)
+        );
+      }
+    }
+
+    if (questionnaireSlug === "callaloo" && !lines.length) {
+      const submittedLines = normalizeSubmittedResolvedLines(body.resolvedLines).filter(
+        (line) => line.selected !== false && line.availabilityStatus !== "unavailable"
+      );
+
+      if (submittedLines.length) {
+        resolvedLines = submittedLines;
+        lines = submittedLines;
+      }
+    }
 
     if (!orderRequestKey) {
       return NextResponse.json(
@@ -587,6 +744,8 @@ export async function POST(request: Request) {
       body.answers?.plantShopFulfillmentMethod
     );
     const requiresDeliveryAddress =
+      (questionnaireSlug === "callaloo" &&
+        selectedFulfillmentMethod === "package_delivery") ||
       questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
       (questionnaireSlug === SEEDLING_SHOP_SLUG &&
         selectedFulfillmentMethod === "paid_delivery");
@@ -691,7 +850,9 @@ export async function POST(request: Request) {
     }
 
     const shopKey =
-      questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG
+      questionnaireSlug === "callaloo"
+        ? CALLALOO_PACKAGE_SHOP_SLUG
+        : questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG
         ? GARDEN_PACKAGE_SHOP_SLUG
         : questionnaireSlug === SEEDLING_SHOP_SLUG
           ? SEEDLING_SHOP_SLUG
@@ -764,8 +925,10 @@ export async function POST(request: Request) {
     const total = orderLines.reduce((sum, line) => sum + line.lineTotal, 0);
     const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
     const submittedAt = new Date();
+    const orderCopy = getShopOrderCopy(questionnaireSlug);
     const fulfillmentAnswers =
-      questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG &&
+      (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
+        questionnaireSlug === "callaloo") &&
       !cleanText(body.answers?.plantShopFulfillmentMethod)
         ? {
             ...(body.answers || {}),
@@ -783,6 +946,8 @@ export async function POST(request: Request) {
     const metadata = toJsonValue({
       event: littleOrchardPlantShowEvent,
       questionnaireSlug,
+      shopDisplayName: orderCopy.shopName,
+      orderDisplayType: orderCopy.shopName,
       orderRequestKey,
       deviceType,
       contactMethod,
@@ -910,9 +1075,9 @@ export async function POST(request: Request) {
           stageKey: "order-submitted",
           stageLabel: "Order submitted",
           updateType: "customer",
-          source: "Little Orchard Shop",
+          source: orderCopy.sourceName,
           nextStatus: "PENDING",
-          notes: "Order submitted through the Little Orchard Shop.",
+          notes: `Order submitted through the ${orderCopy.shopName}.`,
           metadata: {
             orderActivityKey: `${orderCode}:order-submitted`,
             customerName: fullName,
@@ -990,12 +1155,19 @@ export async function POST(request: Request) {
       facebookMessengerHandle,
       paymentPreference,
       paymentPreferenceLabel,
+      questionnaireSlug,
     });
 
     let emailDeliveryStatus = "not_requested";
 
     try {
-      await sendOrderEmails({ orderCode, fullName, email: orderEmail, text });
+      await sendOrderEmails({
+        orderCode,
+        fullName,
+        email: orderEmail,
+        text,
+        questionnaireSlug,
+      });
       emailDeliveryStatus = "sent";
     } catch (error) {
       emailDeliveryStatus = "failed";

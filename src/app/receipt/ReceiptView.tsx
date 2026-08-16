@@ -44,6 +44,22 @@ function getRequestedItemLabel(item: any) {
   return [item.productTitle, item.sizeLabel].filter(Boolean).join(" - ");
 }
 
+function getReceiptCopy(metadata: Record<string, unknown>) {
+  if (metadata.questionnaireSlug === "callaloo") {
+    return {
+      eyebrow: "Callaloo Subscription",
+      lineSectionTitle: "Subscription Details",
+      lineTotalLabel: "Subscription line total",
+    };
+  }
+
+  return {
+    eyebrow: "Little Orchard Shop",
+    lineSectionTitle: "Items",
+    lineTotalLabel: "Line total",
+  };
+}
+
 export async function getLittleOrchardOrderItemsByToken(token: string) {
   return prisma.$queryRaw<any[]>(Prisma.sql`
     SELECT
@@ -109,6 +125,7 @@ export default async function ReceiptView({
 
   const firstItem = items[0];
   const metadata = readMetadata(firstItem.metadata);
+  const copy = getReceiptCopy(metadata);
   const orderCode = String(firstItem.orderCode || "");
   const receiptCode =
     String(metadata.receiptCode || "") ||
@@ -128,7 +145,7 @@ export default async function ReceiptView({
   return (
     <main style={pageStyle}>
       <section id="little-orchard-receipt" style={panelStyle}>
-        <p style={eyebrowStyle}>Little Orchard Shop</p>
+        <p style={eyebrowStyle}>{copy.eyebrow}</p>
         <h1 style={titleStyle}>Receipt</h1>
         <p style={customerNameStyle}>{customerName}</p>
         <p style={orderCodeStyle}>{orderCode}</p>
@@ -163,7 +180,7 @@ export default async function ReceiptView({
         </div>
 
         <section style={sectionStyle}>
-          <h2 style={sectionTitleStyle}>Items</h2>
+          <h2 style={sectionTitleStyle}>{copy.lineSectionTitle}</h2>
           <div style={itemListStyle}>
             {items.map((item, index) => (
               <div
@@ -190,7 +207,10 @@ export default async function ReceiptView({
                   {isNurseryStockRequest(item) ? "Request fee" : "Unit price"}:{" "}
                   {formatMoney(item.currencyCode, item.unitPrice)}
                 </span>
-                <strong>{formatMoney(item.currencyCode, item.lineTotal)}</strong>
+                <strong>
+                  {copy.lineTotalLabel}:{" "}
+                  {formatMoney(item.currencyCode, item.lineTotal)}
+                </strong>
               </div>
             ))}
           </div>

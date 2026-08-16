@@ -1,0 +1,193 @@
+// PARALIFE TREES
+// AFFILIATE SIGN-UP
+// Public application flow for people requesting affiliate review.
+
+@id: affiliate-intro
+@type: content
+@title: Affiliate Sign-Up
+@subtitle: Para-life Trees
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] Apply to be
+# [c2] a Para-life Trees
+# [c2] affiliate.
+BR
+[c3] We review each request before approving affiliate links, commissions, stores, or product access.
+---
+@back: Back
+@next: Start application
+@goto: affiliate-contact-name
+
+===
+
+@id: affiliate-contact-name
+@type: form
+@title: Your Name
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] What name should
+# [c2] we use for you?
+BR
+@fields:
+- fullName|text|Full name|required|Enter your full name
+---
+@back: Back
+@next: Continue
+@goto: affiliate-contact-details
+
+===
+
+@id: affiliate-contact-details
+@type: form
+@title: Contact Details
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] How can we
+# [c2] reach you?
+BR
+@fields:
+- email|email|Email address|required|Enter your email address
+- primaryNetwork|select|Phone network|required|Choose network|digicel=Digicel,flow=Flow,other=Other
+- primaryPhone|tel|Telephone number|required|Include country and area code
+- affiliatePhoneIsWhatsapp|checkbox|This telephone number is also my WhatsApp number.|optional
+---
+@back: Back
+@next: Continue
+@goto: affiliate-social-links
+
+===
+
+@id: affiliate-social-links
+@type: form
+@title: Social Links
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] Where do you
+# [c2] already have
+# [c2] an audience?
+BR
+[c3] Enter whichever links apply.
+BR
+@fields:
+- affiliateFacebookPage|url|Facebook page|optional|https://facebook.com/...
+- affiliateInstagramPage|url|Instagram page|optional|https://instagram.com/...
+- affiliateTikTokPage|url|TikTok page|optional|https://tiktok.com/@...
+- affiliateLinkedInPage|url|LinkedIn page|optional|https://linkedin.com/in/...
+- affiliateWebsite|url|Website|optional|https://...
+---
+@back: Back
+@next: Continue
+@goto: affiliate-store-fit
+
+===
+
+@id: affiliate-store-fit
+@type: form
+@title: Store Fit
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] What would you
+# [c2] like to promote?
+BR
+@fields:
+- affiliatePreferredStore|select|Store of interest|required|Choose a store|pending=Loading stores...
+---
+@when:
+- affiliateSelectedShopType|in|one-product,package-layout|affiliate-audience-fit
+@back: Back
+@next: Continue
+@goto: affiliate-product-fit
+
+===
+
+@id: affiliate-product-fit
+@type: form
+@title: Product Fit
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] Which products
+# [c2] fit best?
+BR
+[c3] Choose up to three. Product codes are kept for our backend records.
+BR
+@fields:
+- affiliateProductSkuSelection|multiselect|Specific products|optional|Choose up to 3 products|pending=Choose a store first
+---
+@back: Back
+@next: Continue
+@goto: affiliate-audience-fit
+
+===
+
+@id: affiliate-audience-fit
+@type: form
+@title: Audience Fit
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] Who would you
+# [c2] share this with?
+BR
+@fields:
+- affiliateAudienceType|select|Audience type|required|Choose the closest audience|home_gardeners=Home gardeners,cooks=Cooks and kitchen gardeners,farmers=Farmers and growers,wellness=Wellness customers,parents=Parents and families,plant_collectors=Plant collectors,business=Business customers,other=Other
+- affiliateAudienceFit|textarea|Describe your audience|optional|Tell us who follows you, buys from you, or trusts your recommendations
+---
+@back: Back
+@next: Continue
+@goto: affiliate-pitch
+
+===
+
+@id: affiliate-pitch
+@type: form
+@title: Your Pitch
+@subtitle: Affiliate application
+@pagebgcolor: #FBF7EF
+@syncurl: true
+---
+# [c2] Type your
+# [c2] elevator pitch.
+BR
+[c3] Tell us why you would be a good fit as an affiliate.
+BR
+@fields:
+- affiliateElevatorPitch|textarea|Elevator pitch|required|Type your pitch here
+- affiliateConsent|checkbox|I understand this is an application and approval is not automatic.|required
+---
+@run: submitLead
+@back: Back
+@next: Submit application
+@goto: affiliate-thank-you
+
+===
+
+@id: affiliate-thank-you
+@type: content
+@title: Application Received
+@subtitle: Para-life Trees
+@pagebgcolor: #FBF7EF
+@showback: false
+@shownext: false
+@syncurl: true
+---
+# [c2] Your affiliate
+# [c2] request was
+# [c2] received.
+BR
+[c3] Check your email for a verification link.
+BR
+[c3] Verified emails get priority in our review process.
+BR
+[c3] A Para-life Trees representative will reach out after reviewing your application.

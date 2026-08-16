@@ -11,6 +11,80 @@ function hashToken(rawToken) {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
+async function consumeAffiliateEmailVerification({ record, tokenHash }) {
+  const now = new Date();
+  const target = String(record.target || "");
+  const submissionId = target.split(":")[1] || "";
+  const identifier = String(record.identifier || "").trim().toLowerCase();
+
+  if (!submissionId) {
+    await prisma.verificationToken.delete({
+      where: { tokenHash },
+    });
+
+    return NextResponse.json(
+      { error: "Invalid affiliate verification link." },
+      { status: 400 }
+    );
+  }
+
+  const submission = await prisma.questionnaireSubmission.findFirst({
+    where: {
+      id: submissionId,
+      questionnaireSlug: "affiliate-sign-up",
+    },
+  });
+
+  if (!submission) {
+    await prisma.verificationToken.delete({
+      where: { tokenHash },
+    });
+
+    return NextResponse.json(
+      { error: "Affiliate application not found." },
+      { status: 404 }
+    );
+  }
+
+  const answers =
+    submission.answers &&
+    typeof submission.answers === "object" &&
+    !Array.isArray(submission.answers)
+      ? submission.answers
+      : {};
+
+  await prisma.questionnaireSubmission.update({
+    where: { id: submission.id },
+    data: {
+      answers: {
+        ...answers,
+        affiliateEmailVerification: {
+          ...(answers.affiliateEmailVerification &&
+          typeof answers.affiliateEmailVerification === "object" &&
+          !Array.isArray(answers.affiliateEmailVerification)
+            ? answers.affiliateEmailVerification
+            : {}),
+          status: "verified",
+          email: identifier,
+          verifiedAt: now.toISOString(),
+        },
+      },
+    },
+  });
+
+  await prisma.verificationToken.delete({
+    where: { tokenHash },
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Affiliate application email verified.",
+    identifier,
+    successRedirect: record.successRedirect || null,
+    target: record.target || null,
+  });
+}
+
 async function consumeGatedLeadAccess({ record, tokenHash }) {
   const now = new Date();
   const identifier = String(record.identifier || "").trim().toLowerCase();
@@ -304,6 +378,10 @@ export async function POST(request) {
 
     if (record.target === "sequenceDeviceAccess") {
       return consumeSequenceDeviceAccess({ record, tokenHash });
+    }
+
+    if (String(record.target || "").startsWith("affiliateEmailVerification:")) {
+      return consumeAffiliateEmailVerification({ record, tokenHash });
     }
 
     const identifier = record.identifier;

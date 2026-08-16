@@ -10,6 +10,7 @@ export default function ResetPasswordPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
+  const returnTo = searchParams.get("returnTo") || "";
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -64,7 +65,12 @@ export default function ResetPasswordPageClient() {
       setMessageType("success");
 
       setTimeout(() => {
-        router.replace(siteConfig.routes.login || "/login");
+        const loginPath = siteConfig.routes.login || "/login";
+        router.replace(
+          returnTo
+            ? `${loginPath}?returnTo=${encodeURIComponent(returnTo)}`
+            : loginPath
+        );
       }, 1000);
     } finally {
       setLoading(false);

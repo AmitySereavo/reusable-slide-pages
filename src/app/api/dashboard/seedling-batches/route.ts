@@ -3,21 +3,32 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import {
   createSeedlingBatch,
+  deleteSeedlingBatch,
   listSeedlingBatches,
   recordSeedlingBatchActivity,
   seedlingProductionTemplates,
   syncStarterSeedlingBatches,
+  updateSeedlingBatch,
 } from "@/lib/seedlings/seedlingBatches";
+import {
+  getCanonicalPlantKey,
+  getPlantRecipeCatalog,
+} from "@/lib/nursery/plantRecipes";
 
 export async function GET() {
   const guard = await requireAdminSessionJson();
   if (guard.response) return guard.response;
 
   try {
-    const batches = await listSeedlingBatches(prisma as any);
+    const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+    const batches = attachTimelineMatches(
+      await listSeedlingBatches(prisma as any),
+      plantCatalog
+    );
     return NextResponse.json({
       ok: true,
       templates: seedlingProductionTemplates,
+      plantCatalog,
       batches,
     });
   } catch (error) {
@@ -43,25 +54,58 @@ export async function POST(request: Request) {
 
     if (action === "create-batch") {
       const batch = await createSeedlingBatch(prisma as any, body || {});
-      const batches = await listSeedlingBatches(prisma as any);
-      return NextResponse.json({ ok: true, batch, batches });
+      const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+      const batches = attachTimelineMatches(
+        await listSeedlingBatches(prisma as any),
+        plantCatalog
+      );
+      return NextResponse.json({ ok: true, batch, batches, plantCatalog });
     }
 
     if (action === "sync-starter-batches") {
       const created = await syncStarterSeedlingBatches(prisma as any);
-      const batches = await listSeedlingBatches(prisma as any);
+      const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+      const batches = attachTimelineMatches(
+        await listSeedlingBatches(prisma as any),
+        plantCatalog
+      );
       return NextResponse.json({
         ok: true,
         created,
         batches,
+        plantCatalog,
         templates: seedlingProductionTemplates,
       });
     }
 
     if (action === "record-activity") {
       const batch = await recordSeedlingBatchActivity(prisma as any, body || {});
-      const batches = await listSeedlingBatches(prisma as any);
-      return NextResponse.json({ ok: true, batch, batches });
+      const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+      const batches = attachTimelineMatches(
+        await listSeedlingBatches(prisma as any),
+        plantCatalog
+      );
+      return NextResponse.json({ ok: true, batch, batches, plantCatalog });
+    }
+
+    if (action === "update-batch") {
+      const batch = await updateSeedlingBatch(prisma as any, body || {});
+      const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+      const batches = attachTimelineMatches(
+        await listSeedlingBatches(prisma as any),
+        plantCatalog
+      );
+      return NextResponse.json({ ok: true, batch, batches, plantCatalog });
+    }
+
+    if (action === "delete-batch") {
+      const deletedBatch = await deleteSeedlingBatch(prisma as any, body || {});
+      const plantCatalog = await getPlantRecipeCatalog(prisma as any);
+      const batches = attachTimelineMatches(
+        await listSeedlingBatches(prisma as any),
+        plantCatalog
+      );
+      return NextResponse.json({ ok: true, deletedBatch, batches, plantCatalog });
     }
 
     return NextResponse.json(
@@ -81,4 +125,31 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+}
+
+function attachTimelineMatches(
+  batches: any[],
+  plantCatalog: Array<{ key: string; name: string }>
+) {
+  const catalogByKey = new Map(plantCatalog.map((plant) => [plant.key, plant]));
+
+  return batches.map((batch) => {
+    const candidateKeys = [
+      batch.cropKey,
+      batch.cropName,
+      batch.batchName,
+      batch.metadata?.template?.cropName,
+    ]
+      .map((value) => getCanonicalPlantKey(value))
+      .filter(Boolean);
+    const timelinePlant = candidateKeys
+      .map((key) => catalogByKey.get(key))
+      .find(Boolean);
+
+    return {
+      ...batch,
+      timelinePlant: timelinePlant || null,
+      needsTimelineMatch: !timelinePlant,
+    };
+  });
 }

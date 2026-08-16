@@ -5,23 +5,18 @@ import { selfTrustTheme } from "@/config/themes/selfTrustTheme";
 import { gardenHerbsTheme } from "@/config/themes/gardenHerbsTheme";
 import { paraLifeGiveawayTheme } from "@/config/themes/paraLifeGiveawayTheme";
 import { seedTheme } from "@/config/themes/seedTheme";
-import { seedDslVersions } from "./seedDslVersions";
-import { getSeedCampaignData } from "@/lib/plants/getSeedCampaignData";
-import { getPlantShopCatalog } from "@/lib/plants/getPlantShopCatalog";
 import { getReusableShopCatalog } from "@/lib/shop/getReusableShopCatalog";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency/currencies";
 import { getCurrencyRateMap } from "@/lib/currency/rates";
 import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
-import { buildQuestionnaireBlocks } from "@/config/questionnaireBlocks";
 import { littleOrchardPlantShowEvent } from "@/config/shops/littleOrchardShop";
 import type {
   ShopCatalog,
   QuestionnaireVariableMap,
   ThemeConfig,
 } from "@/types/questionnaire";
-const activeSeedDsl = "v2";
 
 const plantGiveawayShopCatalog: ShopCatalog = {
   currencyCode: "JMD",
@@ -125,6 +120,7 @@ type QuestionnaireRegistryEntry = {
   theme: ThemeConfig;
   dslPath: string;
   showStepText?: boolean;
+  showSidebarChapters?: boolean;
   overlayMode?: "transparent" | "opaque";
   variables: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
@@ -163,17 +159,6 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     },
     dynamicVariablesEndpoint: undefined,
   },
-  seed: {
-    slug: "seed",
-    name: "Seed",
-    themeKey: "seed",
-    theme: seedTheme,
-    dslPath: seedDslVersions[activeSeedDsl],
-    showStepText: true,
-    variables: {},
-    dynamicVariablesEndpoint: undefined,
-  },
-
   invitation: {
     slug: "invitation",
     name: "Invitation",
@@ -245,56 +230,6 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
       },
     },
     dynamicVariablesEndpoint: undefined,
-  },
-
-  "nursery-ops": {
-  slug: "nursery-ops",
-  name: "Nursery Operations",
-  themeKey: "nurseryOps",
-  theme: gardenHerbsTheme,
-  dslPath: "src/config/questionnaires/nurseryOpsDsl.txt",
-  showStepText: false,
-  overlayMode: "opaque",
-  
-  variables: {
-    nurseryBatches: [
-      {
-        value: "AA040826",
-        code: "AA040826",
-        plantName: "Malbar Spinach",
-        startDate: "2026-04-08",
-        quantityAlive: 74,
-        intendedUse: "Retail",
-        childCount: 74,
-      },
-      {
-        value: "BA040826",
-        code: "BA040826",
-        plantName: "Rosemary",
-        startDate: "2026-04-08",
-        quantityAlive: 30,
-        intendedUse: "Wholesale",
-        childCount: 30,
-      },
-    ],
-    nurseryBatchPlants: [
-      {
-        value: "AA040826-P001",
-        code: "AA040826-P001",
-        conditionStatus: "Good",
-        location: "Greenhouse Shelf A1",
-        labelStatus: "Not labeled",
-      },
-      {
-        value: "AA040826-P002",
-        code: "AA040826-P002",
-        conditionStatus: "Fair",
-        location: "Under Table 2",
-        labelStatus: "Labeled",
-      },
-    ],
-    },
-    dynamicVariablesEndpoint: "/api/questionnaires/nursery-ops/batches",
   },
 
   "auth-signup": {
@@ -454,6 +389,38 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: "/api/questionnaires/garden-package/catalog",
   },
 
+  callaloo: {
+    slug: "callaloo",
+    name: "Para-life Trees Callaloo",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/callalooDsl.txt",
+    showStepText: false,
+    showSidebarChapters: true,
+    overlayMode: "opaque",
+    variables: {
+      shopCatalog: {
+        currencyCode: "JMD",
+        weightUnit: "lb",
+        products: [],
+      },
+      littleOrchardPlantShowEvent,
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/callaloo/catalog",
+  },
+
+  "callaloo-recipe": {
+    slug: "callaloo-recipe",
+    name: "Para-life Trees Callaloo Recipe",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/callalooRecipeDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "seedling-shop": {
     slug: "seedling-shop",
     name: "Para-life Trees Seedling Shop",
@@ -470,6 +437,18 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
       },
     },
     dynamicVariablesEndpoint: "/api/questionnaires/seedling-shop/catalog",
+  },
+
+  "affiliate-sign-up": {
+    slug: "affiliate-sign-up",
+    name: "Para-life Trees Affiliate Sign-Up",
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/affiliateSignUpDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: "/api/questionnaires/affiliate-sign-up/catalog",
   },
 
   "lettuce-grow-guide": {
@@ -739,31 +718,6 @@ export async function getQuestionnaireBySlug(slug: string) {
     baseCurrencyCode: "USD",
   };
 
-  if (entry.slug === "seed") {
-    const seedCampaign = await getSeedCampaignData();
-    const shopCatalog = await getPlantShopCatalog();
-
-    const shopProductIds = new Set(
-      shopCatalog.products.map((product) => product.id)
-    );
-
-    const promoEligibleItems = seedCampaign.campaignPlants.filter((plant) =>
-      shopProductIds.has(plant.productId)
-    );
-
-    resolvedVariables = {
-      ...resolvedVariables,
-      ...seedCampaign.variables,
-      shopCatalog,
-      deliveryConfig,
-      discountDefinitions,
-      promoEligibleItems,
-      promotionClosed: promoEligibleItems.length === 0,
-      promotionDiscountPercent: 100,
-      promotionDiscountLabel: "Questionnaire promotion",
-    };
-  }
-
   if (entry.slug === "invitation" || entry.slug === "ticket-purchase-assistant") {
     const shopCatalog = await getReusableShopCatalog({
       catalogKey: "invitationTickets",
@@ -811,9 +765,10 @@ export async function getQuestionnaireBySlug(slug: string) {
       themeKey: entry.themeKey,
       slides: parseQuestionnaireDsl(resolvedDsl).slides,
       variables: resolvedVariables,
-      blocks: buildQuestionnaireBlocks(),
+      blocks: {},
       dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
       showStepText: entry.showStepText,
+      showSidebarChapters: entry.showSidebarChapters,
       overlayMode: entry.overlayMode,
     },
     theme: entry.theme,

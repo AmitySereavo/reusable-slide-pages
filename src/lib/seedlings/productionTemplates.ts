@@ -1,7 +1,15 @@
 export type SeedlingProductionTemplate = {
   key: string;
   cropName: string;
-  propagationType: "seedling" | "cutting";
+  propagationType:
+    | "seedling"
+    | "cutting"
+    | "air_layer"
+    | "division"
+    | "sucker"
+    | "grafting"
+    | "existing_stock"
+    | "other";
   retailPrice: number;
   estimatedGerminationDays: number;
   readyWeeksAfterGermination: number;
@@ -42,7 +50,7 @@ export const seedlingProductionTemplates: SeedlingProductionTemplate[] = [
   makeCurrentSeedlingTemplate("pak-choi", "Pak Choi", "seedling", 30, "2026-08-02", "2 seed rolls", "~50 seeds", "3-5 days", 50, 5),
   makeCurrentSeedlingTemplate("bok-choy", "Bok Choy", "seedling", 30, "2026-08-02", "2 seed rolls", "~50 seeds", "3-5 days", 50, 5),
   makeCurrentSeedlingTemplate("okra", "Okra", "seedling", 50, "2026-08-03", "2 seed rolls", "~50 seeds", "7-10 days", 50, 10),
-  makeCurrentSeedlingTemplate("callaloo", "Callaloo", "seedling", 30, "2026-08-03", "1 seed roll", "~25 seeds", "5-10 days", 25, 10),
+  makeCurrentSeedlingTemplate("callaloo", "Callaloo", "seedling", 30, "2026-08-09", "2 seed rolls", "~50 seeds", "5-10 days", 50, 10),
   makeCurrentSeedlingTemplate("rosemary", "Rosemary", "seedling", 100, "2026-08-03", "2 seed rolls", "~50 seeds", "14-28 days", 50, 28, 6),
   makeCurrentSeedlingTemplate("caribbean-red-peppers", "Caribbean Red Peppers", "seedling", 50, "2026-08-04", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
   makeCurrentSeedlingTemplate("cilantro", "Cilantro", "seedling", 75, "2026-08-05", "2 seed rolls", "~50 seeds", "7-10 days", 50, 10),
@@ -54,6 +62,7 @@ export const seedlingProductionTemplates: SeedlingProductionTemplate[] = [
   makeCurrentSeedlingTemplate("genovese-basil-cuttings", "Genovese Basil (Cuttings)", "cutting", 75, "2026-08-05", "25 cuttings", "25 plants", "Roots in 7-14 days", 25, 14),
   makeCurrentSeedlingTemplate("chili-pepper", "Chili Pepper", "seedling", 50, "2026-08-06", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
   makeCurrentSeedlingTemplate("bird-pepper", "Bird Pepper", "seedling", 50, "2026-08-06", "1 seed roll", "~25 seeds", "7-14 days", 25, 14),
+  makeCurrentSeedlingTemplate("original-scotch-bonnet-pepper", "Pepper - Scotch Bonnet", "seedling", 50, "2026-08-09", "2 seed rolls", "~50 seeds", "7-14 days", 50, 14),
 ];
 
 function makeCurrentSeedlingTemplate(
