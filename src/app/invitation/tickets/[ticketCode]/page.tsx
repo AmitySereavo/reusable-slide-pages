@@ -219,7 +219,7 @@ export default async function TicketOwnerPage({ params }: TicketOwnerPageProps) 
           
                     {ticketOwnerCanSelectAddons ? (
             <Link
-              href={`/questionnaire/invitation?slide=meal-selection&ticketCode=${encodeURIComponent(
+              href={`/questionnaire/ticket-shop?slide=meal-selection&ticketCode=${encodeURIComponent(
                 ticket.ticketCode
               )}&ticketOwner=1`}
               style={{
@@ -260,7 +260,7 @@ export default async function TicketOwnerPage({ params }: TicketOwnerPageProps) 
               </p>
 
               <Link
-                href={`/questionnaire/invitation?slide=review-order&ticketCode=${encodeURIComponent(
+                href={`/questionnaire/ticket-shop?slide=review-order&ticketCode=${encodeURIComponent(
                   ticket.ticketCode
                 )}&ticketOwner=1&addonOverage=${encodeURIComponent(
                   String(overBudgetAmount)

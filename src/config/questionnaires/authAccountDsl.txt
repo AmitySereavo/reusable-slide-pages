@@ -11,7 +11,7 @@
 @type: content
 @shownext: true
 @next: Shop Music + Merch
-@goto: /questionnaire/invitation?slide=music-merch-shop
+@goto: /questionnaire/music-merch-shop
 @showback: true
 @back: Back
 @backgoto: account-home

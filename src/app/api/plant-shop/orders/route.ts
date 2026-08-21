@@ -30,6 +30,7 @@ import {
   resolveShopSelectedLines,
 } from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import {
@@ -516,6 +517,7 @@ async function sendOrderEmails({
     littleOrchardPlantShowEvent.businessOrderEmail;
   const subject = `${copy.shopName} order ${orderCode}: ${fullName}`;
   const html = buildHtmlFromText(text);
+  const sender = getEmailSenderForContext({ questionnaireSlug });
 
   await sendEmailMessage({
     to: businessEmail,
@@ -523,6 +525,7 @@ async function sendOrderEmails({
     text,
     html,
     replyTo: email || null,
+    fromEmail: sender.fromEmail,
     fromName: copy.shopName,
     purpose: copy.businessEmailPurpose,
   });
@@ -534,6 +537,7 @@ async function sendOrderEmails({
       text,
       html,
       replyTo: businessEmail,
+      fromEmail: sender.fromEmail,
       fromName: copy.shopName,
       purpose: copy.customerEmailPurpose,
     });

@@ -6,6 +6,7 @@ import {
   buildDeliverySuccessResult,
   normalizeProviderError,
 } from "@/lib/verification/result";
+import { getSmtpConfigForFromEmail } from "@/config/siteBrands";
 
 function isResendTestInbox(email) {
   return typeof email === "string" && email.toLowerCase().endsWith("@resend.dev");
@@ -137,6 +138,8 @@ export async function sendEmailMessage({
     }
 
     if (provider.mode === "smtp") {
+      const smtp = getSmtpConfigForFromEmail(fromEmail) || provider.smtp;
+
       return sendEmailVerificationWithSmtp({
         to: recipient.to,
         originalTo: recipient.originalTo,
@@ -145,7 +148,7 @@ export async function sendEmailMessage({
         subject,
         text: rewrittenContent.text,
         html: rewrittenContent.html,
-        smtp: provider.smtp,
+        smtp,
       });
     }
 

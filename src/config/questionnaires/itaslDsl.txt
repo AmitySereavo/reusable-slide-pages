@@ -22,7 +22,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-02
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-001-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-01
 @requiresdripunlock: true
@@ -54,7 +54,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-03
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-002-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-02
 @requiresdripunlock: true
@@ -86,7 +86,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-04
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-003-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-03
 @requiresdripunlock: true
@@ -118,7 +118,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-05
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-004-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-04
 @requiresdripunlock: true
@@ -150,7 +150,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-06
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-005-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-05
 @requiresdripunlock: true
@@ -182,7 +182,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-07
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-006-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-06
 @requiresdripunlock: true
@@ -214,7 +214,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-08
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-007-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-07
 @requiresdripunlock: true
@@ -246,7 +246,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-09
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-008-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-08
 @requiresdripunlock: true
@@ -278,7 +278,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-10
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-009-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-09
 @requiresdripunlock: true
@@ -310,7 +310,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-11
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-010-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-10
 @requiresdripunlock: true
@@ -342,7 +342,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-12
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-011-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-11
 @requiresdripunlock: true
@@ -374,7 +374,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-13
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-012-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-12
 @requiresdripunlock: true
@@ -406,7 +406,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-14
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-013-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-13
 @requiresdripunlock: true
@@ -438,7 +438,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-15
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-014-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-14
 @requiresdripunlock: true
@@ -470,7 +470,7 @@
 @footeraction: goto|next|Next chapter|itasl-day-16
 @footeraction: textpanel|itasl-written|Written Version|/api/downloads/itasl-email-015-text
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 @dripsequence: itasl
 @dripunlock: itasl-day-15
 @requiresdripunlock: true
@@ -489,7 +489,7 @@
 @showauthcontrols: false
 @choiceplacement: inline
 @choices:
-- tickets|Tickets|/questionnaire/invitation?slide=invitation-shop|primary
+- tickets|Tickets|/questionnaire/ticket-shop|primary
 ---
 BR
 # [c1] Next chapter

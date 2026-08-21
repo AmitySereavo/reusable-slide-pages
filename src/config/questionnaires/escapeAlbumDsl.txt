@@ -21,7 +21,7 @@ BR
 - identifier|text|Email or phone|required|Email or phone number
 - password|password|Password|required|Password
 @choices:
-- store|Visit Store|/questionnaire/invitation?slide=music-merch-shop|secondary
+- store|Visit Store|/questionnaire/music-merch-shop|secondary
 
 ===
 @id: good-morning-video

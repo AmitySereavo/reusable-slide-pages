@@ -20,6 +20,513 @@ const COPYABLE_INFO_FIELD_NAMES = new Set([
   "paymentNcbDetails",
 ]);
 
+const INVITATION_REGION_OPTIONS_BY_COUNTRY: Record<string, string[]> = {
+  jamaica: [
+    "kingston",
+    "st-andrew",
+    "st-catherine",
+    "clarendon",
+    "manchester",
+    "st-elizabeth",
+    "westmoreland",
+    "hanover",
+    "st-james",
+    "trelawny",
+    "st-ann",
+    "st-mary",
+    "portland",
+    "st-thomas",
+  ],
+  "united-kingdom": [
+    "uk-london",
+    "uk-west-midlands",
+    "uk-north-west",
+    "uk-south-west",
+    "uk-east-midlands",
+    "uk-east-of-england",
+    "uk-north-east",
+    "uk-south-east",
+    "uk-yorkshire-humber",
+    "uk-scotland",
+    "uk-wales",
+    "uk-northern-ireland",
+  ],
+  "united-states": [
+    "us-alabama",
+    "us-alaska",
+    "us-arizona",
+    "us-arkansas",
+    "california",
+    "us-colorado",
+    "us-connecticut",
+    "us-delaware",
+    "us-district-of-columbia",
+    "florida",
+    "georgia",
+    "us-hawaii",
+    "us-idaho",
+    "us-illinois",
+    "us-indiana",
+    "us-iowa",
+    "us-kansas",
+    "us-kentucky",
+    "us-louisiana",
+    "us-maine",
+    "us-maryland",
+    "us-massachusetts",
+    "us-michigan",
+    "us-minnesota",
+    "us-mississippi",
+    "us-missouri",
+    "us-montana",
+    "us-nebraska",
+    "us-nevada",
+    "us-new-hampshire",
+    "us-new-jersey",
+    "us-new-mexico",
+    "new-york",
+    "us-north-carolina",
+    "us-north-dakota",
+    "us-ohio",
+    "us-oklahoma",
+    "us-oregon",
+    "us-pennsylvania",
+    "us-rhode-island",
+    "us-south-carolina",
+    "us-south-dakota",
+    "us-tennessee",
+    "texas",
+    "us-utah",
+    "us-vermont",
+    "us-virginia",
+    "us-washington",
+    "us-west-virginia",
+    "us-wisconsin",
+    "us-wyoming",
+    "us-american-samoa",
+    "us-guam",
+    "us-northern-mariana-islands",
+    "us-puerto-rico",
+    "us-virgin-islands",
+  ],
+  france: [
+    "fr-auvergne-rhone-alpes",
+    "fr-bourgogne-franche-comte",
+    "fr-brittany",
+    "fr-centre-val-de-loire",
+    "fr-corsica",
+    "fr-grand-est",
+    "fr-hauts-de-france",
+    "fr-ile-de-france",
+    "fr-normandy",
+    "fr-nouvelle-aquitaine",
+    "fr-occitanie",
+    "fr-pays-de-la-loire",
+    "fr-provence-alpes-cote-dazur",
+    "fr-guadeloupe",
+    "fr-french-guiana",
+    "fr-martinique",
+    "fr-mayotte",
+    "fr-reunion",
+  ],
+  germany: [
+    "de-baden-wurttemberg",
+    "de-bavaria",
+    "de-berlin",
+    "de-brandenburg",
+    "de-bremen",
+    "de-hamburg",
+    "de-hesse",
+    "de-lower-saxony",
+    "de-mecklenburg-vorpommern",
+    "de-north-rhine-westphalia",
+    "de-rhineland-palatinate",
+    "de-saarland",
+    "de-saxony",
+    "de-saxony-anhalt",
+    "de-schleswig-holstein",
+    "de-thuringia",
+  ],
+  canada: [
+    "ca-alberta",
+    "british-columbia",
+    "ca-manitoba",
+    "ca-new-brunswick",
+    "ca-newfoundland-and-labrador",
+    "ca-northwest-territories",
+    "ca-nova-scotia",
+    "ca-nunavut",
+    "ontario",
+    "ca-prince-edward-island",
+    "quebec",
+    "ca-saskatchewan",
+    "ca-yukon",
+  ],
+  netherlands: [
+    "nl-drenthe",
+    "nl-flevoland",
+    "nl-friesland",
+    "nl-gelderland",
+    "nl-groningen",
+    "nl-limburg",
+    "nl-north-brabant",
+    "nl-north-holland",
+    "nl-overijssel",
+    "nl-south-holland",
+    "nl-utrecht",
+    "nl-zeeland",
+  ],
+  spain: [
+    "es-andalusia",
+    "es-aragon",
+    "es-asturias",
+    "es-balearic-islands",
+    "es-canary-islands",
+    "es-cantabria",
+    "es-castile-and-leon",
+    "es-castile-la-mancha",
+    "es-catalonia",
+    "es-valencian-community",
+    "es-extremadura",
+    "es-galicia",
+    "es-community-of-madrid",
+    "es-region-of-murcia",
+    "es-navarre",
+    "es-basque-country",
+    "es-la-rioja",
+    "es-ceuta",
+    "es-melilla",
+  ],
+  japan: [
+    "jp-hokkaido",
+    "jp-aomori",
+    "jp-iwate",
+    "jp-miyagi",
+    "jp-akita",
+    "jp-yamagata",
+    "jp-fukushima",
+    "jp-ibaraki",
+    "jp-tochigi",
+    "jp-gunma",
+    "jp-saitama",
+    "jp-chiba",
+    "tokyo",
+    "jp-kanagawa",
+    "jp-niigata",
+    "jp-toyama",
+    "jp-ishikawa",
+    "jp-fukui",
+    "jp-yamanashi",
+    "jp-nagano",
+    "jp-gifu",
+    "jp-shizuoka",
+    "jp-aichi",
+    "jp-mie",
+    "jp-shiga",
+    "jp-kyoto",
+    "osaka",
+    "jp-hyogo",
+    "jp-nara",
+    "jp-wakayama",
+    "jp-tottori",
+    "jp-shimane",
+    "jp-okayama",
+    "jp-hiroshima",
+    "jp-yamaguchi",
+    "jp-tokushima",
+    "jp-kagawa",
+    "jp-ehime",
+    "jp-kochi",
+    "jp-fukuoka",
+    "jp-saga",
+    "jp-nagasaki",
+    "jp-kumamoto",
+    "jp-oita",
+    "jp-miyazaki",
+    "jp-kagoshima",
+    "jp-okinawa",
+  ],
+  ghana: [
+    "gh-ahafo",
+    "gh-ashanti",
+    "gh-bono",
+    "gh-bono-east",
+    "gh-central",
+    "gh-eastern",
+    "gh-greater-accra",
+    "gh-north-east",
+    "gh-northern",
+    "gh-oti",
+    "gh-savannah",
+    "gh-upper-east",
+    "gh-upper-west",
+    "gh-volta",
+    "gh-western",
+    "gh-western-north",
+  ],
+  kenya: [
+    "ke-baringo",
+    "ke-bomet",
+    "ke-bungoma",
+    "ke-busia",
+    "ke-elgeyo-marakwet",
+    "ke-embu",
+    "ke-garissa",
+    "ke-homa-bay",
+    "ke-isiolo",
+    "ke-kajiado",
+    "ke-kakamega",
+    "ke-kericho",
+    "ke-kiambu",
+    "ke-kilifi",
+    "ke-kirinyaga",
+    "ke-kisii",
+    "ke-kisumu",
+    "ke-kitui",
+    "ke-kwale",
+    "ke-laikipia",
+    "ke-lamu",
+    "ke-machakos",
+    "ke-makueni",
+    "ke-mandera",
+    "ke-marsabit",
+    "ke-meru",
+    "ke-migori",
+    "ke-mombasa",
+    "ke-muranga",
+    "ke-nairobi-city",
+    "ke-nakuru",
+    "ke-nandi",
+    "ke-narok",
+    "ke-nyamira",
+    "ke-nyandarua",
+    "ke-nyeri",
+    "ke-samburu",
+    "ke-siaya",
+    "ke-taita-taveta",
+    "ke-tana-river",
+    "ke-tharaka-nithi",
+    "ke-trans-nzoia",
+    "ke-turkana",
+    "ke-uasin-gishu",
+    "ke-vihiga",
+    "ke-wajir",
+    "ke-west-pokot",
+  ],
+  brazil: [
+    "br-acre",
+    "br-alagoas",
+    "br-amapa",
+    "br-amazonas",
+    "br-bahia",
+    "br-ceara",
+    "br-distrito-federal",
+    "br-espirito-santo",
+    "br-goias",
+    "br-maranhao",
+    "br-mato-grosso",
+    "br-mato-grosso-do-sul",
+    "br-minas-gerais",
+    "br-para",
+    "br-paraiba",
+    "br-parana",
+    "br-pernambuco",
+    "br-piaui",
+    "br-rio-grande-do-norte",
+    "br-rio-de-janeiro",
+    "br-rio-grande-do-sul",
+    "br-rondonia",
+    "br-roraima",
+    "br-santa-catarina",
+    "br-sao-paulo",
+    "br-sergipe",
+    "br-tocantins",
+  ],
+  "south-africa": [
+    "za-eastern-cape",
+    "za-free-state",
+    "za-gauteng",
+    "za-kwazulu-natal",
+    "za-limpopo",
+    "za-mpumalanga",
+    "za-north-west",
+    "za-northern-cape",
+    "za-western-cape",
+  ],
+  belgium: [
+    "be-antwerp",
+    "be-east-flanders",
+    "be-flemish-brabant",
+    "be-limburg",
+    "be-west-flanders",
+    "be-hainaut",
+    "be-liege",
+    "be-luxembourg",
+    "be-namur",
+    "be-walloon-brabant",
+    "be-brussels-capital-region",
+  ],
+  nigeria: [
+    "ng-abia",
+    "ng-adamawa",
+    "ng-akwa-ibom",
+    "ng-anambra",
+    "ng-bauchi",
+    "ng-bayelsa",
+    "ng-benue",
+    "ng-borno",
+    "ng-cross-river",
+    "ng-delta",
+    "ng-ebonyi",
+    "ng-edo",
+    "ng-ekiti",
+    "ng-enugu",
+    "ng-federal-capital-territory-abuja",
+    "ng-gombe",
+    "ng-imo",
+    "ng-jigawa",
+    "ng-kaduna",
+    "ng-kano",
+    "ng-katsina",
+    "ng-kebbi",
+    "ng-kogi",
+    "ng-kwara",
+    "ng-lagos",
+    "ng-nasarawa",
+    "ng-niger",
+    "ng-ogun",
+    "ng-ondo",
+    "ng-osun",
+    "ng-oyo",
+    "ng-plateau",
+    "ng-rivers",
+    "ng-sokoto",
+    "ng-taraba",
+    "ng-yobe",
+    "ng-zamfara",
+  ],
+  switzerland: [
+    "ch-aargau",
+    "ch-appenzell-ausserrhoden",
+    "ch-appenzell-innerrhoden",
+    "ch-basel-landschaft",
+    "ch-basel-stadt",
+    "ch-bern",
+    "ch-fribourg",
+    "ch-geneva",
+    "ch-glarus",
+    "ch-graubunden",
+    "ch-jura",
+    "ch-lucerne",
+    "ch-neuchatel",
+    "ch-nidwalden",
+    "ch-obwalden",
+    "ch-schaffhausen",
+    "ch-schwyz",
+    "ch-solothurn",
+    "ch-st-gallen",
+    "ch-thurgau",
+    "ch-ticino",
+    "ch-uri",
+    "ch-vaud",
+    "ch-valais",
+    "ch-zug",
+    "ch-zurich",
+  ],
+  italy: [
+    "it-abruzzo",
+    "it-aosta-valley",
+    "it-apulia",
+    "it-basilicata",
+    "it-calabria",
+    "it-campania",
+    "it-emilia-romagna",
+    "it-friuli-venezia-giulia",
+    "it-lazio",
+    "it-liguria",
+    "it-lombardy",
+    "it-marche",
+    "it-molise",
+    "it-piedmont",
+    "it-sardinia",
+    "it-sicily",
+    "it-trentino-alto-adige",
+    "it-tuscany",
+    "it-umbria",
+    "it-veneto",
+  ],
+  sweden: [
+    "se-blekinge",
+    "se-dalarna",
+    "se-gavleborg",
+    "se-gotland",
+    "se-halland",
+    "se-jamtland",
+    "se-jonkoping",
+    "se-kalmar",
+    "se-kronoberg",
+    "se-norrbotten",
+    "se-orebro",
+    "se-ostergotland",
+    "se-skane",
+    "se-sodermanland",
+    "se-stockholm",
+    "se-uppsala",
+    "se-varmland",
+    "se-vasterbotten",
+    "se-vasternorrland",
+    "se-vastmanland",
+    "se-vastra-gotaland",
+  ],
+  australia: [
+    "au-australian-capital-territory",
+    "au-new-south-wales",
+    "au-northern-territory",
+    "au-queensland",
+    "au-south-australia",
+    "au-tasmania",
+    "au-victoria",
+    "au-western-australia",
+  ],
+  "new-zealand": [
+    "nz-northland",
+    "nz-auckland",
+    "nz-waikato",
+    "nz-bay-of-plenty",
+    "nz-gisborne",
+    "nz-hawkes-bay",
+    "nz-taranaki",
+    "nz-manawatu-whanganui",
+    "nz-wellington",
+    "nz-tasman",
+    "nz-nelson",
+    "nz-marlborough",
+    "nz-west-coast",
+    "nz-canterbury",
+    "nz-otago",
+    "nz-southland",
+  ],
+  "trinidad-and-tobago": [
+    "tt-port-of-spain",
+    "tt-san-fernando",
+    "tt-arima",
+    "tt-chaguanas",
+    "tt-diego-martin",
+    "tt-point-fortin",
+    "tt-siparia",
+    "tt-couva-tabaquite-talparo",
+    "tt-mayaro-rio-claro",
+    "tt-penal-debe",
+    "tt-princes-town",
+    "tt-sangre-grande",
+    "tt-san-juan-laventille",
+    "tt-tunapuna-piarco",
+    "tt-tobago",
+  ],
+  china: ["beijing", "shanghai", "other-region"],
+  other: ["other-region"],
+};
+
 type FormFieldRendererProps = {
   field: FormField;
   theme: ThemeConfig;
@@ -83,6 +590,29 @@ function getCopyableInfoText(text: string) {
     .join("\n");
 }
 
+function getVisibleSelectOptions(
+  field: FormField,
+  answers: QuestionnaireAnswers
+) {
+  if (field.name !== "parishState") {
+    return field.options ?? [];
+  }
+
+  const selectedCountry = String(answers.country ?? "").trim();
+  const allowedValues =
+    INVITATION_REGION_OPTIONS_BY_COUNTRY[selectedCountry] ?? [];
+
+  if (!allowedValues.length) {
+    return [];
+  }
+
+  const allowedSet = new Set(allowedValues);
+
+  return (field.options ?? []).filter((option) =>
+    allowedSet.has(String(option.value))
+  );
+}
+
 export default function FormFieldRenderer({
   field,
   theme,
@@ -94,6 +624,7 @@ export default function FormFieldRenderer({
   errorMessage,
 }: FormFieldRendererProps) {
   const [copiedInfoFieldName, setCopiedInfoFieldName] = useState("");
+  const [hoveredStarRating, setHoveredStarRating] = useState(0);
   const resolvedLabel =
     replaceDynamicText(field.label, answers, variables) ?? field.label;
 
@@ -130,6 +661,26 @@ export default function FormFieldRenderer({
 
     return () => window.clearTimeout(timeoutId);
   }, [copiedInfoFieldName]);
+
+  useEffect(() => {
+    if (field.type !== "select" || field.name !== "parishState") {
+      return;
+    }
+
+    const currentValue = String(answers[field.name] ?? "");
+
+    if (!currentValue) {
+      return;
+    }
+
+    const isVisible = getVisibleSelectOptions(field, answers).some(
+      (option) => String(option.value) === currentValue
+    );
+
+    if (!isVisible) {
+      setAnswer(field.name, "");
+    }
+  }, [answers, field, setAnswer]);
 
   if (field.type === "checkbox") {
     return (
@@ -178,6 +729,62 @@ export default function FormFieldRenderer({
   }
 
   if (field.type === "radio") {
+    const isStarRatingField =
+      field.name === "performanceRating" &&
+      (field.options ?? []).length === 5 &&
+      (field.options ?? []).every((option) =>
+        String(option.label).includes("★")
+      );
+
+    if (isStarRatingField) {
+      const selectedRating = Number(answers[field.name] ?? 0);
+      const previewRating = hoveredStarRating || selectedRating;
+
+      return (
+        <div className={styles.starRatingField}>
+          <div className={styles.starRatingLabel}>{resolvedLabel}</div>
+          <div
+            className={styles.starRatingRow}
+            role="radiogroup"
+            aria-label={resolvedLabel}
+          >
+            {(field.options ?? []).map((option) => {
+              const ratingValue = Number(option.value);
+              const isSelected = selectedRating === ratingValue;
+              const isHighlighted =
+                Number.isFinite(ratingValue) && previewRating >= ratingValue;
+
+              return (
+                <button
+                  key={`${field.name}-${option.value}`}
+                  type="button"
+                  className={`${styles.starRatingButton} ${
+                    isHighlighted ? styles.starRatingButtonActive : ""
+                  }`}
+                  aria-pressed={isSelected}
+                  onMouseEnter={() => setHoveredStarRating(ratingValue)}
+                  onMouseLeave={() => setHoveredStarRating(0)}
+                  onFocus={() => setHoveredStarRating(ratingValue)}
+                  onBlur={() => setHoveredStarRating(0)}
+                  onClick={() => setAnswer(field.name, option.value)}
+                >
+                  <span aria-hidden="true">★</span>
+                  <span className={styles.visuallyHidden}>
+                    {ratingValue} {ratingValue === 1 ? "star" : "stars"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.starRatingHelpStack}>
+            <p>A star rating is needed to continue to the next slide.</p>
+            <p>Comments are optional.</p>
+          </div>
+          {fieldError}
+        </div>
+      );
+    }
+
     return (
       <div style={fieldFrameStyle}>
         <div style={fieldLabelStyle}>{resolvedLabel}</div>
@@ -256,11 +863,19 @@ export default function FormFieldRenderer({
   }
 
   if (field.type === "textarea") {
+    const shouldHideVisibleLabel = field.name === "performanceComment";
+
     return (
       <div style={fieldFrameStyle}>
-        <label style={fieldLabelStyle}>{resolvedLabel}</label>
+        <label
+          className={shouldHideVisibleLabel ? styles.visuallyHidden : undefined}
+          style={shouldHideVisibleLabel ? undefined : fieldLabelStyle}
+        >
+          {resolvedLabel}
+        </label>
         <textarea
           className={styles.input}
+          aria-label={resolvedLabel}
           placeholder={resolvedPlaceholder}
           value={String(answers[field.name] ?? "")}
           onChange={(e) => setAnswer(field.name, e.target.value)}
@@ -312,19 +927,35 @@ export default function FormFieldRenderer({
   }
 
   if (field.type === "select") {
+    const visibleOptions = getVisibleSelectOptions(field, answers);
+    const selectedValue = String(answers[field.name] ?? "");
+    const selectedValueIsVisible = visibleOptions.some(
+      (option) => String(option.value) === selectedValue
+    );
+    const resolvedValue =
+      field.name === "parishState" && !selectedValueIsVisible
+        ? ""
+        : selectedValue;
+
     return (
       <div style={fieldFrameStyle}>
         <label style={fieldLabelStyle}>{resolvedLabel}</label>
         <select
           className={styles.input}
-          value={String(answers[field.name] ?? "")}
-          onChange={(e) => setAnswer(field.name, e.target.value)}
+          value={resolvedValue}
+          onChange={(e) => {
+            setAnswer(field.name, e.target.value);
+
+            if (field.name === "country") {
+              setAnswer("parishState", "");
+            }
+          }}
           style={{ borderColor: theme.colors.border }}
         >
           <option value="">
             {resolvedPlaceholder || `Select ${resolvedLabel}`}
           </option>
-          {(field.options ?? []).map((option) => (
+          {visibleOptions.map((option) => (
             <option
               key={`${field.name}-${option.value}`}
               value={option.value}

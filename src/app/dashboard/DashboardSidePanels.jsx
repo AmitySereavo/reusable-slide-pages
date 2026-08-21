@@ -5,6 +5,7 @@ import { useState } from "react";
 const adminLinks = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard/notifications", label: "Notifications" },
   { href: "/dashboard/projects", label: "Projects" },
   { href: "/dashboard/dsl-flows", label: "DSL Flows" },
   { href: "/dashboard/today-tomorrow", label: "Today and Tomorrow" },
@@ -31,7 +32,7 @@ const accountLinks = [
   { href: "/questionnaire/auth-account?slide=purchased-items", label: "Purchased Items" },
   { href: "/questionnaire/auth-account?slide=my-tickets", label: "My Tickets" },
   { href: "/questionnaire/auth-account?slide=receipts", label: "Receipts" },
-  { href: "/questionnaire/invitation?slide=review-order", label: "Cart" },
+  { href: "/questionnaire/ticket-shop?slide=review-order", label: "Cart" },
 ];
 
 export default function DashboardSidePanels({ adminLevel }) {

@@ -30,6 +30,20 @@ const GROW_GUIDE_ROUTES = {
   "/wax-apple": "wax-apple-grow-guide",
 } as const;
 const DEFAULT_GROW_GUIDE_HOSTS = ["growguide.paralifetrees.com"];
+const AMITY_SEREAVO_HOSTS = ["amitysereavo.com", "www.amitysereavo.com"];
+const AMITY_SEREAVO_ROUTES = {
+  "/": "invitation",
+  "/invitation": "invitation",
+  "/tickets": "ticket-shop",
+  "/ticket-shop": "ticket-shop",
+  "/music-merch": "music-merch-shop",
+  "/merch": "music-merch-shop",
+  "/book-artist": "artist-booking",
+  "/artist-booking": "artist-booking",
+  "/itasl": "itasl",
+  "/escape": "escape-album",
+  "/escape-album": "escape-album",
+} as const;
 
 function getConfiguredFunnelHosts() {
   return String(
@@ -97,6 +111,47 @@ function isAllowedGrowGuidePath(pathname: string) {
       (guidePath) => pathname === guidePath || pathname.startsWith(`${guidePath}/`)
     ) ||
     guideSlugs.some(
+      (slug) =>
+        pathname === `/questionnaire/${slug}` ||
+        pathname.startsWith(`/questionnaire/${slug}/`)
+    )
+  );
+}
+
+function isAllowedAmityPath(pathname: string) {
+  const amitySlugs = new Set(Object.values(AMITY_SEREAVO_ROUTES));
+
+  return (
+    pathname === "/api/session" ||
+    pathname === "/api/questionnaires/submit" ||
+    pathname === "/api/questionnaires/gated-access/status" ||
+    pathname === "/api/questionnaires/visitor-state/clear" ||
+    pathname === "/api/questionnaires/engagement/sequence-access" ||
+    pathname === "/api/invitation/orders/create" ||
+    pathname === "/api/verify/start" ||
+    pathname === "/api/verify/consume-link" ||
+    pathname === "/api/login" ||
+    pathname === "/api/logout" ||
+    pathname === "/login" ||
+    pathname === "/forgot-password" ||
+    pathname === "/forgot-password/code" ||
+    pathname === "/reset-password" ||
+    pathname === "/verify" ||
+    pathname === "/verify/link-sent" ||
+    pathname === "/verify/verified-lead" ||
+    pathname === "/privacy-policy" ||
+    pathname === "/terms" ||
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/api/dashboard/") ||
+    pathname.startsWith("/api/password/") ||
+    pathname.startsWith("/api/auth/temporary-lead-account") ||
+    pathname.startsWith("/order-status/") ||
+    pathname.startsWith("/receipt/") ||
+    pathname.startsWith("/api/plant-shop/orders/") ||
+    pathname.startsWith("/api/plant-shop/receipt-lookup") ||
+    pathname.startsWith("/questionnaire/auth-") ||
+    Array.from(amitySlugs).some(
       (slug) =>
         pathname === `/questionnaire/${slug}` ||
         pathname.startsWith(`/questionnaire/${slug}/`)
@@ -205,6 +260,41 @@ export function proxy(request: NextRequest) {
 
     const url = request.nextUrl.clone();
     url.pathname = GROW_GUIDE_HUB_PATH;
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (AMITY_SEREAVO_HOSTS.includes(host)) {
+    if (isStaticOrInternalPath(pathname)) {
+      return NextResponse.next();
+    }
+
+    const amitySlug =
+      AMITY_SEREAVO_ROUTES[
+        Object.keys(AMITY_SEREAVO_ROUTES).find(
+          (routePath) =>
+            pathname === routePath || pathname.startsWith(`${routePath}/`)
+        ) as keyof typeof AMITY_SEREAVO_ROUTES
+      ];
+
+    if (amitySlug) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/questionnaire/${amitySlug}`;
+      return NextResponse.rewrite(url);
+    }
+
+    if (pathname === "/questionnaire") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    if (isAllowedAmityPath(pathname)) {
+      return NextResponse.next();
+    }
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
     url.search = "";
     return NextResponse.redirect(url);
   }

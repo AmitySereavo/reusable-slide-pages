@@ -2,49 +2,37 @@
 // OPENING VIDEO
 @id: home
 @type: media
-@media: /media/invitation/YYSSLYX.mp4
+@title: YYSSLYX (Part One)
+@media: /media/invitation/yysslyx_720p_part_01.mp4
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: true
 @progressmode: video
 @progressplacement: footer-edge
 @videostart: 00:00
-@videogoto: 00:45|performance-rating
+@videoendgoto: footer
 @videoresume: prompt-once
 @countstep: false
 @showback: false
+@shownext: false
 @showauthcontrols: true
-@next: Get Tickets
-@goto: invitation-shop
-@footercontentlabel: Invitation Video 1
+@footerform: true
+@next: Continue
+@goto: invitation-lead-signup-video
+@footercontentlabel: YYSSLYX (Part One)
 @footertransparentuntilexpanded: true
 @footeraction: goto|previous|Previous video|not-available
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|next|Next video|performance-rating
+@footeraction: goto|next|Next|next
 //escape-album-download
-
-
-===
-// PERFORMANCE RATING
-@id: performance-rating
-@type: score
 ---
 BR
-# [c1] How would you rate
-# [c1] Amity Sereavo's
-# [c3] performance?
-BR
-@feature: numberscale(1,2,[3],4,5)
-BR
-[c2] 1 being trash.
-[c3] 5 being ultimate fire.
-@store: performanceRating
+@fields:
+- performanceRating|radio|Rate Amity Sereavo's Performance|required|Choose a star rating|1=★,2=★,3=★,4=★,5=★
+- performanceComment|textarea|Meaningful comment|optional|Leave a meaningful comment that can add to growth and improvement
 @when:
-- performanceRating|in|3,4,5|whatsapp-subscription
+- performanceRating|in|3,4,5|invitation-lead-signup-video
 - performanceRating|in|1,2|low-rating-choice
-@back: Back
-@next: Continue
-@goto: whatsapp-subscription
 
 ===
 // LOW RATING CHOICE
@@ -60,9 +48,50 @@ BR
 @store: lowRatingDecision
 @choices:
 - exit|Exit|exit-page|c2
-- continue|Continue Watching|whatsapp-subscription|c1
+- continue|Continue Watching|invitation-lead-signup-video|c1
 @back: Back
 @shownext: false
+
+===
+// INVITATION LEAD SIGNUP VIDEO
+@id: invitation-lead-signup-video
+@type: media
+@title: Join Amity Sereavo's Circle
+@media: /media/invitation/amity_sereavo_lead_signup_script_480p.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: true
+@progressmode: video
+@progressplacement: footer-edge
+@videostart: 00:00
+@videoendgoto: footer
+@videoresume: auto
+@countstep: false
+@showback: false
+@shownext: false
+@showauthcontrols: true
+@footerform: true
+@run: submitLead
+@next: Continue
+@goto: whatsapp-subscription
+@footercontentlabel: Sign up
+@footertransparentuntilexpanded: true
+@footeraction: goto|previous|Previous video|home
+@footeraction: media|mute|Mute|toggle-mute
+@footeraction: goto|next|Next|next
+---
+BR
+# [c1] Stay Connected
+BR
+@fields:
+- fullName|text|Name|required|Enter your name
+- country|select|Country|required|Choose country|jamaica=Jamaica,united-kingdom=United Kingdom,united-states=United States,france=France,germany=Germany,canada=Canada,netherlands=Netherlands,spain=Spain,japan=Japan,ghana=Ghana,kenya=Kenya,brazil=Brazil,south-africa=South Africa,belgium=Belgium,nigeria=Nigeria,switzerland=Switzerland,italy=Italy,sweden=Sweden,australia=Australia,new-zealand=New Zealand,trinidad-and-tobago=Trinidad & Tobago,china=China,other=Other
+- parishState|select|State / Province / Region|required|Choose state / province / region|kingston=Kingston,st-andrew=St. Andrew,st-catherine=St. Catherine,clarendon=Clarendon,manchester=Manchester,st-elizabeth=St. Elizabeth,westmoreland=Westmoreland,hanover=Hanover,st-james=St. James,trelawny=Trelawny,st-ann=St. Ann,st-mary=St. Mary,portland=Portland,st-thomas=St. Thomas,uk-london=★ London,uk-west-midlands=★ West Midlands,uk-north-west=★ North West,uk-south-west=★ South West,uk-east-midlands=East Midlands,uk-east-of-england=East of England,uk-north-east=North East,uk-south-east=South East,uk-yorkshire-humber=Yorkshire and The Humber,uk-scotland=★ Scotland,uk-wales=Wales,uk-northern-ireland=Northern Ireland,us-alabama=Alabama,us-alaska=Alaska,us-arizona=Arizona,us-arkansas=Arkansas,california=★ California,us-colorado=Colorado,us-connecticut=Connecticut,us-delaware=Delaware,us-district-of-columbia=★ District of Columbia,florida=★ Florida,georgia=★ Georgia,us-hawaii=Hawaii,us-idaho=Idaho,us-illinois=Illinois,us-indiana=Indiana,us-iowa=Iowa,us-kansas=Kansas,us-kentucky=Kentucky,us-louisiana=Louisiana,us-maine=Maine,us-maryland=Maryland,us-massachusetts=★ Massachusetts,us-michigan=Michigan,us-minnesota=Minnesota,us-mississippi=Mississippi,us-missouri=Missouri,us-montana=Montana,us-nebraska=Nebraska,us-nevada=Nevada,us-new-hampshire=New Hampshire,us-new-jersey=New Jersey,us-new-mexico=New Mexico,new-york=★ New York,us-north-carolina=North Carolina,us-north-dakota=North Dakota,us-ohio=Ohio,us-oklahoma=Oklahoma,us-oregon=Oregon,us-pennsylvania=★ Pennsylvania,us-rhode-island=Rhode Island,us-south-carolina=South Carolina,us-south-dakota=South Dakota,us-tennessee=Tennessee,texas=Texas,us-utah=Utah,us-vermont=Vermont,us-virginia=Virginia,us-washington=Washington,us-west-virginia=West Virginia,us-wisconsin=Wisconsin,us-wyoming=Wyoming,us-american-samoa=American Samoa,us-guam=Guam,us-northern-mariana-islands=Northern Mariana Islands,us-puerto-rico=Puerto Rico,us-virgin-islands=U.S. Virgin Islands,fr-auvergne-rhone-alpes=★ Auvergne-Rhone-Alpes,fr-bourgogne-franche-comte=Bourgogne-Franche-Comte,fr-brittany=Brittany / Bretagne,fr-centre-val-de-loire=Centre-Val de Loire,fr-corsica=Corsica / Corse,fr-grand-est=Grand Est,fr-hauts-de-france=Hauts-de-France,fr-ile-de-france=★ Ile-de-France,fr-normandy=Normandy / Normandie,fr-nouvelle-aquitaine=★ Nouvelle-Aquitaine,fr-occitanie=★ Occitanie,fr-pays-de-la-loire=Pays de la Loire,fr-provence-alpes-cote-dazur=★ Provence-Alpes-Cote d'Azur,fr-guadeloupe=Guadeloupe,fr-french-guiana=French Guiana / Guyane,fr-martinique=Martinique,fr-mayotte=Mayotte,fr-reunion=Reunion,de-baden-wurttemberg=Baden-Wurttemberg,de-bavaria=Bavaria / Bayern,de-berlin=★ Berlin,de-brandenburg=Brandenburg,de-bremen=Bremen,de-hamburg=★ Hamburg,de-hesse=Hesse / Hessen,de-lower-saxony=Lower Saxony / Niedersachsen,de-mecklenburg-vorpommern=Mecklenburg-Vorpommern,de-north-rhine-westphalia=★ North Rhine-Westphalia / Nordrhein-Westfalen,de-rhineland-palatinate=Rhineland-Palatinate / Rheinland-Pfalz,de-saarland=Saarland,de-saxony=Saxony / Sachsen,de-saxony-anhalt=Saxony-Anhalt,de-schleswig-holstein=Schleswig-Holstein,de-thuringia=Thuringia,ca-alberta=Alberta,british-columbia=★ British Columbia,ca-manitoba=Manitoba,ca-new-brunswick=New Brunswick,ca-newfoundland-and-labrador=Newfoundland and Labrador,ca-northwest-territories=Northwest Territories,ca-nova-scotia=Nova Scotia,ca-nunavut=Nunavut,ontario=★ Ontario,ca-prince-edward-island=Prince Edward Island,quebec=★ Quebec,ca-saskatchewan=Saskatchewan,ca-yukon=Yukon,nl-drenthe=Drenthe,nl-flevoland=Flevoland,nl-friesland=Friesland / Fryslan,nl-gelderland=Gelderland,nl-groningen=Groningen,nl-limburg=Limburg,nl-north-brabant=North Brabant / Noord-Brabant,nl-north-holland=★ North Holland / Noord-Holland,nl-overijssel=Overijssel,nl-south-holland=★ South Holland / Zuid-Holland,nl-utrecht=Utrecht,nl-zeeland=Zeeland,es-andalusia=Andalusia / Andalucia,es-aragon=Aragon,es-asturias=Asturias,es-balearic-islands=Balearic Islands / Illes Balears,es-canary-islands=Canary Islands / Canarias,es-cantabria=Cantabria,es-castile-and-leon=Castile and Leon,es-castile-la-mancha=Castile-La Mancha,es-catalonia=★ Catalonia / Cataluna,es-valencian-community=★ Valencian Community / Comunitat Valenciana,es-extremadura=Extremadura,es-galicia=Galicia,es-community-of-madrid=★ Community of Madrid / Comunidad de Madrid,es-region-of-murcia=Region of Murcia,es-navarre=Navarre,es-basque-country=Basque Country,es-la-rioja=La Rioja,es-ceuta=Ceuta,es-melilla=Melilla,jp-hokkaido=Hokkaido,jp-aomori=Aomori,jp-iwate=Iwate,jp-miyagi=Miyagi,jp-akita=Akita,jp-yamagata=Yamagata,jp-fukushima=Fukushima,jp-ibaraki=Ibaraki,jp-tochigi=Tochigi,jp-gunma=Gunma,jp-saitama=Saitama,jp-chiba=Chiba,tokyo=★ Tokyo,jp-kanagawa=★ Kanagawa,jp-niigata=Niigata,jp-toyama=Toyama,jp-ishikawa=Ishikawa,jp-fukui=Fukui,jp-yamanashi=Yamanashi,jp-nagano=Nagano,jp-gifu=Gifu,jp-shizuoka=Shizuoka,jp-aichi=Aichi,jp-mie=Mie,jp-shiga=Shiga,jp-kyoto=Kyoto,osaka=★ Osaka,jp-hyogo=Hyogo,jp-nara=Nara,jp-wakayama=Wakayama,jp-tottori=Tottori,jp-shimane=Shimane,jp-okayama=Okayama,jp-hiroshima=Hiroshima,jp-yamaguchi=Yamaguchi,jp-tokushima=Tokushima,jp-kagawa=Kagawa,jp-ehime=Ehime,jp-kochi=Kochi,jp-fukuoka=Fukuoka,jp-saga=Saga,jp-nagasaki=Nagasaki,jp-kumamoto=Kumamoto,jp-oita=Oita,jp-miyazaki=Miyazaki,jp-kagoshima=Kagoshima,jp-okinawa=Okinawa,gh-ahafo=Ahafo,gh-ashanti=★ Ashanti,gh-bono=Bono,gh-bono-east=Bono East,gh-central=Central,gh-eastern=Eastern,gh-greater-accra=★ Greater Accra,gh-north-east=North East,gh-northern=Northern,gh-oti=Oti,gh-savannah=Savannah,gh-upper-east=Upper East,gh-upper-west=Upper West,gh-volta=Volta,gh-western=Western,gh-western-north=Western North,ke-baringo=Baringo,ke-bomet=Bomet,ke-bungoma=Bungoma,ke-busia=Busia,ke-elgeyo-marakwet=Elgeyo-Marakwet,ke-embu=Embu,ke-garissa=Garissa,ke-homa-bay=Homa Bay,ke-isiolo=Isiolo,ke-kajiado=Kajiado,ke-kakamega=Kakamega,ke-kericho=Kericho,ke-kiambu=Kiambu,ke-kilifi=★ Kilifi,ke-kirinyaga=Kirinyaga,ke-kisii=Kisii,ke-kisumu=★ Kisumu,ke-kitui=Kitui,ke-kwale=Kwale,ke-laikipia=Laikipia,ke-lamu=Lamu,ke-machakos=Machakos,ke-makueni=Makueni,ke-mandera=Mandera,ke-marsabit=Marsabit,ke-meru=Meru,ke-migori=Migori,ke-mombasa=★ Mombasa,ke-muranga=Murang'a,ke-nairobi-city=★ Nairobi City,ke-nakuru=Nakuru,ke-nandi=Nandi,ke-narok=Narok,ke-nyamira=Nyamira,ke-nyandarua=Nyandarua,ke-nyeri=Nyeri,ke-samburu=Samburu,ke-siaya=Siaya,ke-taita-taveta=Taita-Taveta,ke-tana-river=Tana River,ke-tharaka-nithi=Tharaka-Nithi,ke-trans-nzoia=Trans Nzoia,ke-turkana=Turkana,ke-uasin-gishu=Uasin Gishu,ke-vihiga=Vihiga,ke-wajir=Wajir,ke-west-pokot=West Pokot,br-acre=Acre,br-alagoas=Alagoas,br-amapa=Amapa,br-amazonas=Amazonas,br-bahia=★ Bahia,br-ceara=Ceara,br-distrito-federal=Distrito Federal,br-espirito-santo=Espirito Santo,br-goias=Goias,br-maranhao=★ Maranhao,br-mato-grosso=Mato Grosso,br-mato-grosso-do-sul=Mato Grosso do Sul,br-minas-gerais=Minas Gerais,br-para=Para,br-paraiba=Paraiba,br-parana=Parana,br-pernambuco=Pernambuco,br-piaui=Piaui,br-rio-grande-do-norte=Rio Grande do Norte,br-rio-de-janeiro=★ Rio de Janeiro,br-rio-grande-do-sul=Rio Grande do Sul,br-rondonia=Rondonia,br-roraima=Roraima,br-santa-catarina=Santa Catarina,br-sao-paulo=★ Sao Paulo,br-sergipe=Sergipe,br-tocantins=Tocantins,za-eastern-cape=Eastern Cape,za-free-state=Free State,za-gauteng=★ Gauteng,za-kwazulu-natal=★ KwaZulu-Natal,za-limpopo=Limpopo,za-mpumalanga=Mpumalanga,za-north-west=North West,za-northern-cape=Northern Cape,za-western-cape=★ Western Cape,be-antwerp=★ Antwerp,be-east-flanders=East Flanders,be-flemish-brabant=Flemish Brabant,be-limburg=Limburg,be-west-flanders=West Flanders,be-hainaut=Hainaut,be-liege=Liege,be-luxembourg=Luxembourg,be-namur=Namur,be-walloon-brabant=Walloon Brabant,be-brussels-capital-region=★ Brussels-Capital Region,ng-abia=Abia,ng-adamawa=Adamawa,ng-akwa-ibom=Akwa Ibom,ng-anambra=Anambra,ng-bauchi=Bauchi,ng-bayelsa=Bayelsa,ng-benue=Benue,ng-borno=Borno,ng-cross-river=Cross River,ng-delta=Delta,ng-ebonyi=Ebonyi,ng-edo=Edo,ng-ekiti=Ekiti,ng-enugu=Enugu,ng-federal-capital-territory-abuja=★ Federal Capital Territory / Abuja,ng-gombe=Gombe,ng-imo=Imo,ng-jigawa=Jigawa,ng-kaduna=Kaduna,ng-kano=Kano,ng-katsina=Katsina,ng-kebbi=Kebbi,ng-kogi=Kogi,ng-kwara=Kwara,ng-lagos=★ Lagos,ng-nasarawa=Nasarawa,ng-niger=Niger,ng-ogun=★ Ogun,ng-ondo=Ondo,ng-osun=Osun,ng-oyo=Oyo,ng-plateau=Plateau,ng-rivers=★ Rivers,ng-sokoto=Sokoto,ng-taraba=Taraba,ng-yobe=Yobe,ng-zamfara=Zamfara,ch-aargau=Aargau,ch-appenzell-ausserrhoden=Appenzell Ausserrhoden,ch-appenzell-innerrhoden=Appenzell Innerrhoden,ch-basel-landschaft=Basel-Landschaft,ch-basel-stadt=★ Basel-Stadt,ch-bern=Bern,ch-fribourg=Fribourg,ch-geneva=★ Geneva / Geneve,ch-glarus=Glarus,ch-graubunden=Graubunden,ch-jura=Jura,ch-lucerne=Lucerne / Luzern,ch-neuchatel=Neuchatel,ch-nidwalden=Nidwalden,ch-obwalden=Obwalden,ch-schaffhausen=Schaffhausen,ch-schwyz=Schwyz,ch-solothurn=Solothurn,ch-st-gallen=St. Gallen,ch-thurgau=Thurgau,ch-ticino=Ticino,ch-uri=Uri,ch-vaud=Vaud,ch-valais=Valais / Wallis,ch-zug=Zug,ch-zurich=★ Zurich,it-abruzzo=Abruzzo,it-aosta-valley=Aosta Valley / Valle d'Aosta,it-apulia=Apulia / Puglia,it-basilicata=Basilicata,it-calabria=Calabria,it-campania=Campania,it-emilia-romagna=★ Emilia-Romagna,it-friuli-venezia-giulia=Friuli Venezia Giulia,it-lazio=★ Lazio,it-liguria=Liguria,it-lombardy=★ Lombardy / Lombardia,it-marche=Marche,it-molise=Molise,it-piedmont=Piedmont / Piemonte,it-sardinia=Sardinia / Sardegna,it-sicily=Sicily / Sicilia,it-trentino-alto-adige=Trentino-Alto Adige / Sudtirol,it-tuscany=Tuscany / Toscana,it-umbria=Umbria,it-veneto=Veneto,se-blekinge=Blekinge,se-dalarna=Dalarna,se-gavleborg=Gavleborg,se-gotland=Gotland,se-halland=Halland,se-jamtland=Jamtland,se-jonkoping=Jonkoping,se-kalmar=Kalmar,se-kronoberg=Kronoberg,se-norrbotten=Norrbotten,se-orebro=Orebro,se-ostergotland=Ostergotland,se-skane=★ Skane,se-sodermanland=Sodermanland,se-stockholm=★ Stockholm,se-uppsala=Uppsala,se-varmland=Varmland,se-vasterbotten=Vasterbotten,se-vasternorrland=Vasternorrland,se-vastmanland=Vastmanland,se-vastra-gotaland=★ Vastra Gotaland,au-australian-capital-territory=Australian Capital Territory,au-new-south-wales=★ New South Wales,au-northern-territory=Northern Territory,au-queensland=★ Queensland,au-south-australia=South Australia,au-tasmania=Tasmania,au-victoria=★ Victoria,au-western-australia=Western Australia,nz-northland=Northland,nz-auckland=★ Auckland,nz-waikato=Waikato,nz-bay-of-plenty=Bay of Plenty,nz-gisborne=Gisborne,nz-hawkes-bay=Hawke's Bay,nz-taranaki=Taranaki,nz-manawatu-whanganui=Manawatu-Whanganui,nz-wellington=★ Wellington,nz-tasman=Tasman,nz-nelson=Nelson,nz-marlborough=Marlborough,nz-west-coast=West Coast,nz-canterbury=Canterbury,nz-otago=Otago,nz-southland=Southland,tt-port-of-spain=★ Port of Spain,tt-san-fernando=San Fernando,tt-arima=Arima,tt-chaguanas=Chaguanas,tt-diego-martin=Diego Martin,tt-point-fortin=Point Fortin,tt-siparia=Siparia,tt-couva-tabaquite-talparo=Couva/Tabaquite/Talparo,tt-mayaro-rio-claro=Mayaro/Rio Claro,tt-penal-debe=Penal/Debe,tt-princes-town=Princes Town,tt-sangre-grande=Sangre Grande,tt-san-juan-laventille=★ San Juan/Laventille,tt-tunapuna-piarco=★ Tunapuna/Piarco,tt-tobago=Tobago,beijing=Beijing,shanghai=Shanghai,other-region=Other / not listed
+- invitationContactMethod|select|Contact method|required|Choose contact method|email=Email,whatsapp=WhatsApp
+- email|email|Email address|required|Enter your email address||showif:invitationContactMethod=email
+- primaryPhone|tel|WhatsApp number|required|Include country and area code. Example +1 876 555 1234||showif:invitationContactMethod=whatsapp
+- invitationLegalNotice|info|Terms and privacy|optional|Please review the [Terms of Service](/terms) and [Privacy Policy](/privacy-policy) before continuing.
+- invitationLegalAcknowledgement|checkbox|I acknowledge and understand.|required
 
 ===
 // RETURNING VERIFIED VIEWER
@@ -128,227 +157,51 @@ BR
 // SECOND VIDEO
 @id: second-video
 @type: media
-@media: /media/invitation/YYSSLYX.mp4
+@title: YYSSLYX (Part Two)
+@media: /media/invitation/yysslyx_720p_part_02.mp4
 @mediatype: video
 @mediaaspect: vertical
 @autoplay: true
 @progressmode: video
 @progressplacement: footer-edge
-@videostart: 14:18
+@videostart: 00:00
+@videoendgoto: invitation-next-steps
 @videoresume: auto
 @syncurl: true
 @showreturnhome: true
 @showauthcontrols: true
 @countstep: false
 @showback: false
+@shownext: false
 @showauthcontrols: true
-@next: Visit Shop
-@goto: invitation-shop
+@next: Continue
+@goto: invitation-next-steps
 @footercontentlabel: Invitation Video 2
 @footertransparentuntilexpanded: true
 @footeraction: goto|previous|Previous video|home
 @footeraction: media|mute|Mute|toggle-mute
-@footeraction: goto|next|Next video|invitation-shop
+@footeraction: goto|next|Next|invitation-next-steps
 
 ===
-// INVITATION SHOP
-@id: invitation-shop
-@type: shop
-@store: orderCart
-@catalog: shopCatalog
-@shopmode: browse
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@ticketgoto: ticket-details
-@mealgoto: meal-selection
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@back: Back
-@next: Checkout
-
-===
-// MUSIC AND MERCH SHOP
-@id: music-merch-shop
-@type: shop
-@store: orderCart
-@catalog: musicMerchShopCatalog
-@shopmode: browse
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@back: Back
-@next: Checkout
-@choiceplacement: inline
----
-BR
-# [c1] Music and Merch
-BR
-[c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
-[c3] Physical items are currently set up for event collection while we test the flow.
-
-===
-// TICKET DETAILS
-@id: ticket-details
-@type: tickets
-@store: ticketAssignments
-@mealgoto: meal-selection
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@back: Back
-@backgoto: invitation-shop
-@next: Continue
-@choiceplacement: inline
----
-BR
-# [c1] Ticket Details
-BR
-[c2] - Mark the ticket that belongs to you.
-[c2] - Add guest names and emails for tickets being sent to someone else.
-@choices:
-- ticket-help|Need help with tickets?|ticket-details-help|secondary
-
-===
-// TICKET DETAILS HELP
-@id: ticket-details-help
-@type: media
-@title: Ticket Help
-@subtitle: Ticket Details
-@media: /media/invitation/YYSSLYX.mp4
-@mediatype: video
-@mediaaspect: vertical
-@autoplay: false
-@progressmode: video
-@progressplacement: footer-edge
-@showprogressbar: true
-@syncurl: true
-@showauthcontrols: false
-@back: Back
-@next: Back to Ticket Details
-@goto: ticket-details
-@footercontentlabel: Ticket Help
-@footeraction: media|mute|Mute|toggle-mute
----
-BR
-# [c1] Ticket Help
-BR
-[c3] Mark your own ticket first. For guest tickets, add the person's name and email so their ticket and meal details can be sent after checkout.
-[c3] Use the meal button on each ticket to choose required meals before completing the cart.
-
-===
-// MEAL SELECTION
-@id: meal-selection
-@type: meal
-@store: mealSelections
-@mealmenu: mealMenus
-@deliverygoto: delivery-options
-@contactgoto: contact-details
-@reviewgoto: review-order
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@showback: false
-@next: Back to ticket details
----
-BR
-# [c1] Select Meals
-BR
-[c2] Choose the meal quantities for the tickets that include meals.
-[c3] Each section must match the number of meal tickets.
-
-===
-// DELIVERY OPTIONS
-@id: delivery-options
-@type: delivery
-@store: deliverySelection
-@deliveryconfig: deliveryConfig
-@completioncheck: contact
-@gotoifcomplete: review-order
-@gotoifincomplete: contact-details
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@back: Back
-@next: Continue
----
-# [c1] Choose delivery or pickup
-[c3] Select how you want to receive your order.
-
-===
-// CONTACT DETAILS
-@id: contact-details
-@type: form
-@contactmode: order
-@showauthcontrols: false
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
----
-BR
-# [c1] Contact Details
-BR
-[c2] Enter your contact details so we can process your tickets.
-BR
-@fields:
-- fullName|text|Full name|required|Full name
-- email|email|Email address|required|Email address for ticket, invitation, or download access
-- phone|tel|Phone number|optional|Optional
-- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
----
-@run: submitLead
-@back: Back
-@next: Continue to Ticket Details
-@goto: ticket-details
-
-===
-// REVIEW ORDER
-@id: review-order
-@type: shop
-@title: Cart
-@store: orderCart
-@catalog: orderCatalog
-@shopmode: review
-@syncurl: true
-@progressoverlaybg: rgba(255,255,255,0.92)
-@actionbarbg: rgba(255,255,255,0.94)
-@progressoverlaytextcolor: #1f1f1f
-@actionbartextcolor: #1f1f1f
-@run: submitInvitationOrder
-@back: Back
-@next: Complete
-@goto: confirmation-message
-
-===
-// CONFIRMATION MESSAGE
-@id: confirmation-message
+// INVITATION NEXT STEPS
+@id: invitation-next-steps
 @type: content
 @countstep: false
+@syncurl: true
+@showback: true
+@shownext: false
+@back: Back
 ---
 BR
-# [c1] Respect.
+# [c1] Next Step
 BR
-[c2] Your order info was received.
+[c2] Choose where you want to go next.
 BR
-[c3] If guest ticket owners were added with email addresses, their private ticket links were sent.
+[Get tickets](/questionnaire/ticket-shop)
+
+[Music and merch](/questionnaire/music-merch-shop)
+
+[Book the artiste](/questionnaire/artist-booking)
 
 ===
 // ESCAPE ALBUM DOWNLOAD

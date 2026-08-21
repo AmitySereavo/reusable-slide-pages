@@ -62,6 +62,32 @@ function getPeopleKindLabel(record) {
   return "Lead";
 }
 
+function getPeopleBrandLabels(record) {
+  const brands = Array.isArray(record.brands) ? record.brands : [];
+  if (brands.length) {
+    return brands.map((brand) => brand.label || brand.key).filter(Boolean);
+  }
+
+  return (record.brandKeys || [])
+    .map((key) =>
+      key === "amitySereavo"
+        ? "Amity Sereavo"
+        : key === "paralifeTrees"
+          ? "ParaLife Trees"
+          : key
+    )
+    .filter(Boolean);
+}
+
+function isAmityOnlyRecord(record) {
+  const brandKeys = Array.isArray(record.brandKeys) ? record.brandKeys : [];
+  return brandKeys.includes("amitySereavo") && !brandKeys.includes("paralifeTrees");
+}
+
+function hasAmityBrand(record) {
+  return (record.brandKeys || []).includes("amitySereavo");
+}
+
 function hasAccountHolderSignal(record) {
   return (record.accounts || []).some(
     (account) => account.passwordUpdatedAt || account.summary?.sessionCount
@@ -281,6 +307,45 @@ const growGuideLibraryOptions = [
   { slug: "marigold-grow-guide", path: "/marigold", label: "Marigold grow guide", productTitle: "Marigold" },
 ];
 
+const amityRelatedContentOptions = [
+  {
+    key: "invitation",
+    label: "Invitation lead capture",
+    url: "https://amitysereavo.com/",
+    summary: "Invitation and YYSSLYX lead capture flow",
+  },
+  {
+    key: "ticket-shop",
+    label: "Ticket shop",
+    url: "https://amitysereavo.com/tickets",
+    summary: "Ticket purchase flow",
+  },
+  {
+    key: "music-merch-shop",
+    label: "Music and merch shop",
+    url: "https://amitysereavo.com/music-merch",
+    summary: "Music and merchandise shop",
+  },
+  {
+    key: "artist-booking",
+    label: "Artist booking",
+    url: "https://amitysereavo.com/book-artist",
+    summary: "Artist booking request flow",
+  },
+  {
+    key: "itasl",
+    label: "ITASL content",
+    url: "https://amitysereavo.com/itasl",
+    summary: "ITASL related content",
+  },
+  {
+    key: "escape-album",
+    label: "Escape album",
+    url: "https://amitysereavo.com/escape",
+    summary: "Escape album related content",
+  },
+];
+
 function getGrowGuideLabelForOrderItem(item) {
   const text = [item.productTitle, item.sizeLabel, item.productId, item.sku, item.productSku]
     .filter(Boolean)
@@ -312,6 +377,18 @@ function buildPeopleGrowGuideMessage({ record, item, link }) {
     link.linkUrl,
     "",
     "_Para-life Trees - Planting a Life in Paradise._",
+  ].join("\n");
+}
+
+function buildAmityRelatedContentMessage({ record, content }) {
+  const name = record.contact?.name || "there";
+
+  return [
+    `Hi ${name}, here is the ${content.label} link from Amity Sereavo:`,
+    "",
+    content.url,
+    "",
+    "You can open it whenever you're ready.",
   ].join("\n");
 }
 
@@ -452,6 +529,7 @@ export default function PeopleManager() {
 
   function renderPeopleRecord(record) {
     const isExpanded = expandedKey === record.rowKey;
+    const brandLabels = getPeopleBrandLabels(record);
 
     return (
       <article key={record.rowKey} style={styles.card}>
@@ -477,6 +555,15 @@ export default function PeopleManager() {
             </span>
             {record.relationshipHint ? (
               <span style={styles.metaLine}>{record.relationshipHint}</span>
+            ) : null}
+            {brandLabels.length ? (
+              <span style={styles.brandBadgeRow}>
+                {brandLabels.map((label) => (
+                  <span key={label} style={styles.brandBadge}>
+                    {label}
+                  </span>
+                ))}
+              </span>
             ) : null}
             <span style={styles.metaLine}>
               Created {formatDate(record.createdAt)}
@@ -562,6 +649,7 @@ export default function PeopleManager() {
       <div style={styles.list}>
         {visibleRows.map((record) => {
           const isExpanded = expandedKey === record.rowKey;
+          const brandLabels = getPeopleBrandLabels(record);
           return (
             <article key={record.rowKey} style={styles.card}>
               <button
@@ -588,6 +676,15 @@ export default function PeopleManager() {
                     Created {formatDate(record.createdAt)}
                     {record.verifiedAt ? ` Â· Verified ${formatDate(record.verifiedAt)}` : ""}
                   </span>
+                  {brandLabels.length ? (
+                    <span style={styles.brandBadgeRow}>
+                      {brandLabels.map((label) => (
+                        <span key={label} style={styles.brandBadge}>
+                          {label}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
                 </span>
                 <span style={styles.expandText}>{isExpanded ? "Hide details" : "See details"}</span>
               </button>
@@ -1076,6 +1173,13 @@ function PeopleSummarySection({ record, spent }) {
 }
 
 function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
+  const canSendGrowGuides = !isAmityOnlyRecord(record);
+  const canSendAmityContent = hasAmityBrand(record);
+  const initialMessageType = canSendGrowGuides
+    ? "grow-guide"
+    : canSendAmityContent
+      ? "amity-content"
+      : "custom";
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft] = useState(() => makeProfileDraft(record));
@@ -1091,9 +1195,12 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
   const [generatedGuideLink, setGeneratedGuideLink] = useState(null);
   const [guideActionStatus, setGuideActionStatus] = useState("");
   const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
-  const [messageType, setMessageType] = useState("grow-guide");
+  const [messageType, setMessageType] = useState(initialMessageType);
   const [messageDraft, setMessageDraft] = useState("");
   const [customMessageDraft, setCustomMessageDraft] = useState("");
+  const [selectedAmityContentKey, setSelectedAmityContentKey] = useState(
+    amityRelatedContentOptions[0]?.key || ""
+  );
   const profile = record.peopleProfile || {};
   const followUpStatus = profile.followUpStatus || {};
   const dotStyle = getFollowUpDotStyle(followUpStatus);
@@ -1152,12 +1259,40 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
           },
         })
       : "";
+  const selectedAmityContent =
+    amityRelatedContentOptions.find((content) => content.key === selectedAmityContentKey) ||
+    amityRelatedContentOptions[0] ||
+    null;
+  const preparedAmityContentMessage =
+    selectedAmityContent && canSendAmityContent
+      ? buildAmityRelatedContentMessage({ record, content: selectedAmityContent })
+      : "";
+  const messageTabs = [
+    ...(canSendGrowGuides ? [["grow-guide", "Grow guide link"]] : []),
+    ...(canSendAmityContent ? [["amity-content", "Related content"]] : []),
+    ["custom", "Custom message"],
+  ];
 
   useEffect(() => {
     if (messageType === "grow-guide" && preparedGuideMessage) {
       setMessageDraft(preparedGuideMessage);
     }
   }, [messageType, preparedGuideMessage]);
+
+  useEffect(() => {
+    if (!messageTabs.some(([type]) => type === messageType)) {
+      setMessageType(initialMessageType);
+      setMessageDraft(
+        initialMessageType === "amity-content" ? preparedAmityContentMessage : ""
+      );
+    }
+  }, [initialMessageType, messageTabs, messageType, preparedAmityContentMessage]);
+
+  useEffect(() => {
+    if (messageType === "amity-content" && preparedAmityContentMessage) {
+      setMessageDraft(preparedAmityContentMessage);
+    }
+  }, [messageType, preparedAmityContentMessage]);
 
   function updateNoteField(key, value) {
     setNote((current) => ({ ...current, [key]: value }));
@@ -1227,6 +1362,7 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
   }
 
   async function generateGrowGuideLink() {
+    if (!canSendGrowGuides) return;
     if (isGeneratingGuide) return;
     if (effectiveGuideSource === "purchased" && !selectedGuideItem?.id) return;
     if (effectiveGuideSource === "library" && !selectedLibraryGuide?.slug) return;
@@ -1306,10 +1442,15 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
         immediateNextStep: "Review whether the person responds and record the outcome.",
         nextQuestions: "Ask what they need next and whether the message was helpful.",
         additionalNotes: [
+          messageType === "amity-content" && selectedAmityContent
+            ? `Related content: ${selectedAmityContent.summary}`
+            : "",
           `Message channel: ${sentBy}`,
           "Message:",
           messageDraft.trim(),
-        ].join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
       },
     });
   }
@@ -1519,10 +1660,7 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
             </p>
           </div>
           <div style={styles.messageTypeTabs} role="tablist" aria-label="Message type">
-            {[
-              ["grow-guide", "Grow guide link"],
-              ["custom", "Custom message"],
-            ].map(([type, label]) => (
+            {messageTabs.map(([type, label]) => (
               <button
                 key={type}
                 type="button"
@@ -1539,7 +1677,11 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
                   }
                   setMessageType(type);
                   setMessageDraft(
-                    type === "custom" ? customMessageDraft : preparedGuideMessage
+                    type === "custom"
+                      ? customMessageDraft
+                      : type === "amity-content"
+                        ? preparedAmityContentMessage
+                        : preparedGuideMessage
                   );
                 }}
               >
@@ -1547,7 +1689,7 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
               </button>
             ))}
           </div>
-          {messageType === "grow-guide" ? (
+          {messageType === "grow-guide" && canSendGrowGuides ? (
             growGuideItems.length || growGuideLibraryOptions.length ? (
               <>
                 <fieldset style={styles.radioGroup}>
@@ -1665,6 +1807,40 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
               <p style={styles.emptyText}>No grow guides are available yet.</p>
             )
           ) : null}
+          {messageType === "amity-content" && canSendAmityContent ? (
+            <>
+              <label style={styles.inlineLabel}>
+                Amity Sereavo content
+                <select
+                  value={selectedAmityContent?.key || ""}
+                  onChange={(event) => {
+                    setSelectedAmityContentKey(event.target.value);
+                    setGuideActionStatus("");
+                  }}
+                  style={styles.select}
+                >
+                  {amityRelatedContentOptions.map((content) => (
+                    <option key={content.key} value={content.key}>
+                      {content.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedAmityContent ? (
+                <div style={styles.generatedGuideBox}>
+                  <strong>{selectedAmityContent.summary}</strong>
+                  <a
+                    href={selectedAmityContent.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.inlineDetailLink}
+                  >
+                    {selectedAmityContent.url}
+                  </a>
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {messageType === "custom" && activeTrackedGuideLinkUrl ? (
             <button
               type="button"
@@ -1699,7 +1875,7 @@ function PeopleCrmPanel({ record, onProfileAction, summarySlot = null }) {
               Insert offer decision questions
             </button>
           ) : null}
-          {messageType === "custom" || activeTrackedGuideLinkUrl ? (
+          {messageType === "custom" || messageType === "amity-content" || activeTrackedGuideLinkUrl ? (
             <>
               <TextAreaField
                 label="Message to review / edit"
@@ -2484,6 +2660,24 @@ const styles = {
   metaLine: {
     color: "#6b625c",
     fontSize: "13px",
+  },
+  brandBadgeRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "6px",
+    marginTop: "2px",
+  },
+  brandBadge: {
+    background: "#201c1d",
+    borderRadius: "999px",
+    color: "#fffdfa",
+    display: "inline-flex",
+    fontSize: "11px",
+    fontWeight: 900,
+    letterSpacing: "0.02em",
+    padding: "4px 8px",
+    textTransform: "uppercase",
+    width: "fit-content",
   },
   expandText: {
     color: "#2f7440",

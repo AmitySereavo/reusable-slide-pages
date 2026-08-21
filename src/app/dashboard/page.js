@@ -10,6 +10,11 @@ const dashboardSections = [
     description: "See immediate deliveries, seed sowing, transplant, and people follow-up in one place.",
   },
   {
+    href: "/dashboard/notifications",
+    label: "Notifications",
+    description: "Enable admin push alerts and open prepared WhatsApp follow-up messages.",
+  },
+  {
     href: "/dashboard/projects",
     label: "Projects",
     description: "Create questionnaire projects, DSL files, and reusable slide flows.",

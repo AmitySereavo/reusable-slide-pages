@@ -4,6 +4,7 @@ import { createRequire } from "module";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 import { getAffiliateStoreCommissionSetting } from "@/lib/affiliates/storeCommissionSettings";
 
 const AFFILIATE_SIGNUP_SLUG = "affiliate-sign-up";
@@ -370,6 +371,9 @@ async function sendApprovedAffiliateAccountEmail({
     subject: "Your Para-life Trees affiliate request was approved",
     text,
     html: buildHtmlFromText(text),
+    fromEmail: getEmailSenderForContext({
+      questionnaireSlug: AFFILIATE_SIGNUP_SLUG,
+    }).fromEmail,
     fromName: "Para-life Trees",
     purpose: "affiliate-approval-account-setup",
   });

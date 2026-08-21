@@ -7,6 +7,7 @@ import { sendWhatsAppVerificationWithMeta } from "./providers/whatsappMeta";
 import { createVerificationDeliveryAttempt } from "./audit";
 import { buildDeliveryErrorResult, normalizeProviderError } from "./result";
 import { sendEmailMessage } from "./emailMessage";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 import {
   PERMANENT_WEBSITE_OP_TAG,
   getWebsiteOperationEmailTemplate,
@@ -224,11 +225,19 @@ async function sendEmailViaProvider({
   delivery = null,
   contextMetadata = null,
 }) {
+  const sender = getEmailSenderForContext({
+    brandKey: contextMetadata?.brandKey || null,
+    questionnaireSlug: contextMetadata?.questionnaireSlug || null,
+    host: contextMetadata?.requestHost || null,
+  });
+
   return sendEmailMessage({
     to: identifier,
     subject,
     text,
     html,
+    fromEmail: sender.fromEmail,
+    fromName: sender.fromName,
     purpose:
       contextMetadata?.purpose ||
       [target, delivery].filter(Boolean).join(":") ||

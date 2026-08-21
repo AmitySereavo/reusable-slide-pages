@@ -1,0 +1,174 @@
+===
+// TICKET SHOP
+@id: invitation-shop
+@type: shop
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@ticketgoto: ticket-details
+@mealgoto: meal-selection
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Checkout
+
+===
+// TICKET DETAILS
+@id: ticket-details
+@type: tickets
+@store: ticketAssignments
+@mealgoto: meal-selection
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@backgoto: invitation-shop
+@next: Continue
+@choiceplacement: inline
+---
+BR
+# [c1] Ticket Details
+BR
+[c2] - Mark the ticket that belongs to you.
+[c2] - Add guest names and emails for tickets being sent to someone else.
+@choices:
+- ticket-help|Need help with tickets?|ticket-details-help|secondary
+
+===
+// TICKET DETAILS HELP
+@id: ticket-details-help
+@type: media
+@title: Ticket Help
+@subtitle: Ticket Details
+@media: /media/invitation/YYSSLYX.mp4
+@mediatype: video
+@mediaaspect: vertical
+@autoplay: false
+@progressmode: video
+@progressplacement: footer-edge
+@showprogressbar: true
+@syncurl: true
+@showauthcontrols: false
+@back: Back
+@next: Back to Ticket Details
+@goto: ticket-details
+@footercontentlabel: Ticket Help
+@footeraction: media|mute|Mute|toggle-mute
+---
+BR
+# [c1] Ticket Help
+BR
+[c3] Mark your own ticket first. For guest tickets, add the person's name and email so their ticket and meal details can be sent after checkout.
+[c3] Use the meal button on each ticket to choose required meals before completing the cart.
+
+===
+// MEAL SELECTION
+@id: meal-selection
+@type: meal
+@store: mealSelections
+@mealmenu: mealMenus
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@showback: false
+@next: Back to ticket details
+---
+BR
+# [c1] Select Meals
+BR
+[c2] Choose the meal quantities for the tickets that include meals.
+[c3] Each section must match the number of meal tickets.
+
+===
+// DELIVERY OPTIONS
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: contact-details
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+---
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
+
+===
+// CONTACT DETAILS
+@id: contact-details
+@type: form
+@contactmode: order
+@showauthcontrols: false
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Contact Details
+BR
+[c2] Enter your contact details so we can process your tickets.
+BR
+@fields:
+- fullName|text|Full name|required|Full name
+- email|email|Email address|required|Email address for ticket, invitation, or download access
+- phone|tel|Phone number|optional|Optional
+- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
+---
+@run: submitLead
+@back: Back
+@next: Continue to Ticket Details
+@goto: ticket-details
+
+===
+// REVIEW ORDER
+@id: review-order
+@type: shop
+@title: Cart
+@store: orderCart
+@catalog: orderCatalog
+@shopmode: review
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@run: submitInvitationOrder
+@back: Back
+@next: Complete
+@goto: confirmation-message
+
+===
+// CONFIRMATION MESSAGE
+@id: confirmation-message
+@type: content
+@countstep: false
+---
+BR
+# [c1] Respect.
+BR
+[c2] Your order info was received.
+BR
+[c3] If guest ticket owners were added with email addresses, their private ticket links were sent.

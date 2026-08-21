@@ -6115,6 +6115,27 @@ async function next() {
       }
     }
 
+    if (currentSlide.id === "invitation-lead-signup-video") {
+      const contactMethod = String(
+        answers.invitationContactMethod ?? ""
+      ).trim();
+
+      if (contactMethod === "email") {
+        const email = String(answers.email ?? "").trim();
+        if (!email || !isValidTicketOwnerEmail(email)) {
+          return "Enter a valid email address.";
+        }
+      }
+
+      if (contactMethod === "whatsapp") {
+        const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+          .replace(/\D/g, "");
+        if (phoneDigits.length < 11) {
+          return "Enter your WhatsApp number with country and area code.";
+        }
+      }
+    }
+
     if (currentSlide.fields?.length) {
       const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
       const missingRequiredField = visibleFields.find((field) => {
@@ -6127,6 +6148,10 @@ async function next() {
       });
 
       if (missingRequiredField) {
+        if (missingRequiredField.name === "performanceRating") {
+          return "A star rating is needed to continue to the next slide.";
+        }
+
         return `${missingRequiredField.label} is required.`;
       }
     }
@@ -6172,6 +6197,28 @@ async function next() {
       }
     }
 
+    if (currentSlide.id === "invitation-lead-signup-video") {
+      const contactMethod = String(
+        answers.invitationContactMethod ?? ""
+      ).trim();
+
+      if (contactMethod === "email") {
+        const email = String(answers.email ?? "").trim();
+        if (!email || !isValidTicketOwnerEmail(email)) {
+          fieldErrors.email = "Enter a valid email address.";
+        }
+      }
+
+      if (contactMethod === "whatsapp") {
+        const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+          .replace(/\D/g, "");
+        if (phoneDigits.length < 11) {
+          fieldErrors.primaryPhone =
+            "Enter your WhatsApp number with country and area code.";
+        }
+      }
+    }
+
     if (currentSlide.fields?.length) {
       const visibleFields = getVisibleFormFields(currentSlide.fields, answers);
 
@@ -6186,8 +6233,11 @@ async function next() {
             ? value !== true
             : String(value ?? "").trim().length === 0;
 
-        if (isMissing) {
-          fieldErrors[field.name] = `${field.label} is required.`;
+        if (isMissing && !fieldErrors[field.name]) {
+          fieldErrors[field.name] =
+            field.name === "performanceRating"
+              ? "A star rating is needed to continue to the next slide."
+              : `${field.label} is required.`;
         }
       }
     }
@@ -7123,6 +7173,11 @@ function handleFooterAction(action: SlideFooterAction) {
   if (action.kind === "goto") {
     const target = action.target ?? action.key;
 
+    if (target === "next") {
+      void handleNext();
+      return;
+    }
+
     if (target) {
       const targetSlide = visibleSlides.find((slide) => slide.id === target);
 
@@ -7558,7 +7613,10 @@ async function handleNext() {
       const isForwardAction =
         action.key.trim().toLowerCase() === "next" ||
         action.label.trim().toLowerCase().includes("next");
-      const targetSlide = visibleSlides.find((slide) => slide.id === target);
+      const isNextTarget = target === "next";
+      const targetSlide = isNextTarget
+        ? null
+        : visibleSlides.find((slide) => slide.id === target);
       const targetIsLocked =
         Boolean(targetSlide?.requiresDripUnlock) &&
         Boolean(targetSlide?.dripUnlockKey) &&
@@ -7569,7 +7627,7 @@ async function handleNext() {
         ...action,
         disabled:
           action.disabled ||
-          !targetSlide ||
+          (!isNextTarget && !targetSlide) ||
           targetIsLocked ||
           (isForwardAction && !canGoNext()),
       };
@@ -8223,7 +8281,9 @@ async function handleNext() {
                                   handleAccountMenuLink(
                                     config.slug === "little-orchard-shop"
                                       ? "/questionnaire/little-orchard-shop?slide=review-selected-items"
-                                      : "/questionnaire/invitation?slide=review-order"
+                                      : config.slug === "music-merch-shop"
+                                        ? "/questionnaire/music-merch-shop?slide=review-order"
+                                        : "/questionnaire/ticket-shop?slide=review-order"
                                   )
                                 }
                               >
@@ -9207,7 +9267,10 @@ async function handleNext() {
                               );
                               const targetShop =
                                 targetLine?.fulfillmentType === "ticket"
-                                  ? "invitation-shop"
+                                  ? config.slug === "ticket-shop" ||
+                                    config.slug === "ticket-purchase-assistant"
+                                    ? "invitation-shop"
+                                    : "/questionnaire/ticket-shop?slide=invitation-shop"
                                   : currentSlide.id === "test-package-invoice" ||
                                       currentSlide.id === "test-package-payment"
                                     ? "test-package-adjust"
@@ -9215,7 +9278,10 @@ async function handleNext() {
                                     ? "plant-starter-shop"
                                     : currentSlide.id === "review-selected-items"
                                       ? "plant-show-shop"
-                                  : "music-merch-shop";
+                                  : config.slug === "music-merch-shop" ||
+                                      config.slug === "ticket-purchase-assistant"
+                                    ? "music-merch-shop"
+                                    : "/questionnaire/music-merch-shop?slide=music-merch-shop";
 
                               setAnswers((prev) => ({
                                 ...prev,
@@ -9331,8 +9397,16 @@ async function handleNext() {
                                 ]
                               : undefined
                           }
-                          onTicketStore={() => goToTarget("invitation-shop")}
-                          onMerchStore={() => goToTarget("music-merch-shop")}
+                          onTicketStore={() =>
+                            config.slug === "ticket-shop"
+                              ? goToTarget("invitation-shop")
+                              : goToTarget("/questionnaire/ticket-shop")
+                          }
+                          onMerchStore={() =>
+                            config.slug === "music-merch-shop"
+                              ? goToTarget("music-merch-shop")
+                              : goToTarget("/questionnaire/music-merch-shop")
+                          }
                         />
                       ) : null}
 
@@ -9566,7 +9640,10 @@ async function handleNext() {
                             );
                             const targetShop =
                               targetLine?.fulfillmentType === "ticket"
-                                ? "invitation-shop"
+                                ? config.slug === "ticket-shop" ||
+                                  config.slug === "ticket-purchase-assistant"
+                                  ? "invitation-shop"
+                                  : "/questionnaire/ticket-shop?slide=invitation-shop"
                                 : currentSlide.id === "test-package-invoice" ||
                                     currentSlide.id === "test-package-payment"
                                   ? "test-package-adjust"
@@ -9574,7 +9651,10 @@ async function handleNext() {
                                   ? "plant-starter-shop"
                                   : currentSlide.id === "review-selected-items"
                                     ? "plant-show-shop"
-                                : "music-merch-shop";
+                                : config.slug === "music-merch-shop" ||
+                                    config.slug === "ticket-purchase-assistant"
+                                  ? "music-merch-shop"
+                                  : "/questionnaire/music-merch-shop?slide=music-merch-shop";
 
                             setAnswers((prev) => ({
                               ...prev,
@@ -9928,11 +10008,16 @@ async function handleNext() {
                           </div>
                         ) : null}
 
-                        <p className={styles.slideFooterFormInstruction}>
-                          Respond, then tap the forward icon
-                          <br />
-                          or Continue button.
-                        </p>
+                        {currentSlide.id === "home" &&
+                        currentSlide.fields.some(
+                          (field) => field.name === "performanceRating"
+                        ) ? null : (
+                          <p className={styles.slideFooterFormInstruction}>
+                            Respond, then tap the forward icon
+                            <br />
+                            or Continue button.
+                          </p>
+                        )}
 
                         <div className={styles.formGrid}>
                           {getVisibleFormFields(currentSlide.fields, answers).map((field) => (
@@ -20138,7 +20223,7 @@ function MyTicketsDashboardRenderer({
           <button
             type="button"
             style={ticketAssistantStyles.secondaryAction}
-            onClick={() => onGoto("/questionnaire/invitation?slide=invitation-shop")}
+            onClick={() => onGoto("/questionnaire/ticket-shop")}
           >
             Ticket Shop
           </button>

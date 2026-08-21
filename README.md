@@ -42,6 +42,16 @@ Current reusable foundations:
   inventory, affiliates, discount codes, currencies, and email sequences
 - shared email sender for auth, ticket, album, recipient, password-reset, and
   sequence emails
+- admin notification records with optional browser push delivery for
+  time-sensitive admin follow-up work
+- separated invitation commerce flows: `invitation` remains lead capture/video
+  access, while `ticket-shop` and `music-merch-shop` are standalone DSL flows
+  connected by URL
+- standalone artiste booking request flow for private 1-50 person bookings and
+  public ticketed/open events, linked by URL from invitation and other flows
+- brand-aware email sender resolution so ParaLife Trees flows default to
+  `paralifetrees@gmail.com` and Amity Sereavo flows default to
+  `amitysereavo@gmail.com`
 - protected website-operation email templates that are editable in the
   dashboard and tagged `Permanent Website Op`
 - affiliate application flow with applicant email verification, admin approval
@@ -126,6 +136,7 @@ wording into reusable shell code.
 - React Hook Form
 - Nodemailer
 - Resend
+- Web Push
 - Twilio package installed, with SMS still paused for now
 - bcrypt
 - crypto/HMAC signed gated-access cookies
@@ -143,6 +154,8 @@ The dashboard index is intentionally lightweight. Heavy admin sections live on
 separate routes so each section loads its own data only when an admin visits it:
 
 - `/dashboard/projects`: project/DSL builder
+- `/dashboard/notifications`: admin notification inbox, browser push
+  subscription setup, and prepared WhatsApp follow-up links
 - `/dashboard/people`: leads, accounts, purchases, content activity, answers,
   and email engagement
 - `/dashboard/affiliates`: affiliate applications, email verification status,
@@ -181,6 +194,8 @@ user-created account is assigned admin level 1 by the signup route.
 Dashboard API routes also require admin level 1:
 
 - `/api/dashboard/projects`
+- `/api/dashboard/admin-notifications`
+- `/api/dashboard/admin-notifications/subscribe`
 - `/api/dashboard/people`
 - `/api/dashboard/affiliates`
 - `/api/dashboard/orders`
@@ -190,6 +205,117 @@ Dashboard API routes also require admin level 1:
 - `/api/dashboard/discount-codes`
 - `/api/dashboard/currencies`
 - `/api/dashboard/email-sequences`
+
+## Admin Notifications And Push
+
+Admin notifications are stored in the database first, then optionally delivered
+through browser push. This keeps the dashboard as the fallback even when a
+browser, device, permission, or push provider blocks delivery.
+
+Current data models:
+
+- `AdminNotification`: dashboard-visible notification record with title, body,
+  action URL, source metadata, read state, and push delivery status.
+- `AdminPushSubscription`: admin browser/device subscription tied to a logged-in
+  admin user.
+
+Current routes:
+
+- `/dashboard/notifications`: admin inbox and push setup button.
+- `/api/dashboard/admin-notifications`: lists notifications and marks one or all
+  notifications read.
+- `/api/dashboard/admin-notifications/subscribe`: saves the current admin
+  browser push subscription.
+- `/sw.js`: service worker that displays push notifications and opens the
+  notification action URL when tapped.
+
+Push delivery uses the `web-push` package and VAPID keys. Set these environment
+variables locally and in Vercel before expecting real device push delivery:
+
+```txt
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:paralifetrees@gmail.com
+```
+
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` is used by the browser. `VAPID_PUBLIC_KEY` may be
+used by the server as a fallback. `VAPID_PRIVATE_KEY` stays server-only.
+
+Invitation lead submissions now check `invitationContactMethod`. If the visitor
+chooses WhatsApp, the submission route creates:
+
+- a phone-based lead record for gated continuation access
+- a one-use verification/continuation token
+- a prepared `wa.me` URL containing the private continuation link
+- an `AdminNotification` with that WhatsApp action URL
+
+If push keys or admin subscriptions are missing, the notification is still stored
+under `/dashboard/notifications`. Email-based private links continue to use the
+existing email delivery flow.
+
+## Brand Email Separation
+
+Brand-specific DSLs and signups should send email from the matching brand sender.
+The shared brand resolver lives in:
+
+```txt
+src/config/siteBrands.js
+```
+
+Current defaults:
+
+- ParaLife Trees domains and plant/nursery DSLs use `paralifetrees@gmail.com`.
+- Amity Sereavo invitation, ticket, music/merch, ITASL, Escape Album, and artiste
+  booking DSLs use `amitysereavo@gmail.com`.
+
+Optional environment overrides:
+
+```txt
+PARALIFE_TREES_FROM_EMAIL=paralifetrees@gmail.com
+AMITY_SEREAVO_FROM_EMAIL=amitysereavo@gmail.com
+```
+
+For SMTP with separate Gmail/app passwords, configure per-brand credentials:
+
+```txt
+PARALIFE_TREES_SMTP_HOST=smtp.gmail.com
+PARALIFE_TREES_SMTP_PORT=587
+PARALIFE_TREES_SMTP_SECURE=false
+PARALIFE_TREES_SMTP_USER=paralifetrees@gmail.com
+PARALIFE_TREES_SMTP_PASS=
+
+AMITY_SEREAVO_SMTP_HOST=smtp.gmail.com
+AMITY_SEREAVO_SMTP_PORT=587
+AMITY_SEREAVO_SMTP_SECURE=false
+AMITY_SEREAVO_SMTP_USER=amitysereavo@gmail.com
+AMITY_SEREAVO_SMTP_PASS=
+```
+
+If a message sets `fromEmail` to one of the configured brand senders, the email
+layer uses that brand's SMTP credentials. If no brand-specific SMTP credentials
+match, it falls back to the global `SMTP_*` settings. For Resend, the
+sender/domain must be verified there.
+
+People records in `/dashboard/people` now carry brand metadata inferred from
+their source records, orders, visitor activity, and questionnaire slugs. This
+lets the dashboard show whether a person is connected to ParaLife Trees, Amity
+Sereavo, or both. Amity-only people should not be offered plant grow-guide
+message actions; they receive Amity-related content options instead. Mixed
+records can show both business contexts.
+
+The public `amitysereavo.com` host is routed separately from ParaLife funnel
+hosts:
+
+- `amitysereavo.com/` -> `invitation`
+- `amitysereavo.com/tickets` -> `ticket-shop`
+- `amitysereavo.com/music-merch` -> `music-merch-shop`
+- `amitysereavo.com/book-artist` -> `artist-booking`
+- `amitysereavo.com/itasl` -> `itasl`
+- `amitysereavo.com/escape` -> `escape-album`
+
+This keeps Amity Sereavo content from falling through to the ParaLife plant
+giveaway route.
 
 ## Nursery Production Planning
 

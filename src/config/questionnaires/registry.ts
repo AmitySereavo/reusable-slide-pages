@@ -184,6 +184,42 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dynamicVariablesEndpoint: undefined,
   },
 
+  "ticket-shop": {
+    slug: "ticket-shop",
+    name: "Ticket Shop",
+    themeKey: "invitation",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/ticketShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "music-merch-shop": {
+    slug: "music-merch-shop",
+    name: "Music and Merch Shop",
+    themeKey: "invitation",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/musicMerchShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
+  "artist-booking": {
+    slug: "artist-booking",
+    name: "Artiste Booking",
+    themeKey: "invitation",
+    theme: seedTheme,
+    dslPath: "src/config/questionnaires/artistBookingDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {},
+    dynamicVariablesEndpoint: undefined,
+  },
+
   "ticket-purchase-assistant": {
     slug: "ticket-purchase-assistant",
     name: "Ticket Purchase Assistant",
@@ -209,7 +245,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
         itemKey: "escape-album",
         gateSlideId: "escape-album-access",
         accessSlideId: "good-morning-video",
-        storeTarget: "/questionnaire/invitation?slide=invitation-shop",
+        storeTarget: "/questionnaire/music-merch-shop",
       },
     },
     dynamicVariablesEndpoint: undefined,
@@ -718,7 +754,12 @@ export async function getQuestionnaireBySlug(slug: string) {
     baseCurrencyCode: "USD",
   };
 
-  if (entry.slug === "invitation" || entry.slug === "ticket-purchase-assistant") {
+  if (
+    entry.slug === "invitation" ||
+    entry.slug === "ticket-shop" ||
+    entry.slug === "music-merch-shop" ||
+    entry.slug === "ticket-purchase-assistant"
+  ) {
     const shopCatalog = await getReusableShopCatalog({
       catalogKey: "invitationTickets",
       currencyCode: "USD",

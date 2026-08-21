@@ -11,6 +11,10 @@ function hashToken(rawToken) {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
+function normalizePhoneIdentifier(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 async function consumeAffiliateEmailVerification({ record, tokenHash }) {
   const now = new Date();
   const target = String(record.target || "");
@@ -88,6 +92,8 @@ async function consumeAffiliateEmailVerification({ record, tokenHash }) {
 async function consumeGatedLeadAccess({ record, tokenHash }) {
   const now = new Date();
   const identifier = String(record.identifier || "").trim().toLowerCase();
+  const phoneIdentifier = normalizePhoneIdentifier(identifier);
+  const isEmailIdentifier = identifier.includes("@");
 
   const result = await prisma.$transaction(async (tx) => {
     const user = record.userId
@@ -96,15 +102,23 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
             id: record.userId,
           },
         })
-      : await tx.user.findFirst({
-          where: {
-            email: identifier,
-          },
-        });
+      : isEmailIdentifier
+        ? await tx.user.findFirst({
+            where: {
+              email: identifier,
+            },
+          })
+        : await tx.user.findFirst({
+            where: {
+              phone: phoneIdentifier || identifier,
+            },
+          });
 
     const lead = await tx.lead.findFirst({
       where: {
-        email: identifier,
+        ...(isEmailIdentifier
+          ? { email: identifier }
+          : { phone: phoneIdentifier || identifier }),
         target: "gatedLeadAccess",
       },
     });
@@ -188,7 +202,7 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
     );
   }
 
-  if (result.user?.id && identifier.includes("@")) {
+  if (result.user?.id && isEmailIdentifier) {
     try {
       await enrollVerifiedEmailTagSequencesForUser({
         user: result.user,
@@ -235,7 +249,7 @@ async function consumeGatedLeadAccess({ record, tokenHash }) {
       userId: result.user?.id || null,
       identifierHash: crypto
         .createHash("sha256")
-        .update(identifier)
+      .update(identifier)
         .digest("hex"),
       verifiedAt: new Date().toISOString(),
       expiresAt: expiresAt.toISOString(),

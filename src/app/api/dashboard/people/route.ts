@@ -9,6 +9,12 @@ import {
 } from "@/lib/dashboard/personProfiles";
 import { ensureCustomerGrowGuideTables } from "@/lib/growGuides/trackedLinks";
 import { ensureUnregisteredVisitorActivityTable } from "@/lib/visitors/unregisteredVisitors";
+import { getSiteBrandByQuestionnaireSlug } from "@/config/siteBrands";
+
+const BRAND_LABELS: Record<string, string> = {
+  paralifeTrees: "ParaLife Trees",
+  amitySereavo: "Amity Sereavo",
+};
 
 function toNumber(value: unknown) {
   if (value == null) return 0;
@@ -38,6 +44,77 @@ function compactContact(record: any) {
   };
 }
 
+function brandSummaryFromKeys(keys: Iterable<string>) {
+  const brandKeys = Array.from(new Set(Array.from(keys).filter(Boolean)));
+
+  return {
+    brandKeys,
+    brands: brandKeys.map((key) => ({
+      key,
+      label: BRAND_LABELS[key] || key,
+    })),
+    primaryBrandKey: brandKeys[0] || null,
+    primaryBrandLabel: brandKeys[0] ? BRAND_LABELS[brandKeys[0]] || brandKeys[0] : null,
+  };
+}
+
+function collectBrandKeysFromSlugs(values: unknown[]) {
+  const keys = new Set<string>();
+
+  for (const value of values) {
+    const raw = String(value || "").trim();
+    if (!raw) continue;
+
+    const candidates = [
+      raw,
+      raw.replace(/^questionnaire:/, ""),
+      raw.replace(/^flow:/, ""),
+    ];
+
+    for (const candidate of candidates) {
+      const brand = getSiteBrandByQuestionnaireSlug(candidate);
+      if (brand?.key) keys.add(brand.key);
+    }
+  }
+
+  return keys;
+}
+
+function collectBrandKeysFromRecordText(values: unknown[]) {
+  const keys = collectBrandKeysFromSlugs(values);
+  const haystack = values
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+
+  if (
+    haystack.includes("little orchard") ||
+    haystack.includes("grow guide") ||
+    haystack.includes("paralife") ||
+    haystack.includes("para-life") ||
+    haystack.includes("plant") ||
+    haystack.includes("seedling") ||
+    haystack.includes("callaloo") ||
+    haystack.includes("garden package")
+  ) {
+    keys.add("paralifeTrees");
+  }
+
+  if (
+    haystack.includes("amity") ||
+    haystack.includes("sereavo") ||
+    haystack.includes("yysslyx") ||
+    haystack.includes("invitation") ||
+    haystack.includes("ticket") ||
+    haystack.includes("music") ||
+    haystack.includes("merch") ||
+    haystack.includes("booking")
+  ) {
+    keys.add("amitySereavo");
+  }
+
+  return keys;
+}
+
 function serializeUser(user: any) {
   const orders = user.purchasedInvitationOrders || [];
   const payments = user.invitationTicketPayments || [];
@@ -46,6 +123,17 @@ function serializeUser(user: any) {
   const questionAnswers = user.marketingQuestionAnswers || [];
   const emailEvents = user.emailSequenceEvents || [];
   const storeCreditEntries = user.storeCreditLedgerEntries || [];
+  const brandSummary = brandSummaryFromKeys(
+    collectBrandKeysFromRecordText([
+      ...orders.map((order: any) => order.questionnaireSlug),
+      ...videoProgressRecords.map((record: any) => record.questionnaireSlug),
+      ...questionAnswers.map((answer: any) => answer.questionnaireSlug),
+      ...purchasedItems.map((item: any) => item.source),
+      ...emailEvents.map((event: any) => event.eventKey),
+      ...emailEvents.map((event: any) => event.metadata?.questionnaireSlug),
+      user.createdBy,
+    ])
+  );
   const giftClaims = [
     ...(user.purchasedGiftClaims || []).map((claim: any) => ({
       ...claim,
@@ -90,6 +178,7 @@ function serializeUser(user: any) {
     createdBy: user.createdBy,
     passwordUpdatedAt: toIso(user.passwordUpdatedAt),
     preferredCurrencyCode: user.preferredCurrencyCode,
+    ...brandSummary,
     contact: compactContact(user),
     tags: (user.tags || []).map((tag: any) => ({
       tagKey: tag.tagKey,
@@ -214,6 +303,21 @@ function serializeUser(user: any) {
 }
 
 function serializeLead(lead: any) {
+  const metadata =
+    lead.metadata && typeof lead.metadata === "object" && !Array.isArray(lead.metadata)
+      ? lead.metadata
+      : {};
+  const brandSummary = brandSummaryFromKeys(
+    collectBrandKeysFromRecordText([
+      lead.source,
+      lead.target,
+      metadata.questionnaireSlug,
+      metadata.flowSlug,
+      metadata.slug,
+      metadata.brandKey,
+    ])
+  );
+
   return {
     kind: "lead",
     id: lead.id,
@@ -222,6 +326,7 @@ function serializeLead(lead: any) {
     verifiedAt: toIso(lead.verifiedAt),
     source: lead.source,
     target: lead.target,
+    ...brandSummary,
     contact: compactContact(lead),
     metadata: lead.metadata || null,
   };
@@ -304,6 +409,7 @@ function serializeLittleOrchardCustomers(items: any[]) {
         id: key,
         bucket: "Para-life Trees",
         labels: ["customer", "little-orchard-shop"],
+        ...brandSummaryFromKeys(["paralifeTrees"]),
         createdAt: toIso(item.createdAt),
         updatedAt: toIso(item.updatedAt),
         contact,
@@ -593,6 +699,7 @@ function serializeUnnamedDeviceLeads(links: any[]) {
           verifiedAt: null,
           bucket: "Unnamed leads",
           labels: ["unnamed-lead", "device-only"],
+          ...brandSummaryFromKeys(["paralifeTrees"]),
           contact: {
             name: `Unknown device ${deviceKey.slice(0, 8)}`,
             email: null,
@@ -707,6 +814,13 @@ function serializeUnregisteredVisitorActivities(activities: any[]) {
         verifiedAt: null,
         bucket: "Unregistered visitors",
         labels: ["unregistered-visitor", "interested-visitor", "device-only"],
+        ...brandSummaryFromKeys(
+          collectBrandKeysFromRecordText([
+            activity.questionnaireSlug,
+            activity.eventType,
+            activity.metadata?.brandKey,
+          ])
+        ),
         contact: {
           name: `Unregistered visitor ${deviceKey.slice(0, 8)}`,
           email: null,
@@ -954,6 +1068,8 @@ function makePersonShell(record: any, identityKey: string) {
     leads: [],
     customers: [],
     interests: new Set<string>(),
+    brandKeys: new Set<string>(record.brandKeys || []),
+    brands: [],
     devices: [],
     conversationNotes: [],
     latestConversationNote: null,
@@ -1102,6 +1218,7 @@ function mergePeopleByIdentity(records: any[]) {
     };
 
     for (const label of record.labels || []) person.labels.add(label);
+    for (const brandKey of record.brandKeys || []) person.brandKeys.add(brandKey);
     person.labels.add(record.kind);
     person.sourceRecords.push({
       kind: record.kind,
@@ -1214,6 +1331,7 @@ function mergePeopleByIdentity(records: any[]) {
       ...person,
       labels: Array.from(person.labels),
       interests: Array.from(person.interests),
+      ...brandSummaryFromKeys(person.brandKeys as Set<string>),
       summary: {
         ...person.summary,
         amountSpent: Array.from(

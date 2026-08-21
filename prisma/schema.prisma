@@ -1400,6 +1400,57 @@ model User {
   identityVerifications      UserIdentityVerification[]
   customerGrowGuideLinks     CustomerGrowGuideLink[]     @relation("CustomerGrowGuideLinkOwner")
   createdGrowGuideLinks      CustomerGrowGuideLink[]     @relation("CustomerGrowGuideLinkCreator")
+  adminPushSubscriptions     AdminPushSubscription[]
+  adminNotifications         AdminNotification[]         @relation("AdminNotificationTarget")
+}
+
+model AdminPushSubscription {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  failureReason String?
+  disabledAt    DateTime?
+
+  @@index([userId])
+  @@index([disabledAt])
+}
+
+model AdminNotification {
+  id String @id @default(cuid())
+
+  targetUserId String?
+  targetUser   User?   @relation("AdminNotificationTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  type      String
+  title     String
+  body      String
+  actionUrl String?
+  source    String?
+  sourceId  String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  readAt    DateTime?
+
+  pushAttemptedAt DateTime?
+  pushSentAt      DateTime?
+  pushError       String?
+
+  @@index([targetUserId, readAt, createdAt])
+  @@index([type, createdAt])
+  @@index([source, sourceId])
 }
 
 model UserIdentityVerification {

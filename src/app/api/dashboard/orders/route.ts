@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
 import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import {
@@ -1575,6 +1576,9 @@ export async function POST(request: Request) {
         subject,
         text,
         html: buildHtmlFromText(text),
+        fromEmail: getEmailSenderForContext({
+          questionnaireSlug: "little-orchard-shop",
+        }).fromEmail,
         fromName: "Little Orchard Shop",
         purpose: "little-orchard-shop-dashboard-customer-email",
       });

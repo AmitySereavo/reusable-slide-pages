@@ -36,9 +36,29 @@ Current responsibilities:
 
 - media-first event invitation flow
 - gated lead capture and private video access
+- next-step URL links into the standalone ticket and music/merch shops
+
+The invitation DSL should stay focused on lead capture, signup, video access,
+and navigation to related flows. Do not place ticket-shop or music/merch checkout
+slides back inside `invitationDsl.txt`; connect those flows by URL.
+
+### `ticket-shop`
+
+Route:
+
+```txt
+/questionnaire/ticket-shop
+```
+
+DSL path:
+
+```txt
+src/config/questionnaires/ticketShopDsl.txt
+```
+
+Current responsibilities:
+
 - ticket storefront
-- music/merch storefront
-- shared cart through `orderCart`
 - verified recipient purchase-for-someone selection
 - ticket details generated from ticket-store recipient allocation
 - stable per-ticket selection codes
@@ -46,13 +66,60 @@ Current responsibilities:
 - meal segments with `included` or `pay` billing behavior
 - review order, contact, delivery/pickup, and checkout preparation
 
-Invitation meal config is currently sourced from:
+### `music-merch-shop`
+
+Route:
+
+```txt
+/questionnaire/music-merch-shop
+```
+
+DSL path:
+
+```txt
+src/config/questionnaires/musicMerchShopDsl.txt
+```
+
+Current responsibilities:
+
+- album, music, merch, and event add-on storefront
+- shared cart through `orderCart`
+- review order, contact, delivery/pickup, and checkout preparation
+
+### `artist-booking`
+
+Route:
+
+```txt
+/questionnaire/artist-booking
+```
+
+DSL path:
+
+```txt
+src/config/questionnaires/artistBookingDsl.txt
+```
+
+Current responsibilities:
+
+- first-step booking filter for private 1-50 person bookings versus public,
+  ticketed or open-attendance events
+- private-event qualification path with occasion, guest count, surprise,
+  requested songs, date, location, artiste role, budget, travel, and final
+  confirmation
+- public-event qualification path with promoter/contact info, event details,
+  attendance, tickets, production, sponsors, promotion/media, budget, travel,
+  and final confirmation
+- generic `submitLead` storage of the booking request before showing the
+  received page
+
+Ticket shop meal config is currently sourced from:
 
 ```txt
 src/config/meals/mealMenus.ts
 ```
 
-For the current invitation menu:
+For the current ticket menu:
 
 - `base`, `main`, `side`, and `drink` are included segments.
 - `dessert`, `snack`, and `alcoholic-beverage` are paid add-on segments.

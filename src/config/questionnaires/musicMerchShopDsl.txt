@@ -1,0 +1,100 @@
+===
+// MUSIC AND MERCH SHOP
+@id: music-merch-shop
+@type: shop
+@store: orderCart
+@catalog: musicMerchShopCatalog
+@shopmode: browse
+@deliverygoto: delivery-options
+@contactgoto: contact-details
+@reviewgoto: review-order
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Checkout
+@choiceplacement: inline
+---
+BR
+# [c1] Music and Merch
+BR
+[c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
+[c3] Physical items are currently set up for event collection while we test the flow.
+
+===
+// DELIVERY OPTIONS
+@id: delivery-options
+@type: delivery
+@store: deliverySelection
+@deliveryconfig: deliveryConfig
+@completioncheck: contact
+@gotoifcomplete: review-order
+@gotoifincomplete: contact-details
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@back: Back
+@next: Continue
+---
+# [c1] Choose delivery or pickup
+[c3] Select how you want to receive your order.
+
+===
+// CONTACT DETAILS
+@id: contact-details
+@type: form
+@contactmode: order
+@showauthcontrols: false
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+---
+BR
+# [c1] Contact Details
+BR
+[c2] Enter your contact details so we can process your order.
+BR
+@fields:
+- fullName|text|Full name|required|Full name
+- email|email|Email address|required|Email address for order or download access
+- phone|tel|Phone number|optional|Optional
+- whatsappOptIn|checkbox|Contact me on WhatsApp if needed|optional
+---
+@run: submitLead
+@back: Back
+@next: Continue to cart
+@goto: review-order
+
+===
+// REVIEW ORDER
+@id: review-order
+@type: shop
+@title: Cart
+@store: orderCart
+@catalog: orderCatalog
+@shopmode: review
+@syncurl: true
+@progressoverlaybg: rgba(255,255,255,0.92)
+@actionbarbg: rgba(255,255,255,0.94)
+@progressoverlaytextcolor: #1f1f1f
+@actionbartextcolor: #1f1f1f
+@run: submitInvitationOrder
+@back: Back
+@next: Complete
+@goto: confirmation-message
+
+===
+// CONFIRMATION MESSAGE
+@id: confirmation-message
+@type: content
+@countstep: false
+---
+BR
+# [c1] Respect.
+BR
+[c2] Your order info was received.

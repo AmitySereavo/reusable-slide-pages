@@ -1,0 +1,418 @@
+===
+// BOOKING TYPE FILTER
+@id: booking-type
+@type: choice
+@store: artistBookingType
+@syncurl: true
+@shownext: false
+@showback: false
+@showauthcontrols: true
+@choiceplacement: inline
+---
+BR
+# [c1] Book The
+# [c1] Artiste
+BR
+[c2] Tell us what kind of booking you are planning.
+BR
+[c3] This helps us ask only the questions needed to qualify the request.
+@choices:
+- private|Private booking, 1 to 50 people|private-contact|primary
+- public|Public event with tickets or open attendance|public-contact|secondary
+
+===
+// PRIVATE CONTACT
+@id: private-contact
+@type: form
+@syncurl: true
+@showauthcontrols: true
+@showback: true
+@back: Back
+@backgoto: booking-type
+@next: Continue
+@goto: private-event-basics
+---
+BR
+# [c1] Contact
+# [c1] Details
+BR
+[c3] Who should the artiste's team contact about this private booking?
+BR
+@fields:
+- fullName|text|Full name|required|Enter your full name
+- companyName|text|Company / organization|optional|Optional for private bookings
+- bookingRole|select|Your role|required|Choose your role|private-individual=Private individual,event-planner=Event planner,wedding-planner=Wedding planner,brand-representative=Brand/company representative,other=Other
+- email|email|Email address|required|Enter your email address
+- phone|tel|Primary phone number|required|Include country and area code
+- whatsappNumber|tel|WhatsApp number|optional|If different from primary phone
+- preferredContactMethod|select|Preferred contact method|required|Choose contact method|whatsapp=WhatsApp,phone=Phone,email=Email
+
+===
+// PRIVATE EVENT BASICS
+@id: private-event-basics
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: private-contact
+@next: Continue
+@goto: private-event-details
+---
+BR
+# [c1] Private
+# [c1] Event
+BR
+[c3] Private bookings are for invited groups of 1 to 50 people.
+BR
+@fields:
+- privateOccasion|select|Occasion|required|Choose occasion|birthday=Birthday celebration,wedding=Wedding,anniversary=Anniversary,proposal=Proposal,private-party=Private party,corporate-private=Corporate private event,other=Other
+- eventName|text|Event name|required|Enter the event name or occasion name
+- eventDescription|textarea|Brief description|required|Tell us what is being planned
+- expectedAttendance|number|Invited guests|required|Enter a number from 1 to 50
+- guestOfHonour|text|Guest of honour|optional|Who is being celebrated?
+- surprisePerformance|select|Should the performance be a surprise?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- requestedSongs|textarea|Songs requested|optional|Songs you would especially like performed
+- contentAvoid|textarea|Songs or content to avoid|optional|Any songs, topics or language to avoid
+- honourAcknowledgement|select|Speak to the guest of honour?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- honourNotes|textarea|Anything to know about the guest or occasion?|optional|Share useful context for the artiste
+
+===
+// PRIVATE DATE LOCATION
+@id: private-date-location
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: private-event-details
+@next: Continue
+@goto: booking-budget
+---
+BR
+# [c1] Date And
+# [c1] Place
+BR
+@fields:
+- requestedEventDate|date|Requested event date|required|Choose event date
+- dateConfirmed|select|Is the date confirmed?|required|Choose one|yes=Yes,no=No,flexible=Flexible
+- flexibleDates|textarea|Other dates that could work|optional|List other dates if flexible
+- eventStartTime|time|Event start time|required|Choose start time
+- performanceTime|time|Expected performance time|required|Choose performance time
+- performanceLength|select|Performance length|required|Choose length|15=15 minutes,20=20 minutes,30=30 minutes,45=45 minutes,60=60 minutes,other=Other
+- artisteArrivalTime|time|Artiste arrival time|optional|If known
+- soundcheckTime|time|Soundcheck time|optional|If required
+- country|text|Country|required|Enter country
+- region|text|State / Parish / Region|required|Enter state, parish or region
+- cityTown|text|City / Town|required|Enter city or town
+- venueName|text|Venue name|required|Enter venue name
+- venueAddress|textarea|Venue address|required|Enter venue address
+- venueSetting|select|Venue setting|required|Choose one|indoor=Indoor,outdoor=Outdoor,both=Both
+- venueConfirmed|select|Is the venue confirmed?|required|Choose one|yes=Yes,no=No
+
+===
+// PRIVATE EVENT DETAILS ROUTER
+@id: private-event-details
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: private-event-basics
+@next: Continue
+@goto: private-date-location
+---
+BR
+# [c1] Artiste
+# [c1] Role
+BR
+@fields:
+- artistePosition|select|How should the artiste be positioned?|required|Choose one|featured=Featured performer,special-guest=Special guest,surprise-guest=Surprise guest,host-performer=Host / performer,other=Other
+- musicSetup|select|Music setup|required|Choose one|dj=DJ,backing-tracks=Backing tracks,house-band=House band,artiste-band=Artiste's band,combination=Combination,to-be-determined=To be determined
+- additionalRequests|textarea|Additional requests|optional|Meet and greet, photos, media, brand appearance, promotion, rehearsal or performance only
+- productionContact|textarea|Production or venue contact|optional|Name, phone and role if someone else handles setup
+
+===
+// PUBLIC CONTACT
+@id: public-contact
+@type: form
+@syncurl: true
+@showauthcontrols: true
+@showback: true
+@back: Back
+@backgoto: booking-type
+@next: Continue
+@goto: public-event-basics
+---
+BR
+# [c1] Contact
+# [c1] Details
+BR
+[c3] Who is responsible for the public event booking request?
+BR
+@fields:
+- fullName|text|Full name|required|Enter your full name
+- companyName|text|Company / organization|required|Enter company, promoter, venue or organization name
+- bookingRole|select|Your role|required|Choose your role|event-promoter=Event promoter,event-planner=Event planner,venue-owner=Venue owner/manager,brand-representative=Brand/company representative,government-community=Government/community organization,other=Other
+- email|email|Email address|required|Enter your email address
+- phone|tel|Primary phone number|required|Include country and area code
+- whatsappNumber|tel|WhatsApp number|optional|If different from primary phone
+- preferredContactMethod|select|Preferred contact method|required|Choose contact method|whatsapp=WhatsApp,phone=Phone,email=Email
+
+===
+// PUBLIC EVENT BASICS
+@id: public-event-basics
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-contact
+@next: Continue
+@goto: public-date-location
+---
+BR
+# [c1] Public
+# [c1] Event
+BR
+[c3] Public events include ticketed events, festivals, concerts, clubs, parties, hotel events and open community events.
+BR
+@fields:
+- publicBookingType|select|Event type|required|Choose event type|public-event=Public event,festival=Festival,concert=Concert,club-party=Club / party,hotel-resort=Hotel / resort event,brand-activation=Brand activation,university-school=University / school event,government-event=Government event,community-event=Community event,charity-event=Charity event,other=Other
+- eventOpenStatus|select|Is this event open to the public?|required|Choose one|yes=Yes,no=No,invitation-only=Invitation only
+- eventName|text|Event name|required|Enter event name
+- eventDescription|textarea|Briefly describe the event|required|Tell us what is being planned
+- eventFrequency|select|One-time or recurring?|required|Choose one|one-time=One-time,recurring=Recurring,tour-series=Tour / series of events
+- expectedAttendance|number|Expected attendance|required|Estimated attendance
+- venueCapacity|number|Venue capacity|optional|Approximate capacity
+- audienceType|select|Audience type|required|Choose one|general-public=General public,reggae=Reggae audience,dancehall=Dancehall audience,mixed-music=Mixed music audience,corporate=Corporate,tourists=Tourists,university=University/college,family=Family audience,other=Other
+- audienceAgeRange|text|Audience age range|required|Example: 18 to 35
+- ageRestriction|select|Age restriction|required|Choose one|all-ages=All ages,18-plus=18+,21-plus=21+,other=Other
+
+===
+// PUBLIC DATE LOCATION
+@id: public-date-location
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-event-basics
+@next: Continue
+@goto: public-artiste-role
+---
+BR
+# [c1] Date And
+# [c1] Place
+BR
+@fields:
+- requestedEventDate|date|Requested event date|required|Choose event date
+- dateConfirmed|select|Is the date confirmed?|required|Choose one|yes=Yes,no=No,flexible=Flexible
+- flexibleDates|textarea|Other dates that could work|optional|List other dates if flexible
+- eventStartTime|time|Event start time|required|Choose start time
+- performanceTime|time|Expected performance time|required|Choose performance time
+- performanceLength|select|Performance length|required|Choose length|15=15 minutes,20=20 minutes,30=30 minutes,45=45 minutes,60=60 minutes,other=Other
+- artisteArrivalTime|time|Artiste arrival time|optional|If known
+- soundcheckTime|time|Soundcheck time|optional|If known
+- country|text|Country|required|Enter country
+- region|text|State / Parish / Region|required|Enter state, parish or region
+- cityTown|text|City / Town|required|Enter city or town
+- venueName|text|Venue name|required|Enter venue name
+- venueAddress|textarea|Venue address|required|Enter venue address
+- venueSetting|select|Venue setting|required|Choose one|indoor=Indoor,outdoor=Outdoor,both=Both
+- venueConfirmed|select|Is the venue confirmed?|required|Choose one|yes=Yes,no=No
+- venuePage|url|Venue website or social page|optional|Optional
+
+===
+// PUBLIC ARTISTE ROLE
+@id: public-artiste-role
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-date-location
+@next: Continue
+@goto: public-production
+---
+BR
+# [c1] Artiste
+# [c1] Role
+BR
+@fields:
+- artistePosition|select|How should the artiste be positioned?|required|Choose one|headliner=Headliner,co-headliner=Co-headliner,featured=Featured performer,opening-act=Opening act,special-guest=Special guest,surprise-guest=Surprise guest,host-performer=Host / performer,other=Other
+- otherArtistes|select|Are other artistes performing?|required|Choose one|yes=Yes,no=No,not-confirmed=Not confirmed yet
+- otherArtistesList|textarea|Confirmed or proposed artistes|optional|List confirmed or proposed artistes
+- musicSetup|select|Music setup|required|Choose one|house-band=House band,artiste-band=Artiste's band,dj=DJ,backing-tracks=Backing tracks,combination=Combination,to-be-determined=To be determined
+- additionalRequests|textarea|Additional requests|optional|Meet and greet, photos, interviews, red carpet, brand appearance, promotion, video content, autograph session, rehearsal or performance only
+
+===
+// PUBLIC PRODUCTION
+@id: public-production
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-artiste-role
+@next: Continue
+@goto: public-commercial
+---
+BR
+# [c1] Production
+# [c1] Setup
+BR
+@fields:
+- professionalSound|select|Professional sound equipment provided?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- soundEngineer|select|Professional sound engineer available?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- stageMonitoring|select|Stage monitors or in-ear monitoring available?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- stageLighting|select|Professional stage lighting provided?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- stageSize|text|Stage size|optional|Approximate stage size
+- dressingRoom|select|Backstage / dressing room available?|required|Choose one|yes=Yes,no=No
+- secureBackstage|select|Secure backstage access?|required|Choose one|yes=Yes,no=No
+- securityProvided|select|Security provided?|required|Choose one|yes=Yes,no=No
+- securityCount|number|Security personnel count|optional|Approximate number
+- productionContact|textarea|Production manager / technical contact|required|Name, phone and role
+- riderReady|select|Can venue accommodate technical rider?|required|Choose one|yes=Yes,no=No,review-first=Need to review it first
+
+===
+// PUBLIC COMMERCIAL
+@id: public-commercial
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-production
+@next: Continue
+@goto: public-promotion
+---
+BR
+# [c1] Tickets And
+# [c1] Sponsors
+BR
+@fields:
+- ticketsSold|select|Will tickets be sold?|required|Choose one|yes=Yes,no=No
+- ticketPriceRange|text|Ticket price or range|optional|Example: JMD 3000 to JMD 8000
+- ticketSalesLocation|textarea|Where will tickets be sold?|optional|Online links, outlets or box office
+- ticketSalesStarted|select|Have ticket sales started?|required|Choose one|yes=Yes,no=No
+- sponsorsAttached|select|Sponsors attached?|required|Choose one|yes=Yes,no=No,in-discussion=In discussion
+- sponsorList|textarea|Major sponsors or brands|optional|List sponsors or brands associated with the event
+- eventYearsOperating|text|How long has event operated?|optional|Example: first year, 5 years
+- bookedTouringArtistes|select|Booked major or touring artistes before?|required|Choose one|yes=Yes,no=No
+- previousArtistes|textarea|Previous artistes|optional|List previous artistes
+- eventPages|textarea|Event website or social pages|optional|Paste links
+- previousAttendance|number|Previous attendance|optional|Attendance at previous event
+- permitsLicences|select|Required permits and licences?|required|Choose one|yes=Yes,no=No,in-progress=In progress,not-applicable=Not applicable
+
+===
+// PUBLIC PROMOTION
+@id: public-promotion
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: public-commercial
+@next: Continue
+@goto: booking-budget
+---
+BR
+# [c1] Promotion
+# [c1] Media
+BR
+@fields:
+- promotionChannels|textarea|How will the event be promoted?|required|Social media, radio, TV, influencers, posters, email, ads, PR or other
+- useArtisteImage|select|Use artiste name, image or likeness in advertising?|required|Choose one|yes=Yes,no=No
+- artistePromotionRequest|select|Would you like artiste to participate in promotion?|required|Choose one|yes=Yes,no=No
+- promotionActivities|textarea|Promotional activities requested|optional|Describe any interviews, drops, posts, appearances or content requested
+- professionalPhotos|select|Will performance be professionally photographed?|required|Choose one|yes=Yes,no=No
+- videoRecorded|select|Will performance be recorded on video?|required|Choose one|yes=Yes,no=No
+- broadcastType|select|Livestreamed or broadcast?|required|Choose one|no=No,livestream=Livestream,television=Television,radio=Radio,online=Online platform,other=Other
+- commercialFootageUse|select|Will recorded footage be used commercially later?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+
+===
+// BUDGET AND PAYMENT
+@id: booking-budget
+@type: form
+@syncurl: true
+@showback: true
+@back: Start over
+@backgoto: booking-type
+@next: Continue
+@goto: booking-travel
+---
+BR
+# [c1] Budget
+# [c1] Payment
+BR
+@fields:
+- proposedBudget|number|Proposed performance budget|required|Enter budget amount
+- budgetCurrency|select|Currency|required|Choose currency|JMD=JMD,USD=USD,GBP=GBP,CAD=CAD,EUR=EUR,other=Other
+- budgetIncludes|select|Budget covers|required|Choose one|performance-only=Performance fee only,all-inclusive=All-inclusive,not-sure=Not sure
+- budgetApproved|select|Budget confirmed and approved?|required|Choose one|yes=Yes,no=No,awaiting=Awaiting approval
+- paymentResponsible|select|Who is responsible for payment?|required|Choose one|individual=Individual,promoter=Promoter,company=Company,sponsor=Sponsor,government=Government agency,other=Other
+- depositReady|select|Able to pay booking deposit to secure the date?|required|Choose one|yes=Yes,no=No,need-details=Need details first
+
+===
+// TRAVEL AND ACCOMMODATION
+@id: booking-travel
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: booking-budget
+@next: Continue
+@goto: booking-final
+---
+BR
+# [c1] Travel
+# [c1] Support
+BR
+[c3] Complete this if the performance requires travel or overnight support.
+BR
+@fields:
+- travelRequired|select|Will this booking require travel?|required|Choose one|yes=Yes,no=No,not-sure=Not sure
+- organizerTransport|select|Will organizer provide transportation?|required|Choose one|yes=Yes,no=No,to-discuss=To be discussed
+- airfareProvided|select|Will airfare be provided if required?|required|Choose one|yes=Yes,no=No,to-discuss=To be discussed
+- groundTransport|select|Will local ground transportation be provided?|required|Choose one|yes=Yes,no=No,to-discuss=To be discussed
+- hotelAccommodation|select|Will hotel accommodation be provided?|required|Choose one|yes=Yes,no=No,not-required=Not required
+- hotelNights|number|Hotel nights included|optional|Number of nights
+- teamTravelSupport|select|Travel/accommodation for required team?|required|Choose one|yes=Yes,no=No,to-discuss=To be discussed
+
+===
+// FINAL QUALIFICATION
+@id: booking-final
+@type: form
+@syncurl: true
+@showback: true
+@back: Back
+@backgoto: booking-travel
+@run: submitLead
+@next: Submit booking request
+@goto: booking-received
+---
+BR
+# [c1] Final
+# [c1] Review
+BR
+@fields:
+- whyThisArtiste|textarea|Why would you like to book this artiste?|required|Share why this artiste fits your event
+- desiredExperience|textarea|What experience should the artiste create?|required|Describe the feeling or result you want for the audience or guests
+- heardAboutArtiste|select|How did you hear about the artiste?|required|Choose one|instagram=Instagram,tiktok=TikTok,youtube=YouTube,facebook=Facebook,spotify=Spotify / streaming,radio=Radio,live-performance=Live performance,friend=Friend / referral,promoter=Promoter / industry contact,search=Search engine,other=Other
+- previouslyContactedTeam|select|Previously contacted anyone from the artiste's team?|required|Choose one|yes=Yes,no=No
+- extraBookingNotes|textarea|Anything else we should know?|optional|Add anything important
+- understandAvailability|checkbox|I understand this does not confirm availability or reserve the date.|required
+- understandConfirmation|checkbox|I understand the booking is confirmed only after terms are agreed, the agreement is executed, and any required deposit is received.|required
+- confirmAccurate|checkbox|I confirm the information is accurate to the best of my knowledge.|required
+
+===
+// BOOKING RECEIVED
+@id: booking-received
+@type: content
+@countstep: false
+@syncurl: true
+@showback: false
+@shownext: false
+@showauthcontrols: true
+---
+BR
+# [c1] Booking
+# [c1] Received
+BR
+[c2] Your booking request was received.
+BR
+[c3] The artiste's team will review the details and contact you through your preferred contact method.
+BR
+[Back to invitation](/questionnaire/invitation)

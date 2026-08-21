@@ -4,9 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { mirrorSubmissionToGoogleSheets } from "@/lib/googleSheets";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import {
+  buildWhatsAppUrl,
+  createAdminNotification,
+} from "@/lib/adminNotifications";
+import {
   PERMANENT_WEBSITE_OP_TAG,
   getWebsiteOperationEmailTemplate,
 } from "@/lib/verification/websiteOperationEmailTemplates";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 
 type SubmitPayload = {
   questionnaireSlug?: string;
@@ -23,6 +28,7 @@ type JsonObject = { [key: string]: JsonValue };
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
 const AFFILIATE_SIGNUP_SLUG = "affiliate-sign-up";
+const GATED_LEAD_ACCESS_TARGET = "gatedLeadAccess";
 const AFFILIATE_EMAIL_VERIFICATION_TARGET_PREFIX =
   "affiliateEmailVerification";
 const DEFAULT_PLANT_GIVEAWAY_ADMIN_EMAIL = "paralifetrees@gmail.com";
@@ -39,6 +45,10 @@ function generateRawToken() {
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function normalizePhoneIdentifier(value: string) {
+  return String(value || "").replace(/\D/g, "");
 }
 
 function getBaseUrl(request: Request) {
@@ -83,6 +93,19 @@ function getPlantGiveawayNotificationEmail() {
   )
     .trim()
     .toLowerCase();
+}
+
+function getSubmissionEmailSender({
+  request,
+  questionnaireSlug,
+}: {
+  request: Request;
+  questionnaireSlug: string;
+}) {
+  return getEmailSenderForContext({
+    request,
+    questionnaireSlug,
+  });
 }
 
 function formatAnswerValue(value: unknown): string {
@@ -348,10 +371,157 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
-async function notifyPlantGiveawayAdmin({
+function buildGatedLeadSuccessRedirect({
+  questionnaireSlug,
+  goto,
+}: {
+  questionnaireSlug: string;
+  goto: string;
+}) {
+  return `/questionnaire/${encodeURIComponent(
+    questionnaireSlug || "invitation"
+  )}?leadAccess=verified&goto=${encodeURIComponent(goto || "second-video")}`;
+}
+
+async function notifyAdminForWhatsappContactMethod({
+  request,
   submission,
   answers,
 }: {
+  request: Request;
+  submission: {
+    id: string;
+    questionnaireSlug: string;
+    fullName: string | null;
+    phone: string | null;
+  };
+  answers: Record<string, unknown>;
+}) {
+  const contactMethod = String(
+    answers.invitationContactMethod ?? answers.contactMethod ?? ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (contactMethod !== "whatsapp") {
+    return null;
+  }
+
+  const phone = String(submission.phone || answers.primaryPhone || "").trim();
+  const phoneIdentifier = normalizePhoneIdentifier(phone);
+
+  if (!phoneIdentifier) {
+    return null;
+  }
+
+  const goto =
+    submission.questionnaireSlug === "invitation" ? "second-video" : "home";
+  const baseUrl = getBaseUrl(request);
+  const rawToken = generateRawToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+  const successRedirect = buildGatedLeadSuccessRedirect({
+    questionnaireSlug: submission.questionnaireSlug || "invitation",
+    goto,
+  });
+
+  const leadMetadata = {
+    questionnaireSlug: submission.questionnaireSlug,
+    source: "whatsapp-contact-method",
+    goto,
+    submissionId: submission.id,
+    lastSubmittedAt: new Date().toISOString(),
+    answers,
+  };
+
+  await prisma.lead.upsert({
+    where: {
+      id: `whatsapp-${phoneIdentifier}-${GATED_LEAD_ACCESS_TARGET}`,
+    },
+    create: {
+      id: `whatsapp-${phoneIdentifier}-${GATED_LEAD_ACCESS_TARGET}`,
+      fullName: submission.fullName,
+      phone: phoneIdentifier,
+      source: "whatsapp-contact-method",
+      target: GATED_LEAD_ACCESS_TARGET,
+      metadata: {
+        ...leadMetadata,
+        signupCount: 1,
+      } as any,
+    },
+    update: {
+      fullName: submission.fullName || undefined,
+      phone: phoneIdentifier,
+      source: "whatsapp-contact-method",
+      target: GATED_LEAD_ACCESS_TARGET,
+      metadata: {
+        ...leadMetadata,
+        signupCount: 1,
+      } as any,
+    },
+  });
+
+  await prisma.verificationToken.deleteMany({
+    where: {
+      identifier: phoneIdentifier,
+      target: GATED_LEAD_ACCESS_TARGET,
+    },
+  });
+
+  await prisma.verificationToken.create({
+    data: {
+      identifier: phoneIdentifier,
+      tokenHash,
+      target: GATED_LEAD_ACCESS_TARGET,
+      expiresAt,
+      successRedirect,
+    },
+  });
+
+  const verifyUrl = `${baseUrl}/verify?token=${encodeURIComponent(rawToken)}`;
+  const name = submission.fullName?.trim() || "there";
+  const sender = getSubmissionEmailSender({
+    request,
+    questionnaireSlug: submission.questionnaireSlug,
+  });
+  const message = [
+    `Hi ${name},`,
+    "",
+    "Here is your private link to continue watching:",
+    verifyUrl,
+    "",
+    sender.displayName,
+  ].join("\n");
+  const whatsappUrl = buildWhatsAppUrl({ phone: phoneIdentifier, message });
+
+  if (!whatsappUrl) {
+    return null;
+  }
+
+  return createAdminNotification({
+    type: "whatsapp_contact_method",
+    title: `WhatsApp follow-up: ${submission.fullName || phoneIdentifier}`,
+    body: `${submission.fullName || "A visitor"} chose WhatsApp. Tap to send the prepared private link to ${phoneIdentifier}.`,
+    actionUrl: whatsappUrl,
+    source: "questionnaire-submission",
+    sourceId: submission.id,
+    metadata: {
+      questionnaireSlug: submission.questionnaireSlug,
+      brandKey: sender.brandKey,
+      phone: phoneIdentifier,
+      verifyUrl,
+      successRedirect,
+      contactMethod,
+    },
+  });
+}
+
+async function notifyPlantGiveawayAdmin({
+  request,
+  submission,
+  answers,
+}: {
+  request: Request;
   submission: {
     id: string;
     createdAt: Date;
@@ -382,6 +552,10 @@ async function notifyPlantGiveawayAdmin({
     whatsappOptIn: submission.whatsappOptIn,
     answers,
   });
+  const sender = getSubmissionEmailSender({
+    request,
+    questionnaireSlug: PLANT_GIVEAWAY_SLUG,
+  });
 
   return sendEmailMessage({
     to,
@@ -389,7 +563,8 @@ async function notifyPlantGiveawayAdmin({
     text: message.text,
     html: message.html,
     replyTo: submission.email || null,
-    fromName: "Para-life Trees Website",
+    fromEmail: sender.fromEmail,
+    fromName: `${sender.fromName} Website`,
     purpose: "plant-giveaway-admin-notification",
   });
 }
@@ -490,13 +665,18 @@ async function sendAffiliateEmailVerification({
     fullName: submission.fullName,
     verifyUrl,
   });
+  const sender = getSubmissionEmailSender({
+    request,
+    questionnaireSlug: AFFILIATE_SIGNUP_SLUG,
+  });
 
   return sendEmailMessage({
     to: email,
     subject: message.subject,
     text: message.text,
     html: message.html,
-    fromName: "Para-life Trees",
+    fromEmail: sender.fromEmail,
+    fromName: sender.fromName,
     purpose: "affiliate-email-verification",
   });
 }
@@ -577,6 +757,7 @@ export async function POST(req: Request) {
 
     let sheetsMirrored = false;
     let adminNotificationSent = false;
+    let adminWhatsappNotificationCreated = false;
     let affiliateEmailVerificationSent = false;
 
     try {
@@ -599,6 +780,7 @@ export async function POST(req: Request) {
     if (questionnaireSlug === PLANT_GIVEAWAY_SLUG) {
       try {
         const notificationResult = await notifyPlantGiveawayAdmin({
+          request: req,
           submission: {
             id: submission.id,
             createdAt: submission.createdAt,
@@ -617,6 +799,27 @@ export async function POST(req: Request) {
       } catch (notificationError) {
         console.error("Plant giveaway admin notification error:", notificationError);
       }
+    }
+
+    try {
+      const whatsappNotification =
+        await notifyAdminForWhatsappContactMethod({
+          request: req,
+          submission: {
+            id: submission.id,
+            questionnaireSlug: submission.questionnaireSlug,
+            fullName: submission.fullName,
+            phone: submission.phone,
+          },
+          answers,
+        });
+
+      adminWhatsappNotificationCreated = Boolean(whatsappNotification?.id);
+    } catch (notificationError) {
+      console.error(
+        "WhatsApp contact method admin notification error:",
+        notificationError
+      );
     }
 
     if (questionnaireSlug === AFFILIATE_SIGNUP_SLUG) {
@@ -649,6 +852,7 @@ export async function POST(req: Request) {
       submissionId: submission.id,
       sheetsMirrored,
       adminNotificationSent,
+      adminWhatsappNotificationCreated,
       affiliateEmailVerificationSent,
     });
   } catch (error) {

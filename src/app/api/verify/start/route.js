@@ -64,6 +64,14 @@ function getBaseUrl(request) {
   return "http://localhost:3000";
 }
 
+function getRequestHost(request) {
+  return (
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("host") ||
+    ""
+  );
+}
+
 function getCooldownError(delivery, secondsRemaining) {
   return delivery === "link"
     ? `Please wait ${secondsRemaining} seconds before requesting a new verification link.`
@@ -230,6 +238,7 @@ export async function POST(request) {
         phoneChannel: resolvedPhoneChannel,
         contextMetadata: {
           ...(contextMetadata || {}),
+          requestHost: getRequestHost(request),
           parsedIdentifierType: type,
           phoneChannel: resolvedPhoneChannel,
         },
@@ -321,6 +330,7 @@ export async function POST(request) {
       phoneChannel: resolvedPhoneChannel,
       contextMetadata: {
         ...(contextMetadata || {}),
+        requestHost: getRequestHost(request),
         parsedIdentifierType: type,
         phoneChannel: resolvedPhoneChannel,
       },

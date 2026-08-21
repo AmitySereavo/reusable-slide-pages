@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, getSessionFromCookie } from "@/lib/auth/sessionServer";
 import { getRequestIdentity } from "@/lib/security/requestIdentity";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
+import { getEmailSenderForContext } from "@/config/siteBrands";
 import crypto from "crypto";
 
 function asString(value) {
@@ -73,6 +74,14 @@ async function sendDeviceVerificationEmail({ request, job, unlockKey, dripSequen
     subject: "Verify this device",
     text: `Someone opened your private content link from a new device.\n\nIf this was you, verify this device here:\n${verifyUrl}\n\nIf this was not you, ignore this email.`,
     html: `<p>Someone opened your private content link from a new device.</p><p>If this was you, verify this device here:</p><p><a href="${verifyUrl}">Verify this device</a></p><p>If this was not you, ignore this email.</p>`,
+    fromEmail: getEmailSenderForContext({
+      questionnaireSlug: dripSequenceKey === "itasl" ? "itasl" : null,
+      request,
+    }).fromEmail,
+    fromName: getEmailSenderForContext({
+      questionnaireSlug: dripSequenceKey === "itasl" ? "itasl" : null,
+      request,
+    }).fromName,
     purpose: "sequence-device-verification",
   });
 }
