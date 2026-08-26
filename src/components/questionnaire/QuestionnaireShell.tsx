@@ -661,6 +661,282 @@ function getShopProductCategory(product: ShopCatalogProduct) {
   return "Uncategorized";
 }
 
+function isRequiredShopFeeProduct(product: ShopCatalogProduct | undefined) {
+  if (!product) {
+    return false;
+  }
+
+  return (
+    product.metadata?.requiredShopFee === true ||
+    product.sizeOptions.some(
+      (sizeOption) => sizeOption.metadata?.requiredShopFee === true
+    )
+  );
+}
+
+function getProductCertificationRequirement(
+  product: ShopCatalogProduct | undefined,
+  sizeOptionId?: string
+) {
+  if (!product) {
+    return "N/A";
+  }
+
+  const sizeOption = sizeOptionId
+    ? product.sizeOptions.find((option) => option.id === sizeOptionId)
+    : undefined;
+  const rawRequirement =
+    sizeOption?.metadata?.certificationRequired ??
+    product.metadata?.certificationRequired ??
+    "N/A";
+  const requirement = String(rawRequirement ?? "N/A").trim();
+
+  return requirement || "N/A";
+}
+
+function shopLineRequiresPhytosanitaryCertificate(
+  catalog: ShopCatalog | null,
+  productId: string,
+  sizeOptionId?: string
+) {
+  const product = catalog?.products.find((item) => item.id === productId);
+
+  if (!product || isRequiredShopFeeProduct(product)) {
+    return false;
+  }
+
+  return (
+    getProductCertificationRequirement(product, sizeOptionId).toLowerCase() ===
+    "phytosanitary"
+  );
+}
+
+function isJamaicaDestination(value: unknown) {
+  return ["jamaica", "jm"].includes(
+    String(value ?? "")
+      .trim()
+      .toLowerCase()
+  );
+}
+
+function isBushTeaCertificateRequired(answers: QuestionnaireAnswers | undefined) {
+  const shippingCountry = String(answers?.plantDeliveryCountry ?? "").trim();
+
+  return Boolean(shippingCountry && !isJamaicaDestination(shippingCountry));
+}
+
+function isBushTeaContactInfoComplete(answers: QuestionnaireAnswers | undefined) {
+  const fullName = String(answers?.fullName ?? "").trim();
+  const email = String(answers?.email ?? "").trim();
+  const phoneDigits = String(answers?.primaryPhone ?? answers?.phone ?? "")
+    .replace(/\D/g, "");
+
+  return Boolean(fullName && email && phoneDigits.length >= 11);
+}
+
+function isBushTeaMailingAddressComplete(
+  answers: QuestionnaireAnswers | undefined
+) {
+  return Boolean(
+    String(answers?.plantDeliveryCountry ?? "").trim() &&
+      String(answers?.plantDeliveryRegion ?? "").trim() &&
+      String(answers?.plantDeliveryCityTown ?? "").trim() &&
+      String(answers?.plantDeliveryStreetAddress ?? "").trim()
+  );
+}
+
+function getUrlCurrencyCode(searchParams: URLSearchParams | null) {
+  const normalized = String(searchParams?.get("currency") ?? "")
+    .trim()
+    .toUpperCase();
+
+  return SUPPORTED_CURRENCIES.includes(normalized as any) ? normalized : "";
+}
+
+const BUSH_TEA_SHIPPING_FEE_JMD = 1500;
+const BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD = 15000;
+
+function getBushTeaShippingFeeJmd({
+  productSubtotalJmd,
+  destination,
+}: {
+  productSubtotalJmd: number;
+  destination?: unknown;
+}) {
+  if (productSubtotalJmd <= 0) {
+    return 0;
+  }
+
+  const normalizedDestination = String(destination ?? "").trim().toLowerCase();
+
+  // Bush Tea is currently flat-rate shipping. Keep destination in this helper
+  // so later location-specific shipping rules have one place to branch.
+  if (normalizedDestination) {
+    return productSubtotalJmd >= BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD
+      ? 0
+      : BUSH_TEA_SHIPPING_FEE_JMD;
+  }
+
+  return productSubtotalJmd >= BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD
+    ? 0
+    : BUSH_TEA_SHIPPING_FEE_JMD;
+}
+
+function normalizeShopSearchText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function shopProductMatchesSearch(product: ShopCatalogProduct, searchTerm: string) {
+  if (isRequiredShopFeeProduct(product)) {
+    return true;
+  }
+
+  const normalizedSearch = normalizeShopSearchText(searchTerm);
+
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const metadata =
+    product.metadata && typeof product.metadata === "object" && !Array.isArray(product.metadata)
+      ? product.metadata
+      : {};
+  const haystack = [
+    product.id,
+    product.slug,
+    product.sku,
+    product.title,
+    product.description,
+    product.detailsDescription,
+    metadata.category,
+    ...(product.sizeOptions ?? []).flatMap((option) => [
+      option.id,
+      option.sku,
+      option.label,
+      option.description,
+      option.metadata?.grams,
+      option.metadata?.estimatedCups,
+      option.metadata?.estimatedLeaves,
+    ]),
+  ]
+    .map((part) => String(part ?? "").toLowerCase())
+    .join(" ");
+
+  return haystack.includes(normalizedSearch);
+}
+
+function getShopDescriptionBulletItems(text: string) {
+  const normalizedText = text.trim();
+
+  if (!normalizedText) {
+    return [];
+  }
+
+  const explicitLines = normalizedText
+    .split(/\r?\n+/)
+    .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
+    .filter(Boolean);
+
+  if (explicitLines.length > 1) {
+    return explicitLines;
+  }
+
+  return normalizedText
+    .split(/(?<=[.!?])\s+/)
+    .map((line) => line.trim().replace(/^[-*•]\s*/, ""))
+    .filter(Boolean);
+}
+
+function ShopProductDescription({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const items = getShopDescriptionBulletItems(text);
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <ul
+      className={[styles.productDescriptionList, className]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>
+          {parseMarkdownLinks(item) ?? item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function getShopProductMetadataString(
+  product: ShopCatalogProduct | undefined,
+  key: string
+) {
+  const value = product?.metadata?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getShopSizeOptionMetadataString(
+  sizeOption: ShopCatalogSizeOption | undefined,
+  key: string
+) {
+  const value = sizeOption?.metadata?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function usesMediaFeatureShopLayout(product: ShopCatalogProduct) {
+  const layout =
+    getShopProductMetadataString(product, "shopBrowseLayout") ||
+    getShopProductMetadataString(product, "shopLayout");
+
+  return layout === "media-feature";
+}
+
+function getShopBrowseActionLabel(
+  product: ShopCatalogProduct,
+  sizeOption: ShopCatalogSizeOption
+) {
+  return (
+    getShopSizeOptionMetadataString(sizeOption, "browseActionLabel") ||
+    getShopProductMetadataString(product, "browseActionLabel") ||
+    getShopSizeOptionMetadataString(sizeOption, "primaryActionLabel") ||
+    "Add to cart"
+  );
+}
+
+function getShopProductMediaUrl(product: ShopCatalogProduct) {
+  return (
+    getShopProductMetadataString(product, "browseMediaUrl") ||
+    product.previewImageUrl ||
+    product.imageUrl ||
+    ""
+  );
+}
+
+function isShopProductVideoMedia(product: ShopCatalogProduct, mediaUrl: string) {
+  const mediaType = getShopProductMetadataString(product, "browseMediaType");
+  return mediaType === "video" || /\.(mp4|webm|ogg)(?:$|\?)/i.test(mediaUrl);
+}
+
+function getUrlShopSearchTerm(searchParams: { get: (key: string) => string | null }) {
+  return String(
+    searchParams.get("search") ??
+      searchParams.get("q") ??
+      searchParams.get("product") ??
+      searchParams.get("item") ??
+      ""
+  ).trim();
+}
+
 const COMMERCE_WORKSPACE_SLIDE_IDS = new Set([
   "invitation-shop",
   "music-merch-shop",
@@ -1550,6 +1826,8 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const [isContentSidebarHintActive, setIsContentSidebarHintActive] =
     useState(false);
   const [guestShopCurrencyCode, setGuestShopCurrencyCode] = useState("JMD");
+  const [hasManualGuestShopCurrency, setHasManualGuestShopCurrency] =
+    useState(false);
   const [dripUnlockKeys, setDripUnlockKeys] = useState<string[]>([]);
   const [dripOpenedKeys, setDripOpenedKeys] = useState<string[]>([]);
   const [dripNextAvailableAtBySequence, setDripNextAvailableAtBySequence] =
@@ -2562,6 +2840,27 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return null;
   }, [visibleSlides]);
 
+  const isGrowGuideDsl = config.slug.endsWith("-grow-guide");
+
+  const sidebarUtilityLinks = useMemo(() => {
+    const configuredLinks = Array.isArray(config.sidebarUtilityLinks)
+      ? config.sidebarUtilityLinks.filter(
+          (link) => link && link.href && link.label
+        )
+      : [];
+
+    if (configuredLinks.length) {
+      return configuredLinks;
+    }
+
+    return isGrowGuideDsl
+      ? [
+          { href: "/shop", label: "Shop" },
+          { href: "/grow-guides", label: "Guides for other plants" },
+        ]
+      : [];
+  }, [config.sidebarUtilityLinks, isGrowGuideDsl]);
+
   const dashboardSidebarLinks = useMemo(() => {
     if (Number(authSessionUser?.adminLevel || 0) < 1) {
       return [];
@@ -2582,6 +2881,7 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   const hasLeftSidebarContent =
     dashboardSidebarLinks.length > 0 ||
+    sidebarUtilityLinks.length > 0 ||
     sidebarSlideLinks.length > 0 ||
     Boolean(sidebarAlbumDownloadItemId);
   const canShowContentSidebarHint = sidebarSlideLinks.length > 0;
@@ -3006,6 +3306,51 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     });
   }, [config.slug, currentSlide?.id]);
 
+  useEffect(() => {
+    if (config.slug !== "bush-tea") {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const currentSelection = normalizeDeliverySelection(prev.deliverySelection);
+      const nextSelection = {
+        ...currentSelection,
+        method: "delivery" as const,
+        countryCode:
+          String(prev.plantDeliveryCountry ?? "") === "Jamaica"
+            ? ("JM" as const)
+            : currentSelection.countryCode,
+        regionCode: String(prev.plantDeliveryRegion ?? "").trim(),
+        addressLine1: String(prev.plantDeliveryStreetAddress ?? "").trim(),
+        cityOrTown: String(prev.plantDeliveryCityTown ?? "").trim(),
+        postalCode: String(prev.plantDeliveryPostalCode ?? "").trim(),
+      };
+
+      if (
+        currentSelection.method === nextSelection.method &&
+        currentSelection.countryCode === nextSelection.countryCode &&
+        currentSelection.regionCode === nextSelection.regionCode &&
+        currentSelection.addressLine1 === nextSelection.addressLine1 &&
+        currentSelection.cityOrTown === nextSelection.cityOrTown &&
+        currentSelection.postalCode === nextSelection.postalCode
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        deliverySelection: nextSelection,
+      };
+    });
+  }, [
+    answers.plantDeliveryCityTown,
+    answers.plantDeliveryCountry,
+    answers.plantDeliveryPostalCode,
+    answers.plantDeliveryRegion,
+    answers.plantDeliveryStreetAddress,
+    config.slug,
+  ]);
+
   const currencyRates = useMemo(() => {
     const value = mergedVariables.currencyRates;
 
@@ -3014,8 +3359,12 @@ export default function QuestionnaireShell({ config, theme }: Props) {
       : {};
   }, [mergedVariables]);
 
+  const urlCurrencyCode = getUrlCurrencyCode(searchParams);
+  const preferredShopCurrencyCode = hasManualGuestShopCurrency
+    ? guestShopCurrencyCode
+    : urlCurrencyCode || authSessionUser?.preferredCurrencyCode || guestShopCurrencyCode;
   const activeShopCurrencyCode = normalizeCurrencyCode(
-    authSessionUser?.preferredCurrencyCode ?? guestShopCurrencyCode
+    preferredShopCurrencyCode
   );
 
   const jmdToActiveCurrencyRate = useMemo(() => {
@@ -3195,9 +3544,112 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     [sharedShopDisplayCatalog, sharedOrderCart]
   );
 
+  useEffect(() => {
+    if (config.slug !== "bush-tea" || !sharedShopDisplayCatalog) {
+      return;
+    }
+
+    const destinationMayRequireCertificate = isBushTeaCertificateRequired(answers);
+
+    const requiredFeeProduct = sharedShopDisplayCatalog.products.find(
+      isRequiredShopFeeProduct
+    );
+    const requiredFeeOption = requiredFeeProduct?.sizeOptions.find(
+      (sizeOption) => sizeOption.metadata?.requiredShopFee === true
+    );
+
+    if (!requiredFeeProduct || !requiredFeeOption) {
+      return;
+    }
+
+    const requiredFeeLineKey = makeShopLineKey(
+      requiredFeeProduct.id,
+      requiredFeeOption.id
+    );
+    const hasSelectedCertifiedProductLine = Object.entries(sharedOrderCart).some(
+      ([lineKey, line]) =>
+        lineKey !== requiredFeeLineKey &&
+        line?.selected === true &&
+        Number(line.quantity || 0) > 0 &&
+        shopLineRequiresPhytosanitaryCertificate(
+          sharedShopDisplayCatalog,
+          line.productId,
+          line.sizeOptionId
+        )
+    );
+    const currentFeeLine = sharedOrderCart[requiredFeeLineKey];
+    const shouldIncludeFeeLine =
+      destinationMayRequireCertificate && hasSelectedCertifiedProductLine;
+    const feeLineIsCorrect =
+      currentFeeLine?.selected === shouldIncludeFeeLine &&
+      currentFeeLine?.quantity === 1 &&
+      currentFeeLine?.purchaseModeId === "order-fee" &&
+      currentFeeLine?.metadata?.requiredShopFee === true;
+
+    if (!shouldIncludeFeeLine && !currentFeeLine) {
+      return;
+    }
+
+    if (feeLineIsCorrect) {
+      return;
+    }
+
+    setAnswers((prev) => {
+      const currentCart = normalizeShopCart(prev.orderCart);
+      const nextCart = { ...currentCart };
+
+      if (!shouldIncludeFeeLine) {
+        delete nextCart[requiredFeeLineKey];
+      } else {
+        nextCart[requiredFeeLineKey] = {
+          productId: requiredFeeProduct.id,
+          sizeOptionId: requiredFeeOption.id,
+          selected: true,
+          quantity: 1,
+          purchaseModeId: "order-fee",
+          lockedQuantity: true,
+          lockedPurchaseMode: true,
+          metadata: {
+            requiredShopFee: true,
+            lockedQuantity: true,
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        orderCart: nextCart,
+      };
+    });
+  }, [answers, config.slug, sharedOrderCart, sharedShopDisplayCatalog]);
+
   const sharedOrderBaseLines = useMemo<ShopResolvedCartLine[]>(
     () => resolveShopSelectedLines(sharedShopDisplayCatalog, sharedOrderCart),
     [sharedShopDisplayCatalog, sharedOrderCart]
+  );
+
+  const bushTeaBaseOrderLines = useMemo<ShopResolvedCartLine[]>(
+    () =>
+      config.slug === "bush-tea"
+        ? resolveShopSelectedLines(sharedShopCatalog, sharedOrderCart)
+        : [],
+    [config.slug, sharedShopCatalog, sharedOrderCart]
+  );
+
+  const bushTeaProductSubtotalJmd = useMemo(
+    () =>
+      bushTeaBaseOrderLines
+        .filter((line) => line.purchaseModeId !== "order-fee")
+        .filter(
+          (line) =>
+            !String(line.productId || "").includes(
+              "phytosanitary-certificate"
+            ) &&
+            !String(line.productSku || "").includes("PHYTO-CERTIFICATE") &&
+            !String(line.sku || "").includes("PHYTO-CERTIFICATE")
+        )
+        .reduce((sum, line) => sum + Number(line.lineTotal || 0), 0),
+    [bushTeaBaseOrderLines]
   );
 
   const sharedOrderLines = useMemo<ShopResolvedCartLine[]>(
@@ -3224,6 +3676,13 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     () =>
       sharedOrderLines
         .filter((line) => line.selected !== false && line.lineTotal > 0)
+        .filter(
+          (line) =>
+            line.purchaseModeId !== "order-fee" &&
+            !String(line.productId || "").includes("phytosanitary-certificate") &&
+            !String(line.productSku || "").includes("PHYTO-CERTIFICATE") &&
+            !String(line.sku || "").includes("PHYTO-CERTIFICATE")
+        )
         .map((line) => ({
           productId: line.productId,
           productSku: line.productSku ?? null,
@@ -3726,8 +4185,23 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   );
 
   const sharedDeliveryFee = useMemo(
-    () => getDeliveryFeeJmd(sharedDeliveryConfig, sharedDeliverySelection),
-    [sharedDeliveryConfig, sharedDeliverySelection]
+    () => {
+      if (config.slug === "bush-tea" && bushTeaProductSubtotalJmd > 0) {
+        return getBushTeaShippingFeeJmd({
+          productSubtotalJmd: bushTeaProductSubtotalJmd,
+          destination: answers.plantDeliveryCountry,
+        });
+      }
+
+      return getDeliveryFeeJmd(sharedDeliveryConfig, sharedDeliverySelection);
+    },
+    [
+      answers.plantDeliveryCountry,
+      bushTeaProductSubtotalJmd,
+      config.slug,
+      sharedDeliveryConfig,
+      sharedDeliverySelection,
+    ]
   );
 
   const sharedDeliveryFeeDisplay = useMemo(
@@ -3980,6 +4454,9 @@ export default function QuestionnaireShell({ config, theme }: Props) {
   const sidePanelCartTotal = sharedOrderGrandTotalWithMeals;
   const sidePanelCartCurrencyCode =
     sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode;
+  const isAccountBasedFlow = !config.slides.some(
+    (slide) => slide.accountBased === false
+  );
   const contactInfoComplete = useMemo(
     () => isContactInfoComplete(answers, sharedDeliverySelection),
     [answers, sharedDeliverySelection]
@@ -4828,6 +5305,60 @@ export default function QuestionnaireShell({ config, theme }: Props) {
     return homeSlide ? getSlideHref(homeSlide.id) : `/questionnaire/${config.slug}`;
   }
 
+  function getSidePanelCartTarget() {
+    if (config.slug === "bush-tea") {
+      if (!isBushTeaContactInfoComplete(answers)) {
+        return getSlideHref("bush-tea-contact-information");
+      }
+
+      if (!isBushTeaMailingAddressComplete(answers)) {
+        return getSlideHref("bush-tea-fulfillment");
+      }
+    }
+
+    const reviewShopSlide =
+      visibleSlides.find(
+        (slide) => slide.type === "shop" && slide.shopMode === "review"
+      ) ??
+      visibleSlides.find(
+        (slide) =>
+          slide.type === "shop" &&
+          /review|cart/i.test(`${slide.id} ${slide.title ?? ""}`)
+      );
+
+    if (reviewShopSlide) {
+      return getSlideHref(reviewShopSlide.id);
+    }
+
+    if (config.slug === "little-orchard-shop") {
+      return "/questionnaire/little-orchard-shop?slide=review-selected-items";
+    }
+
+    if (config.slug === "music-merch-shop") {
+      return "/questionnaire/music-merch-shop?slide=review-order";
+    }
+
+    return `/questionnaire/${config.slug}`;
+  }
+
+  function getSidePanelContactTarget() {
+    if (config.slug === "bush-tea") {
+      return getSlideHref("bush-tea-contact-information");
+    }
+
+    return getSidePanelCartTarget();
+  }
+
+  function getSidePanelMailingAddressTarget() {
+    if (config.slug === "bush-tea") {
+      return isBushTeaContactInfoComplete(answers)
+        ? getSlideHref("bush-tea-fulfillment")
+        : getSlideHref("bush-tea-contact-information");
+    }
+
+    return getSidePanelCartTarget();
+  }
+
   function handleAuthLoginClick() {
     setIsAccountMenuOpen(false);
     setIsTrackSidebarOpen(false);
@@ -5339,9 +5870,10 @@ export default function QuestionnaireShell({ config, theme }: Props) {
 
   async function handleAccountCurrencyChange(currencyCode: string) {
     const nextCurrencyCode = normalizeCurrencyCode(currencyCode);
+    setHasManualGuestShopCurrency(true);
+    setGuestShopCurrencyCode(nextCurrencyCode);
 
     if (!authSessionUser) {
-      setGuestShopCurrencyCode(nextCurrencyCode);
       return;
     }
 
@@ -6115,6 +6647,15 @@ async function next() {
       }
     }
 
+    if (currentSlide.id === "bush-tea-contact-information") {
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      if (phoneDigits.length < 11) {
+        return "Enter a contact number with country code and area code.";
+      }
+    }
+
     if (currentSlide.id === "invitation-lead-signup-video") {
       const contactMethod = String(
         answers.invitationContactMethod ?? ""
@@ -6194,6 +6735,16 @@ async function next() {
       if (whatsappNumber && whatsappDigits.length < 11) {
         fieldErrors.whatsappNumber =
           "Enter your WhatsApp number with country and area code.";
+      }
+    }
+
+    if (currentSlide.id === "bush-tea-contact-information") {
+      const phoneDigits = String(answers.primaryPhone ?? answers.phone ?? "")
+        .replace(/\D/g, "");
+
+      if (phoneDigits.length < 11) {
+        fieldErrors.primaryPhone =
+          "Enter a contact number with country code and area code.";
       }
     }
 
@@ -6942,6 +7493,11 @@ async function next() {
             ? data.guestPortalLinksSent
             : 0,
       }));
+
+      if (typeof data?.redirectUrl === "string" && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
+        return false;
+      }
     }
 
     if (runName === "submitPlantShopOrder") {
@@ -6979,6 +7535,9 @@ async function next() {
         data.cashierLink
       ) {
         window.location.href = data.cashierLink;
+      } else if (typeof data?.checkoutUrl === "string" && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return false;
       } else if (typeof data?.whatsappUrl === "string" && data.whatsappUrl) {
         window.location.href = data.whatsappUrl;
       }
@@ -7557,8 +8116,15 @@ async function handleNext() {
       ? (Math.max(currentStepNumber, 0) / totalStepCount) * 100
       : 0;
 
-  const showBackButton = currentSlide.showBack !== false;
-  const showNextButton = currentSlide.showNext !== false;
+  const isImmersiveShopSlide =
+    currentSlide.type === "shop" &&
+    currentSlide.shopMode === "browse" &&
+    (currentSlide.shopLayout === "media-feature" ||
+      Boolean(sharedShopDisplayCatalog?.products.some(usesMediaFeatureShopLayout)));
+  const showBackButton =
+    !isImmersiveShopSlide && currentSlide.showBack !== false;
+  const showNextButton =
+    !isImmersiveShopSlide && currentSlide.showNext !== false;
   const hasVisibleNav = showBackButton || showNextButton;
   const inlineChoices =
     currentSlide.choicePlacement === "inline" ? currentSlide.choices : undefined;
@@ -7635,17 +8201,19 @@ async function handleNext() {
   const hasFooterActions = footerActions.length > 0;
   const isPlantGiveawayDsl = config.slug === "home-gardener-plant-giveaway";
   const isLittleOrchardShopDsl = config.slug === "little-orchard-shop";
-  const isGrowGuideDsl = config.slug.endsWith("-grow-guide");
   const isCallalooDsl = config.slug === "callaloo";
   const shouldShowPlainWhatsappContact =
     isPlantGiveawayDsl ||
     isLittleOrchardShopDsl ||
     isGrowGuideDsl ||
-    isCallalooDsl;
+    isCallalooDsl ||
+    config.slug === "bush-tea";
   const plainWhatsappMessage = isLittleOrchardShopDsl
     ? "What's rare in the nursery, that you're not telling just anyone about?"
     : isCallalooDsl
       ? "I need help with the callaloo subscription."
+      : config.slug === "bush-tea"
+      ? "I need help with the Bush Tea Shop."
       : isGrowGuideDsl
       ? `I need help with ${
           config.slug
@@ -7763,6 +8331,11 @@ async function handleNext() {
             activeShopNextTotal,
             sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
           )}`
+        : config.slug === "bush-tea" && currentSlide.id === "bush-tea-fulfillment"
+          ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
+              sharedOrderGrandTotalWithMeals,
+              sharedShopDisplayCatalog?.currencyCode ?? activeShopCurrencyCode
+            )}`
         : currentSlide.type === "delivery"
           ? `${currentSlide.nextLabel ?? "Review order"} · ${formatCurrency(
               sharedOrderSubtotalWithMeals + currentDeliveryFeeDisplay,
@@ -7856,7 +8429,9 @@ async function handleNext() {
 
       <div className={styles.pageInner}>
         <div
-          className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""}`}
+          className={`${styles.card} ${isMediaSlide ? styles.cardMedia : ""} ${
+            isImmersiveShopSlide ? styles.cardImmersiveShop : ""
+          }`}
           style={{
             borderColor: "transparent",
             borderRadius: "0",
@@ -7973,26 +8548,20 @@ async function handleNext() {
 
                             {(!shouldShowTrackSidebarTabs ||
                               trackSidebarTab === "content") &&
-                            isGrowGuideDsl ? (
+                            sidebarUtilityLinks.length > 0 ? (
                               <div className={styles.sidebarUtilityLinkList}>
-                                <a
-                                  className={`${styles.sidebarLink} ${styles.sidebarUtilityLink}`}
-                                  href="/shop"
-                                  onClick={(event) =>
-                                    handleSidebarHrefClick(event, "/shop")
-                                  }
-                                >
-                                  Shop
-                                </a>
-                                <a
-                                  className={`${styles.sidebarLink} ${styles.sidebarUtilityLink}`}
-                                  href="/grow-guides"
-                                  onClick={(event) =>
-                                    handleSidebarHrefClick(event, "/grow-guides")
-                                  }
-                                >
-                                  Guides for other plants
-                                </a>
+                                {sidebarUtilityLinks.map((link) => (
+                                  <a
+                                    key={`${link.href}-${link.label}`}
+                                    className={`${styles.sidebarLink} ${styles.sidebarUtilityLink}`}
+                                    href={link.href}
+                                    onClick={(event) =>
+                                      handleSidebarHrefClick(event, link.href)
+                                    }
+                                  >
+                                    {link.label}
+                                  </a>
+                                ))}
                               </div>
                             ) : null}
 
@@ -8217,7 +8786,8 @@ async function handleNext() {
                             />
                             <div className={styles.accountMenuPanel}>
                             {authSessionUser?.name &&
-                            config.slug !== "little-orchard-shop" ? (
+                            config.slug !== "little-orchard-shop" &&
+                            isAccountBasedFlow ? (
                               <div className={styles.accountMenuName}>
                                 <span>{authSessionUser.name}</span>
                                 <span className={styles.accountMenuCredit}>
@@ -8262,7 +8832,8 @@ async function handleNext() {
                               className={styles.accountMenuItem}
                               onClick={() =>
                                 handleAccountMenuLink(
-                                  config.slug === "little-orchard-shop"
+                                  isAccountBasedFlow &&
+                                    config.slug === "little-orchard-shop"
                                     ? "/questionnaire/little-orchard-shop?slide=plant-show-shop"
                                     : getPermanentHomeTarget()
                                 )
@@ -8278,13 +8849,7 @@ async function handleNext() {
                                 type="button"
                                 className={`${styles.accountMenuItem} ${styles.accountMenuCartItem}`}
                                 onClick={() =>
-                                  handleAccountMenuLink(
-                                    config.slug === "little-orchard-shop"
-                                      ? "/questionnaire/little-orchard-shop?slide=review-selected-items"
-                                      : config.slug === "music-merch-shop"
-                                        ? "/questionnaire/music-merch-shop?slide=review-order"
-                                        : "/questionnaire/ticket-shop?slide=review-order"
-                                  )
+                                  handleAccountMenuLink(getSidePanelCartTarget())
                                 }
                               >
                                 <span>Cart</span>
@@ -8297,14 +8862,60 @@ async function handleNext() {
                               </button>
                             )}
 
-                            {config.slug === "little-orchard-shop" ? (
+                            {config.slug === "bush-tea" ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      getSidePanelContactTarget()
+                                    )
+                                  }
+                                >
+                                  Update contact info
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.accountMenuItem}
+                                  onClick={() =>
+                                    handleAccountMenuLink(
+                                      getSidePanelMailingAddressTarget()
+                                    )
+                                  }
+                                >
+                                  Update mailing address
+                                </button>
+                              </>
+                            ) : null}
+
+                            {!isAccountBasedFlow ? (
+                              <label className={styles.accountCurrencyControl}>
+                                <span>Currency</span>
+                                <select
+                                  value={activeShopCurrencyCode}
+                                  onChange={(event) =>
+                                    handleAccountCurrencyChange(event.target.value)
+                                  }
+                                >
+                                  {SUPPORTED_CURRENCIES.map((currencyCode) => (
+                                    <option
+                                      key={currencyCode}
+                                      value={currencyCode}
+                                    >
+                                      {currencyCode}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            ) : config.slug === "little-orchard-shop" ? (
                               <>
                                 <label className={styles.accountCurrencyControl}>
                                   <span>Currency</span>
                                   <select
                                     value={activeShopCurrencyCode}
                                     onChange={(event) =>
-                                      setGuestShopCurrencyCode(event.target.value)
+                                      handleAccountCurrencyChange(event.target.value)
                                     }
                                   >
                                     {SUPPORTED_CURRENCIES.map((currencyCode) => (
@@ -8648,12 +9259,22 @@ async function handleNext() {
             ref={slideBodyRef}
             className={`${styles.slideBody} ${
               isMediaSlide ? styles.slideBodyMedia : ""
+            } ${
+              isImmersiveShopSlide ? styles.slideBodyImmersiveShop : ""
             } ${currentSlide.type === "authform" ? styles.slideBodyAuthForm : ""}`}
             >
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentSlide.id}
-                  className={isMediaSlide ? styles.mediaStage : styles.slideContentFrame}
+                  className={
+                    isMediaSlide
+                      ? styles.mediaStage
+                      : `${styles.slideContentFrame} ${
+                          isImmersiveShopSlide
+                            ? styles.slideContentFrameImmersiveShop
+                            : ""
+                        }`
+                  }
                   initial={{ x: 40, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   exit={{ x: -40, opacity: 0 }}
@@ -9107,6 +9728,7 @@ async function handleNext() {
                           slideId={currentSlide.id}
                           reviewSection="primary"
                           slideMode={currentSlide.shopMode ?? "browse"}
+                          shopLayout={currentSlide.shopLayout}
                           title={currentSlide.title}
                           catalog={currentShopDisplayCatalog}
                           cart={currentShopCart}
@@ -9378,8 +10000,20 @@ async function handleNext() {
                         <EmptyCartStoreChoices
                           theme={theme}
                           choices={
-                            currentSlide.id === "plant-order-review" ||
-                            currentSlide.id === "review-selected-items"
+                            currentSlide.emptyCartLabel &&
+                            currentSlide.emptyCartGoto
+                              ? [
+                                  {
+                                    label: currentSlide.emptyCartLabel,
+                                    onClick: () =>
+                                      goToTarget(
+                                        currentSlide.emptyCartGoto as string
+                                      ),
+                                    variant: "primary",
+                                  },
+                                ]
+                              : currentSlide.id === "plant-order-review" ||
+                                  currentSlide.id === "review-selected-items"
                               ? [
                                   {
                                     label:
@@ -9505,6 +10139,7 @@ async function handleNext() {
                           slideId={currentSlide.id}
                           reviewSection="secondary"
                           slideMode={currentSlide.shopMode ?? "browse"}
+                          shopLayout={currentSlide.shopLayout}
                           title={currentSlide.title}
                           catalog={currentShopDisplayCatalog}
                           cart={currentShopCart}
@@ -12452,6 +13087,7 @@ function ShopSlideRenderer({
   slideId,
   reviewSection = "primary",
   slideMode,
+  shopLayout,
   title,
   catalog,
   cart,
@@ -12489,6 +13125,7 @@ function ShopSlideRenderer({
   slideId: string;
   reviewSection?: "primary" | "secondary";
   slideMode: "browse" | "review";
+  shopLayout?: string;
   title?: string;
   catalog: ShopCatalog | null;
   cart: ShopCart;
@@ -12557,6 +13194,9 @@ function ShopSlideRenderer({
     src: string;
     alt: string;
   } | null>(null);
+  const [mediaFeatureOptionIndexes, setMediaFeatureOptionIndexes] = useState<
+    Record<string, number>
+  >({});
   const [adminQuantityDrafts, setAdminQuantityDrafts] = useState<
     Record<string, string>
   >({});
@@ -12570,9 +13210,16 @@ function ShopSlideRenderer({
     Record<string, string>
   >({});
   const [selectedShopCategory, setSelectedShopCategory] = useState("all");
+  const [shopSearchDraft, setShopSearchDraft] = useState("");
   const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const shopSessionKeyRef = useRef("");
   const packageRepairKeyRef = useRef("");
+  const bushTeaCertificateRequired = isBushTeaCertificateRequired(answers);
+  const shopSearchParams = useSearchParams();
+  const urlShopSearchTerm = useMemo(
+    () => getUrlShopSearchTerm(shopSearchParams),
+    [shopSearchParams]
+  );
   const reviewCartLines = useMemo(
     () =>
       slideMode === "review"
@@ -12800,10 +13447,24 @@ function ShopSlideRenderer({
             displayReviewLines.some((line) => line.productId === product.id)
           )
         : (catalog?.products ?? []).filter(
-            (product) => product.metadata?.hideFromBrowse !== true
-          ),
-    [catalog, displayReviewLines, slideMode]
+            (product) =>
+              product.metadata?.hideFromBrowse !== true &&
+              (!isRequiredShopFeeProduct(product) || bushTeaCertificateRequired)
+        ),
+    [bushTeaCertificateRequired, catalog, displayReviewLines, slideMode]
   );
+  useEffect(() => {
+    if (slideMode !== "browse") {
+      return;
+    }
+
+    setShopSearchDraft(urlShopSearchTerm);
+
+    if (urlShopSearchTerm) {
+      setSelectedShopCategory("all");
+    }
+  }, [slideMode, urlShopSearchTerm]);
+
   const shopCategoryOptions = useMemo(() => {
     const categories = new Set<string>();
 
@@ -12832,15 +13493,45 @@ function ShopSlideRenderer({
       return firstOrder - secondOrder || first.localeCompare(second);
     });
   }, [products]);
-  const displayProducts = useMemo(() => {
+  const categoryFilteredProducts = useMemo(() => {
     if (slideMode !== "browse" || selectedShopCategory === "all") {
       return products;
     }
 
     return products.filter(
-      (product) => getShopProductCategory(product) === selectedShopCategory
+      (product) =>
+        getShopProductCategory(product) === selectedShopCategory ||
+        isRequiredShopFeeProduct(product)
     );
   }, [products, selectedShopCategory, slideMode]);
+  const normalizedShopSearchTerm = normalizeShopSearchText(shopSearchDraft);
+  const displayProducts = useMemo(() => {
+    if (slideMode !== "browse" || !normalizedShopSearchTerm) {
+      return categoryFilteredProducts;
+    }
+
+    return categoryFilteredProducts.filter((product) =>
+      shopProductMatchesSearch(product, normalizedShopSearchTerm)
+    );
+  }, [categoryFilteredProducts, normalizedShopSearchTerm, slideMode]);
+  useEffect(() => {
+    if (slideMode !== "browse" || !normalizedShopSearchTerm) {
+      return;
+    }
+
+    setExpandedProducts((prev) => {
+      const next = { ...prev };
+
+      for (const product of displayProducts) {
+        next[product.id] = true;
+      }
+
+      return next;
+    });
+  }, [displayProducts, normalizedShopSearchTerm, slideMode]);
+  const hasMediaFeatureBrowseProducts =
+    slideMode === "browse" &&
+    (shopLayout === "media-feature" || products.some(usesMediaFeatureShopLayout));
   const packageProductIdSet = useMemo(
     () =>
       new Set(
@@ -14259,7 +14950,12 @@ function ShopSlideRenderer({
             <section key={product.id} className={styles.packagePlanCard}>
               <div className={styles.packagePlanHeader}>
                 <h3>{product.title}</h3>
-                {product.description ? <p>{product.description}</p> : null}
+                {product.description ? (
+                  <ShopProductDescription
+                    text={product.description}
+                    className={styles.productDescription}
+                  />
+                ) : null}
               </div>
 
               <div className={styles.packageFormatStack}>
@@ -14493,6 +15189,36 @@ function ShopSlideRenderer({
         </div>
       ) : null}
 
+      {slideMode === "browse" && products.length > 1 ? (
+        <div className={styles.shopSearchPanel}>
+          <label className={styles.shopSearchLabel} htmlFor={`${slideId}-shop-search`}>
+            Search this shop
+          </label>
+          <input
+            id={`${slideId}-shop-search`}
+            className={styles.shopSearchInput}
+            type="search"
+            value={shopSearchDraft}
+            placeholder="Search by product name"
+            onChange={(event) => {
+              setShopSearchDraft(event.target.value);
+              if (event.target.value.trim()) {
+                setSelectedShopCategory("all");
+              }
+            }}
+          />
+          {normalizedShopSearchTerm ? (
+            <button
+              type="button"
+              className={styles.shopSearchClearButton}
+              onClick={() => setShopSearchDraft("")}
+            >
+              Clear search
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {slideMode === "browse" && shopCategoryOptions.length > 1 ? (
         <div className={styles.shopCategoryPanel}>
           <strong className={styles.shopCategoryTitle}>Shop by category</strong>
@@ -14513,6 +15239,14 @@ function ShopSlideRenderer({
         </div>
       ) : null}
 
+      {slideMode === "browse" &&
+      products.length > 0 &&
+      sortedProducts.length === 0 ? (
+        <div className={styles.shopEmptySearchNotice}>
+          No products matched that search.
+        </div>
+      ) : null}
+
       {slideMode === "review" && reviewSection === "primary" && title ? (
         <div className={styles.cartHeadingBlock}>
           <h2 className={styles.cartTitle}>Cart</h2>
@@ -14520,7 +15254,7 @@ function ShopSlideRenderer({
         </div>
       ) : null}
 
-      {reviewSection === "primary" ? (
+      {reviewSection === "primary" && !hasMediaFeatureBrowseProducts ? (
       <div className={styles.shopCurrencyRow}>
         <span>Currency</span>
         {canChangeCurrency ? (
@@ -14633,8 +15367,11 @@ function ShopSlideRenderer({
           return null;
         }
 
+        const isRequiredFeeProduct = isRequiredShopFeeProduct(product);
         const isExpanded =
-          slideMode === "review" || expandedProducts[product.id] === true;
+          slideMode === "review" ||
+          isRequiredFeeProduct ||
+          expandedProducts[product.id] === true;
 
         const isEventProduct = product.fulfillmentType === "ticket";
         const sectionRank =
@@ -14657,6 +15394,222 @@ function ShopSlideRenderer({
             ? ["Show starts at:", product.eventTimeLabel]
             : null,
         ].filter(Boolean) as string[][];
+
+        if (
+          slideMode === "browse" &&
+          !isEventProduct &&
+          !isRequiredFeeProduct &&
+          usesMediaFeatureShopLayout(product)
+        ) {
+          const mediaOptions = product.sizeOptions;
+          const selectedCartOptionIndex = mediaOptions.findIndex((option) => {
+            const line = cart[makeShopLineKey(product.id, option.id)];
+            return line?.selected === true;
+          });
+          const rawMediaOptionIndex =
+            mediaFeatureOptionIndexes[product.id] ??
+            (selectedCartOptionIndex >= 0 ? selectedCartOptionIndex : 0);
+          const mediaOptionIndex = Math.min(
+            Math.max(0, rawMediaOptionIndex),
+            Math.max(0, mediaOptions.length - 1)
+          );
+          const mediaOption = mediaOptions[mediaOptionIndex];
+          const mediaLineKey = mediaOption
+            ? makeShopLineKey(product.id, mediaOption.id)
+            : "";
+          const mediaCartLine = mediaLineKey ? cart[mediaLineKey] : undefined;
+          const mediaQuantity = Math.max(1, mediaCartLine?.quantity ?? 1);
+          const mediaSelected = mediaCartLine?.selected === true;
+          const canMoveMediaOption = mediaOptions.length > 1;
+          const setMediaOptionIndex = (nextIndex: number) => {
+            if (!canMoveMediaOption) {
+              return;
+            }
+
+            const wrappedIndex =
+              (nextIndex + mediaOptions.length) % mediaOptions.length;
+            setMediaFeatureOptionIndexes((prev) => ({
+              ...prev,
+              [product.id]: wrappedIndex,
+            }));
+          };
+
+          return (
+            <Fragment key={product.id}>
+              <section className={styles.mediaFeatureShopProduct}>
+                <div className={styles.mediaFeatureStage}>
+                  <div
+                    className={styles.mediaFeatureStageTrack}
+                    style={{
+                      transform: `translateX(-${mediaOptionIndex * 100}%)`,
+                    }}
+                  >
+                    {mediaOptions.map((option) => {
+                      const optionMediaUrl =
+                        getShopSizeOptionMetadataString(option, "browseMediaUrl") ||
+                        getShopProductMediaUrl(product);
+                      const optionMediaType =
+                        getShopSizeOptionMetadataString(option, "browseMediaType");
+                      const isOptionVideo =
+                        optionMediaType === "video" ||
+                        isShopProductVideoMedia(product, optionMediaUrl);
+
+                      return (
+                        <div
+                          key={option.id}
+                          className={styles.mediaFeatureStageSlide}
+                          aria-hidden={option.id !== mediaOption?.id}
+                        >
+                          {optionMediaUrl ? (
+                            isOptionVideo ? (
+                              <video
+                                src={optionMediaUrl}
+                                className={styles.mediaFeatureMedia}
+                                controls={option.id === mediaOption?.id}
+                                playsInline
+                              />
+                            ) : (
+                              <div
+                                className={styles.mediaFeatureImageButton}
+                              >
+                                <img
+                                  src={optionMediaUrl}
+                                  alt={`${product.title} - ${option.label}`}
+                                  className={styles.mediaFeatureMedia}
+                                />
+                              </div>
+                            )
+                          ) : (
+                            <div className={styles.mediaFeatureFallback}>
+                              {product.title}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {canMoveMediaOption ? (
+                    <>
+                      <button
+                        type="button"
+                        className={`${styles.mediaFeatureNav} ${styles.mediaFeatureNavPrev}`}
+                        aria-label="Previous purchase option"
+                        onClick={() => setMediaOptionIndex(mediaOptionIndex - 1)}
+                      >
+                        &lt;
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.mediaFeatureNav} ${styles.mediaFeatureNavNext}`}
+                        aria-label="Next purchase option"
+                        onClick={() => setMediaOptionIndex(mediaOptionIndex + 1)}
+                      >
+                        &gt;
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+
+                {canMoveMediaOption ? (
+                  <div
+                    className={styles.mediaFeatureDots}
+                    aria-label="Purchase options"
+                  >
+                    {mediaOptions.map((option, index) => (
+                      <button
+                        type="button"
+                        key={option.id}
+                        className={
+                          index === mediaOptionIndex
+                            ? styles.mediaFeatureDotActive
+                            : ""
+                        }
+                        aria-label={`Show ${option.label}`}
+                        onClick={() => setMediaOptionIndex(index)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {mediaOption ? (
+                  <div className={styles.mediaFeatureFooter}>
+                    <div className={styles.mediaFeaturePurchasePanel}>
+                      <div className={styles.mediaFeaturePrice}>
+                        {formatCurrency(mediaOption.price, activeCurrencyCode)}
+                      </div>
+                      <div className={styles.mediaFeatureOptionLabel}>
+                        {mediaOption.label}
+                      </div>
+                      <button
+                        type="button"
+                        className={`${styles.mediaFeatureActionButton} ${
+                          mediaSelected ? styles.mediaFeatureActionButtonActive : ""
+                        }`}
+                        onClick={() => {
+                          if (mediaSelected) {
+                            onRemoveLine(product.id, mediaOption.id);
+                            return;
+                          }
+
+                          recordProductInterest(product.id, mediaOption.id);
+                          onSetLineSelected(product.id, mediaOption.id, true);
+                        }}
+                      >
+                        {mediaSelected
+                          ? "Remove"
+                          : getShopBrowseActionLabel(product, mediaOption)}
+                      </button>
+                      <QuantityControl
+                        quantity={mediaQuantity}
+                        minQuantity={Math.max(product.minOrderQuantity ?? 1, 1)}
+                        maxQuantity={product.maxOrderQuantity}
+                        onDecrease={() => {
+                          if (mediaQuantity <= 1) {
+                            return;
+                          }
+
+                          recordProductInterest(product.id, mediaOption.id);
+                          if (!mediaSelected) {
+                            onSetLineSelected(product.id, mediaOption.id, true);
+                          }
+                          onSetQuantity(
+                            product.id,
+                            mediaOption.id,
+                            mediaQuantity - 1
+                          );
+                        }}
+                        onIncrease={() => {
+                          recordProductInterest(product.id, mediaOption.id);
+                          if (!mediaSelected) {
+                            onSetLineSelected(product.id, mediaOption.id, true);
+                          }
+                          onSetQuantity(
+                            product.id,
+                            mediaOption.id,
+                            mediaQuantity + 1
+                          );
+                        }}
+                        theme={theme}
+                      />
+                    </div>
+
+                    <div className={styles.mediaFeatureDescriptionPanel}>
+                      <ShopProductDescription
+                        text={
+                          mediaOption.description ||
+                          product.detailsDescription ||
+                          product.description ||
+                          product.title
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            </Fragment>
+          );
+        }
 
         return (
           <Fragment key={product.id}>
@@ -14737,8 +15690,9 @@ function ShopSlideRenderer({
             ) : (
                 <div className={styles.productPanelHeader}>
                 <div className={styles.productHeaderMain}>
-                  <div className={styles.productImageColumn}>
-                    {product.imageUrl ? (
+                  {!isRequiredFeeProduct ? (
+                    <div className={styles.productImageColumn}>
+                      {product.imageUrl ? (
                         <button
                           type="button"
                           className={styles.productImageButton}
@@ -14762,13 +15716,14 @@ function ShopSlideRenderer({
                           className={styles.productImage}
                         />
                       </button>
-                    ) : (
-                      <div
-                        className={styles.productImageFallback}
-                        style={{ borderColor: theme.colors.border }}
-                      />
-                    )}
-                  </div>
+                      ) : (
+                        <div
+                          className={styles.productImageFallback}
+                          style={{ borderColor: theme.colors.border }}
+                        />
+                      )}
+                    </div>
+                  ) : null}
 
                   <div className={styles.productHeaderText}>
                     <div className={styles.productTitleRow}>
@@ -14788,13 +15743,13 @@ function ShopSlideRenderer({
                 </div>
 
                 {product.description ? (
-                  <p className={styles.productDescriptionFull}>
-                    {parseMarkdownLinks(product.description) ??
-                      product.description}
-                  </p>
+                  <ShopProductDescription
+                    text={product.description}
+                    className={styles.productDescriptionFull}
+                  />
                 ) : null}
 
-                {!isExpanded ? (
+                {!isExpanded && !isRequiredFeeProduct ? (
                   <div className={styles.productHeaderActions}>
                     <button
                       type="button"
@@ -14861,16 +15816,24 @@ function ShopSlideRenderer({
                   sizeOption.metadata?.eventDateHasPassed === true;
                 const sizeOptionSoldOut = sizeOptionMaxQuantity === 0;
                 const isDraftActive = Boolean(cartLine);
+                const isRequiredShopFeeLine =
+                  isRequiredShopFeeProduct(product) ||
+                  sizeOption.metadata?.requiredShopFee === true ||
+                  cartLine?.metadata?.requiredShopFee === true;
                 const selected =
-                  slideMode === "review"
+                  isRequiredShopFeeLine && Boolean(cartLine)
                     ? true
-                    : cartLine?.selected === true &&
-                      (!sizeOptionSoldOut || isNurseryStockRequest);
+                    : slideMode === "review"
+                      ? true
+                      : cartLine?.selected === true &&
+                        (!sizeOptionSoldOut || isNurseryStockRequest);
                 const isConfigurable =
-                  slideMode === "review"
-                    ? true
-                    : isDraftActive &&
-                      (!sizeOptionSoldOut || isNurseryStockRequest);
+                  isRequiredShopFeeLine
+                    ? false
+                    : slideMode === "review"
+                      ? true
+                      : isDraftActive &&
+                        (!sizeOptionSoldOut || isNurseryStockRequest);
                 const quantity = Math.max(1, cartLine?.quantity ?? 1);
                 const purchaseRecipients =
                   cartLine?.purchaseRecipients ??
@@ -14997,7 +15960,7 @@ function ShopSlideRenderer({
                   !activePurchaseMode?.bundledCartItems?.length &&
                   Boolean(resolvedLine?.purchaseModeLabel);
                 const canAddToCart =
-                  !sizeOptionSoldOut || isNurseryStockRequest;
+                  isRequiredShopFeeLine || !sizeOptionSoldOut || isNurseryStockRequest;
                 const packageReviewLines =
                   slideMode === "review" && resolvedLine
                     ? activeReviewLines
@@ -15035,6 +15998,10 @@ function ShopSlideRenderer({
                   (cartLine?.metadata?.packageShell === true ||
                     packageProductIdSet.has(product.id));
                 const handleAddToCart = () => {
+                  if (isRequiredShopFeeLine) {
+                    return;
+                  }
+
                   if (!canAddToCart) {
                     return;
                   }
@@ -15043,6 +16010,10 @@ function ShopSlideRenderer({
                   onSetLineSelected(product.id, sizeOption.id, true);
                 };
                 const handleCartToggle = () => {
+                  if (isRequiredShopFeeLine) {
+                    return;
+                  }
+
                   if (selected) {
                     onRemoveLine(product.id, sizeOption.id);
                     return;
@@ -15109,14 +16080,19 @@ function ShopSlideRenderer({
                         <input
                           type="checkbox"
                           checked={resolvedLine?.selected !== false}
+                          disabled={isRequiredShopFeeLine}
                           aria-label={`Selected ${product.title} ${sizeOption.label}`}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            if (isRequiredShopFeeLine) {
+                              return;
+                            }
+
                             onSetLineSelected(
                               product.id,
                               sizeOption.id,
                               event.target.checked
-                            )
-                          }
+                            );
+                          }}
                         />
                         <span aria-hidden="true" />
                         <button
@@ -15209,24 +16185,33 @@ function ShopSlideRenderer({
                         <input
                           type="checkbox"
                           checked={resolvedLine?.selected !== false}
+                          disabled={isRequiredShopFeeLine}
                           aria-label={`Selected ${product.title} ${sizeOption.label}`}
-                          onChange={(event) =>
+                          onChange={(event) => {
+                            if (isRequiredShopFeeLine) {
+                              return;
+                            }
+
                             onSetLineSelected(
                               product.id,
                               sizeOption.id,
                               event.target.checked
-                            )
-                          }
+                            );
+                          }}
                         />
                         <span aria-hidden="true" />
-                        <button
-                          type="button"
-                          className={styles.cartIconButton}
-                          aria-label={`Remove ${product.title} ${sizeOption.label}`}
-                          onClick={() => onRemoveLine(product.id, sizeOption.id)}
-                        >
-                          <span aria-hidden="true" className={styles.cartTrashIcon} />
-                        </button>
+                        {isRequiredShopFeeLine ? (
+                          <span style={{ fontWeight: 900 }}>Required</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.cartIconButton}
+                            aria-label={`Remove ${product.title} ${sizeOption.label}`}
+                            onClick={() => onRemoveLine(product.id, sizeOption.id)}
+                          >
+                            <span aria-hidden="true" className={styles.cartTrashIcon} />
+                          </button>
+                        )}
                       </div>
                     ) : null}
                     {slideMode === "review" ? (
@@ -15409,8 +16394,13 @@ function ShopSlideRenderer({
                                 selected ? styles.addToCartButtonActive : ""
                               }`}
                               onClick={handleCartToggle}
+                              disabled={isRequiredShopFeeLine}
                             >
-                              {selected
+                              {isRequiredShopFeeLine
+                                ? selected
+                                  ? "Required"
+                                  : "Added when needed"
+                                : selected
                                 ? "Remove from cart"
                                 : String(
                                     sizeOption.metadata?.primaryActionLabel ??
@@ -15421,7 +16411,7 @@ function ShopSlideRenderer({
                         </div>
                         {!sizeOptionSoldOut || isNurseryStockRequest ? (
                           <div className={styles.sizePurchaseActions}>
-                            {selected ? (
+                            {selected && !isRequiredShopFeeLine ? (
                               <QuantityControl
                                 quantity={quantity}
                                 minQuantity={minimumQuantity}

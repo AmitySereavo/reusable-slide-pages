@@ -9,6 +9,7 @@ export const DEFAULT_USD_RATES: Record<SupportedCurrencyCode, number> = {
   USD: 1,
   JMD: 155,
   GBP: 0.79,
+  CAD: 1.36,
 };
 
 export async function getCurrencyRateMap(baseCurrencyCode = "USD") {
@@ -78,5 +79,6 @@ function getFallbackRateMap(base: SupportedCurrencyCode) {
     USD: DEFAULT_USD_RATES.USD / baseRate,
     JMD: DEFAULT_USD_RATES.JMD / baseRate,
     GBP: DEFAULT_USD_RATES.GBP / baseRate,
+    CAD: DEFAULT_USD_RATES.CAD / baseRate,
   };
 }

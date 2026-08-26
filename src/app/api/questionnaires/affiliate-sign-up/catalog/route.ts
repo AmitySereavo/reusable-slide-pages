@@ -4,17 +4,18 @@ import {
   getAffiliateStoreCommissionSetting,
   hasStoreAffiliateCommission,
 } from "@/lib/affiliates/storeCommissionSettings";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import { getUnifiedInventoryItems } from "@/lib/inventory/unifiedInventory";
 import { prisma } from "@/lib/prisma";
 
 const shopLabels: Record<string, string> = {
-  "little-orchard-shop": "Little Orchard Shop",
-  "garden-package": "Garden Package",
-  "seedling-shop": "Seedling Shop",
-  "music-merch-shop": "Music + Merch Store",
-  "ticket-add-ons": "Ticket Add-ons",
-  "invitation-tickets": "Invitation Tickets",
-  "combined-order": "Combined Order",
+  "little-orchard-shop": getShopDisplayName("little-orchard-shop"),
+  "garden-package": getShopDisplayName("garden-package"),
+  "seedling-shop": getShopDisplayName("seedling-shop"),
+  "music-merch-shop": getShopDisplayName("music-merch-shop"),
+  "ticket-add-ons": getShopDisplayName("ticket-add-ons"),
+  "invitation-tickets": getShopDisplayName("invitation-tickets"),
+  "combined-order": getShopDisplayName("combined-order"),
 };
 
 export const dynamic = "force-dynamic";

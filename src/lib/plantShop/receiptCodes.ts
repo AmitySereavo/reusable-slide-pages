@@ -44,7 +44,6 @@ export async function ensureLittleOrchardReceiptCode(
 
   const firstItem = await prisma.orderFulfillmentItem.findFirst({
     where: {
-      sourceType: "little-orchard-shop",
       orderCode: safeOrderCode,
     },
     orderBy: { createdAt: "asc" },
@@ -60,7 +59,6 @@ export async function ensureLittleOrchardReceiptCode(
   const receiptCode = makeReceiptCode(safeOrderCode);
   const items = await prisma.orderFulfillmentItem.findMany({
     where: {
-      sourceType: "little-orchard-shop",
       orderCode: safeOrderCode,
     },
   });

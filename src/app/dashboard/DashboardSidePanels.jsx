@@ -13,6 +13,7 @@ const adminLinks = [
   { href: "/dashboard/affiliates", label: "Affiliates" },
   { href: "/dashboard/affiliates?view=products", label: "View Affiliated Products" },
   { href: "/dashboard/orders", label: "Orders" },
+  { href: "/dashboard/receipt-settings", label: "Receipt Settings" },
   { href: "/dashboard/plant-batches", label: "Plant Batches" },
   { href: "/dashboard/upcoming-deliveries", label: "Upcoming Deliveries" },
   { href: "/dashboard/upcoming-seed-sowing", label: "Upcoming Seed Sowing" },

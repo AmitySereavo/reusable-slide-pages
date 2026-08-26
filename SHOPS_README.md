@@ -64,6 +64,14 @@ The ticket store and music/merch store share the same cart. The checkout button
 on either shop should show the full shared cart total, not only the visible
 catalog's subtotal.
 
+The music/merch shop uses Stripe Checkout for card payment. In the first
+sandbox implementation, `POST /api/invitation/orders/create` still records the
+order and fulfillment items first, then creates a Stripe-hosted Checkout Session
+and returns its URL to the DSL shell. The cart action button says `Pay now` and
+redirects the customer to Stripe. The payment record is stored as
+`InvitationTicketPayment` with provider metadata and `PENDING` status until a
+Stripe webhook is added to confirm successful payment automatically.
+
 Ticket meal pricing respects the active account/shop currency. Meal menu prices
 are currently authored in USD and converted to the selected/account currency for
 display and totals. Meal segments can be configured as included or paid add-on
@@ -102,6 +110,173 @@ authenticated admins are returned to the filtered Orders dashboard. Cashiers can
 use the Little Orchard payment panel to confirm payment. Payment confirmation
 checks already confirmed Little Orchard quantities, marks inventory as applied
 once, and records a fulfillment activity entry.
+
+The Bush Tea shop is available as:
+
+```txt
+/bushtea
+/questionnaire/bush-tea
+```
+
+Bush Tea uses the same shared shop renderer, cart, contact collection,
+order-status, receipt, and Orders dashboard primitives as the other ParaLife
+shops. Shop-specific behavior belongs in the shop identity, DSL, dynamic
+catalog endpoint, unified inventory records, and payment/delivery
+configuration. Do not fork a separate checkout for Bush Tea.
+
+Shared shop product descriptions render as bullet lists. Product copy may be
+stored as sentences or explicit line/bullet breaks, but storefront cards should
+present the description as scannable bullet points so customers can read the
+important buying details quickly.
+
+Shared shop browse cards can use a media-forward layout by setting product
+metadata:
+
+```txt
+shopBrowseLayout: media-feature
+browseMediaUrl: /optional/image-or-video.mp4
+browseMediaType: image | video
+browseActionLabel: Add to cart | Download | Signup | Watch more
+```
+
+If `browseMediaUrl` is not set, the layout uses the product preview image or
+main image. The layout supports images and videos, uses product size options as
+the horizontal option carousel, and keeps the bottom copy as bullet points. Size
+option metadata may override the button with its own `browseActionLabel`, while
+older `primaryActionLabel` remains a fallback for add-to-cart style buttons.
+For flows that should use the full-page social-media style shop surface, set
+the browse shop slide itself to:
+
+```txt
+@shoplayout: media-feature
+```
+
+That slide-level directive lets the DSL shell remove the standard action bar
+and ordinary shop frame before the dynamic catalog finishes loading.
+
+Shop DSLs can mark whether a flow is account-based:
+
+```txt
+@accountbased: true | false
+```
+
+The default is account-based. When a flow sets `@accountbased: false`, the
+customer side panel keeps only the Home link, Cart link, and Currency selector.
+Purchased credit, returned credit, account pages, purchased items, receipts,
+ticket/account utilities, and other account-only links should not be shown in
+that shop flow. Bush Tea is not account-based.
+
+The first Bush Tea product is `Dried Guava Leaves`, stored in unified inventory
+with the shop tag `bush-tea`. The product image is:
+
+```txt
+/media/paralife_trees/png/product_guava_leaves_dried.png
+```
+
+The product copy uses this serving rule:
+
+```txt
+3g dried guava leaves per cup of water.
+3g is roughly 3 to 4 leaves.
+```
+
+Bush Tea plant-product records must declare their export certificate behavior
+on the product metadata:
+
+```txt
+certificationRequired: N/A | Other | phytosanitary
+```
+
+For dried leaves and other plant products that require a phytosanitary
+certificate when shipped outside Jamaica, set
+`certificationRequired: phytosanitary` on the product. The certificate product
+itself must stay `certificationRequired: N/A`. The cart repair logic and
+`POST /api/plant-shop/orders` both use this product-level setting, so if a page
+refresh drops the certificate fee line, the backend still adds one
+Phytosanitary Certificate per outside-Jamaica shipping address before payment.
+
+Current purchase options:
+
+- 1 lb big bag: about 454g, about 151 cups, JMD $16,000.
+- Half-pound bag: about 227g, about 75 cups, JMD $8,500.
+- Quarter-pound bag: about 113g, about 37 cups, JMD $4,500.
+
+Bush Tea starts with the purchase-reason slide before the storefront. The old
+front location-selection slide was removed; the shipping-address country is now
+the only customer field that controls whether a phytosanitary certificate is
+required. If the customer enters a shipping country outside Jamaica and selected
+products require `certificationRequired: phytosanitary`, the shop includes one
+visible required item named `Phytosanitary Certificate` at JMD $1,000 per
+mailing address. It must stay in the storefront/cart as a locked item; do not
+add this certificate as a hidden backend-only fee. The certificate fee is paid
+once per address, so it does not change based on item count or quantity. The
+certificate should not appear for Jamaica-only shipments or products marked
+`certificationRequired: N/A`. Its description should explain that it is a
+Government of Jamaica certificate for export/import handling of dried plant
+products. The certificate product must not show a product image or placeholder
+image. Bush Tea browse slides should not include extra instruction copy above
+the product list.
+
+Ad links can set the shop display currency with a URL parameter:
+
+```txt
+/bushtea?currency=CAD
+/questionnaire/bush-tea?currency=GBP
+```
+
+Supported values are `USD`, `JMD`, `GBP`, and `CAD`. The `currency` URL
+parameter affects displayed shop totals for the session; it does not decide
+whether the phytosanitary certificate is required.
+
+Bush Tea does not ask customers to choose a shipping method. Orders ship through
+the Jamaica postal service. Shipping is a flat JMD $1,500, converted into the
+active order currency for display/order totals, and becomes free when selected
+non-fee bush tea items total JMD $15,000 or more. The free-shipping threshold
+excludes the Phytosanitary Certificate and other fee lines. Customer-facing copy
+should state that orders should arrive about 2 to 4 weeks after shipping.
+The shipping-address slide is a form slide, but its action-bar button should
+still show the live order total. That total must update when the country changes
+because the country can add/remove the product-level phytosanitary certificate.
+Bush Tea delivery is currently flat rate, but both frontend and backend use a
+destination-aware shipping-fee helper so later location-specific fee rules can
+be added in one place.
+
+Bush Tea checkout does not ask customers to choose a receipt channel. The
+contact-information step collects name, email address, contact number with
+country and area code, a checkbox confirming whether the number is also on
+WhatsApp, and the required Terms of Service / Privacy Policy acknowledgement.
+If the WhatsApp checkbox is selected, the shared order payload prefers
+WhatsApp; otherwise it prefers email.
+
+Bush Tea also skips a payment-options slide. It is configured as card-only:
+the cart review button says `Pay now`, creates the order through
+`POST /api/plant-shop/orders`, creates a Stripe Checkout Session, and redirects
+the customer to Stripe. The order starts as awaiting Stripe payment. The Stripe
+webhook at `/api/webhooks/stripe` can now match plant-shop fulfillment records
+by `orderCode` / `stripeCheckoutSessionId` metadata and mark those records as
+payment confirmed after Stripe reports a paid checkout session.
+
+The pricing is positioned above ordinary warehouse-stored dried leaves because
+the product is freshly picked and dried to order. Reference comparisons used
+for the initial estimate included ordinary 50g products around CAD $14.99 and
+GBP 4.99, ordinary 56g/100g products around USD $11/USD $20, and small Etsy
+packs around USD $13 for 15g. Revisit the prices after local supply, drying
+loss, packaging, and labor are measured.
+
+Shared shop browse pages support product-focused links through search query
+parameters. These all seed the visible shop search box:
+
+```txt
+?search=guava
+?q=guava
+?product=guava
+?item=guava
+```
+
+For example, `/bushtea?search=guava` opens the Bush Tea flow with the search
+box already focused on guava products. This is reusable across shared shop
+slides, so future product-specific links can guide customers without creating a
+separate product page for every item.
 
 ## Admins
 

@@ -1,0 +1,142 @@
+// PARALIFE TREES
+// BUSH TEA SHOP
+// Shared shop/cart checkout flow for dried bush teas.
+
+@id: bush-tea-purchase-reason
+@type: form
+@contactmode: order
+@title: Purchase Reason
+@subtitle: [shopDisplayName]
+@accountbased: false
+@syncurl: true
+@pagebgcolor: #FBF7EF
+---
+# [c2] Why are you buying today?
+BR
+[c3] Select any that apply.
+BR
+@fields:
+- bushTeaReasonFlavor|checkbox|Flavour and taste|optional
+- bushTeaReasonHealthUpkeep|checkbox|Everyday health upkeep|optional
+- bushTeaReasonTreatment|checkbox|Seeking cure and treatment for health issues|optional
+- bushTeaReasonGift|checkbox|Purchasing for someone else|optional
+---
+@back: Back
+@next: Next
+@goto: bush-tea-shop
+
+===
+
+@id: bush-tea-shop
+@type: shop
+@title: [shopDisplayName]
+@subtitle: Para-life Trees
+@titleplacement: progress_overlay
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: browse
+@shoplayout: media-feature
+@contactgoto: bush-tea-contact-information
+@reviewgoto: bush-tea-review
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@back: Back
+@next: Continue
+---
+
+===
+
+@id: bush-tea-contact-information
+@type: form
+@contactmode: order
+@syncurl: true
+@pagebgcolor: #FBF7EF
+---
+# [c2] Contact information
+BR
+@fields:
+- fullName|text|Name|required|Enter your full name
+- email|email|Email address|required|Enter your email address
+- primaryPhone|tel|Contact number|required|Include country code and area code. Example: +1 876 372 7415
+- whatsappOptIn|checkbox|This contact number is also on WhatsApp.|optional
+- legalLinks|info|Policies|optional|Read the [Privacy Policy](/privacy-policy) and [Terms of Service](/terms).
+- plantShopConsent|checkbox|I understand how my name, contact details, and order information will be used.|required
+---
+@back: Back
+@next: Continue
+@goto: bush-tea-fulfillment
+
+===
+
+@id: bush-tea-fulfillment
+@type: form
+@contactmode: order
+@title: Shipping
+@subtitle: [shopDisplayName]
+@syncurl: true
+@pagebgcolor: #FBF7EF
+---
+# [c2] Shipping address
+BR
+[c3] • Bush tea orders ship through the Jamaica postal service.
+[c3] • Shipping is JMD $1,500, or free when selected items are JMD $15,000 or more.
+[c3] • Orders should arrive about 2 to 4 weeks after shipping.
+BR
+@fields:
+- bushTeaQuarantineFeeNotice|info|Phytosanitary Certificate|optional|Some countries require a phytosanitary certificate for dried plant-product shipping. This requirement will be adjusted after we confirm the country list.
+- plantDeliveryCountry|select|Country|required|Choose country|Canada=Canada,United Kingdom=United Kingdom,United States=United States,Jamaica=Jamaica,Other=Other
+- plantDeliveryRegion|text|Parish / state / region|required|Enter parish, state or region
+- plantDeliveryCityTown|text|City / town|required|Enter city or town
+- plantDeliveryStreetAddress|textarea|Street address|required|Street address, apartment, landmark
+- plantDeliveryPostalCode|text|ZIP / postal code|optional|Enter ZIP or postal code
+- plantDeliveryNotes|textarea|Shipping notes|optional|Gate code, landmark, courier instructions, or other helpful notes
+---
+@back: Back
+@next: Review order
+@goto: bush-tea-review
+
+===
+
+@id: bush-tea-review
+@type: shop
+@title: Review Bush Tea Order
+@store: orderCart
+@catalog: shopCatalog
+@shopmode: review
+@syncurl: true
+@pagebgcolor: #FBF7EF
+@progressoverlaybg: rgba(251,247,239,0.96)
+@actionbarbg: rgba(251,247,239,0.96)
+@progressoverlaytextcolor: #241F1A
+@actionbartextcolor: #241F1A
+@run: submitPlantShopOrder
+@emptycartlabel: Return to Bush Tea Shop
+@emptycartgoto: bush-tea-shop
+@back: Back
+@next: Pay now
+@goto: bush-tea-order-confirmed
+---
+[c3] Review your selected bush tea, quantities, delivery address, contact information, and total before card payment.
+
+===
+
+@id: bush-tea-order-confirmed
+@type: content
+@title: Order Recorded
+@subtitle: [shopDisplayName]
+@pagebgcolor: #FBF7EF
+@showback: false
+@shownext: false
+@syncurl: true
+---
+# [c2] Your order has been recorded.
+BR
+[c3] If payment is successful, your order status page will show payment confirmed.
+BR
+[c3] Keep your order status link so you can follow the harvest, drying, packaging, and shipping stages.
+BR
+[c4] Contact Para-life Trees if you need clarification about your order.

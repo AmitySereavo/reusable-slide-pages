@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 const SEEDS_PER_CALLOO_PARCEL = 10;
 const AVAILABILITY_STORAGE_KEY = "paralife:dashboard:planning-confirmations";
@@ -183,14 +184,11 @@ function prepLabel(value) {
 
 function shopLabel(item) {
   const slug = String(item.metadata?.questionnaireSlug || item.sourceType || "");
-  const labels = {
-    callaloo: "Callaloo Subscription",
-    "garden-package": "Garden Package",
-    "seedling-shop": "Seedling Shop",
-    "little-orchard-shop": "Little Orchard Shop",
-  };
-
-  return labels[slug] || labels[item.sourceType] || "Shop order";
+  return (
+    getShopDisplayName(slug, "") ||
+    getShopDisplayName(item.sourceType, "") ||
+    "Shop order"
+  );
 }
 
 function isPaymentConfirmed(item) {

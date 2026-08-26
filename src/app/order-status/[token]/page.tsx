@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
 import { getPlantShopProductInterestMap } from "@/lib/plantShop/productInterest";
 import { getCustomerOrderStageCopy } from "@/lib/plantShop/orderActivity";
@@ -63,9 +64,11 @@ function getRequestedItemLabel(item: any) {
 }
 
 function getOrderStatusCopy(metadata: Record<string, unknown>) {
+  const shopName = getShopDisplayName(String(metadata.questionnaireSlug || ""));
+
   if (metadata.questionnaireSlug === "callaloo") {
     return {
-      eyebrow: "Callaloo Subscription",
+      eyebrow: shopName,
       title: "Subscription Status",
       securedCopy: "Payment confirmed. Your subscription is secured.",
       pendingRiskCopy:
@@ -75,7 +78,7 @@ function getOrderStatusCopy(metadata: Record<string, unknown>) {
   }
 
   return {
-    eyebrow: "Little Orchard Shop",
+    eyebrow: shopName || getShopDisplayName("little-orchard-shop"),
     title: "Order Status",
     securedCopy: "Payment confirmed. Your items are secured.",
     pendingRiskCopy:
@@ -134,8 +137,7 @@ async function getOrderItems(token: string) {
       "updatedAt",
       "metadata"
     FROM "OrderFulfillmentItem"
-    WHERE "sourceType" = 'little-orchard-shop'
-      AND "metadata"->>'cashierToken' = ${token}
+    WHERE "metadata"->>'cashierToken' = ${token}
     ORDER BY "createdAt" ASC
   `);
 }
@@ -157,8 +159,7 @@ async function getOrderActivities(token: string) {
       f."fulfillmentStatus"
     FROM "OrderFulfillmentActivity" a
     INNER JOIN "OrderFulfillmentItem" f ON f."id" = a."fulfillmentItemId"
-    WHERE f."sourceType" = 'little-orchard-shop'
-      AND f."metadata"->>'cashierToken' = ${token}
+    WHERE f."metadata"->>'cashierToken' = ${token}
       AND COALESCE((a."metadata"->>'customerVisible')::boolean, false) = true
     ORDER BY a."completedAt" DESC, a."createdAt" DESC
   `);
@@ -190,6 +191,9 @@ export default async function OrderStatusPage({
   const firstItem = items[0];
   const metadata = readMetadata(firstItem.metadata);
   const copy = getOrderStatusCopy(metadata);
+  const questionnaireSlug = String(
+    metadata.questionnaireSlug || firstItem.sourceType || "little-orchard-shop"
+  );
   const callalooDeliveryPlan = readCallalooDeliveryPlanFromMetadata(metadata);
   const orderCode = String(firstItem.orderCode || "");
   const receiptCode = String(metadata.receiptCode || "") || makeReceiptCode(orderCode);
@@ -508,7 +512,7 @@ export default async function OrderStatusPage({
 
         <div style={orderStatusLinkRowStyle}>
           <a
-            href="/questionnaire/little-orchard-shop?slide=plant-show-shop"
+            href={`/questionnaire/${encodeURIComponent(questionnaireSlug)}`}
             style={giveawayLinkStyle}
           >
             Go to shop

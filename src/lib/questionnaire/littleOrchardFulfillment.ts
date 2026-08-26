@@ -30,6 +30,12 @@ export const LITTLE_ORCHARD_FULFILLMENT_OPTIONS = {
       "Package delivery details will be confirmed by a Little Orchard representative.",
     shippingMethod: "package_delivery",
   },
+  bush_tea_jamaica_post: {
+    label: "Jamaica postal service shipping",
+    detail:
+      "Bush tea orders are harvested, washed, dried, packaged, sent through plant quarantine when required, then shipped through the Jamaica postal service. Estimated arrival is 2 to 4 weeks after shipping.",
+    shippingMethod: "jamaica_post",
+  },
 } as const;
 
 export type LittleOrchardFulfillmentKey =

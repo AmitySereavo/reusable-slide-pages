@@ -4,7 +4,7 @@ import type {
   ShopCatalogSizeOption,
 } from "@/types/questionnaire";
 
-export const SUPPORTED_CURRENCIES = ["USD", "JMD", "GBP"] as const;
+export const SUPPORTED_CURRENCIES = ["USD", "JMD", "GBP", "CAD"] as const;
 
 export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
 

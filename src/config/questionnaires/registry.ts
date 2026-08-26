@@ -12,6 +12,7 @@ import { deliveryConfig } from "@/config/delivery/deliveryConfig";
 import { discountDefinitions } from "@/config/discounts/discountDefinitions";
 import { mealMenus } from "@/config/meals/mealMenus";
 import { littleOrchardPlantShowEvent } from "@/config/shops/littleOrchardShop";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import type {
   ShopCatalog,
   QuestionnaireVariableMap,
@@ -121,6 +122,10 @@ type QuestionnaireRegistryEntry = {
   dslPath: string;
   showStepText?: boolean;
   showSidebarChapters?: boolean;
+  sidebarUtilityLinks?: Array<{
+    href: string;
+    label: string;
+  }>;
   overlayMode?: "transparent" | "opaque";
   variables: QuestionnaireVariableMap;
   dynamicVariablesEndpoint?: string;
@@ -167,6 +172,10 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
     dslPath: "src/config/questionnaires/invitationDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
+    sidebarUtilityLinks: [
+      { href: "/questionnaire/ticket-shop", label: "Ticket Shop" },
+      { href: "/questionnaire/music-merch-shop", label: getShopDisplayName("music-merch-shop") },
+    ],
       variables: {
         gatedAccess: {
           gateSlideId: "whatsapp-subscription",
@@ -186,7 +195,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   "ticket-shop": {
     slug: "ticket-shop",
-    name: "Ticket Shop",
+    name: getShopDisplayName("ticket-shop"),
     themeKey: "invitation",
     theme: seedTheme,
     dslPath: "src/config/questionnaires/ticketShopDsl.txt",
@@ -198,13 +207,15 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   "music-merch-shop": {
     slug: "music-merch-shop",
-    name: "Music and Merch Shop",
+    name: getShopDisplayName("music-merch-shop"),
     themeKey: "invitation",
     theme: seedTheme,
     dslPath: "src/config/questionnaires/musicMerchShopDsl.txt",
     showStepText: false,
     overlayMode: "opaque",
-    variables: {},
+    variables: {
+      shopDisplayName: getShopDisplayName("music-merch-shop"),
+    },
     dynamicVariablesEndpoint: undefined,
   },
 
@@ -389,7 +400,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   "little-orchard-shop": {
     slug: "little-orchard-shop",
-    name: "Para-life Trees Little Orchard Shop",
+    name: getShopDisplayName("little-orchard-shop"),
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/littleOrchardShopDsl.txt",
@@ -401,14 +412,35 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
         weightUnit: "lb",
         products: [],
       },
+      shopDisplayName: getShopDisplayName("little-orchard-shop"),
       littleOrchardPlantShowEvent,
     },
     dynamicVariablesEndpoint: "/api/questionnaires/little-orchard-shop/catalog",
   },
 
+  "bush-tea": {
+    slug: "bush-tea",
+    name: getShopDisplayName("bush-tea"),
+    themeKey: "paraLifeGiveaway",
+    theme: paraLifeGiveawayTheme,
+    dslPath: "src/config/questionnaires/bushTeaShopDsl.txt",
+    showStepText: false,
+    overlayMode: "opaque",
+    variables: {
+      shopCatalog: {
+        currencyCode: "JMD",
+        weightUnit: "lb",
+        products: [],
+      },
+      shopDisplayName: getShopDisplayName("bush-tea"),
+      littleOrchardPlantShowEvent,
+    },
+    dynamicVariablesEndpoint: "/api/questionnaires/bush-tea/catalog",
+  },
+
   "garden-package": {
     slug: "garden-package",
-    name: "Garden Package",
+    name: getShopDisplayName("garden-package"),
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/gardenPackageDsl.txt",
@@ -420,6 +452,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
         weightUnit: "lb",
         products: [],
       },
+      shopDisplayName: getShopDisplayName("garden-package"),
       littleOrchardPlantShowEvent,
     },
     dynamicVariablesEndpoint: "/api/questionnaires/garden-package/catalog",
@@ -427,7 +460,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   callaloo: {
     slug: "callaloo",
-    name: "Para-life Trees Callaloo",
+    name: getShopDisplayName("callaloo"),
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/callalooDsl.txt",
@@ -440,6 +473,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
         weightUnit: "lb",
         products: [],
       },
+      shopDisplayName: getShopDisplayName("callaloo"),
       littleOrchardPlantShowEvent,
     },
     dynamicVariablesEndpoint: "/api/questionnaires/callaloo/catalog",
@@ -459,7 +493,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
 
   "seedling-shop": {
     slug: "seedling-shop",
-    name: "Para-life Trees Seedling Shop",
+    name: getShopDisplayName("seedling-shop"),
     themeKey: "paraLifeGiveaway",
     theme: paraLifeGiveawayTheme,
     dslPath: "src/config/questionnaires/seedlingShopDsl.txt",
@@ -471,6 +505,7 @@ export const questionnaireRegistry: Record<string, QuestionnaireRegistryEntry> =
         weightUnit: "lb",
         products: [],
       },
+      shopDisplayName: getShopDisplayName("seedling-shop"),
     },
     dynamicVariablesEndpoint: "/api/questionnaires/seedling-shop/catalog",
   },
@@ -810,6 +845,7 @@ export async function getQuestionnaireBySlug(slug: string) {
       dynamicVariablesEndpoint: entry.dynamicVariablesEndpoint,
       showStepText: entry.showStepText,
       showSidebarChapters: entry.showSidebarChapters,
+      sidebarUtilityLinks: entry.sidebarUtilityLinks,
       overlayMode: entry.overlayMode,
     },
     theme: entry.theme,

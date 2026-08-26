@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
   littleOrchardPlantShowEvent,
+  BUSH_TEA_SHOP_SLUG,
   LITTLE_ORCHARD_SHOP_SLUG,
   GARDEN_PACKAGE_SHOP_SLUG,
   littleOrchardShopCatalog,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import {
   CALLALOO_PACKAGE_SHOP_SLUG,
+  syncBushTeaProductsToUnifiedInventory,
   syncCallalooPackagesToUnifiedInventory,
   syncHomeGardenPackagesToUnifiedInventory,
 } from "@/lib/inventory/unifiedInventory";
@@ -31,7 +33,8 @@ import {
 } from "@/lib/questionnaire/shop";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { getEmailSenderForContext } from "@/config/siteBrands";
-import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { getShopDisplayName, getShopOrderLabel } from "@/config/shopIdentities";
+import { createOrderFulfillmentActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import {
   evaluateDiscountCode,
@@ -100,7 +103,7 @@ const paymentPreferenceLabels = {
   bank_transfer_ncb: "Bank transfer - NCB",
   cash_on_delivery: "Cash on delivery",
   remittance: "Western Union / remittance request",
-  card_payment: "Card payment (coming soon)",
+  card_payment: "Card payment (Stripe)",
 } as const;
 
 function normalizePaymentPreference(value: unknown) {
@@ -212,6 +215,141 @@ function isDiscountCodeLine(
   );
 }
 
+function isOrderFeeLine(
+  line: Pick<ShopResolvedCartLine, "purchaseModeId" | "productId" | "productSku" | "sku">
+) {
+  return (
+    line.purchaseModeId === "order-fee" ||
+    String(line.productId || "").endsWith("-fee") ||
+    String(line.productId || "").includes("phytosanitary-certificate") ||
+    String(line.productSku || "").includes("PHYTO-CERTIFICATE") ||
+    String(line.sku || "").includes("PHYTO-CERTIFICATE")
+  );
+}
+
+function isRequiredShopFeeProduct(product: ShopCatalog["products"][number] | undefined) {
+  if (!product) {
+    return false;
+  }
+
+  return (
+    product.metadata?.requiredShopFee === true ||
+    product.sizeOptions.some(
+      (sizeOption) => sizeOption.metadata?.requiredShopFee === true
+    )
+  );
+}
+
+function getProductCertificationRequirement(
+  catalog: ShopCatalog,
+  productId: string,
+  sizeOptionId?: string
+) {
+  const product = catalog.products.find((item) => item.id === productId);
+
+  if (!product || isRequiredShopFeeProduct(product)) {
+    return "N/A";
+  }
+
+  const sizeOption = sizeOptionId
+    ? product.sizeOptions.find((option) => option.id === sizeOptionId)
+    : undefined;
+  const rawRequirement =
+    sizeOption?.metadata?.certificationRequired ??
+    product.metadata?.certificationRequired ??
+    "N/A";
+  const requirement = cleanText(rawRequirement);
+
+  return requirement || "N/A";
+}
+
+function lineRequiresPhytosanitaryCertificate(
+  line: ShopResolvedCartLine,
+  catalog: ShopCatalog
+) {
+  return (
+    !isOrderFeeLine(line) &&
+    getProductCertificationRequirement(
+      catalog,
+      line.productId,
+      line.sizeOptionId
+    ).toLowerCase() === "phytosanitary"
+  );
+}
+
+function findRequiredShopFeeLine(
+  catalog: ShopCatalog
+): ShopResolvedCartLine | null {
+  const product = catalog.products.find(isRequiredShopFeeProduct);
+  const sizeOption = product?.sizeOptions.find(
+    (option) => option.metadata?.requiredShopFee === true
+  );
+
+  if (!product || !sizeOption) {
+    return null;
+  }
+
+  return {
+    lineKey: makeShopLineKey(product.id, sizeOption.id),
+    productId: product.id,
+    productSku: product.sku,
+    productTitle: product.title,
+    productImageUrl: product.imageUrl,
+    sizeOptionId: sizeOption.id,
+    sizeOptionSku: sizeOption.sku,
+    sizeLabel: sizeOption.label,
+    sizeOptionMetadata: sizeOption.metadata,
+    purchaseModeId: "order-fee",
+    purchaseModeLabel: "Required fee",
+    sku: sizeOption.sku || product.sku,
+    selected: true,
+    availabilityStatus: "available",
+    fulfillmentType: "physical",
+    quantity: 1,
+    unitPrice: Number(sizeOption.price || 0),
+    lineTotal: Number(sizeOption.price || 0),
+  };
+}
+
+const BUSH_TEA_SHIPPING_FEE_JMD = 1500;
+const BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD = 15000;
+
+function isJamaicaDestination(value: unknown) {
+  return ["jamaica", "jm"].includes(cleanText(value).toLowerCase());
+}
+
+function isBushTeaShippingOutsideJamaica(answers: Record<string, unknown> | undefined) {
+  const shippingCountry = cleanText(answers?.plantDeliveryCountry);
+
+  return Boolean(shippingCountry && !isJamaicaDestination(shippingCountry));
+}
+
+function getBushTeaShippingFeeJmd({
+  productSubtotalJmd,
+  destination,
+}: {
+  productSubtotalJmd: number;
+  destination?: unknown;
+}) {
+  if (productSubtotalJmd <= 0) {
+    return 0;
+  }
+
+  const normalizedDestination = cleanText(destination).toLowerCase();
+
+  // Bush Tea is currently flat-rate shipping. Keep destination in this helper
+  // so later location-specific shipping rules have one place to branch.
+  if (normalizedDestination) {
+    return productSubtotalJmd >= BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD
+      ? 0
+      : BUSH_TEA_SHIPPING_FEE_JMD;
+  }
+
+  return productSubtotalJmd >= BUSH_TEA_FREE_SHIPPING_THRESHOLD_JMD
+    ? 0
+    : BUSH_TEA_SHIPPING_FEE_JMD;
+}
+
 async function getOrderShopCatalog(questionnaireSlug: string) {
   if (questionnaireSlug === "callaloo") {
     await syncCallalooPackagesToUnifiedInventory(prisma as any);
@@ -240,6 +378,17 @@ async function getOrderShopCatalog(questionnaireSlug: string) {
     });
   }
 
+  if (questionnaireSlug === BUSH_TEA_SHOP_SLUG) {
+    await syncBushTeaProductsToUnifiedInventory(prisma as any);
+
+    return getUnifiedShopCatalog(prisma as any, BUSH_TEA_SHOP_SLUG, {
+      ...littleOrchardShopCatalog,
+      currencyCode: "JMD",
+      weightUnit: "lb",
+      products: [],
+    });
+  }
+
   return getLittleOrchardUnifiedShopCatalog(prisma as any);
 }
 
@@ -247,14 +396,23 @@ function toJsonValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function makeOrderCode() {
+function getOrderCodePrefix(questionnaireSlug: string) {
+  if (questionnaireSlug === BUSH_TEA_SHOP_SLUG) return "BT";
+  if (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG) return "GP";
+  if (questionnaireSlug === SEEDLING_SHOP_SLUG) return "SEED";
+  if (questionnaireSlug === "callaloo") return "CALL";
+
+  return "LO";
+}
+
+function makeOrderCode(questionnaireSlug: string) {
   const stamp = new Date()
     .toISOString()
     .replace(/[-:TZ.]/g, "")
     .slice(0, 12);
   const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
 
-  return `LO-${stamp}-${suffix}`;
+  return `${getOrderCodePrefix(questionnaireSlug)}-${stamp}-${suffix}`;
 }
 
 function makeCashierToken() {
@@ -308,31 +466,158 @@ function getBaseUrl(request: Request) {
   return origin ? origin.replace(/\/+$/, "") : "http://localhost:3000";
 }
 
+function getStripeSecretKey() {
+  return cleanText(process.env.STRIPE_SECRET_KEY);
+}
+
+function toStripeMinorUnit(value: number) {
+  return Math.round(Number(value || 0) * 100);
+}
+
+function buildStripeCheckoutDescription(lines: ShopResolvedCartLine[]) {
+  const labels = lines.slice(0, 6).map((line) => {
+    if (isOrderFeeLine(line) || isDiscountCodeLine(line)) {
+      return `${line.productTitle}: ${formatMoney(line.lineTotal)}`;
+    }
+
+    return `${line.quantity} x ${line.productTitle} - ${line.sizeLabel}`;
+  });
+
+  if (lines.length > labels.length) {
+    labels.push(`+${lines.length - labels.length} more item(s)`);
+  }
+
+  return labels.join("; ").slice(0, 480);
+}
+
+async function createPlantShopStripeCheckoutSession({
+  request,
+  orderCode,
+  orderStatusLink,
+  receiptLink,
+  questionnaireSlug,
+  shopName,
+  customerEmail,
+  lines,
+  total,
+}: {
+  request: Request;
+  orderCode: string;
+  orderStatusLink: string;
+  receiptLink: string;
+  questionnaireSlug: string;
+  shopName: string;
+  customerEmail: string;
+  lines: ShopResolvedCartLine[];
+  total: number;
+}) {
+  const secretKey = getStripeSecretKey();
+
+  if (!secretKey) {
+    throw new Error("Stripe sandbox is not configured. Add STRIPE_SECRET_KEY.");
+  }
+
+  const amount = toStripeMinorUnit(total);
+
+  if (amount <= 0) {
+    throw new Error("Stripe checkout requires an order total greater than zero.");
+  }
+
+  const origin = getBaseUrl(request);
+  const successUrl = `${orderStatusLink}?payment=stripe-success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/questionnaire/${encodeURIComponent(
+    questionnaireSlug
+  )}?slide=bush-tea-review&payment=stripe-cancelled&order=${encodeURIComponent(
+    orderCode
+  )}`;
+  const paymentDescription = buildStripeCheckoutDescription(lines);
+  const params = new URLSearchParams();
+
+  params.set("mode", "payment");
+  params.set("success_url", successUrl);
+  params.set("cancel_url", cancelUrl);
+  params.set("client_reference_id", orderCode);
+  if (customerEmail) {
+    params.set("customer_email", customerEmail);
+  }
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", "jmd");
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set(
+    "line_items[0][price_data][product_data][name]",
+    `${shopName} order ${orderCode}`
+  );
+  if (paymentDescription) {
+    params.set(
+      "line_items[0][price_data][product_data][description]",
+      paymentDescription
+    );
+  }
+  params.set("metadata[source]", "plant-shop");
+  params.set("metadata[orderCode]", orderCode);
+  params.set("metadata[questionnaireSlug]", questionnaireSlug);
+  params.set("metadata[orderStatusLink]", orderStatusLink);
+  params.set("metadata[receiptLink]", receiptLink);
+
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload?.url) {
+    throw new Error(
+      payload?.error?.message || "Stripe checkout session could not be created."
+    );
+  }
+
+  return {
+    provider: "stripe",
+    mode: secretKey.startsWith("sk_test_") ? "sandbox" : "live",
+    checkoutSessionId: cleanText(payload.id),
+    checkoutUrl: cleanText(payload.url),
+  };
+}
+
 function formatMoney(value: number) {
   return `JMD $${Math.round(value).toLocaleString("en-JM")}`;
 }
 
 function getShopOrderCopy(questionnaireSlug: string) {
   if (questionnaireSlug === "callaloo") {
+    const shopName = getShopDisplayName("callaloo", "Callaloo Subscription");
     return {
-      header: "New Callaloo Subscription Order",
-      shopName: "Callaloo Subscription",
+      header: `New ${getShopOrderLabel("callaloo", "Callaloo Subscription")} Order`,
+      shopName,
       selectedHeading: "Subscription Details",
       quantitySummaryLabel: "Total subscription parcels",
       lineTotalLabel: "Subscription line total",
-      sourceName: "Callaloo Subscription",
+      sourceName: shopName,
       businessEmailPurpose: "callaloo-subscription-business-order",
       customerEmailPurpose: "callaloo-subscription-customer-receipt",
     };
   }
 
+  const shopName = getShopDisplayName(
+    questionnaireSlug,
+    getShopDisplayName("little-orchard-shop", "Little Orchard Shop")
+  );
+  const orderLabel = getShopOrderLabel(
+    questionnaireSlug,
+    getShopOrderLabel("little-orchard-shop", "Little Orchard Order")
+  );
+
   return {
-    header: "New Little Orchard Shop Order",
-    shopName: "Little Orchard Shop",
+    header: `New ${orderLabel}`,
+    shopName,
     selectedHeading: "Selected Items",
     quantitySummaryLabel: "Total number of items",
     lineTotalLabel: "Item total",
-    sourceName: "Little Orchard Shop",
+    sourceName: shopName,
     businessEmailPurpose: "little-orchard-shop-business-order",
     customerEmailPurpose: "little-orchard-shop-customer-receipt",
   };
@@ -384,7 +669,9 @@ function buildOrderText({
   const copy = getShopOrderCopy(questionnaireSlug);
   const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
   const plantCount = lines.reduce(
-    (sum, line) => sum + (isDiscountCodeLine(line) ? 0 : line.quantity),
+    (sum, line) =>
+      sum +
+      (isDiscountCodeLine(line) || isOrderFeeLine(line) ? 0 : line.quantity),
     0
   );
   const items = lines
@@ -393,6 +680,12 @@ function buildOrderText({
         if (isDiscountCodeLine(line)) {
           return `${index + 1}. ${line.productTitle}\n   Discount: ${formatMoney(
             Math.abs(line.lineTotal)
+          )}`;
+        }
+
+        if (isOrderFeeLine(line)) {
+          return `${index + 1}. ${line.productTitle}\n   ${line.sizeLabel}\n   Fee: ${formatMoney(
+            line.lineTotal
           )}`;
         }
 
@@ -503,12 +796,14 @@ async function sendOrderEmails({
   email,
   text,
   questionnaireSlug,
+  sendCustomerEmail = true,
 }: {
   orderCode: string;
   fullName: string;
   email: string;
   text: string;
   questionnaireSlug: string;
+  sendCustomerEmail?: boolean;
 }) {
   const copy = getShopOrderCopy(questionnaireSlug);
   const businessEmail =
@@ -530,7 +825,7 @@ async function sendOrderEmails({
     purpose: copy.businessEmailPurpose,
   });
 
-  if (email && isValidEmail(email)) {
+  if (sendCustomerEmail && email && isValidEmail(email)) {
     await sendEmailMessage({
       to: email,
       subject: `Your ${copy.shopName} order ${orderCode}`,
@@ -570,9 +865,13 @@ export async function POST(request: Request) {
     const questionnaireSlug = cleanText(body.questionnaireSlug);
     const deviceType = normalizeDeviceType(body.deviceType);
     const contactMethod = normalizeContactMethod(body.contactMethod);
-    const paymentPreference = normalizePaymentPreference(
+    const submittedPaymentPreference = normalizePaymentPreference(
       body.answers?.plantShopPaymentPreference
     );
+    const paymentPreference =
+      questionnaireSlug === BUSH_TEA_SHOP_SLUG && !submittedPaymentPreference
+        ? "card_payment"
+        : submittedPaymentPreference;
     const paymentPreferenceLabel = paymentPreference
       ? paymentPreferenceLabels[paymentPreference]
       : "";
@@ -584,6 +883,7 @@ export async function POST(request: Request) {
     const orderEmail = email && isValidEmail(email) ? email : "";
     let cart = normalizeOrderCart(body.orderCart);
     const shopCatalog = await getOrderShopCatalog(questionnaireSlug);
+    const orderSourceType = questionnaireSlug || LITTLE_ORCHARD_SHOP_SLUG;
     let resolvedLines = resolveShopSelectedLines(shopCatalog, cart).filter(
       (line) =>
         line.selected !== false && line.availabilityStatus !== "unavailable"
@@ -639,6 +939,47 @@ export async function POST(request: Request) {
       }
     }
 
+    const bushTeaShipsOutsideJamaica =
+      questionnaireSlug === BUSH_TEA_SHOP_SLUG &&
+      isBushTeaShippingOutsideJamaica(body.answers);
+    const initialProductOrderLines = lines.filter(
+      (line) => !isOrderFeeLine(line)
+    );
+    const bushTeaCertificateRequired =
+      bushTeaShipsOutsideJamaica &&
+      initialProductOrderLines.some((line) =>
+        lineRequiresPhytosanitaryCertificate(line, shopCatalog)
+      );
+
+    if (questionnaireSlug === BUSH_TEA_SHOP_SLUG && !bushTeaCertificateRequired) {
+      lines = lines.filter((line) => !isOrderFeeLine(line));
+      resolvedLines = resolvedLines.filter((line) => !isOrderFeeLine(line));
+    }
+
+    if (
+      bushTeaCertificateRequired &&
+      initialProductOrderLines.length > 0 &&
+      !lines.some((line) => isOrderFeeLine(line))
+    ) {
+      const requiredFeeLine = findRequiredShopFeeLine(shopCatalog);
+
+      if (!requiredFeeLine) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "The Phytosanitary Certificate is required, but the certificate fee item is not configured.",
+          },
+          { status: 400 }
+        );
+      }
+
+      lines = [...lines, requiredFeeLine];
+      resolvedLines = [...resolvedLines, requiredFeeLine];
+    }
+
+    const productOrderLines = lines.filter((line) => !isOrderFeeLine(line));
+
     if (!orderRequestKey) {
       return NextResponse.json(
         { ok: false, error: "Missing order request key." },
@@ -653,11 +994,30 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!lines.length) {
+    if (!productOrderLines.length) {
       return NextResponse.json(
         { ok: false, error: "Select at least one item before submitting." },
         { status: 400 }
       );
+    }
+
+    if (questionnaireSlug === BUSH_TEA_SHOP_SLUG) {
+      if (!phoneNumber) {
+        return NextResponse.json(
+          { ok: false, error: "Enter your contact number." },
+          { status: 400 }
+        );
+      }
+
+      if (!hasCountryAndAreaCode(phoneNumber)) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Enter the contact number with country and area code.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (contactMethod === "email" && !orderEmail) {
@@ -737,7 +1097,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (paymentPreference === "card_payment") {
+    if (
+      paymentPreference === "card_payment" &&
+      questionnaireSlug !== BUSH_TEA_SHOP_SLUG
+    ) {
       return NextResponse.json(
         { ok: false, error: "Card payment is not available yet." },
         { status: 400 }
@@ -751,6 +1114,7 @@ export async function POST(request: Request) {
       (questionnaireSlug === "callaloo" &&
         selectedFulfillmentMethod === "package_delivery") ||
       questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
+      questionnaireSlug === BUSH_TEA_SHOP_SLUG ||
       (questionnaireSlug === SEEDLING_SHOP_SLUG &&
         selectedFulfillmentMethod === "paid_delivery");
 
@@ -767,7 +1131,9 @@ export async function POST(request: Request) {
           {
             ok: false,
             error:
-              questionnaireSlug === SEEDLING_SHOP_SLUG
+              questionnaireSlug === BUSH_TEA_SHOP_SLUG
+                ? "Enter the country, parish or region, city or town, and street address for bush tea shipping."
+                : questionnaireSlug === SEEDLING_SHOP_SLUG
                 ? "Enter the country, parish or region, city or town, and street address for seedling delivery."
                 : "Enter the country, parish or region, city or town, and street address for package delivery.",
           },
@@ -826,7 +1192,7 @@ export async function POST(request: Request) {
 
     const duplicate = await prisma.orderFulfillmentItem.findFirst({
       where: {
-        sourceType: "little-orchard-shop",
+        sourceType: orderSourceType,
         sourceId: orderRequestKey,
       },
       orderBy: { createdAt: "asc" },
@@ -850,6 +1216,10 @@ export async function POST(request: Request) {
           typeof duplicateMetadata.orderStatusLink === "string"
             ? duplicateMetadata.orderStatusLink
             : null,
+        checkoutUrl:
+          typeof duplicateMetadata.stripeCheckoutSessionUrl === "string"
+            ? duplicateMetadata.stripeCheckoutSessionUrl
+            : null,
       });
     }
 
@@ -860,12 +1230,14 @@ export async function POST(request: Request) {
         ? GARDEN_PACKAGE_SHOP_SLUG
         : questionnaireSlug === SEEDLING_SHOP_SLUG
           ? SEEDLING_SHOP_SLUG
+          : questionnaireSlug === BUSH_TEA_SHOP_SLUG
+            ? BUSH_TEA_SHOP_SLUG
           : LITTLE_ORCHARD_SHOP_SLUG;
     const discount = await evaluateDiscountCode({
       db: prisma as any,
       code: discountCode,
       shopKey,
-      lines,
+      lines: productOrderLines,
       customerEmail: orderEmail,
       customerPhone: whatsappNumber || phoneNumber,
       currencyCode: shopCatalog.currencyCode || "JMD",
@@ -897,7 +1269,7 @@ export async function POST(request: Request) {
           })
         : null;
 
-    const orderCode = makeOrderCode();
+    const orderCode = makeOrderCode(questionnaireSlug);
     const cashierToken = makeCashierToken();
     const cashierLink = `${getBaseUrl(request)}/admin/event-orders/order/${cashierToken}`;
     const orderStatusLink = `${getBaseUrl(request)}/order-status/${cashierToken}`;
@@ -924,21 +1296,76 @@ export async function POST(request: Request) {
             lineTotal: -appliedDiscount.discountAmount,
           } as unknown as ShopResolvedCartLine)
         : null;
-    const orderLines = discountLine ? [...lines, discountLine] : lines;
+    const bushTeaProductSubtotal = productOrderLines.reduce(
+      (sum, line) => sum + line.lineTotal,
+      0
+    );
+    const bushTeaShippingLine =
+      questionnaireSlug === BUSH_TEA_SHOP_SLUG &&
+      getBushTeaShippingFeeJmd({
+        productSubtotalJmd: bushTeaProductSubtotal,
+        destination: body.answers?.plantDeliveryCountry,
+      }) > 0
+        ? ({
+            lineKey: "bush-tea-shipping-fee",
+            productId: "bush-tea-shipping-fee",
+            productSku: "BUSH-TEA-SHIPPING",
+            productTitle: "Jamaica postal service shipping",
+            sizeOptionId: "bush-tea-shipping-fee",
+            sizeOptionSku: "BUSH-TEA-SHIPPING-FLAT",
+            sizeLabel: "Flat rate shipping",
+            purchaseModeId: "order-fee",
+            purchaseModeSku: "BUSH-TEA-SHIPPING-FLAT",
+            purchaseModeLabel: "Shipping fee",
+            sku: "BUSH-TEA-SHIPPING-FLAT",
+            selected: true,
+            availabilityStatus: "available",
+            fulfillmentType: "physical",
+            quantity: 1,
+            unitPrice: getBushTeaShippingFeeJmd({
+              productSubtotalJmd: bushTeaProductSubtotal,
+              destination: body.answers?.plantDeliveryCountry,
+            }),
+            lineTotal: getBushTeaShippingFeeJmd({
+              productSubtotalJmd: bushTeaProductSubtotal,
+              destination: body.answers?.plantDeliveryCountry,
+            }),
+          } as unknown as ShopResolvedCartLine)
+        : null;
+    const orderLines = [
+      ...lines,
+      ...(bushTeaShippingLine ? [bushTeaShippingLine] : []),
+      ...(discountLine ? [discountLine] : []),
+    ];
     const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+    const serviceFeeLines = orderLines.filter(isOrderFeeLine);
+    const serviceFeeTotal = serviceFeeLines.reduce(
+      (sum, line) => sum + line.lineTotal,
+      0
+    );
     const total = orderLines.reduce((sum, line) => sum + line.lineTotal, 0);
-    const plantCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+    const plantCount = lines.reduce(
+      (sum, line) =>
+        sum +
+        (isDiscountCodeLine(line) || isOrderFeeLine(line) ? 0 : line.quantity),
+      0
+    );
     const submittedAt = new Date();
     const orderCopy = getShopOrderCopy(questionnaireSlug);
     const fulfillmentAnswers =
-      (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
-        questionnaireSlug === "callaloo") &&
-      !cleanText(body.answers?.plantShopFulfillmentMethod)
+      questionnaireSlug === BUSH_TEA_SHOP_SLUG
         ? {
             ...(body.answers || {}),
-            plantShopFulfillmentMethod: "package_delivery",
+            plantShopFulfillmentMethod: "bush_tea_jamaica_post",
           }
-        : body.answers;
+        : (questionnaireSlug === GARDEN_PACKAGE_SHOP_SLUG ||
+              questionnaireSlug === "callaloo") &&
+            !cleanText(body.answers?.plantShopFulfillmentMethod)
+          ? {
+              ...(body.answers || {}),
+              plantShopFulfillmentMethod: "package_delivery",
+            }
+          : body.answers;
     const fulfillmentOption =
       getLittleOrchardFulfillmentOption(fulfillmentAnswers);
     const fulfillmentKey = getLittleOrchardFulfillmentKey(fulfillmentAnswers);
@@ -971,11 +1398,22 @@ export async function POST(request: Request) {
       orderTotal: total,
       baseCurrency: "JMD",
       baseSubtotal: subtotal,
+      baseServiceFees: serviceFeeTotal,
       baseDiscount: appliedDiscount ? appliedDiscount.discountAmount : 0,
       baseTotal: total,
       displayCurrency: shopCatalog.currencyCode || "JMD",
       displayExchangeRate: 1,
       displayConvertedTotal: total,
+      serviceFees:
+        serviceFeeLines.length > 0
+          ? serviceFeeLines.map((line) => ({
+              key: line.lineKey,
+              label: line.productTitle,
+              amount: line.lineTotal,
+              currencyCode: shopCatalog.currencyCode || "JMD",
+              detail: line.sizeLabel,
+            }))
+          : [],
       discountCode: appliedDiscount ? appliedDiscount.code : null,
       discountLabel: appliedDiscount ? appliedDiscount.label : null,
       discountType: appliedDiscount ? appliedDiscount.discountType : null,
@@ -1004,7 +1442,7 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       await tx.orderFulfillmentItem.createMany({
         data: orderLines.map((line) => ({
-        sourceType: "little-orchard-shop",
+        sourceType: orderSourceType,
         sourceId: orderRequestKey,
         orderCode,
         lineKey: line.lineKey,
@@ -1018,7 +1456,11 @@ export async function POST(request: Request) {
         purchaseModeSku: line.purchaseModeSku,
         purchaseModeLabel: line.purchaseModeLabel,
         sku: line.sku,
-        fulfillmentType: isDiscountCodeLine(line) ? "discount" : "physical",
+        fulfillmentType: isDiscountCodeLine(line)
+          ? "discount"
+          : isOrderFeeLine(line)
+            ? "fee"
+            : "physical",
         quantity: line.quantity,
         currencyCode: shopCatalog.currencyCode || "JMD",
         unitPrice: line.unitPrice,
@@ -1027,10 +1469,15 @@ export async function POST(request: Request) {
         recipientEmail: orderEmail || null,
         recipientRole: "customer",
         status: "PENDING",
-        fulfillmentStatus: isDiscountCodeLine(line) ? "FULFILLED" : "PENDING",
+        fulfillmentStatus:
+          isDiscountCodeLine(line) || isOrderFeeLine(line)
+            ? "FULFILLED"
+            : "PENDING",
         fulfillmentNotes: [
           isDiscountCodeLine(line)
             ? "Discount code line. No fulfillment action required."
+            : isOrderFeeLine(line)
+              ? "Order fee line. No product fulfillment action required."
             : "",
           `Fulfillment method: ${shippingMethod}`,
           `Pickup / delivery: ${fulfillmentOption.label}`,
@@ -1065,7 +1512,7 @@ export async function POST(request: Request) {
 
       const createdItems = await tx.orderFulfillmentItem.findMany({
         where: {
-          sourceType: "little-orchard-shop",
+          sourceType: orderSourceType,
           orderCode,
         },
         orderBy: { createdAt: "asc" },
@@ -1073,7 +1520,7 @@ export async function POST(request: Request) {
       const firstCreatedItem = createdItems[0];
 
       if (firstCreatedItem) {
-        await createLittleOrchardOrderActivity(tx as any, {
+        await createOrderFulfillmentActivity(tx as any, {
           fulfillmentItemId: firstCreatedItem.id,
           orderCode,
           stageKey: "order-submitted",
@@ -1094,13 +1541,13 @@ export async function POST(request: Request) {
           },
         });
 
-        await createLittleOrchardOrderActivity(tx as any, {
+        await createOrderFulfillmentActivity(tx as any, {
           fulfillmentItemId: firstCreatedItem.id,
           orderCode,
           stageKey: "awaiting-payment",
           stageLabel: "Awaiting payment",
           updateType: "system",
-          source: "Little Orchard Shop",
+          source: orderCopy.sourceName,
           previousStatus: "PENDING",
           nextStatus: "PENDING",
           notes: [
@@ -1142,6 +1589,56 @@ export async function POST(request: Request) {
       }
     });
 
+    const stripeCheckout =
+      paymentPreference === "card_payment"
+        ? await createPlantShopStripeCheckoutSession({
+            request,
+            orderCode,
+            orderStatusLink,
+            receiptLink,
+            questionnaireSlug,
+            shopName: orderCopy.shopName,
+            customerEmail: orderEmail,
+            lines: orderLines,
+            total,
+          })
+        : null;
+
+    if (stripeCheckout) {
+      const createdItems = await prisma.orderFulfillmentItem.findMany({
+        where: {
+          sourceType: orderSourceType,
+          orderCode,
+        },
+        select: {
+          id: true,
+          metadata: true,
+        },
+      });
+
+      await Promise.all(
+        createdItems.map((item) =>
+          prisma.orderFulfillmentItem.update({
+            where: { id: item.id },
+            data: {
+              metadata: {
+                ...normalizeMetadata(item.metadata),
+                paymentPreference: "card_payment",
+                paymentPreferenceLabel: paymentPreferenceLabels.card_payment,
+                paymentStatus: "STRIPE_CHECKOUT_PENDING",
+                paymentMethod: "stripe_card",
+                paymentMethodLabel: paymentPreferenceLabels.card_payment,
+                stripeCheckoutSessionId:
+                  stripeCheckout.checkoutSessionId || null,
+                stripeCheckoutSessionUrl: stripeCheckout.checkoutUrl,
+                stripeMode: stripeCheckout.mode,
+              } as Prisma.InputJsonObject,
+            },
+          })
+        )
+      );
+    }
+
     const text = buildOrderText({
       orderCode,
       fullName,
@@ -1171,11 +1668,12 @@ export async function POST(request: Request) {
         email: orderEmail,
         text,
         questionnaireSlug,
+        sendCustomerEmail: !stripeCheckout,
       });
       emailDeliveryStatus = "sent";
     } catch (error) {
       emailDeliveryStatus = "failed";
-      console.error("Little Orchard shop order email failed:", error);
+      console.error(`${orderCopy.shopName} order email failed:`, error);
     }
 
     const whatsappUrl =
@@ -1191,11 +1689,14 @@ export async function POST(request: Request) {
       cashierLink,
       orderStatusLink,
       receiptLink,
+      checkoutUrl: stripeCheckout?.checkoutUrl || null,
       whatsappUrl,
       emailDeliveryStatus,
       message:
         adminAssisted
           ? "Order created. Opening the order record for admin processing."
+          : stripeCheckout?.checkoutUrl
+          ? "Your order has been recorded. Stripe Checkout is opening now."
           : contactMethod === "whatsapp"
           ? "Your order has been recorded. WhatsApp is ready with your order message."
           : contactMethod === "email"
@@ -1203,7 +1704,7 @@ export async function POST(request: Request) {
             : "Your order has been recorded. We will use your selected contact channel for order updates.",
     });
   } catch (error) {
-    console.error("Little Orchard shop order create error:", error);
+    console.error("Plant shop order create error:", error);
 
     return NextResponse.json(
       { ok: false, error: "Order could not be recorded." },

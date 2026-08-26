@@ -1,10 +1,12 @@
 import { Prisma } from "@prisma/client";
 import Link from "next/link";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import { prisma } from "@/lib/prisma";
 import {
   ensureLittleOrchardReceiptCode,
   readMetadata,
 } from "@/lib/plantShop/receiptCodes";
+import { getShopReceiptSetting } from "@/lib/receipt/shopReceiptSettings";
 import PrintReceiptButton from "./PrintReceiptButton";
 
 export function normalizeToken(value: string) {
@@ -45,16 +47,18 @@ function getRequestedItemLabel(item: any) {
 }
 
 function getReceiptCopy(metadata: Record<string, unknown>) {
+  const shopName = getShopDisplayName(String(metadata.questionnaireSlug || ""));
+
   if (metadata.questionnaireSlug === "callaloo") {
     return {
-      eyebrow: "Callaloo Subscription",
+      eyebrow: shopName,
       lineSectionTitle: "Subscription Details",
       lineTotalLabel: "Subscription line total",
     };
   }
 
   return {
-    eyebrow: "Little Orchard Shop",
+    eyebrow: shopName || getShopDisplayName("little-orchard-shop"),
     lineSectionTitle: "Items",
     lineTotalLabel: "Line total",
   };
@@ -80,8 +84,7 @@ export async function getLittleOrchardOrderItemsByToken(token: string) {
       "updatedAt",
       "metadata"
     FROM "OrderFulfillmentItem"
-    WHERE "sourceType" = 'little-orchard-shop'
-      AND "metadata"->>'cashierToken' = ${token}
+    WHERE "metadata"->>'cashierToken' = ${token}
     ORDER BY "createdAt" ASC
   `);
 }
@@ -106,8 +109,7 @@ export async function getLittleOrchardOrderItemsByCode(orderCode: string) {
       "updatedAt",
       "metadata"
     FROM "OrderFulfillmentItem"
-    WHERE "sourceType" = 'little-orchard-shop'
-      AND "orderCode" = ${orderCode}
+    WHERE "orderCode" = ${orderCode}
     ORDER BY "createdAt" ASC
   `);
 }
@@ -125,7 +127,10 @@ export default async function ReceiptView({
 
   const firstItem = items[0];
   const metadata = readMetadata(firstItem.metadata);
+  const shopKey = String(metadata.questionnaireSlug || "little-orchard-shop");
   const copy = getReceiptCopy(metadata);
+  const receiptSetting = await getShopReceiptSetting(prisma, shopKey);
+  const colors = receiptSetting.colors;
   const orderCode = String(firstItem.orderCode || "");
   const receiptCode =
     String(metadata.receiptCode || "") ||
@@ -143,10 +148,18 @@ export default async function ReceiptView({
     metadata.changeDue !== undefined ? Number(metadata.changeDue) : null;
 
   return (
-    <main style={pageStyle}>
-      <section id="little-orchard-receipt" style={panelStyle}>
-        <p style={eyebrowStyle}>{copy.eyebrow}</p>
-        <h1 style={titleStyle}>Receipt</h1>
+    <main style={{ ...pageStyle, background: colors.pageBackground, color: colors.text }}>
+      <section
+        id="shop-receipt"
+        style={{
+          ...panelStyle,
+          background: colors.panelBackground,
+          borderColor: colors.border,
+          boxShadow: `0 24px 70px ${colors.accent}29`,
+        }}
+      >
+        <p style={{ ...eyebrowStyle, color: colors.accent }}>{copy.eyebrow}</p>
+        <h1 style={{ ...titleStyle, color: colors.text }}>Receipt</h1>
         <p style={customerNameStyle}>{customerName}</p>
         <p style={orderCodeStyle}>{orderCode}</p>
 
@@ -217,14 +230,43 @@ export default async function ReceiptView({
         </section>
 
         <div className="receipt-page-actions" style={buttonRowStyle}>
-          <PrintReceiptButton style={printButtonStyle} token={receiptToken} />
-          <Link href="/shop" style={shopButtonStyle}>
-            Visit shop
+          <PrintReceiptButton
+            style={{
+              ...printButtonStyle,
+              background: colors.primaryButtonBackground,
+              color: colors.primaryButtonText,
+            }}
+            token={receiptToken}
+          />
+          <Link
+            href={receiptSetting.shopUrl}
+            style={{
+              ...shopButtonStyle,
+              background: colors.primaryButtonBackground,
+              color: colors.primaryButtonText,
+            }}
+          >
+            {receiptSetting.shopButtonLabel}
           </Link>
-          <Link href="/gift" style={giveawayButtonStyle}>
-            Claim a free plant
+          <Link
+            href={receiptSetting.promotionUrl}
+            style={{
+              ...giveawayButtonStyle,
+              background: colors.promotionButtonBackground,
+              color: colors.promotionButtonText,
+            }}
+          >
+            {receiptSetting.promotionButtonLabel}
           </Link>
-          <Link href="/receipt" style={lookupLinkStyle}>
+          <Link
+            href="/receipt"
+            style={{
+              ...lookupLinkStyle,
+              background: colors.secondaryButtonBackground,
+              color: colors.secondaryButtonText,
+              borderColor: colors.border,
+            }}
+          >
             Search for another receipt
           </Link>
         </div>

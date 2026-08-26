@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 const emptyForm = {
   id: "",
@@ -23,13 +24,13 @@ const emptyForm = {
 };
 
 const shopOptions = [
-  { id: "little-orchard-shop", label: "Little Orchard Shop" },
-  { id: "garden-package", label: "Garden Package" },
-  { id: "seedling-shop", label: "Seedling Shop" },
-  { id: "music-merch-shop", label: "Music + Merch Store" },
-  { id: "ticket-add-ons", label: "Ticket Add-ons" },
-  { id: "invitation-tickets", label: "Invitation Tickets" },
-  { id: "combined-order", label: "Combined Order" },
+  { id: "little-orchard-shop", label: getShopDisplayName("little-orchard-shop") },
+  { id: "garden-package", label: getShopDisplayName("garden-package") },
+  { id: "seedling-shop", label: getShopDisplayName("seedling-shop") },
+  { id: "music-merch-shop", label: getShopDisplayName("music-merch-shop") },
+  { id: "ticket-add-ons", label: getShopDisplayName("ticket-add-ons") },
+  { id: "invitation-tickets", label: getShopDisplayName("invitation-tickets") },
+  { id: "combined-order", label: getShopDisplayName("combined-order") },
 ];
 
 export default function DiscountCodesManager() {

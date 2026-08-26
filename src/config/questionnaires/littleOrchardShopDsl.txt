@@ -4,7 +4,7 @@
 
 @id: plant-show-shop
 @type: shop
-@title: Little Orchard Shop
+@title: [shopDisplayName]
 @store: orderCart
 @catalog: shopCatalog
 @shopmode: browse
@@ -153,7 +153,7 @@ BR
 @type: form
 @contactmode: order
 @title: Delivery / Pickup
-@subtitle: Little Orchard Shop
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @syncurl: true
 ---
@@ -209,7 +209,7 @@ BR
 @type: form
 @contactmode: order
 @title: Payment Options
-@subtitle: Little Orchard Shop
+@subtitle: [shopDisplayName]
 @syncurl: true
 @pagebgcolor: #FBF7EF
 @run: submitPlantShopOrder
@@ -256,7 +256,7 @@ BR
 @id: order-confirmed
 @type: content
 @title: Order Recorded
-@subtitle: Little Orchard Shop
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @showback: false
 @shownext: false

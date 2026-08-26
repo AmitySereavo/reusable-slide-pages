@@ -31,13 +31,25 @@ Current reusable foundations:
 - account email history and verified email switching
 - protected download API for private files
 - reusable shop/cart engine with database-backed inventory support
+- centralized shop identity config in `src/config/shopIdentities.ts`; DSL
+  registry entries, order labels, checkout text, dashboard dropdowns, receipt
+  views, and order-status copy should pull shop names from this shared source
+  instead of hard-coding separate names
+- shared order handling across shops: carts, checkout submission, receipt/status
+  links, fulfillment activity, dashboard messaging, and deletion should use the
+  same order/fulfillment primitives for every shop; differences belong in shop
+  config, payment options, delivery options, and product/fulfillment type rules
+- per-shop receipt settings for visit-shop links, promotion buttons, and receipt
+  colors; defaults live in `src/config/shopIdentities.ts`, while admin overrides
+  are stored in the `ShopReceiptSetting` table and edited from
+  `/dashboard/receipt-settings`
 - app-wide visitor activity tracker with one anonymous visitor/session identity,
   local-first interest thresholds, and shared event helpers for navigation,
   questionnaires, video, products, cart, checkout, downloads, and CRM actions
 - verified purchase-for-others recipient flow
 - database-backed digital/physical order fulfillment items
 - ticket assignment and meal-selection primitives
-- account/shop currency display with USD, JMD, and GBP support
+- account/shop currency display with USD, JMD, GBP, and CAD support
 - admin-gated dashboard surfaces for projects, people, orders, tickets,
   inventory, affiliates, discount codes, currencies, and email sequences
 - shared email sender for auth, ticket, album, recipient, password-reset, and
@@ -164,6 +176,8 @@ separate routes so each section loads its own data only when an admin visits it:
 - `/dashboard/orders`: digital/physical order fulfillment items, recipient
   details, fulfillment status, notes, selected courier, tracking/delivery
   references, and delivery/pickup support actions
+- `/dashboard/receipt-settings`: per-shop receipt destination links,
+  promotion button text/URLs, and receipt page color settings
 - `/dashboard/today-tomorrow`: immediate deliveries, seed sowing, propagation,
   transplant, and people follow-up due today or tomorrow
 - `/dashboard/upcoming-deliveries`: delivery planning across shops and recurring
@@ -199,6 +213,7 @@ Dashboard API routes also require admin level 1:
 - `/api/dashboard/people`
 - `/api/dashboard/affiliates`
 - `/api/dashboard/orders`
+- `/api/dashboard/receipt-settings`
 - `/api/dashboard/production-planning`
 - `/api/dashboard/plant-production-timeline`
 - `/api/dashboard/inventory`
@@ -316,6 +331,51 @@ hosts:
 
 This keeps Amity Sereavo content from falling through to the ParaLife plant
 giveaway route.
+
+## Stripe Sandbox Checkout
+
+The Amity Sereavo Shop and card-only plant-shop flows such as Bush Tea use
+Stripe Checkout for card payment. Amity Sereavo records the order through
+`/api/invitation/orders/create`, then creates a Stripe Checkout Session and
+redirects the customer to Stripe. Bush Tea records the order through
+`/api/plant-shop/orders`, skips a separate payment-options slide, creates a
+Stripe Checkout Session from the cart review action, and redirects the customer
+to Stripe. Set the sandbox secret key and webhook signing secret before
+testing:
+
+```txt
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Stripe receives the order total in the order currency's minor units. JMD is a
+supported presentment currency and uses two decimal minor units, so JMD 100 is
+sent to Stripe as `10000`. The success URL includes Stripe's
+`{CHECKOUT_SESSION_ID}` so the browser can return with the checkout session
+identifier.
+
+Stripe sends payment completion events to `/api/webhooks/stripe`. The webhook
+verifies the `stripe-signature` header with `STRIPE_WEBHOOK_SECRET`, then
+handles `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+and `checkout.session.async_payment_failed`. Successful paid sessions first
+look for matching `InvitationTicketPayment` records. Those matches are marked
+`PAID`, the parent `InvitationOrder` is marked `PAID`, fulfillment item payment
+metadata is set to `PAYMENT_CONFIRMED`, digital items advance to `FULFILLED`,
+physical items advance to `PROCESSING`, and an automatic `payment-confirmed`
+`OrderFulfillmentActivity` record is added. If no invitation payment record is
+found, the webhook falls back to plant-shop fulfillment records matched by
+`orderCode` / `stripeCheckoutSessionId` metadata and applies the same payment
+confirmation activity pattern. Paid Amity Sereavo digital deliverables, such as
+Escape album access, are granted and emailed from this webhook after payment is
+confirmed; the email includes the receipt link. Failed async sessions mark the
+matching invitation payment record as `FAILED`.
+
+Shared shop flows support an `@accountbased: true | false` DSL setting.
+Non-account shop flows keep the side panel limited to Home, Cart, and Currency.
+Shared shop product descriptions render as bullet lists so product cards remain
+easy to scan. Shared shop products can also opt into a media-feature browse
+layout for image/video-led product pages. See `SHOPS_README.md` for the
+detailed shop rules.
 
 ## Nursery Production Planning
 
@@ -662,8 +722,8 @@ npm run dev
    records.
 2. Continue improving dashboard authoring for DSLs, tickets, inventory, and
    currency settings.
-3. Move purchased-item grants to payment-completed webhooks when real payment
-   processing is added.
+3. Move any remaining purchased-item grants that still run before payment into
+   payment-completed webhook handlers.
 4. Continue creating server-authoritative order, payment, inventory, and
    fulfillment records so cart selections become auditable admin work queues.
 5. Continue moving website-operation email copy into protected editable

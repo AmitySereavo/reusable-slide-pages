@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const supportedCurrencies = ["USD", "JMD", "GBP"];
+const supportedCurrencies = ["USD", "JMD", "GBP", "CAD"];
 
 export default function CurrencyManager() {
   const [rates, setRates] = useState([]);

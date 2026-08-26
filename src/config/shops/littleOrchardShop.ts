@@ -1,13 +1,15 @@
 import type { ShopCatalog } from "@/types/questionnaire";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 export const LITTLE_ORCHARD_SHOP_SLUG = "little-orchard-shop";
 export const GARDEN_PACKAGE_SHOP_SLUG = "garden-package";
+export const BUSH_TEA_SHOP_SLUG = "bush-tea";
 export const LITTLE_ORCHARD_SHOP_SOURCE = "little_orchard_shop";
 
 export const littleOrchardPlantShowEvent = {
   eventId: "little-orchard-online-shop",
   shopSource: LITTLE_ORCHARD_SHOP_SOURCE,
-  shopName: "Little Orchard Shop",
+  shopName: getShopDisplayName(LITTLE_ORCHARD_SHOP_SLUG),
   brandName: "Para-life Trees",
   tagline: "Planting a life in paradise",
   eventName: "Little Orchard Online Shop",

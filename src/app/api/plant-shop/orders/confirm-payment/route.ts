@@ -3,13 +3,16 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
-import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { createOrderFulfillmentActivity } from "@/lib/plantShop/orderActivity";
 import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
 import {
   getPlantShopEventQuantityOverrideMap,
 } from "@/lib/plantShop/eventQuantityOverrides";
 import { getLittleOrchardInventoryLineKey } from "@/lib/plantShop/littleOrchardInventoryKeys";
-import { LITTLE_ORCHARD_SHOP_SLUG } from "@/config/shops/littleOrchardShop";
+import {
+  BUSH_TEA_SHOP_SLUG,
+  LITTLE_ORCHARD_SHOP_SLUG,
+} from "@/config/shops/littleOrchardShop";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -103,6 +106,21 @@ function normalizeNonNegativeMoney(value: unknown) {
     : null;
 }
 
+function isOrderFeeItem(item: {
+  purchaseModeId: string | null;
+  productId: string | null;
+  productSku?: string | null;
+  sku?: string | null;
+}) {
+  return (
+    item.purchaseModeId === "order-fee" ||
+    String(item.productId || "").endsWith("-fee") ||
+    String(item.productId || "").includes("phytosanitary-certificate") ||
+    String(item.productSku || "").includes("PHYTO-CERTIFICATE") ||
+    String(item.sku || "").includes("PHYTO-CERTIFICATE")
+  );
+}
+
 async function getConfirmedQuantity(productId: string | null, sizeOptionId: string | null) {
   const rows = await prisma.$queryRaw<
     Array<{
@@ -121,8 +139,7 @@ async function getConfirmedQuantity(productId: string | null, sizeOptionId: stri
         "sizeLabel",
         COALESCE(SUM("quantity"), 0) AS total
       FROM "OrderFulfillmentItem"
-      WHERE "sourceType" = 'little-orchard-shop'
-        AND "metadata"->>'paymentStatus' = 'PAYMENT_CONFIRMED'
+      WHERE "metadata"->>'paymentStatus' = 'PAYMENT_CONFIRMED'
         AND "metadata"->>'inventoryApplied' = 'true'
         AND COALESCE("purchaseModeId", '') <> 'nursery-stock-request'
       GROUP BY "productId", "sizeOptionId", "productTitle", "sizeLabel"
@@ -166,7 +183,6 @@ export async function POST(request: Request) {
 
   const items = await prisma.orderFulfillmentItem.findMany({
     where: {
-      sourceType: "little-orchard-shop",
       orderCode,
     },
     orderBy: [{ createdAt: "asc" }],
@@ -174,12 +190,16 @@ export async function POST(request: Request) {
 
   if (!items.length) {
     return NextResponse.json(
-      { ok: false, error: "Little Orchard order was not found." },
+      { ok: false, error: "Order was not found." },
       { status: 404 }
     );
   }
 
   const firstMetadata = readMetadata(items[0].metadata);
+  const questionnaireSlug = cleanText(
+    firstMetadata.questionnaireSlug || items[0].sourceType
+  );
+  const isBushTeaOrder = questionnaireSlug === BUSH_TEA_SHOP_SLUG;
   const receiptCode = cleanText(firstMetadata.receiptCode) || makeReceiptCode(orderCode);
   const receiptLink =
     cleanText(firstMetadata.receiptLink) ||
@@ -273,13 +293,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const inventoryTransactionId = `lo-inventory-${orderCode}-${now.getTime()}`;
+  const inventoryTransactionId = `shop-inventory-${orderCode}-${now.getTime()}`;
 
   await prisma.$transaction(async (tx) => {
     for (const [index, item] of items.entries()) {
       const metadata = readMetadata(item.metadata);
       const previousStatus = cleanText(item.fulfillmentStatus) || "PENDING";
       const stageKey = getFulfillmentStageKey(fulfillmentStatus);
+      const nextStageKey =
+        isBushTeaOrder && !isOrderFeeItem(item)
+          ? "bush-tea-harvesters-assigned"
+          : stageKey;
+      const nextStageLabel =
+        isBushTeaOrder && !isOrderFeeItem(item)
+          ? "Sent to harvesters"
+          : fulfillmentStatus;
       const nextMetadata = {
         ...metadata,
         paymentStatus: "PAYMENT_CONFIRMED",
@@ -320,15 +348,15 @@ export async function POST(request: Request) {
           status: fulfillmentStatus,
           fulfillmentStatus,
           fulfillmentNotes: cleanFulfillmentNotes(item.fulfillmentNotes),
-          currentStageKey: stageKey,
-          currentStageLabel: fulfillmentStatus,
+          currentStageKey: nextStageKey,
+          currentStageLabel: nextStageLabel,
           fulfilledAt: fulfillmentStatus === "FULFILLED" ? now : item.fulfilledAt,
           metadata: nextMetadata as Prisma.InputJsonObject,
         },
       });
 
       if (index === 0) {
-        await createLittleOrchardOrderActivity(tx as any, {
+        await createOrderFulfillmentActivity(tx as any, {
           fulfillmentItemId: item.id,
           orderCode,
           stageKey: "payment-confirmed",
@@ -363,7 +391,7 @@ export async function POST(request: Request) {
         });
 
         if (fulfillmentStatus !== "PROCESSING") {
-          await createLittleOrchardOrderActivity(tx as any, {
+          await createOrderFulfillmentActivity(tx as any, {
             fulfillmentItemId: item.id,
             orderCode,
             stageKey,
@@ -377,6 +405,28 @@ export async function POST(request: Request) {
             notes: `Fulfillment status updated during payment confirmation.`,
             metadata: {
               orderActivityKey: `${orderCode}:payment-confirmed:${stageKey}`,
+            },
+          });
+        }
+
+        if (isBushTeaOrder) {
+          await createOrderFulfillmentActivity(tx as any, {
+            fulfillmentItemId: item.id,
+            orderCode,
+            stageKey: "bush-tea-harvesters-assigned",
+            stageLabel: "Sent to harvesters",
+            updateType: "system",
+            source: "Bush Tea Shop",
+            staffUserId,
+            staffUserName,
+            previousStatus: "PROCESSING",
+            nextStatus: "PROCESSING",
+            notes:
+              "Payment received. The paid order quantity has been sent to the harvesters for fresh picking.",
+            metadata: {
+              orderActivityKey: `${orderCode}:bush-tea-harvesters-assigned`,
+              paymentMethod,
+              paymentMethodLabel: paymentMethodLabels[paymentMethod],
             },
           });
         }

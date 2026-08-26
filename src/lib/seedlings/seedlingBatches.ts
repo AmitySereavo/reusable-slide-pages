@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import { upsertUnifiedInventoryItem } from "@/lib/inventory/unifiedInventory";
 import {
   SEEDLING_SHOP_SLUG,
@@ -931,25 +932,25 @@ function getProductionPurpose(value: unknown) {
   }> = {
     "seedling-shop": {
       key: "seedling-shop",
-      label: "Seedling Shop",
+      label: getShopDisplayName("seedling-shop"),
       type: "shop",
       shopKey: "seedling-shop",
     },
     "little-orchard-shop": {
       key: "little-orchard-shop",
-      label: "Little Orchard Shop",
+      label: getShopDisplayName("little-orchard-shop"),
       type: "shop",
       shopKey: "little-orchard-shop",
     },
     "garden-package": {
       key: "garden-package",
-      label: "Garden Package",
+      label: getShopDisplayName("garden-package"),
       type: "shop",
       shopKey: "garden-package",
     },
     callaloo: {
       key: "callaloo",
-      label: "Callaloo Store",
+      label: getShopDisplayName("callaloo"),
       type: "shop",
       shopKey: "callaloo",
     },

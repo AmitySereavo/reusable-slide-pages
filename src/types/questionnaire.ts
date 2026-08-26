@@ -650,6 +650,10 @@ export type Slide = {
   cardOpacity?: number;
   catalogKey?: string;
   shopMode?: ShopMode;
+  shopLayout?: string;
+  accountBased?: boolean;
+  emptyCartLabel?: string;
+  emptyCartGoto?: string;
   deliveryGoto?: string;
   contactGoto?: string;
   reviewGoto?: string;
@@ -715,6 +719,10 @@ export type QuestionnaireConfig = {
   dynamicVariablesEndpoint?: string;
   showStepText?: boolean;
   showSidebarChapters?: boolean;
+  sidebarUtilityLinks?: Array<{
+    href: string;
+    label: string;
+  }>;
   overlayMode?: "transparent" | "opaque";
   blocks?: Record<string, DataBlockDefinition>;
 };
@@ -798,6 +806,10 @@ export type ParsedSlideDraft = {
   cardOpacity?: number;
   catalogKey?: string;
   shopMode?: ShopMode;
+  shopLayout?: string;
+  accountBased?: boolean;
+  emptyCartLabel?: string;
+  emptyCartGoto?: string;
   deliveryGoto?: string;
   contactGoto?: string;
   reviewGoto?: string;

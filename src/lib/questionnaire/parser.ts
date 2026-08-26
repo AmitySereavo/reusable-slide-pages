@@ -322,6 +322,28 @@ inDownloadFormatsBlock = false;
         continue;
       }
 
+      if (line.startsWith("@shoplayout:")) {
+        draft.shopLayout = readValue(line, "@shoplayout:");
+        continue;
+      }
+
+      if (line.startsWith("@accountbased:")) {
+        draft.accountBased = parseBooleanDirective(
+          readValue(line, "@accountbased:")
+        );
+        continue;
+      }
+
+      if (line.startsWith("@emptycartlabel:")) {
+        draft.emptyCartLabel = readValue(line, "@emptycartlabel:");
+        continue;
+      }
+
+      if (line.startsWith("@emptycartgoto:")) {
+        draft.emptyCartGoto = readValue(line, "@emptycartgoto:");
+        continue;
+      }
+
       if (line.startsWith("@deliverygoto:")) {
         draft.deliveryGoto = readValue(line, "@deliverygoto:");
         continue;
@@ -967,6 +989,10 @@ function finalizeSlide(draft: ParsedSlideDraft): Slide | null {
     cardOpacity: draft.cardOpacity,
     catalogKey: draft.catalogKey,
     shopMode: draft.shopMode,
+    shopLayout: draft.shopLayout,
+    accountBased: draft.accountBased,
+    emptyCartLabel: draft.emptyCartLabel,
+    emptyCartGoto: draft.emptyCartGoto,
     deliveryGoto: draft.deliveryGoto,
     contactGoto: draft.contactGoto,
     reviewGoto: draft.reviewGoto,
@@ -1346,4 +1372,9 @@ function parseNumberValue(value: string) {
 
 function readValue(line: string, prefix: string) {
   return line.slice(prefix.length).trim();
+}
+
+function parseBooleanDirective(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return !["false", "no", "0", "off"].includes(normalized);
 }

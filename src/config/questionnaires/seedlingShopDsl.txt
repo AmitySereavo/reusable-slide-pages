@@ -4,7 +4,7 @@
 
 @id: seedling-shop
 @type: shop
-@title: Seedling Shop
+@title: [shopDisplayName]
 @subtitle: Para-life Trees
 @store: orderCart
 @catalog: shopCatalog
@@ -30,7 +30,7 @@ BR
 @type: form
 @contactmode: order
 @title: Delivery / Pickup
-@subtitle: Seedling Shop
+@subtitle: [shopDisplayName]
 @syncurl: true
 @pagebgcolor: #FBF7EF
 ---
@@ -107,7 +107,7 @@ BR
 @type: form
 @contactmode: order
 @title: Payment Options
-@subtitle: Seedling Shop
+@subtitle: [shopDisplayName]
 @syncurl: true
 @pagebgcolor: #FBF7EF
 @run: submitPlantShopOrder

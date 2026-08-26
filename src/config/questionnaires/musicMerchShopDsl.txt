@@ -1,5 +1,5 @@
 ===
-// MUSIC AND MERCH SHOP
+// AMITY SEREAVO SHOP
 @id: music-merch-shop
 @type: shop
 @store: orderCart
@@ -18,7 +18,7 @@
 @choiceplacement: inline
 ---
 BR
-# [c1] Music and Merch
+# [c1] [shopDisplayName]
 BR
 [c2] Album downloads, physical copies, shirts, bags, armbands, hats, and event add-ons.
 [c3] Physical items are currently set up for event collection while we test the flow.
@@ -85,7 +85,7 @@ BR
 @actionbartextcolor: #1f1f1f
 @run: submitInvitationOrder
 @back: Back
-@next: Complete
+@next: Pay now
 @goto: confirmation-message
 
 ===
@@ -95,6 +95,8 @@ BR
 @countstep: false
 ---
 BR
-# [c1] Respect.
+# [c1] Payment Successful
 BR
-[c2] Your order info was received.
+[c2] Check your email for access link and receipts.
+BR
+[c3] Contact amitysereavo.com for clarification or complaints.

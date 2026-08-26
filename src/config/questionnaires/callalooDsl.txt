@@ -557,7 +557,7 @@ BR
 @type: form
 @contactmode: order
 @title: Contact Details
-@subtitle: Callaloo Subscription
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @syncurl: false
 @sidebar: false
@@ -586,7 +586,7 @@ BR
 @type: form
 @contactmode: order
 @title: Delivery / Pickup
-@subtitle: Callaloo Subscription
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @syncurl: false
 @sidebar: false
@@ -619,7 +619,7 @@ BR
 @type: form
 @contactmode: order
 @title: Payment Options
-@subtitle: Callaloo Subscription
+@subtitle: [shopDisplayName]
 @syncurl: false
 @sidebar: false
 @pagebgcolor: #FBF7EF
@@ -654,7 +654,7 @@ BR
 @id: callaloo-order-confirmed
 @type: content
 @title: Order Recorded
-@subtitle: Callaloo Subscription
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @showback: false
 @shownext: false

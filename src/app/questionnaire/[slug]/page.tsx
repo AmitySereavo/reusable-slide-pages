@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import QuestionnaireShell from "@/components/questionnaire/QuestionnaireShell";
 import { getQuestionnaireBySlug } from "@/config/questionnaires/registry";
+import { getShopDisplayName } from "@/config/shopIdentities";
 import { getAdminSession } from "@/lib/auth/adminGuard";
 
 const PLANT_GIVEAWAY_SLUG = "home-gardener-plant-giveaway";
@@ -68,9 +69,10 @@ export async function generateMetadata({
   }
 
   if (slug === LITTLE_ORCHARD_SHOP_SLUG) {
-    const title = "Little Orchard Shop - Para-life Trees";
+    const shopName = getShopDisplayName(LITTLE_ORCHARD_SHOP_SLUG);
+    const title = `${shopName} - Para-life Trees`;
     const description =
-      "Order plants and nursery items from Little Orchard Shop by Para-life Trees.";
+      `Order plants and nursery items from ${shopName} by Para-life Trees.`;
 
     return {
       metadataBase: new URL("https://littleorchardnursery.paralifetrees.com"),
@@ -94,7 +96,7 @@ export async function generateMetadata({
             url: LITTLE_ORCHARD_SHOP_OG_IMAGE,
             width: 637,
             height: 637,
-            alt: "Little Orchard Shop share image with potted plants and Para-life Trees branding",
+            alt: `${shopName} share image with potted plants and Para-life Trees branding`,
           },
         ],
       },
@@ -108,7 +110,8 @@ export async function generateMetadata({
   }
 
   if (slug === GARDEN_PACKAGE_SLUG) {
-    const title = "Garden Package - Para-life Trees";
+    const shopName = getShopDisplayName(GARDEN_PACKAGE_SLUG);
+    const title = `${shopName} - Para-life Trees`;
     const description =
       "Choose a home garden package from Little Orchard and Para-life Trees.";
 

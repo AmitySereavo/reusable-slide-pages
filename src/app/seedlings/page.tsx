@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 const SEEDLING_PUBLIC_URL =
   "https://littleorchardnursery.paralifetrees.com/seedlings";
 const SEEDLING_OG_IMAGE = "/media/paralife_trees/little-orchard-shop-share.png";
+const SEEDLING_SHOP_NAME = getShopDisplayName("seedling-shop");
+const SEEDLING_TITLE = `${SEEDLING_SHOP_NAME} - Para-life Trees`;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://littleorchardnursery.paralifetrees.com"),
-  title: "Seedling Shop - Para-life Trees",
+  title: SEEDLING_TITLE,
   description:
     "Pre-order dated seedling and cutting batches from Para-life Trees.",
   alternates: {
@@ -18,7 +21,7 @@ export const metadata: Metadata = {
     apple: "/icons/paralife_trees_logo.png",
   },
   openGraph: {
-    title: "Seedling Shop - Para-life Trees",
+    title: SEEDLING_TITLE,
     description:
       "Pre-order dated seedling and cutting batches from Para-life Trees.",
     url: SEEDLING_PUBLIC_URL,
@@ -35,7 +38,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Seedling Shop - Para-life Trees",
+    title: SEEDLING_TITLE,
     description:
       "Pre-order dated seedling and cutting batches from Para-life Trees.",
     images: [SEEDLING_OG_IMAGE],

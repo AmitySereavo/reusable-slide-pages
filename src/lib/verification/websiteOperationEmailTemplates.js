@@ -134,7 +134,7 @@ export const permanentWebsiteOperationSequences = [
     stepKey: "escape-album-access-link-email",
     subject: "Your Escape album access",
     bodyText:
-      "Hi {{recipientName}},\n\nYour Escape album access is ready.\n\nOpen the album here: {{verifyUrl}}\n\nLogin URL: {{loginUrl}}\nTemporary password: {{temporaryPassword}}",
+      "Hi {{recipientName}},\n\nYour Escape album access is ready.\n\nOpen the album here: {{verifyUrl}}\n\nReceipt: {{receiptLink}}\n\nLogin URL: {{loginUrl}}\nIf you need to set or reset your password, use: {{forgotPasswordUrl}}",
   },
   {
     sequenceKey: "website-op-gated-lead-access-link-email",

@@ -20,7 +20,7 @@ export const affiliateStoreCommissionSettings: AffiliateStoreCommissionSetting[]
   [
     {
       shopKey: "little-orchard-shop",
-      shopLabel: "Little Orchard Shop",
+      shopLabel: getShopDisplayName("little-orchard-shop"),
       shopType: "multiple-product",
       enabled: true,
       bronzePercent: 5,
@@ -29,7 +29,7 @@ export const affiliateStoreCommissionSettings: AffiliateStoreCommissionSetting[]
     },
     {
       shopKey: "garden-package",
-      shopLabel: "Garden Package",
+      shopLabel: getShopDisplayName("garden-package"),
       shopType: "package-layout",
       enabled: true,
       bronzePercent: 5,
@@ -38,7 +38,7 @@ export const affiliateStoreCommissionSettings: AffiliateStoreCommissionSetting[]
     },
     {
       shopKey: "callaloo-package",
-      shopLabel: "Callaloo Package",
+      shopLabel: getShopDisplayName("callaloo-package"),
       shopType: "package-layout",
       enabled: true,
       bronzePercent: 5,
@@ -47,7 +47,7 @@ export const affiliateStoreCommissionSettings: AffiliateStoreCommissionSetting[]
     },
     {
       shopKey: "seedling-shop",
-      shopLabel: "Seedling Shop",
+      shopLabel: getShopDisplayName("seedling-shop"),
       shopType: "multiple-product",
       enabled: true,
       bronzePercent: 5,
@@ -72,3 +72,4 @@ export function hasStoreAffiliateCommission(shopKey: string) {
       setting.goldPercent > 0)
   );
 }
+import { getShopDisplayName } from "@/config/shopIdentities";

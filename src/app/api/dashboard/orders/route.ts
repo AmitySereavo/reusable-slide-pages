@@ -5,7 +5,8 @@ import { requireAdminSessionJson } from "@/lib/auth/adminGuard";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { sendEmailMessage } from "@/lib/verification/emailMessage";
 import { getEmailSenderForContext } from "@/config/siteBrands";
-import { createLittleOrchardOrderActivity } from "@/lib/plantShop/orderActivity";
+import { getShopDisplayName } from "@/config/shopIdentities";
+import { createOrderFulfillmentActivity } from "@/lib/plantShop/orderActivity";
 import { getLittleOrchardUnifiedShopCatalog } from "@/lib/inventory/littleOrchardUnifiedCatalog";
 import {
   ensurePersonProfileTables,
@@ -49,6 +50,55 @@ function contactIdentityKey({
 
 function hasDeleteConfirmation(value: unknown) {
   return cleanText(value).toLowerCase() === "delete";
+}
+
+async function deleteFulfillmentActivitiesForItemIds(
+  db: any,
+  fulfillmentItemIds: string[]
+) {
+  const ids = Array.from(
+    new Set(
+      fulfillmentItemIds
+        .map((value) => cleanText(value))
+        .filter(Boolean)
+    )
+  );
+
+  if (!ids.length || !db?.orderFulfillmentActivity?.deleteMany) {
+    return 0;
+  }
+
+  const result = await db.orderFulfillmentActivity.deleteMany({
+    where: {
+      fulfillmentItemId: {
+        in: ids,
+      },
+    },
+  });
+
+  return result?.count || 0;
+}
+
+async function deleteFulfillmentActivitiesForOrderCode(
+  db: any,
+  orderCode: string
+) {
+  const cleanOrderCode = cleanText(orderCode);
+
+  if (!cleanOrderCode || !db?.orderFulfillmentActivity?.deleteMany) {
+    return 0;
+  }
+
+  const result = await db.orderFulfillmentActivity.deleteMany({
+    where: {
+      metadata: {
+        path: ["orderCode"],
+        equals: cleanOrderCode,
+      },
+    },
+  });
+
+  return result?.count || 0;
 }
 
 function normalizeStatus(value: unknown) {
@@ -363,6 +413,7 @@ function serializeInvitationOrderSummary(order: any) {
       status: order.status,
       currencyCode: order.currencyCode,
       grandTotal: serializeMoney(order.grandTotal),
+      questionnaireSlug: order.questionnaireSlug,
       deliverySelection: order.deliverySelectionSnapshot,
       createdAt: order.createdAt,
     },
@@ -726,8 +777,15 @@ export async function GET(request: Request) {
       fulfillmentType,
       query,
     });
+    const representedInvitationOrderIds = new Set(
+      fulfillmentItems
+        .map((item: any) => cleanText(item.invitationOrderId))
+        .filter(Boolean)
+    );
     const items = [
-      ...orderSummaries.map(serializeInvitationOrderSummary),
+      ...orderSummaries
+        .filter((order: any) => !representedInvitationOrderIds.has(order.id))
+        .map(serializeInvitationOrderSummary),
       ...fulfillmentItems.map(serializeFulfillmentItem),
     ].sort(
       (first, second) =>
@@ -774,11 +832,14 @@ export async function POST(request: Request) {
 
     if (
       action !== "request-mailing-address-update" &&
+      action !== "send-customer-email" &&
       action !== "send-little-orchard-customer-email" &&
       action !== "add-little-orchard-catalog-order-item" &&
       action !== "add-little-orchard-order-item" &&
       action !== "remove-little-orchard-order-item" &&
+      action !== "delete-order-record" &&
       action !== "delete-little-orchard-order" &&
+      action !== "delete-invitation-order" &&
       action !== "update-little-orchard-payment-allocations" &&
       action !== "update-little-orchard-customer-phone" &&
       action !== "update-little-orchard-customer-contact" &&
@@ -800,6 +861,140 @@ export async function POST(request: Request) {
         { ok: false, error: "Fulfillment item id is required." },
         { status: 400 }
       );
+    }
+
+    if (action === "delete-invitation-order") {
+      if (!hasDeleteConfirmation(body?.confirmation)) {
+        return NextResponse.json(
+          { ok: false, error: "Type delete to confirm this action." },
+          { status: 400 }
+        );
+      }
+
+      const orderIdFromSummary = id.startsWith("order:")
+        ? id.slice("order:".length)
+        : "";
+      const existingOrder = orderIdFromSummary
+        ? await prisma.invitationOrder.findUnique({
+            where: { id: orderIdFromSummary },
+            include: {
+              fulfillmentItems: {
+                select: { id: true },
+              },
+              _count: {
+                select: {
+                  tickets: true,
+                  payments: true,
+                  fulfillmentItems: true,
+                },
+              },
+            },
+          })
+        : await prisma.invitationOrder.findFirst({
+            where: {
+              fulfillmentItems: {
+                some: { id },
+              },
+            },
+            include: {
+              fulfillmentItems: {
+                select: { id: true },
+              },
+              _count: {
+                select: {
+                  tickets: true,
+                  payments: true,
+                  fulfillmentItems: true,
+                },
+              },
+            },
+          });
+
+      if (!existingOrder) {
+        return NextResponse.json(
+          { ok: false, error: "Invitation order was not found." },
+          { status: 404 }
+        );
+      }
+
+      const deletedActivityCount = await prisma.$transaction(async (tx) => {
+        const activityCount = await deleteFulfillmentActivitiesForItemIds(
+          tx,
+          existingOrder.fulfillmentItems.map((record) => record.id)
+        );
+
+        await tx.invitationOrder.delete({
+          where: { id: existingOrder.id },
+        });
+
+        return activityCount;
+      });
+
+      return NextResponse.json({
+        ok: true,
+        deletedOrderCode: existingOrder.orderCode,
+        deletedItemCount: existingOrder._count?.fulfillmentItems || 0,
+        deletedTicketCount: existingOrder._count?.tickets || 0,
+        deletedPaymentCount: existingOrder._count?.payments || 0,
+        deletedActivityCount,
+        message: `Order ${existingOrder.orderCode} was deleted.`,
+      });
+    }
+
+    if (action === "delete-order-record" && id.startsWith("order:")) {
+      if (!hasDeleteConfirmation(body?.confirmation)) {
+        return NextResponse.json(
+          { ok: false, error: "Type delete to confirm this action." },
+          { status: 400 }
+        );
+      }
+
+      const orderId = id.slice("order:".length);
+      const existingOrder = await prisma.invitationOrder.findUnique({
+        where: { id: orderId },
+        include: {
+          fulfillmentItems: {
+            select: { id: true },
+          },
+          _count: {
+            select: {
+              tickets: true,
+              payments: true,
+              fulfillmentItems: true,
+            },
+          },
+        },
+      });
+
+      if (!existingOrder) {
+        return NextResponse.json(
+          { ok: false, error: "Order was not found." },
+          { status: 404 }
+        );
+      }
+
+      const deletedActivityCount = await prisma.$transaction(async (tx) => {
+        const activityCount = await deleteFulfillmentActivitiesForItemIds(
+          tx,
+          existingOrder.fulfillmentItems.map((record) => record.id)
+        );
+
+        await tx.invitationOrder.delete({
+          where: { id: existingOrder.id },
+        });
+
+        return activityCount;
+      });
+
+      return NextResponse.json({
+        ok: true,
+        deletedOrderCode: existingOrder.orderCode,
+        deletedItemCount: existingOrder._count?.fulfillmentItems || 0,
+        deletedTicketCount: existingOrder._count?.tickets || 0,
+        deletedPaymentCount: existingOrder._count?.payments || 0,
+        deletedActivityCount,
+        message: `Order ${existingOrder.orderCode} was deleted.`,
+      });
     }
 
     if (action === "add-little-orchard-catalog-order-item") {
@@ -908,7 +1103,7 @@ export async function POST(request: Request) {
         },
       });
 
-      await createLittleOrchardOrderActivity(prisma as any, {
+      await createOrderFulfillmentActivity(prisma as any, {
         fulfillmentItemId: createdItem.id,
         orderCode,
         stageKey: "dashboard-catalog-item-added",
@@ -1036,7 +1231,7 @@ export async function POST(request: Request) {
         },
       });
 
-      await createLittleOrchardOrderActivity(prisma as any, {
+      await createOrderFulfillmentActivity(prisma as any, {
         fulfillmentItemId: createdItem.id,
         orderCode,
         stageKey: "dashboard-item-added",
@@ -1075,18 +1270,137 @@ export async function POST(request: Request) {
       : null;
 
     if (!item) {
+      if (action === "delete-order-record") {
+        const orderCode = cleanText(body?.orderCode);
+        const existingOrder = orderCode
+          ? await prisma.invitationOrder.findUnique({
+              where: { orderCode },
+              include: {
+                fulfillmentItems: {
+                  select: { id: true },
+                },
+                _count: {
+                  select: {
+                    tickets: true,
+                    payments: true,
+                    fulfillmentItems: true,
+                  },
+                },
+              },
+            })
+          : null;
+
+        if (existingOrder && hasDeleteConfirmation(body?.confirmation)) {
+          const deletedActivityCount = await prisma.$transaction(async (tx) => {
+            const activityCount = await deleteFulfillmentActivitiesForItemIds(
+              tx,
+              existingOrder.fulfillmentItems.map((record) => record.id)
+            );
+
+            await tx.invitationOrder.delete({
+              where: { id: existingOrder.id },
+            });
+
+            return activityCount;
+          });
+
+          return NextResponse.json({
+            ok: true,
+            deletedOrderCode: existingOrder.orderCode,
+            deletedItemCount: existingOrder._count?.fulfillmentItems || 0,
+            deletedTicketCount: existingOrder._count?.tickets || 0,
+            deletedPaymentCount: existingOrder._count?.payments || 0,
+            deletedActivityCount,
+            message: `Order ${existingOrder.orderCode} was deleted.`,
+          });
+        }
+
+        if (orderCode && hasDeleteConfirmation(body?.confirmation)) {
+          const deletedActivityCount =
+            await deleteFulfillmentActivitiesForOrderCode(prisma as any, orderCode);
+
+          if (deletedActivityCount > 0) {
+            return NextResponse.json({
+              ok: true,
+              deletedOrderCode: orderCode,
+              deletedItemCount: 0,
+              deletedActivityCount,
+              message: `Deleted ${deletedActivityCount} leftover activity record(s) for order ${orderCode}.`,
+            });
+          }
+        }
+      }
+
       return NextResponse.json(
         { ok: false, error: "Order item was not found." },
         { status: 404 }
       );
     }
 
-    if (action === "delete-little-orchard-order") {
-      if (item.sourceType !== "little-orchard-shop" || !item.orderCode) {
+    if (
+      action === "delete-order-record" ||
+      action === "delete-little-orchard-order"
+    ) {
+      if (item.invitationOrderId || item.invitationOrder?.id) {
+        if (!hasDeleteConfirmation(body?.confirmation)) {
+          return NextResponse.json(
+            { ok: false, error: "Type delete to confirm this action." },
+            { status: 400 }
+          );
+        }
+
+        const existingOrder = await prisma.invitationOrder.findUnique({
+          where: { id: item.invitationOrderId || item.invitationOrder.id },
+          include: {
+            fulfillmentItems: {
+              select: { id: true },
+            },
+            _count: {
+              select: {
+                tickets: true,
+                payments: true,
+                fulfillmentItems: true,
+              },
+            },
+          },
+        });
+
+        if (!existingOrder) {
+          return NextResponse.json(
+            { ok: false, error: "Order was not found." },
+            { status: 404 }
+          );
+        }
+
+        const deletedActivityCount = await prisma.$transaction(async (tx) => {
+          const activityCount = await deleteFulfillmentActivitiesForItemIds(
+            tx,
+            existingOrder.fulfillmentItems.map((record) => record.id)
+          );
+
+          await tx.invitationOrder.delete({
+            where: { id: existingOrder.id },
+          });
+
+          return activityCount;
+        });
+
+        return NextResponse.json({
+          ok: true,
+          deletedOrderCode: existingOrder.orderCode,
+          deletedItemCount: existingOrder._count?.fulfillmentItems || 0,
+          deletedTicketCount: existingOrder._count?.tickets || 0,
+          deletedPaymentCount: existingOrder._count?.payments || 0,
+          deletedActivityCount,
+          message: `Order ${existingOrder.orderCode} was deleted.`,
+        });
+      }
+
+      if (!item.orderCode) {
         return NextResponse.json(
           {
             ok: false,
-            error: "Order deletion is only available for Little Orchard orders.",
+            error: "Order deletion requires an order code.",
           },
           { status: 400 }
         );
@@ -1099,18 +1413,42 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await delegate.deleteMany({
-        where: {
-          sourceType: "little-orchard-shop",
-          orderCode: item.orderCode,
-        },
-      });
+      const orderItems = delegate.findMany
+        ? await delegate.findMany({
+            where: {
+              sourceType: item.sourceType,
+              orderCode: item.orderCode,
+            },
+            select: { id: true },
+          })
+        : [];
+      const orderItemIds = orderItems.map((record: { id: string }) => record.id);
+
+      const { deletedItemCount, deletedActivityCount } =
+        await prisma.$transaction(async (tx) => {
+          const activityCount = await deleteFulfillmentActivitiesForItemIds(
+            tx,
+            orderItemIds
+          );
+          const itemResult = await tx.orderFulfillmentItem.deleteMany({
+            where: {
+              sourceType: item.sourceType,
+              orderCode: item.orderCode,
+            },
+          });
+
+          return {
+            deletedItemCount: itemResult.count,
+            deletedActivityCount: activityCount,
+          };
+        });
 
       return NextResponse.json({
         ok: true,
         deletedOrderCode: item.orderCode,
-        deletedItemCount: result.count,
-        message: `Order ${item.orderCode} and its receipt record were deleted.`,
+        deletedItemCount,
+        deletedActivityCount,
+        message: `Order ${item.orderCode} and its related records were deleted.`,
       });
     }
 
@@ -1145,13 +1483,22 @@ export async function POST(request: Request) {
         );
       }
 
-      await delegate.delete({
-        where: { id },
+      const deletedActivityCount = await prisma.$transaction(async (tx) => {
+        const activityCount = await deleteFulfillmentActivitiesForItemIds(tx, [
+          id,
+        ]);
+
+        await tx.orderFulfillmentItem.delete({
+          where: { id },
+        });
+
+        return activityCount;
       });
 
       return NextResponse.json({
         ok: true,
         removedItemId: id,
+        deletedActivityCount,
         message: "Item removed from the order and receipt.",
       });
     }
@@ -1537,24 +1884,23 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "send-little-orchard-customer-email") {
-      if (item.sourceType !== "little-orchard-shop") {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "Customer email sending is only available for Little Orchard orders.",
-          },
-          { status: 400 }
-        );
-      }
-
+    if (
+      action === "send-customer-email" ||
+      action === "send-little-orchard-customer-email"
+    ) {
       const metadata = readSnapshotObject(item.metadata);
+      const questionnaireSlug =
+        cleanText(metadata.questionnaireSlug) ||
+        cleanText(item.invitationOrder?.questionnaireSlug) ||
+        cleanText(item.sourceType) ||
+        "little-orchard-shop";
+      const shopName = getShopDisplayName(questionnaireSlug, "Shop");
       const recipientEmail = cleanText(
         metadata.customerEmail || item.recipientEmail
       );
       const subject =
         cleanText(body?.subject) ||
-        `Little Orchard order ${item.orderCode || ""}`.trim();
+        `${shopName} order ${item.orderCode || ""}`.trim();
       const text = cleanText(body?.message);
 
       if (!recipientEmail) {
@@ -1577,10 +1923,10 @@ export async function POST(request: Request) {
         text,
         html: buildHtmlFromText(text),
         fromEmail: getEmailSenderForContext({
-          questionnaireSlug: "little-orchard-shop",
+          questionnaireSlug,
         }).fromEmail,
-        fromName: "Little Orchard Shop",
-        purpose: "little-orchard-shop-dashboard-customer-email",
+        fromName: shopName,
+        purpose: `${questionnaireSlug}-dashboard-customer-email`,
       });
 
       const nextMetadata = {
@@ -1886,7 +2232,7 @@ export async function PATCH(request: Request) {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-");
 
-        await createLittleOrchardOrderActivity(prisma as any, {
+        await createOrderFulfillmentActivity(prisma as any, {
           fulfillmentItemId: id,
           orderCode: existingItem.orderCode,
           stageKey,

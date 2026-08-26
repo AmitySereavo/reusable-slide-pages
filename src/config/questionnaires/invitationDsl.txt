@@ -199,7 +199,7 @@ BR
 BR
 [Get tickets](/questionnaire/ticket-shop)
 
-[Music and merch](/questionnaire/music-merch-shop)
+[Amity Sereavo Shop](/questionnaire/music-merch-shop)
 
 [Book the artiste](/questionnaire/artist-booking)
 

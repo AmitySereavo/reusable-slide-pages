@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import {
+  BUSH_TEA_SHOP_SLUG,
   GARDEN_PACKAGE_SHOP_SLUG,
   littleOrchardShopCatalog,
 } from "@/config/shops/littleOrchardShop";
@@ -32,6 +33,8 @@ export const HOME_GARDEN_PACKAGE_SYNC_VERSION =
 export const CALLALOO_PACKAGE_SHOP_SLUG = "callaloo-package";
 export const CALLALOO_PACKAGE_SYNC_VERSION =
   "2026-08-10-callaloo-images";
+export const BUSH_TEA_SYNC_VERSION =
+  "2026-08-26-bush-tea-moringa-media-feature-options";
 
 export async function ensureUnifiedInventoryTable(db: Database) {
   await db.$executeRaw`
@@ -259,6 +262,269 @@ export async function updateUnifiedInventoryShopOrder(
       WHERE "id" = ${item.id}
     `;
   }
+}
+
+export async function syncBushTeaProductsToUnifiedInventory(db: Database) {
+  const servingsPerCupGrams = 3;
+  const onePoundGrams = 453.592;
+  const quarterPoundGrams = onePoundGrams / 4;
+  const halfPoundGrams = onePoundGrams / 2;
+
+  await upsertUnifiedInventoryItem(db, {
+    id: "inventory-bush-tea-dried-guava-leaves",
+    sku: "BUSH-TEA-GUAVA-LEAVES",
+    slug: "bush-tea-dried-guava-leaves",
+    title: "Dried Guava Leaves",
+    description:
+      "Dried guava leaves for bush tea, freshly picked and dried to order. Use about 3g, or roughly 3 to 4 leaves, per cup of water.",
+    detailsDescription:
+      "Freshly picked and dried-to-order guava leaves for bush tea. Serving guide: use about 3g per cup of water. Three grams is roughly 3 to 4 leaves. The quarter-pound bag gives about 37 cups. The half-pound bag gives about 75 cups. The one-pound big bag gives about 151 cups.",
+    imageUrl: "/media/paralife_trees/png/product_guava_leaves_dried.png",
+    previewImageUrl: "/media/paralife_trees/png/product_guava_leaves_dried.png",
+    fulfillmentType: "physical",
+    active: true,
+    quantityOnHand: 100,
+    quantityReserved: 0,
+    quantityAvailable: 100,
+    shopTags: [BUSH_TEA_SHOP_SLUG],
+    categoryTags: ["Bush Tea", "Tea", "Guava"],
+    shopListings: [
+      {
+        shopKey: BUSH_TEA_SHOP_SLUG,
+        shopLabel: "Bush Tea Shop",
+        categoryKey: "bush-tea",
+        categoryLabel: "Bush Tea",
+        categorySortOrder: 10,
+        active: true,
+        sortOrder: 10,
+      },
+    ],
+    options: [
+      {
+        id: "guava-leaves-one-pound-bag",
+        sku: "BUSH-TEA-GUAVA-1LB",
+        label: "Big bag - 1 pound",
+        description:
+          "One pound, about 454g.\nAbout 151 cups, based on 3g per cup.\nFreshly picked and dried to order.",
+        price: 16000,
+        weight: 1,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          grams: Math.round(onePoundGrams),
+          servingSizeGrams: servingsPerCupGrams,
+          estimatedCups: Math.floor(onePoundGrams / servingsPerCupGrams),
+          estimatedLeaves: "about 454 to 605 leaves",
+          priceBasis: "freshly-picked-dried-to-order-estimate",
+        },
+      },
+      {
+        id: "guava-leaves-half-pound-bag",
+        sku: "BUSH-TEA-GUAVA-0-5LB",
+        label: "Half-pound bag",
+        description:
+          "Half pound, about 227g.\nAbout 75 cups, based on 3g per cup.\nFreshly picked and dried to order.",
+        price: 8500,
+        weight: 0.5,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          grams: Math.round(halfPoundGrams),
+          servingSizeGrams: servingsPerCupGrams,
+          estimatedCups: Math.floor(halfPoundGrams / servingsPerCupGrams),
+          estimatedLeaves: "about 227 to 302 leaves",
+          priceBasis: "freshly-picked-dried-to-order-estimate",
+        },
+      },
+      {
+        id: "guava-leaves-quarter-pound-bag",
+        sku: "BUSH-TEA-GUAVA-0-25LB",
+        label: "Quarter-pound bag",
+        description:
+          "Quarter pound, about 113g.\nAbout 37 cups, based on 3g per cup.\nFreshly picked and dried to order.",
+        price: 4500,
+        weight: 0.25,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          grams: Math.round(quarterPoundGrams),
+          servingSizeGrams: servingsPerCupGrams,
+          estimatedCups: Math.floor(quarterPoundGrams / servingsPerCupGrams),
+          estimatedLeaves: "about 113 to 151 leaves",
+          priceBasis: "freshly-picked-dried-to-order-estimate",
+        },
+      },
+    ],
+    metadata: {
+      source: "bush-tea-shop",
+      category: "Bush Tea",
+      shopBrowseLayout: "media-feature",
+      browseActionLabel: "Add to cart",
+      certificationRequired: "phytosanitary",
+      harvestedToOrder: true,
+      servingSizeGrams: servingsPerCupGrams,
+      pricePositioning:
+        "Premium over ordinary warehouse-stored dried tea leaves because this product is freshly picked and dried to order.",
+      servingGuide:
+        "Use about 3g, or roughly 3 to 4 leaves, per cup of water.",
+      syncVersion: BUSH_TEA_SYNC_VERSION,
+    },
+  });
+
+  await upsertUnifiedInventoryItem(db, {
+    id: "inventory-bush-tea-moringa-products",
+    sku: "BUSH-TEA-MORINGA",
+    slug: "bush-tea-moringa-products",
+    title: "Moringa",
+    description:
+      "Moringa options for bush tea and everyday pantry use.",
+    detailsDescription:
+      "Choose the Moringa format that fits how you plan to use it. Ground leaves are easy to add to drinks or food. Capsules are convenient for measured use. Tea bags are simple for quick cups.",
+    imageUrl: "/media/paralife_trees/png/product_moringa_leaves_grounded.png",
+    previewImageUrl: "/media/paralife_trees/png/product_moringa_leaves_grounded.png",
+    fulfillmentType: "physical",
+    active: true,
+    quantityOnHand: 100,
+    quantityReserved: 0,
+    quantityAvailable: 100,
+    shopTags: [BUSH_TEA_SHOP_SLUG],
+    categoryTags: ["Bush Tea", "Tea", "Moringa"],
+    shopListings: [
+      {
+        shopKey: BUSH_TEA_SHOP_SLUG,
+        shopLabel: "Bush Tea Shop",
+        categoryKey: "bush-tea",
+        categoryLabel: "Bush Tea",
+        categorySortOrder: 10,
+        active: true,
+        sortOrder: 20,
+      },
+    ],
+    options: [
+      {
+        id: "moringa-ground-leaves-100g",
+        sku: "BUSH-TEA-MORINGA-GROUND-100G",
+        label: "Ground leaves - 100g",
+        description:
+          "Ground Moringa leaves.\n100g pouch.\nEasy to mix into tea, smoothies, juices, or food.",
+        price: 2500,
+        weight: 0.22,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          browseMediaUrl:
+            "/media/paralife_trees/png/product_moringa_leaves_grounded.png",
+          browseMediaType: "image",
+          grams: 100,
+          priceBasis: "suggested-moringa-test-price",
+        },
+      },
+      {
+        id: "moringa-capsules-100-count",
+        sku: "BUSH-TEA-MORINGA-CAPSULES-100",
+        label: "Capsules - 100 count",
+        description:
+          "Moringa capsules.\n100 capsules per bottle.\nConvenient format for measured everyday use.",
+        price: 3500,
+        weight: 0.2,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          browseMediaUrl:
+            "/media/paralife_trees/png/product_moringa_leaves_capsules.png",
+          browseMediaType: "image",
+          capsuleCount: 100,
+          priceBasis: "suggested-moringa-test-price",
+        },
+      },
+      {
+        id: "moringa-tea-12-bags",
+        sku: "BUSH-TEA-MORINGA-TEA-12",
+        label: "Tea - 12 bags",
+        description:
+          "Moringa tea bags.\n12 tea bags per pack.\nSimple format for quick cups of bush tea.",
+        price: 1500,
+        weight: 0.1,
+        quantityAvailable: 100,
+        metadata: {
+          browseActionLabel: "Add to cart",
+          browseMediaUrl:
+            "/media/paralife_trees/png/product_moringa_leaves_teabags.png",
+          browseMediaType: "image",
+          teaBagCount: 12,
+          priceBasis: "suggested-moringa-test-price",
+        },
+      },
+    ],
+    metadata: {
+      source: "bush-tea-shop",
+      category: "Bush Tea",
+      shopBrowseLayout: "media-feature",
+      browseActionLabel: "Add to cart",
+      certificationRequired: "phytosanitary",
+      pricePositioning:
+        "Suggested test prices for Moringa formats in the Bush Tea Shop.",
+      syncVersion: BUSH_TEA_SYNC_VERSION,
+    },
+  });
+
+  await upsertUnifiedInventoryItem(db, {
+    id: "inventory-bush-tea-phytosanitary-certificate",
+    sku: "BUSH-TEA-PHYTO-CERTIFICATE",
+    slug: "bush-tea-phytosanitary-certificate",
+    title: "Phytosanitary Certificate",
+    description:
+      "Required certificate for exporting dried plant products from Jamaica.",
+    detailsDescription:
+      "A phytosanitary certificate is issued by the Government of Jamaica for export and import handling of plant products. It helps confirm that the dried leaves have been checked for cleanliness and suitability before international shipping.",
+    imageUrl: null,
+    previewImageUrl: null,
+    fulfillmentType: "physical",
+    active: true,
+    quantityOnHand: 9999,
+    quantityReserved: 0,
+    quantityAvailable: 9999,
+    shopTags: [BUSH_TEA_SHOP_SLUG],
+    categoryTags: ["Bush Tea", "Certificate", "Export"],
+    shopListings: [
+      {
+        shopKey: BUSH_TEA_SHOP_SLUG,
+        shopLabel: "Bush Tea Shop",
+        categoryKey: "bush-tea",
+        categoryLabel: "Bush Tea",
+        categorySortOrder: 10,
+        active: true,
+        sortOrder: 999,
+      },
+    ],
+    options: [
+      {
+        id: "phytosanitary-certificate-per-address",
+        sku: "BUSH-TEA-PHYTO-CERTIFICATE-ADDRESS",
+        label: "Per shipping address",
+        description:
+          "Required once per shipping address for dried plant-product export handling.",
+        price: 1000,
+        quantityAvailable: 9999,
+        metadata: {
+          requiredShopFee: true,
+          lockedQuantity: true,
+          alwaysShowInShopSearch: true,
+          priceBasis: "government-certificate-fee-per-address",
+        },
+      },
+    ],
+    metadata: {
+      source: "bush-tea-shop",
+      category: "Bush Tea",
+      certificationRequired: "N/A",
+      requiredShopFee: true,
+      alwaysShowInShopSearch: true,
+      lockedQuantity: true,
+      feeType: "phytosanitary-certificate",
+      syncVersion: BUSH_TEA_SYNC_VERSION,
+    },
+  });
 }
 
 export async function deleteUnifiedInventoryItem(db: Database, itemId: string) {

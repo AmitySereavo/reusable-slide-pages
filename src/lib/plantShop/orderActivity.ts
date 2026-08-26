@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 type PrismaLike = PrismaClient | Prisma.TransactionClient | any;
 
@@ -8,7 +9,9 @@ export const customerOrderStageCopy: Record<
 > = {
   "order-submitted": {
     title: "Order Submitted",
-    description: "Your order was received through the Little Orchard Shop.",
+    description: `Your order was received through ${getShopDisplayName(
+      "little-orchard-shop"
+    )}.`,
   },
   "awaiting-payment": {
     title: "Awaiting Payment",
@@ -18,6 +21,36 @@ export const customerOrderStageCopy: Record<
   "payment-confirmed": {
     title: "Payment Confirmed",
     description: "Your payment was confirmed and secured.",
+  },
+  "bush-tea-harvesters-assigned": {
+    title: "Sent To Harvesters",
+    description:
+      "Your paid order quantity has been sent to the harvesters for fresh picking.",
+  },
+  "bush-tea-washed-drying": {
+    title: "Leaves Washed And Drying",
+    description:
+      "Your leaves have been washed and placed in drying bags. Drying usually takes about 3 to 5 days.",
+  },
+  "bush-tea-packaged": {
+    title: "Packaged",
+    description:
+      "Your dried leaves have been checked, packed, and prepared for export handling.",
+  },
+  "bush-tea-plant-quarantine": {
+    title: "Sent To Plant Quarantine",
+    description:
+      "Your order has been sent to plant quarantine for quality and cleanliness checks before shipping.",
+  },
+  "bush-tea-shipped-jamaica-post": {
+    title: "Sent Through Jamaica Post",
+    description:
+      "Your order has passed the required checks and has been handed over for post office shipping.",
+  },
+  "bush-tea-shipped-fedex": {
+    title: "Sent Through FedEx",
+    description:
+      "Your order has passed the required checks and has been handed over for FedEx shipping.",
   },
   processing: {
     title: "Preparing Your Order",
@@ -50,7 +83,7 @@ export function getCustomerOrderStageCopy(stageKey: string, fallback: string) {
   );
 }
 
-export async function createLittleOrchardOrderActivity(
+export async function createOrderFulfillmentActivity(
   prisma: PrismaLike,
   {
     fulfillmentItemId,
@@ -58,7 +91,7 @@ export async function createLittleOrchardOrderActivity(
     stageKey,
     stageLabel,
     updateType = "manual",
-    source = "Little Orchard Shop",
+    source = getShopDisplayName("little-orchard-shop"),
     staffUserId = null,
     staffUserName = null,
     notes = null,
@@ -109,3 +142,5 @@ export async function createLittleOrchardOrderActivity(
     },
   });
 }
+
+export const createLittleOrchardOrderActivity = createOrderFulfillmentActivity;

@@ -4,7 +4,7 @@
 
 @id: garden-package
 @type: shop
-@title: Garden Package
+@title: [shopDisplayName]
 @subtitle: Para-life Trees
 @store: orderCart
 @catalog: shopCatalog
@@ -71,7 +71,7 @@ BR
 @type: form
 @contactmode: order
 @title: Delivery Address
-@subtitle: Garden Package
+@subtitle: [shopDisplayName]
 @pagebgcolor: #FBF7EF
 @syncurl: true
 ---
@@ -123,7 +123,7 @@ BR
 @type: form
 @contactmode: order
 @title: Payment Options
-@subtitle: Garden Package
+@subtitle: [shopDisplayName]
 @syncurl: true
 @pagebgcolor: #FBF7EF
 @run: submitPlantShopOrder

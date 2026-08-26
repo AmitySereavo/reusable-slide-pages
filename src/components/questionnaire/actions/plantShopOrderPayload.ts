@@ -28,26 +28,43 @@ export function buildPlantShopOrderPayload({
   deliverySelection: DeliverySelection;
   adminAssisted?: boolean;
 }) {
+  const orderAnswers: QuestionnaireAnswers = {
+    ...answers,
+    ...(slug === "bush-tea"
+      ? {
+          plantShopPaymentPreference: "card_payment",
+        }
+      : {}),
+  };
+  const explicitContactMethod = String(
+    orderAnswers.plantShopContactMethod ?? ""
+  ).trim();
+  const inferredContactMethod =
+    orderAnswers.whatsappOptIn === true ||
+    orderAnswers.primaryHasWhatsapp === true
+      ? "whatsapp"
+      : "email";
+
   return {
     questionnaireSlug: slug,
     orderRequestKey,
     adminAssisted,
-    fullName: String(answers.fullName ?? "").trim(),
-    email: String(answers.email ?? "").trim(),
-    phone: String(answers.primaryPhone ?? answers.phone ?? "").trim(),
-    whatsappNumber: String(answers.whatsappNumber ?? "").trim(),
-    instagramHandle: String(answers.instagramHandle ?? "").trim(),
-    tiktokHandle: String(answers.tiktokHandle ?? "").trim(),
+    fullName: String(orderAnswers.fullName ?? "").trim(),
+    email: String(orderAnswers.email ?? "").trim(),
+    phone: String(orderAnswers.primaryPhone ?? orderAnswers.phone ?? "").trim(),
+    whatsappNumber: String(orderAnswers.whatsappNumber ?? "").trim(),
+    instagramHandle: String(orderAnswers.instagramHandle ?? "").trim(),
+    tiktokHandle: String(orderAnswers.tiktokHandle ?? "").trim(),
     facebookMessengerHandle: String(
-      answers.facebookMessengerHandle ?? ""
+      orderAnswers.facebookMessengerHandle ?? ""
     ).trim(),
-    deviceType: String(answers.plantShopDeviceType ?? "own_device").trim(),
-    contactMethod: String(answers.plantShopContactMethod ?? "whatsapp").trim(),
+    deviceType: String(orderAnswers.plantShopDeviceType ?? "own_device").trim(),
+    contactMethod: explicitContactMethod || inferredContactMethod,
     currencyCode: catalog?.currencyCode ?? "JMD",
     orderCart: cart,
     resolvedLines: lines,
     deliverySelection,
     orderSummary,
-    answers,
+    answers: orderAnswers,
   };
 }

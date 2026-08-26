@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { parseIdentifier } from "@/customerAccess/utils/identifier";
 import { sendVerificationDelivery } from "@/lib/verification/delivery";
 import { cleanupExpiredAuthRecords } from "@/lib/auth/cleanup";
-import { ESCAPE_ALBUM_ITEM_KEY } from "@/lib/entitlements/purchasedItems";
+import { getShopDisplayName, getShopOrderLabel } from "@/config/shopIdentities";
+import { makeReceiptCode } from "@/lib/plantShop/receiptCodes";
+import { orderIncludesEscapeAlbumAccess } from "@/lib/amitySereavo/deliverables";
 import {
   ITASL_LEAD_TAG,
   enrollTagSequencesForUser,
@@ -12,7 +14,6 @@ import {
 } from "@/lib/userTags";
 
 const TICKET_OWNER_ACCESS_TARGET = "ticketOwnerAccess";
-const ESCAPE_ALBUM_ACCESS_TARGET = "escapeAlbumAccess";
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -111,6 +112,7 @@ function buildFulfillmentItemCreateManyData({
   resolvedLines,
   purchaser,
   currencyCode,
+  orderAccessMetadata,
 }) {
   return (Array.isArray(resolvedLines) ? resolvedLines : []).flatMap((line) => {
     const fulfillmentType = asString(line.fulfillmentType);
@@ -127,7 +129,7 @@ function buildFulfillmentItemCreateManyData({
 
     return allocations.map((allocation) => ({
       invitationOrderId: order.id,
-      sourceType: "invitation-order",
+      sourceType: order.questionnaireSlug || "invitation-order",
       sourceId: order.id,
       orderCode: order.orderCode,
       lineKey: asString(line.lineKey) || null,
@@ -156,6 +158,7 @@ function buildFulfillmentItemCreateManyData({
       currentStageKey: "order-request-sent-to-fulfillment",
       currentStageLabel: "Order Request Sent to Fulfillment",
       metadata: {
+        ...orderAccessMetadata,
         requiresPhysicalFulfillment: line.requiresPhysicalFulfillment === true,
         bundledFromLineKey: line.bundledFromLineKey || null,
         bundledByPurchaseModeId: line.bundledByPurchaseModeId || null,
@@ -188,6 +191,7 @@ function buildPhysicalInvitationFulfillmentItems({
   ticketAssignments,
   createdTickets,
   currencyCode,
+  orderAccessMetadata,
 }) {
   const indexedAssignments = (Array.isArray(ticketAssignments)
     ? ticketAssignments
@@ -274,7 +278,7 @@ function buildPhysicalInvitationFulfillmentItems({
     return [
       {
         invitationOrderId: order.id,
-        sourceType: "physical-invitation",
+        sourceType: order.questionnaireSlug || "invitation-order",
         sourceId: createdTicket?.id || order.id,
         orderCode: order.orderCode,
         lineKey: lineKey || null,
@@ -311,6 +315,7 @@ function buildPhysicalInvitationFulfillmentItems({
         currentStageLabel: "Order Request Sent to Fulfillment",
         fulfillmentNotes: noteParts.join("\n"),
         metadata: {
+          ...orderAccessMetadata,
           invitationDeliveryMode: "physical",
           invitationMailingAddress: mailingAddress,
           ticketLabel,
@@ -354,6 +359,147 @@ function getBaseUrl(request) {
   return "http://localhost:3000";
 }
 
+function getRequestOrigin(request) {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+  }
+
+  const origin = request.headers.get("origin");
+  if (origin) return origin.replace(/\/+$/, "");
+
+  return getBaseUrl(request);
+}
+
+function toStripeMinorUnit(value) {
+  return Math.max(0, Math.round(asMoney(value) * 100));
+}
+
+function shouldUseStripeCheckout(questionnaireSlug) {
+  return questionnaireSlug === "music-merch-shop";
+}
+
+function buildStripeCheckoutDescription(resolvedLines) {
+  const lines = Array.isArray(resolvedLines) ? resolvedLines : [];
+  const labels = lines
+    .slice(0, 5)
+    .map((line) => {
+      const quantity = Math.max(1, Math.floor(Number(line.quantity) || 1));
+      const name = [
+        asString(line.productTitle),
+        asString(line.sizeLabel),
+        asString(line.purchaseModeLabel),
+      ]
+        .filter(Boolean)
+        .join(" - ");
+
+      return name ? `${quantity} x ${name}` : "";
+    })
+    .filter(Boolean);
+
+  if (lines.length > labels.length) {
+    labels.push(`+${lines.length - labels.length} more item(s)`);
+  }
+
+  return labels.join("; ").slice(0, 480);
+}
+
+async function createStripeCheckoutSession({
+  request,
+  order,
+  resolvedLines,
+  purchaserEmail,
+  orderSummary,
+}) {
+  const secretKey = asString(process.env.STRIPE_SECRET_KEY);
+
+  if (!secretKey) {
+    throw new Error("Stripe sandbox is not configured. Add STRIPE_SECRET_KEY.");
+  }
+
+  const currencyCode = asString(order.currencyCode || orderSummary.currencyCode || "USD")
+    .toLowerCase();
+  const amount = toStripeMinorUnit(order.grandTotal);
+
+  if (amount <= 0) {
+    throw new Error("Stripe checkout requires an order total greater than zero.");
+  }
+
+  const origin = getRequestOrigin(request);
+  const successUrl = `${origin}/questionnaire/music-merch-shop?slide=confirmation-message&payment=stripe-success&order=${encodeURIComponent(
+    order.orderCode
+  )}&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}/questionnaire/music-merch-shop?slide=review-order&payment=stripe-cancelled&order=${encodeURIComponent(
+    order.orderCode
+  )}`;
+  const paymentDescription = buildStripeCheckoutDescription(resolvedLines);
+
+  const params = new URLSearchParams();
+  params.set("mode", "payment");
+  params.set("success_url", successUrl);
+  params.set("cancel_url", cancelUrl);
+  params.set("client_reference_id", order.id);
+  params.set("customer_email", purchaserEmail);
+  params.set("line_items[0][quantity]", "1");
+  params.set("line_items[0][price_data][currency]", currencyCode);
+  params.set("line_items[0][price_data][unit_amount]", String(amount));
+  params.set(
+    "line_items[0][price_data][product_data][name]",
+    `${getShopOrderLabel(order.questionnaireSlug, "Order")} order ${order.orderCode}`
+  );
+  if (paymentDescription) {
+    params.set(
+      "line_items[0][price_data][product_data][description]",
+      paymentDescription
+    );
+  }
+  params.set("metadata[orderId]", order.id);
+  params.set("metadata[orderCode]", order.orderCode);
+  params.set("metadata[questionnaireSlug]", order.questionnaireSlug);
+
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params,
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || !payload?.url) {
+    throw new Error(
+      payload?.error?.message || "Stripe checkout session could not be created."
+    );
+  }
+
+  await prisma.invitationTicketPayment.create({
+    data: {
+      orderId: order.id,
+      purpose: "music-merch-checkout",
+      status: "PENDING",
+      currencyCode: order.currencyCode || "USD",
+      amount: asMoney(order.grandTotal),
+      metadata: {
+        provider: "stripe",
+        mode: secretKey.startsWith("sk_test_") ? "sandbox" : "live",
+        checkoutSessionId: payload.id || null,
+        checkoutSessionUrl: payload.url,
+        paymentStatus: payload.payment_status || null,
+      },
+    },
+  });
+
+  return {
+    provider: "stripe",
+    mode: secretKey.startsWith("sk_test_") ? "sandbox" : "live",
+    checkoutSessionId: payload.id || null,
+    checkoutUrl: payload.url,
+  };
+}
+
 function getTokenExpiresAt() {
   return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 }
@@ -363,6 +509,10 @@ function buildOrderCode() {
     .randomBytes(3)
     .toString("hex")
     .toUpperCase()}`;
+}
+
+function buildOrderAccessToken() {
+  return crypto.randomBytes(24).toString("base64url");
 }
 
 function buildFinalTicketCode(orderCode, index) {
@@ -562,6 +712,7 @@ async function sendTicketOwnerGroupLink({
   temporaryPassword,
   accountWasCreated,
   temporaryPasswordWasIssued,
+  questionnaireSlug,
 }) {
   const unsentTickets = tickets.filter((ticket) => !ticket.portalEmailSentAt);
   const firstTicket = unsentTickets[0];
@@ -617,6 +768,8 @@ async function sendTicketOwnerGroupLink({
     successRedirect,
     verificationTokenId: verificationToken.id,
     contextMetadata: {
+      brandKey: "amitySereavo",
+      questionnaireSlug,
       purpose: "ticket-owner-access",
       recipientName: ownerName,
       ticketCount: unsentTickets.length,
@@ -650,55 +803,6 @@ async function sendTicketOwnerGroupLink({
   }
 
   return deliveryResult;
-}
-
-function orderIncludesEscapeAlbumAccess(resolvedLines) {
-  if (!Array.isArray(resolvedLines)) {
-    return false;
-  }
-
-  return resolvedLines.some((line) => {
-    if (!line || typeof line !== "object" || Array.isArray(line)) {
-      return false;
-    }
-
-    return (
-      line.productId === "escape-album-digital" ||
-      line.sizeOptionId === "escape-album-full-download"
-    );
-  });
-}
-
-async function sendEscapeAlbumAccessEmail({
-  request,
-  purchaserEmail,
-  purchaserName,
-  temporaryPassword,
-  accountWasCreated,
-  temporaryPasswordWasIssued,
-}) {
-  const baseUrl = getBaseUrl(request);
-  const albumUrl = `${baseUrl}/questionnaire/escape-album`;
-  const loginUrl = `${baseUrl}/questionnaire/auth-login`;
-  const forgotPasswordUrl = `${baseUrl}/questionnaire/auth-forgot-password`;
-
-  return sendVerificationDelivery({
-    identifier: purchaserEmail,
-    delivery: "link",
-    verifyUrl: albumUrl,
-    target: ESCAPE_ALBUM_ACCESS_TARGET,
-    successRedirect: "/questionnaire/escape-album",
-    contextMetadata: {
-      purpose: "escape-album-access",
-      recipientName: purchaserName,
-      albumUrl,
-      loginUrl,
-      forgotPasswordUrl,
-      temporaryPassword,
-      accountWasCreated,
-      temporaryPasswordWasIssued,
-    },
-  });
 }
 
 export async function POST(request) {
@@ -755,6 +859,20 @@ export async function POST(request) {
       );
     }
 
+    if (
+      shouldUseStripeCheckout(questionnaireSlug) &&
+      !asString(process.env.STRIPE_SECRET_KEY)
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Stripe sandbox is not configured. Add STRIPE_SECRET_KEY before using Pay now.",
+        },
+        { status: 500 }
+      );
+    }
+
     if (orderRequestKey) {
       const existingOrder = await prisma.invitationOrder.findUnique({
         where: {
@@ -766,65 +884,35 @@ export async function POST(request) {
       });
 
       if (existingOrder) {
-        let albumDeliveryResult = null;
         const existingOrderResolvedLines = Array.isArray(
           existingOrder.resolvedLinesSnapshot
         )
           ? existingOrder.resolvedLinesSnapshot
           : [];
+        const existingFulfillmentItem = await prisma.orderFulfillmentItem.findFirst({
+          where: { invitationOrderId: existingOrder.id },
+          orderBy: { createdAt: "asc" },
+        });
+        const existingFulfillmentMetadata =
+          existingFulfillmentItem?.metadata &&
+          typeof existingFulfillmentItem.metadata === "object"
+            ? existingFulfillmentItem.metadata
+            : {};
 
-        if (
-          orderIncludesEscapeAlbumAccess(existingOrderResolvedLines) &&
-          existingOrder.purchaserEmail
-        ) {
-          const purchaserUserResult = await prisma.$transaction((tx) =>
-            findOrCreateTemporaryUserForEmail(tx, {
-              email: existingOrder.purchaserEmail,
-              name: existingOrder.purchaserName,
-            })
-          );
-
-          if (purchaserUserResult?.user?.id) {
-            await prisma.userPurchasedItem.upsert({
-              where: {
-                userId_itemKey: {
-                  userId: purchaserUserResult.user.id,
-                  itemKey: ESCAPE_ALBUM_ITEM_KEY,
-                },
-              },
-              create: {
-                userId: purchaserUserResult.user.id,
-                itemKey: ESCAPE_ALBUM_ITEM_KEY,
-                status: "ACTIVE",
-                source: "invitation-order",
-                metadata: {
-                  orderId: existingOrder.id,
-                  orderCode: existingOrder.orderCode,
-                  resentFromExistingOrder: true,
-                },
-              },
-              update: {
-                status: "ACTIVE",
-                source: "invitation-order",
-                metadata: {
-                  orderId: existingOrder.id,
-                  orderCode: existingOrder.orderCode,
-                  resentFromExistingOrder: true,
-                },
-              },
-            });
-
-            albumDeliveryResult = await sendEscapeAlbumAccessEmail({
+        const checkoutSession = shouldUseStripeCheckout(questionnaireSlug)
+          ? await createStripeCheckoutSession({
               request,
-              purchaserEmail: existingOrder.purchaserEmail,
-              purchaserName: existingOrder.purchaserName,
-              temporaryPassword: purchaserUserResult.temporaryPassword,
-              accountWasCreated: purchaserUserResult.created === true,
-              temporaryPasswordWasIssued:
-                purchaserUserResult.temporaryPasswordWasIssued === true,
-            });
-          }
-        }
+              order: existingOrder,
+              resolvedLines: existingOrderResolvedLines,
+              purchaserEmail: existingOrder.purchaserEmail || purchaserEmail,
+              orderSummary: {
+                subtotal: existingOrder.subtotal,
+                discountTotal: existingOrder.discountTotal,
+                deliveryFee: existingOrder.deliveryFee,
+                grandTotal: existingOrder.grandTotal,
+              },
+            })
+          : null;
 
         return Response.json({
           ok: true,
@@ -834,17 +922,53 @@ export async function POST(request) {
             id: existingOrder.id,
             orderCode: existingOrder.orderCode,
             status: existingOrder.status,
+            orderStatusLink:
+              typeof existingFulfillmentMetadata.orderStatusLink === "string"
+                ? existingFulfillmentMetadata.orderStatusLink
+                : null,
+            receiptLink:
+              typeof existingFulfillmentMetadata.receiptLink === "string"
+                ? existingFulfillmentMetadata.receiptLink
+                : null,
+            receiptCode:
+              typeof existingFulfillmentMetadata.receiptCode === "string"
+                ? existingFulfillmentMetadata.receiptCode
+                : null,
           },
           ticketCount: existingOrder.tickets.length,
           guestPortalLinksSent: 0,
-          albumAccessSent: albumDeliveryResult?.ok === true,
-          albumDeliveryResult,
+          albumAccessSent: false,
+          albumDeliveryResult: null,
+          checkoutSession,
+          redirectUrl: checkoutSession?.checkoutUrl || null,
           deliveryResults: [],
         });
       }
     }
 
     const orderCode = buildOrderCode();
+    const orderAccessToken = buildOrderAccessToken();
+    const baseUrl = getBaseUrl(request);
+    const cashierLink = `${baseUrl}/admin/event-orders/order/${orderAccessToken}`;
+    const orderStatusLink = `${baseUrl}/order-status/${orderAccessToken}`;
+    const receiptCode = makeReceiptCode(orderCode);
+    const receiptLink = `${baseUrl}/receipt/${orderAccessToken}`;
+    const shopDisplayName = getShopDisplayName(
+      questionnaireSlug,
+      getShopOrderLabel(questionnaireSlug, "Order")
+    );
+    const orderAccessMetadata = {
+      questionnaireSlug,
+      shopDisplayName,
+      orderDisplayType: shopDisplayName,
+      cashierToken: orderAccessToken,
+      cashierLink,
+      orderStatusLink,
+      receiptCode,
+      receiptLink,
+      paymentStatus: "AWAITING_PAYMENT",
+      inventoryApplied: false,
+    };
     const includesEscapeAlbumAccess =
       orderIncludesEscapeAlbumAccess(resolvedLines);
 
@@ -896,35 +1020,6 @@ export async function POST(request) {
           answersSnapshot: answers,
         },
       });
-
-      if (includesEscapeAlbumAccess && purchaserUserResult?.user?.id) {
-        await tx.userPurchasedItem.upsert({
-          where: {
-            userId_itemKey: {
-              userId: purchaserUserResult.user.id,
-              itemKey: ESCAPE_ALBUM_ITEM_KEY,
-            },
-          },
-          create: {
-            userId: purchaserUserResult.user.id,
-            itemKey: ESCAPE_ALBUM_ITEM_KEY,
-            status: "ACTIVE",
-            source: "invitation-order",
-            metadata: {
-              orderId: order.id,
-              orderCode: order.orderCode,
-            },
-          },
-          update: {
-            status: "ACTIVE",
-            source: "invitation-order",
-            metadata: {
-              orderId: order.id,
-              orderCode: order.orderCode,
-            },
-          },
-        });
-      }
 
       const createdTickets = [];
 
@@ -1026,12 +1121,14 @@ export async function POST(request) {
           email: purchaserEmail || null,
         },
           currencyCode,
+          orderAccessMetadata,
         }),
         ...buildPhysicalInvitationFulfillmentItems({
           order,
           ticketAssignments,
           createdTickets,
           currencyCode,
+          orderAccessMetadata,
         }),
       ];
 
@@ -1060,9 +1157,15 @@ export async function POST(request) {
               stageLabel:
                 item.currentStageLabel || "Order Request Sent to Fulfillment",
               updateType: "automatic",
-              source: "order-submission",
+              source: shopDisplayName,
               notes:
                 "Order received and sent to the fulfillment team after checkout submission.",
+              metadata: {
+                customerVisible: true,
+                orderActivityKey: `${order.orderCode}:${item.id}:order-submitted`,
+                questionnaireSlug,
+                shopDisplayName,
+              },
             })),
           });
         }
@@ -1070,6 +1173,7 @@ export async function POST(request) {
 
       return {
         order,
+        orderAccess: orderAccessMetadata,
         tickets: createdTickets,
         fulfillmentItemCount: fulfillmentItems.length,
         purchaserUserId: purchaserUserResult?.user?.id ?? null,
@@ -1083,7 +1187,6 @@ export async function POST(request) {
     });
 
     const deliveryResults = [];
-    let albumDeliveryResult = null;
     const ticketsByOwnerEmail = new Map();
 
     if (transactionResult.purchaserUser?.id && purchaserEmail) {
@@ -1167,6 +1270,7 @@ export async function POST(request) {
         accountWasCreated: group.accountWasCreated === true,
         temporaryPasswordWasIssued:
           group.temporaryPasswordWasIssued === true,
+        questionnaireSlug,
       });
 
       deliveryResults.push({
@@ -1178,20 +1282,15 @@ export async function POST(request) {
       });
     }
 
-    if (
-      transactionResult.includesEscapeAlbumAccess &&
-      transactionResult.purchaserUserId
-    ) {
-      albumDeliveryResult = await sendEscapeAlbumAccessEmail({
-        request,
-        purchaserEmail,
-        purchaserName: fullName,
-        temporaryPassword: transactionResult.purchaserTemporaryPassword,
-        accountWasCreated: transactionResult.purchaserAccountWasCreated,
-        temporaryPasswordWasIssued:
-          transactionResult.purchaserTemporaryPasswordWasIssued,
-      });
-    }
+    const checkoutSession = shouldUseStripeCheckout(questionnaireSlug)
+      ? await createStripeCheckoutSession({
+          request,
+          order: transactionResult.order,
+          resolvedLines,
+          purchaserEmail,
+          orderSummary,
+        })
+      : null;
 
     return Response.json({
       ok: true,
@@ -1200,11 +1299,16 @@ export async function POST(request) {
         id: transactionResult.order.id,
         orderCode: transactionResult.order.orderCode,
         status: transactionResult.order.status,
+        orderStatusLink: transactionResult.orderAccess.orderStatusLink,
+        receiptLink: transactionResult.orderAccess.receiptLink,
+        receiptCode: transactionResult.orderAccess.receiptCode,
       },
       ticketCount: transactionResult.tickets.length,
       guestPortalLinksSent: deliveryResults.filter((item) => item.ok).length,
-      albumAccessSent: albumDeliveryResult?.ok === true,
-      albumDeliveryResult,
+      albumAccessSent: false,
+      albumDeliveryResult: null,
+      checkoutSession,
+      redirectUrl: checkoutSession?.checkoutUrl || null,
       deliveryResults,
     });
   } catch (error) {

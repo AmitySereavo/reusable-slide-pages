@@ -37,8 +37,7 @@ export async function POST(request: Request) {
     const orderRows = await prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT DISTINCT "orderCode"
       FROM "OrderFulfillmentItem"
-      WHERE "sourceType" = 'little-orchard-shop'
-        AND (
+      WHERE (
           UPPER(COALESCE("recipientName", '')) LIKE ${likeIdentity}
           OR (
             ${identityTextKey} <> ''
@@ -73,8 +72,7 @@ export async function POST(request: Request) {
       const candidateRows = await prisma.$queryRaw<any[]>(Prisma.sql`
         SELECT DISTINCT "orderCode"
         FROM "OrderFulfillmentItem"
-        WHERE "sourceType" = 'little-orchard-shop'
-          AND (
+        WHERE (
             UPPER(COALESCE("recipientName", '')) LIKE ${likeIdentity}
             OR (
               ${identityTextKey} <> ''
@@ -113,7 +111,6 @@ export async function POST(request: Request) {
 
     const firstItem = await prisma.orderFulfillmentItem.findFirst({
       where: {
-        sourceType: "little-orchard-shop",
         orderCode,
       },
       orderBy: { createdAt: "asc" },

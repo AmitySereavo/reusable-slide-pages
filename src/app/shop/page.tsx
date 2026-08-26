@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getShopDisplayName } from "@/config/shopIdentities";
 
 const SHOP_PUBLIC_URL = "https://littleorchardnursery.paralifetrees.com/shop";
 const SHOP_OG_IMAGE = "/media/paralife_trees/little-orchard-shop-share.png";
+const SHOP_NAME = getShopDisplayName("little-orchard-shop");
+const SHOP_TITLE = `${SHOP_NAME} - Para-life Trees`;
+const SHOP_DESCRIPTION = `Order plants and nursery items from ${SHOP_NAME} by Para-life Trees.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://littleorchardnursery.paralifetrees.com"),
-  title: "Little Orchard Shop - Para-life Trees",
-  description:
-    "Order plants and nursery items from Little Orchard Shop by Para-life Trees.",
+  title: SHOP_TITLE,
+  description: SHOP_DESCRIPTION,
   alternates: {
     canonical: SHOP_PUBLIC_URL,
   },
@@ -17,9 +20,8 @@ export const metadata: Metadata = {
     apple: "/icons/paralife_trees_logo.png",
   },
   openGraph: {
-    title: "Little Orchard Shop - Para-life Trees",
-    description:
-      "Order plants and nursery items from Little Orchard Shop by Para-life Trees.",
+    title: SHOP_TITLE,
+    description: SHOP_DESCRIPTION,
     url: SHOP_PUBLIC_URL,
     siteName: "Para-life Trees",
     type: "website",
@@ -28,15 +30,14 @@ export const metadata: Metadata = {
         url: SHOP_OG_IMAGE,
         width: 637,
         height: 637,
-        alt: "Little Orchard Shop share image with potted plants and Para-life Trees branding",
+        alt: `${SHOP_NAME} share image with potted plants and Para-life Trees branding`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Little Orchard Shop - Para-life Trees",
-    description:
-      "Order plants and nursery items from Little Orchard Shop.",
+    title: SHOP_TITLE,
+    description: `Order plants and nursery items from ${SHOP_NAME}.`,
     images: [SHOP_OG_IMAGE],
   },
 };
